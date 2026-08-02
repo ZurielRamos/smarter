@@ -169,7 +169,9 @@ export function GeneralCard() {
     );
   }
 
-  const iconUrl = tenant.iconPath ? `/${tenant.iconPath}` : null;
+  const iconUrl = tenant.iconPath
+    ? tenant.iconPath.startsWith('http') ? tenant.iconPath : `/${tenant.iconPath}`
+    : null;
 
   return (
     <>

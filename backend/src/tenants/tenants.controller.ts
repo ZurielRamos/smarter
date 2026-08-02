@@ -10,23 +10,17 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
 import { TenantsService } from './tenants.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
-
-const storage = diskStorage({
-  destination: './uploads/tenants',
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`);
-  },
-});
+import { MediaStorageService } from '../media/media-storage.service';
 
 @Controller('tenants')
 export class TenantsController {
-  constructor(private readonly tenantsService: TenantsService) {}
+  constructor(
+    private readonly tenantsService: TenantsService,
+    private readonly mediaStorage: MediaStorageService,
+  ) {}
 
   @Get()
   findAll() {
@@ -55,35 +49,59 @@ export class TenantsController {
 
   @Post()
   @UseInterceptors(
-    FileFieldsInterceptor(
-      [{ name: 'icon', maxCount: 1 }],
-      { storage },
-    ),
+    FileFieldsInterceptor([{ name: 'icon', maxCount: 1 }]),
   )
-  create(
+  async create(
     @Body() dto: CreateTenantDto,
     @UploadedFiles()
     files: { icon?: Express.Multer.File[] },
   ) {
-    const iconPath = files?.icon?.[0]?.path || null;
-    return this.tenantsService.create(dto, iconPath);
+    let iconUrl: string | null = null;
+    if (files?.icon?.[0]) {
+      const file = files.icon[0];
+      const stored = await this.mediaStorage.uploadBuffer(
+        file.buffer,
+        {
+          channel: 'system',
+          tenantId: 'global',
+          conversationId: 'tenants',
+          messageId: dto.slug || Date.now().toString(),
+          mimeType: file.mimetype,
+          filename: file.originalname,
+        },
+      );
+      iconUrl = stored?.url || null;
+    }
+    return this.tenantsService.create(dto, iconUrl);
   }
 
   @Put(':id')
   @UseInterceptors(
-    FileFieldsInterceptor(
-      [{ name: 'icon', maxCount: 1 }],
-      { storage },
-    ),
+    FileFieldsInterceptor([{ name: 'icon', maxCount: 1 }]),
   )
-  update(
+  async update(
     @Param('id') id: string,
     @Body() dto: UpdateTenantDto,
     @UploadedFiles()
     files: { icon?: Express.Multer.File[] },
   ) {
-    const iconPath = files?.icon?.[0]?.path || undefined;
-    return this.tenantsService.update(id, dto, iconPath);
+    let iconUrl: string | undefined;
+    if (files?.icon?.[0]) {
+      const file = files.icon[0];
+      const stored = await this.mediaStorage.uploadBuffer(
+        file.buffer,
+        {
+          channel: 'system',
+          tenantId: id,
+          conversationId: 'tenants',
+          messageId: Date.now().toString(),
+          mimeType: file.mimetype,
+          filename: file.originalname,
+        },
+      );
+      iconUrl = stored?.url || undefined;
+    }
+    return this.tenantsService.update(id, dto, iconUrl);
   }
 
   @Delete(':id')

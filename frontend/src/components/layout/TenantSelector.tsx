@@ -49,7 +49,9 @@ export function TenantSelector() {
   const currentIcon = isOnAdmin
     ? null
     : currentTenant?.tenant.iconPath
-      ? `/${currentTenant.tenant.iconPath}`
+      ? currentTenant.tenant.iconPath.startsWith('http')
+        ? currentTenant.tenant.iconPath
+        : `/${currentTenant.tenant.iconPath}`
       : null;
 
   // If only one option and not super admin, just show static
@@ -124,7 +126,7 @@ export function TenantSelector() {
                 >
                   {tr.tenant.iconPath ? (
                     <img
-                      src={`/${tr.tenant.iconPath}`}
+                      src={tr.tenant.iconPath.startsWith('http') ? tr.tenant.iconPath : `/${tr.tenant.iconPath}`}
                       alt={tr.tenant.name}
                       className="h-8 w-8 rounded-lg object-cover"
                     />

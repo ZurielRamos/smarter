@@ -232,6 +232,7 @@ export function AdminAccounts() {
 
   const getFileUrl = (path: string | null) => {
     if (!path) return null;
+    if (path.startsWith('http')) return path;
     return `/${path}`;
   };
 
