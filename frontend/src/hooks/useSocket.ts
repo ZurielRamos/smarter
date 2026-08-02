@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 
-const SOCKET_URL = "http://localhost:3001/ws";
+const SOCKET_URL = import.meta.env.VITE_WS_URL || window.location.origin + "/ws";
 
 export function useSocket(tenantId: string | undefined) {
   const socketRef = useRef<Socket | null>(null);
