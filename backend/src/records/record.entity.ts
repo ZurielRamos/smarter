@@ -1,0 +1,120 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { Tenant } from '../tenants/tenant.entity';
+
+@Entity('clients')
+@Index(['status'])
+@Index(['channelSource'])
+@Index(['tenantId'])
+@Index(['createdAt'])
+@Index(['tenantId', 'createdAt'])
+@Index(['tenantId', 'phone'])
+@Index(['tenantId', 'email'])
+@Index(['tenantId', 'documentNumber'])
+@Index(['tenantId', 'city'])
+@Index(['tenantId', 'region'])
+@Index(['tenantId', 'score'])
+@Index(['tenantId', 'assignedTo'])
+export class ClientRecord {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  // === TENANT ===
+  @Column({ name: 'tenant_id', type: 'uuid', nullable: true })
+  tenantId: string;
+
+  @ManyToOne(() => Tenant, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: Tenant;
+
+  // === IDENTIFICACIÓN ===
+  @Column({ name: 'first_name', type: 'varchar', nullable: true })
+  firstName: string;
+
+  @Column({ name: 'last_name', type: 'varchar', nullable: true })
+  lastName: string;
+
+  @Column({ name: 'full_name', type: 'varchar', nullable: true })
+  fullName: string;
+
+  @Column({ name: 'document_type', type: 'varchar', length: 20, nullable: true })
+  documentType: string; // CC, CE, NIT, TI, pasaporte, RUT
+
+  @Column({ name: 'document_number', type: 'varchar', nullable: true })
+  documentNumber: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  phone: string;
+
+  @Column({ name: 'country_code', type: 'varchar', length: 5, nullable: true })
+  countryCode: string; // +57, +1, +52
+
+  @Column({ type: 'varchar', nullable: true })
+  email: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  gender: string; // male, female, other, prefer_not_to_say
+
+  @Column({ name: 'birth_date', type: 'date', nullable: true })
+  birthDate: Date;
+
+  // === UBICACIÓN ===
+  @Column({ type: 'varchar', nullable: true })
+  city: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  region: string; // departamento, estado, provincia
+
+  // === ESTADO Y SEGMENTACIÓN ===
+  @Column({ type: 'varchar', default: 'active' })
+  status: string; // active, inactive, blocked
+
+  @Column({ name: 'channel_source', type: 'varchar', nullable: true })
+  channelSource: string; // whatsapp, web, import, manual
+
+  @Column({ type: 'varchar', nullable: true })
+  source: string; // fuente granular: nombre de campaña, formulario, referido, etc.
+
+  @Column({ type: 'integer', default: 0 })
+  score: number; // lead scoring 0-100
+
+  // === CONSENTIMIENTO ===
+  @Column({ name: 'opt_in_whatsapp', type: 'boolean', default: false })
+  optInWhatsapp: boolean;
+
+  @Column({ name: 'opt_in_email', type: 'boolean', default: false })
+  optInEmail: boolean;
+
+  // === ASIGNACIÓN ===
+  @Column({ name: 'assigned_to', type: 'uuid', nullable: true })
+  assignedTo: string; // user ID del agente asignado
+
+  // === ACTIVIDAD ===
+  @Column({ name: 'last_contact_at', type: 'timestamp', nullable: true })
+  lastContactAt: Date;
+
+  @Column({ name: 'last_activity_at', type: 'timestamp', nullable: true })
+  lastActivityAt: Date;
+
+  // === ETIQUETAS Y DATOS CUSTOM ===
+  @Column({ type: 'jsonb', nullable: true })
+  tags: string[];
+
+  @Column({ name: 'custom_data', type: 'jsonb', nullable: true })
+  customData: Record<string, any>;
+
+  // === AUDITORÍA ===
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+}
