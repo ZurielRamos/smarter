@@ -6,7 +6,7 @@ import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/componen
 import headerBg from "@/assets/header-background.jpg";
 import axios from "axios";
 
-const api = axios.create({ baseURL: "http://localhost:3001/api" });
+const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -148,7 +148,7 @@ export function NewInbox() {
       }
     } else {
       // Messenger / Instagram — regular OAuth redirect
-      window.location.href = `http://localhost:3001/api/chats/oauth/connect?inboxId=${createdInbox.id}&channel=${createdInbox.channel}`;
+      window.location.href = `/api/chats/oauth/connect?inboxId=${createdInbox.id}&channel=${createdInbox.channel}`;
     }
   };
 

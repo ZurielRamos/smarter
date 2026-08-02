@@ -4,7 +4,7 @@ import { Settings2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import axios from "axios";
 
-const api = axios.create({ baseURL: "http://localhost:3001/api" });
+const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
