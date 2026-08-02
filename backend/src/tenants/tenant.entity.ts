@@ -28,6 +28,9 @@ export class Tenant {
   @Column({ name: 'is_dev', type: 'boolean', default: false })
   isDev: boolean;
 
+  @Column({ name: 'max_agents', type: 'int', default: 5 })
+  maxAgents: number;
+
   // === CONFIGURACIÓN ===
   @Column({ name: 'table_config', type: 'jsonb', nullable: true })
   tableConfig: Record<string, any> | null;

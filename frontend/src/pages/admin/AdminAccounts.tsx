@@ -26,6 +26,8 @@ interface Tenant {
   slug: string;
   iconPath: string | null;
   isActive: boolean;
+  isDev: boolean;
+  maxAgents: number;
   createdAt: string;
 }
 
@@ -43,6 +45,9 @@ export function AdminAccounts() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tenant: Tenant } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const [usersModalTenant, setUsersModalTenant] = useState<Tenant | null>(null);
+  const [configModalTenant, setConfigModalTenant] = useState<Tenant | null>(null);
+  const [configForm, setConfigForm] = useState({ name: '', maxAgents: 5, isDev: false });
+  const [configLoading, setConfigLoading] = useState(false);
   const [tenantMembers, setTenantMembers] = useState<{ id: string; userId: string; role: string; user: { id: string; name: string; email: string } }[]>([]);
   const [allUsers, setAllUsers] = useState<{ id: string; name: string; email: string }[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
@@ -99,6 +104,32 @@ export function AdminAccounts() {
       setAllUsers(usersRes.data);
     } catch {} finally {
       setMembersLoading(false);
+    }
+  };
+
+  const openConfigModal = (tenant: Tenant) => {
+    setContextMenu(null);
+    setConfigModalTenant(tenant);
+    setConfigForm({
+      name: tenant.name,
+      maxAgents: tenant.maxAgents ?? 5,
+      isDev: tenant.isDev ?? false,
+    });
+  };
+
+  const handleSaveConfig = async () => {
+    if (!configModalTenant) return;
+    setConfigLoading(true);
+    try {
+      await api.put(`/tenants/${configModalTenant.id}`, {
+        name: configForm.name,
+        maxAgents: configForm.maxAgents,
+        isDev: configForm.isDev,
+      });
+      fetchTenants();
+      setConfigModalTenant(null);
+    } catch {} finally {
+      setConfigLoading(false);
     }
   };
 
@@ -316,7 +347,7 @@ export function AdminAccounts() {
             style={{ top: contextMenu.y, left: contextMenu.x }}
           >
             <button
-              onClick={() => { setContextMenu(null); /* TODO: open config */ }}
+              onClick={() => openConfigModal(contextMenu.tenant)}
               className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
             >
               <Settings2 className="h-4 w-4 text-gray-400" />
@@ -486,6 +517,107 @@ export function AdminAccounts() {
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* Config Modal */}
+      <AnimatePresence>
+        {configModalTenant && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4"
+            onClick={() => setConfigModalTenant(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl shadow-2xl border border-white/30 p-6"
+              style={{ background: 'rgba(255, 255, 255, 0.92)', backdropFilter: 'blur(20px)' }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Configurar cuenta</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">{configModalTenant.slug}</p>
+                </div>
+                <button onClick={() => setConfigModalTenant(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Form */}
+              <div className="space-y-5">
+                {/* Nombre */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre</label>
+                  <input
+                    type="text"
+                    value={configForm.name}
+                    onChange={(e) => setConfigForm({ ...configForm, name: e.target.value })}
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Max Agentes */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Máximo de agentes</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={configForm.maxAgents}
+                    onChange={(e) => setConfigForm({ ...configForm, maxAgents: parseInt(e.target.value) || 1 })}
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Número máximo de agentes permitidos en esta cuenta</p>
+                </div>
+
+                {/* isDev toggle */}
+                <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Cuenta de desarrollo</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Los webhooks se reenviarán al entorno de desarrollo</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setConfigForm({ ...configForm, isDev: !configForm.isDev })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      configForm.isDev ? 'bg-brand-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                        configForm.isDev ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setConfigModalTenant(null)}
+                  className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveConfig}
+                  disabled={configLoading || !configForm.name.trim()}
+                  className="relative px-6 py-2.5 rounded-lg text-white font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden bg-brand-800 hover:bg-brand-700 shadow-lg border border-white/10"
+                >
+                  <span className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/20 via-white/5 to-transparent pointer-events-none" />
+                  <span className="relative">{configLoading ? 'Guardando...' : 'Guardar'}</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Users Modal */}
       <AnimatePresence>
