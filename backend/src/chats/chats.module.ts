@@ -8,10 +8,11 @@ import { Label } from './label.entity';
 import { ChatsService } from './chats.service';
 import { ChatsController, WebhookController } from './chats.controller';
 import { ChatsGateway } from './chats.gateway';
+import { WebhookForwarderService } from './webhook-forwarder.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Inbox, Conversation, Message, ClientRecord, Label])],
-  providers: [ChatsService, ChatsGateway],
+  providers: [ChatsService, ChatsGateway, WebhookForwarderService],
   controllers: [ChatsController, WebhookController],
   exports: [ChatsService, ChatsGateway],
 })

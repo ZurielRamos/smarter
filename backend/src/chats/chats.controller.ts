@@ -3,6 +3,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { ChatsService } from './chats.service';
+import { WebhookForwarderService } from './webhook-forwarder.service';
 
 @Controller('chats')
 export class ChatsController {
@@ -193,6 +194,7 @@ export class WebhookController {
   constructor(
     private readonly chatsService: ChatsService,
     private readonly configService: ConfigService,
+    private readonly webhookForwarder: WebhookForwarderService,
   ) {}
 
   // Meta webhook verification
@@ -214,6 +216,10 @@ export class WebhookController {
     // Always respond 200 immediately — process async
     res.status(200).send('EVENT_RECEIVED');
     try {
+      // If this webhook belongs to a dev tenant, forward it and skip local processing
+      const forwarded = await this.webhookForwarder.forwardIfDev(body);
+      if (forwarded) return;
+
       await this.chatsService.handleWebhook(body);
     } catch (error) {
       console.error('[Webhook] Processing error:', error);

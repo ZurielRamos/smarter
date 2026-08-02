@@ -25,6 +25,9 @@ export class Tenant {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
+  @Column({ name: 'is_dev', type: 'boolean', default: false })
+  isDev: boolean;
+
   // === CONFIGURACIÓN ===
   @Column({ name: 'table_config', type: 'jsonb', nullable: true })
   tableConfig: Record<string, any> | null;
