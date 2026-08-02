@@ -24,3 +24,4 @@ npm-debug.log*
 
 # Uploads (generated at runtime)
 backend/uploads/
+*.backup
