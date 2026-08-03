@@ -369,65 +369,9 @@ export function CampanaDetail() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Compact header */}
-      <div className="px-6 py-3 bg-white border-b border-gray-200 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-semibold text-gray-900">{campaign.name}</h1>
-                <button
-                  onClick={() => { setNewName(campaign.name); setShowRenameModal(true); }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${statusStyle.bg} ${statusStyle.text}`}>
-                  {campaign.status}
-                </span>
-              </div>
-              {campaign.description && (
-                <p className="text-gray-500 text-xs mt-0.5">{campaign.description}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {campaign.status === "draft" && (
-              <Button
-                onClick={() => handleStatusChange("active")}
-                size="sm"
-                className="gap-1.5 bg-accent-500 hover:bg-accent-600 text-white"
-              >
-                <Send className="h-3.5 w-3.5" />
-                Activar
-              </Button>
-            )}
-            {campaign.status === "active" && (
-              <Button
-                onClick={() => handleStatusChange("paused")}
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-              >
-                Pausar
-              </Button>
-            )}
-            {campaign.status === "paused" && (
-              <Button
-                onClick={() => handleStatusChange("active")}
-                size="sm"
-                className="gap-1.5 bg-accent-500 hover:bg-accent-600 text-white"
-              >
-                Reanudar
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="px-6 border-b border-gray-100 flex items-center gap-1 shrink-0 bg-white">
+      {/* Tabs with campaign info */}
+      <div className="px-5 border-b border-gray-100 flex items-center gap-4 shrink-0 bg-white">
+        <div className="flex items-center gap-1 flex-1">
         {([
           { key: "general", label: "General", icon: Settings2 },
           { key: "segmentacion", label: "Segmentación", icon: Filter },
@@ -447,6 +391,7 @@ export function CampanaDetail() {
             {label}
           </button>
         ))}
+        </div>
       </div>
 
       {/* Content */}
