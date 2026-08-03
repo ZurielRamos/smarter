@@ -363,7 +363,7 @@ export function Conversaciones() {
         });
       }
       // Replace optimistic message with real data
-      loadMessages(activeConversation.id);
+      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "sent" } : m));
     } catch {
       // Mark as failed
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "failed" } : m));
@@ -396,7 +396,6 @@ export function Conversaciones() {
     if (caption) formData.append("caption", caption);
     try {
       await api.post("/chats/conversations/upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
-      loadMessages(activeConversation.id);
     } catch {}
   };
 
@@ -430,7 +429,7 @@ export function Conversaciones() {
 
       try {
         await sendFile(fileToSend, caption);
-        loadMessages(activeConversation.id);
+        setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "sent" } : m));
       } catch {
         setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "failed" } : m));
       }
