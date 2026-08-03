@@ -117,8 +117,10 @@ export function Agentes() {
           >
             <div className="flex items-center justify-between mb-5">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Agregar agente</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Se enviará un email con las instrucciones de acceso</p>
+                <h3 className="text-lg font-semibold text-gray-900">Agregar miembro al equipo</h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Invita a un nuevo miembro. Recibirá un correo con las instrucciones para acceder a la plataforma.
+                </p>
               </div>
               <button onClick={() => { setShowInviteModal(false); setInviteResult(null); }} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
                 <X className="h-4 w-4" />
@@ -127,12 +129,12 @@ export function Agentes() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Nombre</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Nombre completo</label>
                 <input
                   type="text"
                   value={inviteForm.name}
                   onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
-                  placeholder="Nombre del agente"
+                  placeholder="Ej: María García"
                   className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
               </div>
@@ -142,34 +144,57 @@ export function Agentes() {
                   type="email"
                   value={inviteForm.email}
                   onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                  placeholder="agente@empresa.com"
+                  placeholder="maria@empresa.com"
                   className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Si ya tiene cuenta en Smartee, se le dará acceso automáticamente. Si no, se le creará una cuenta nueva.
+                </p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Rol</label>
-                <div className="flex gap-2">
+                <label className="block text-xs font-medium text-gray-600 mb-2">Rol en la cuenta</label>
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setInviteForm({ ...inviteForm, role: "agent" })}
-                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    className={`p-3 rounded-xl border-2 text-left transition-all ${
                       inviteForm.role === "agent"
-                        ? "border-brand-500 bg-brand-50 text-brand-700"
-                        : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                        ? "border-brand-500 bg-brand-50"
+                        : "border-gray-200 hover:border-gray-300"
                     }`}
                   >
-                    Agente
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${inviteForm.role === "agent" ? "bg-brand-100" : "bg-gray-100"}`}>
+                        <svg className={`h-4 w-4 ${inviteForm.role === "agent" ? "text-brand-600" : "text-gray-500"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                        </svg>
+                      </div>
+                      <span className={`text-sm font-semibold ${inviteForm.role === "agent" ? "text-brand-700" : "text-gray-700"}`}>Agente</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 leading-tight">
+                      Puede ver y responder conversaciones asignadas a sus bandejas.
+                    </p>
                   </button>
                   <button
                     type="button"
                     onClick={() => setInviteForm({ ...inviteForm, role: "admin" })}
-                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    className={`p-3 rounded-xl border-2 text-left transition-all ${
                       inviteForm.role === "admin"
-                        ? "border-brand-500 bg-brand-50 text-brand-700"
-                        : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                        ? "border-purple-500 bg-purple-50"
+                        : "border-gray-200 hover:border-gray-300"
                     }`}
                   >
-                    Administrador
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${inviteForm.role === "admin" ? "bg-purple-100" : "bg-gray-100"}`}>
+                        <svg className={`h-4 w-4 ${inviteForm.role === "admin" ? "text-purple-600" : "text-gray-500"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        </svg>
+                      </div>
+                      <span className={`text-sm font-semibold ${inviteForm.role === "admin" ? "text-purple-700" : "text-gray-700"}`}>Administrador</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 leading-tight">
+                      Acceso total: gestiona canales, campañas, contactos y configuraciones.
+                    </p>
                   </button>
                 </div>
               </div>
