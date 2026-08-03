@@ -190,7 +190,12 @@ export function Conversaciones() {
         });
       }
     });
-    return () => { offConv?.(); offMsg?.(); };
+    const offStatus = on("message_status", (data: { messageId: string; status: string }) => {
+      setMessages((prev) => prev.map((m) =>
+        m.id === data.messageId ? { ...m, status: data.status } : m
+      ));
+    });
+    return () => { offConv?.(); offMsg?.(); offStatus?.(); };
   }, [tenantId, activeConversation?.id, on]);
 
   useEffect(() => {

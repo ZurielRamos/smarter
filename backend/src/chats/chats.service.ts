@@ -563,6 +563,8 @@ export class ChatsService {
         if (message) {
           message.status = status.status; // sent, delivered, read, failed
           await this.messageRepo.save(message);
+          // Emit status update to frontend
+          this.chatsGateway.emitMessageStatus(message.conversationId, message.id, status.status);
         }
       }
     }
