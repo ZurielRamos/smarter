@@ -1,9 +1,162 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Settings2, Users, Clock, UserPlus, X, Loader2 } from "lucide-react";
+import { Settings2, Users, Clock, UserPlus, X, Loader2, Save, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { InboxSettingsContent } from "@/components/InboxSettingsContent";
 import { api } from "@/services/api";
+
+interface DaySchedule {
+  enabled: boolean;
+  start: string;
+  end: string;
+}
+
+interface Schedule {
+  [key: string]: DaySchedule;
+}
+
+const DAYS = [
+  { key: "lunes", label: "Lunes" },
+  { key: "martes", label: "Martes" },
+  { key: "miercoles", label: "Miércoles" },
+  { key: "jueves", label: "Jueves" },
+  { key: "viernes", label: "Viernes" },
+  { key: "sabado", label: "Sábado" },
+  { key: "domingo", label: "Domingo" },
+  { key: "festivos", label: "Festivos" },
+];
+
+const DEFAULT_SCHEDULE: Schedule = {
+  lunes: { enabled: true, start: "08:00", end: "18:00" },
+  martes: { enabled: true, start: "08:00", end: "18:00" },
+  miercoles: { enabled: true, start: "08:00", end: "18:00" },
+  jueves: { enabled: true, start: "08:00", end: "18:00" },
+  viernes: { enabled: true, start: "08:00", end: "18:00" },
+  sabado: { enabled: false, start: "09:00", end: "13:00" },
+  domingo: { enabled: false, start: "09:00", end: "13:00" },
+  festivos: { enabled: false, start: "09:00", end: "13:00" },
+};
+
+function ScheduleTab({ inboxId }: { inboxId: string }) {
+  const [schedule, setSchedule] = useState<Schedule>(DEFAULT_SCHEDULE);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.get(`/chats/inboxes/${inboxId}`)
+      .then(({ data }) => {
+        if (data.metadata?.schedule) {
+          setSchedule({ ...DEFAULT_SCHEDULE, ...data.metadata.schedule });
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [inboxId]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { data: inbox } = await api.get(`/chats/inboxes/${inboxId}`);
+      await api.put(`/chats/inboxes/${inboxId}`, {
+        metadata: { ...inbox.metadata, schedule },
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {} finally { setSaving(false); }
+  };
+
+  const toggleDay = (day: string) => {
+    setSchedule((prev) => ({ ...prev, [day]: { ...prev[day], enabled: !prev[day].enabled } }));
+    setSaved(false);
+  };
+
+  const updateTime = (day: string, field: "start" | "end", value: string) => {
+    setSchedule((prev) => ({ ...prev, [day]: { ...prev[day], [field]: value } }));
+    setSaved(false);
+  };
+
+  if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>;
+
+  return (
+    <div className="flex-1 overflow-y-auto p-5">
+      <div className="max-w-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Horarios de atención</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">Define cuándo el canal está disponible para recibir y responder mensajes</p>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-xs font-medium disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : saved ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
+            {saved ? "Guardado" : "Guardar"}
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          {DAYS.map(({ key, label }) => {
+            const day = schedule[key];
+            const isFestivo = key === "festivos";
+            return (
+              <div
+                key={key}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors ${
+                  day.enabled ? "border-gray-200 bg-white" : "border-gray-100 bg-gray-50/50"
+                } ${isFestivo ? "mt-4 border-amber-200" : ""}`}
+              >
+                {/* Toggle */}
+                <button
+                  onClick={() => toggleDay(key)}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${
+                    day.enabled ? "bg-brand-600" : "bg-gray-300"
+                  }`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${
+                    day.enabled ? "translate-x-[18px]" : "translate-x-1"
+                  }`} />
+                </button>
+
+                {/* Day label */}
+                <span className={`text-sm font-medium w-24 shrink-0 ${day.enabled ? "text-gray-900" : "text-gray-400"} ${isFestivo ? "text-amber-700" : ""}`}>
+                  {label}
+                </span>
+
+                {/* Time inputs */}
+                {day.enabled ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      type="time"
+                      value={day.start}
+                      onChange={(e) => updateTime(key, "start", e.target.value)}
+                      className="px-2 py-1 rounded-md border border-gray-200 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                    <span className="text-xs text-gray-400">a</span>
+                    <input
+                      type="time"
+                      value={day.end}
+                      onChange={(e) => updateTime(key, "end", e.target.value)}
+                      className="px-2 py-1 rounded-md border border-gray-200 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                ) : (
+                  <span className="text-xs text-gray-400 italic">Cerrado</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-100">
+          <p className="text-[11px] text-blue-800">
+            <strong>Nota:</strong> Fuera de horario, los mensajes entrantes se almacenarán pero no se notificará a los agentes hasta el inicio del siguiente horario.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface Collaborator {
   id: string;
@@ -201,11 +354,7 @@ export function CanalDetail() {
       )}
 
       {activeTab === "horarios" && (
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
-          <Clock className="h-8 w-8 text-gray-300 mb-2" />
-          <p className="text-sm text-gray-500 font-medium">Horarios de atención</p>
-          <p className="text-[11px] text-gray-400 mt-1">Configura los horarios en los que este canal está disponible</p>
-        </div>
+        <ScheduleTab inboxId={inboxId} />
       )}
     </div>
   );
