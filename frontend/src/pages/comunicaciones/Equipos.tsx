@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Users, X, Trash2, UserPlus } from "lucide-react";
+import { Plus, Users, X, Trash2, UserPlus, Loader2 } from "lucide-react";
 import { api } from "@/services/api";
 
 interface Team {
@@ -36,6 +36,7 @@ export function Equipos() {
   const [showCreateInput, setShowCreateInput] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamDesc, setNewTeamDesc] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const loadTeams = () => {
     if (!tenantId) return;
@@ -58,12 +59,17 @@ export function Equipos() {
 
   const handleCreateTeam = async () => {
     if (!newTeamName.trim()) return;
-    const { data } = await api.post<Team>("/teams", { tenantId, name: newTeamName.trim(), description: newTeamDesc.trim() || undefined });
-    setTeams((prev) => [...prev, data]);
-    setNewTeamName("");
-    setNewTeamDesc("");
-    setShowCreateInput(false);
-    setSelectedTeam(data);
+    setCreating(true);
+    try {
+      const { data } = await api.post<Team>("/teams", { tenantId, name: newTeamName.trim(), description: newTeamDesc.trim() || undefined });
+      setTeams((prev) => [...prev, data]);
+      setNewTeamName("");
+      setNewTeamDesc("");
+      setShowCreateInput(false);
+      setSelectedTeam(data);
+    } catch {} finally {
+      setCreating(false);
+    }
   };
 
   const handleDeleteTeam = async (team: Team) => {
@@ -141,10 +147,11 @@ export function Equipos() {
                 </button>
                 <button
                   onClick={handleCreateTeam}
-                  disabled={!newTeamName.trim()}
-                  className="px-4 py-2 rounded-lg bg-brand-800 hover:bg-brand-700 text-white text-sm font-medium disabled:opacity-50"
+                  disabled={!newTeamName.trim() || creating}
+                  className="px-4 py-2 rounded-lg bg-brand-800 hover:bg-brand-700 text-white text-sm font-medium disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  Crear equipo
+                  {creating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {creating ? "Creando..." : "Crear equipo"}
                 </button>
               </div>
             </div>
