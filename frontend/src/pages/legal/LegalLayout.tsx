@@ -17,7 +17,7 @@ export function LegalLayout({ children }: { children: React.ReactNode }) {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2">
-              <img src={logo} alt="Smarter" className="h-7" />
+              <img src={logo} alt="Smartee" className="h-7" />
             </Link>
             <nav className="hidden sm:flex items-center gap-6">
               {navLinks.map((link) => (
@@ -46,7 +46,7 @@ export function LegalLayout({ children }: { children: React.ReactNode }) {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <img src={logo} alt="Smarter" className="h-5 opacity-60" />
+              <img src={logo} alt="Smartee" className="h-5 opacity-60" />
               <span className="text-xs text-gray-400">© {new Date().getFullYear()} Todos los derechos reservados.</span>
             </div>
             <div className="flex items-center gap-4">
@@ -63,7 +63,7 @@ export function LegalLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="mt-4 pt-4 border-t border-gray-100 text-center">
             <p className="text-[11px] text-gray-400">
-              Smarter es una plataforma de comunicaciones empresariales desarrollada por Strategee.
+              Smartee es una plataforma de comunicaciones empresariales desarrollada por Strategee.
               Para consultas: notificaciones@strategee.us
             </p>
           </div>

@@ -13,13 +13,13 @@ export function TermsOfService() {
           <section>
             <h2 className="text-base font-semibold text-gray-900 mb-3">1. Aceptación de los términos</h2>
             <p>
-              Al acceder, registrarse o utilizar la plataforma Smarter (en adelante, "el Servicio"), usted acepta cumplir con estas Condiciones del Servicio. Si no está de acuerdo con alguna de estas condiciones, no deberá utilizar el Servicio. Estas condiciones constituyen un acuerdo legal vinculante entre usted y Strategee.
+              Al acceder, registrarse o utilizar la plataforma Smartee (en adelante, "el Servicio"), usted acepta cumplir con estas Condiciones del Servicio. Si no está de acuerdo con alguna de estas condiciones, no deberá utilizar el Servicio. Estas condiciones constituyen un acuerdo legal vinculante entre usted y Strategee.
             </p>
           </section>
 
           <section>
             <h2 className="text-base font-semibold text-gray-900 mb-3">2. Descripción del Servicio</h2>
-            <p className="mb-3">Smarter es una plataforma de comunicaciones empresariales que proporciona:</p>
+            <p className="mb-3">Smartee es una plataforma de comunicaciones empresariales que proporciona:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li>Gestión centralizada de conversaciones multicanal (WhatsApp Business, Facebook Messenger, Instagram Direct, SMS, Email)</li>
               <li>Creación y gestión de campañas de comunicación masiva</li>

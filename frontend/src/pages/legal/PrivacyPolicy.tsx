@@ -13,7 +13,7 @@ export function PrivacyPolicy() {
           <section>
             <h2 className="text-base font-semibold text-gray-900 mb-3">1. Introducción</h2>
             <p>
-              En Smarter (en adelante, "nosotros", "nuestro" o "la plataforma"), nos comprometemos a proteger la privacidad de los usuarios y contactos que interactúan con nuestra plataforma de comunicaciones empresariales. Esta política describe cómo recopilamos, usamos, almacenamos y protegemos su información personal de acuerdo con las leyes aplicables de protección de datos, incluyendo el Reglamento General de Protección de Datos (GDPR) y la legislación colombiana (Ley 1581 de 2012).
+              En Smartee (en adelante, "nosotros", "nuestro" o "la plataforma"), nos comprometemos a proteger la privacidad de los usuarios y contactos que interactúan con nuestra plataforma de comunicaciones empresariales. Esta política describe cómo recopilamos, usamos, almacenamos y protegemos su información personal de acuerdo con las leyes aplicables de protección de datos, incluyendo el Reglamento General de Protección de Datos (GDPR) y la legislación colombiana (Ley 1581 de 2012).
             </p>
           </section>
 

@@ -201,7 +201,7 @@ export function PublicForm() {
             </button>
           </form>
         </div>
-        <p className="text-center text-[10px] text-gray-400 mt-4">Powered by Smarter</p>
+        <p className="text-center text-[10px] text-gray-400 mt-4">Powered by Smartee</p>
       </div>
     </div>
   );

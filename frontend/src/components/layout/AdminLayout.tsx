@@ -5,7 +5,7 @@ import whiteBg from "@/assets/white-background.jpg";
 
 export function AdminLayout() {
   useEffect(() => {
-    document.title = "Smarter | Reach further, connect smarter";
+    document.title = "Smartee | Reach further, connect smartee";
   }, []);
 
   return (
