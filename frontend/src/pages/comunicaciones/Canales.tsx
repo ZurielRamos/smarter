@@ -44,7 +44,7 @@ export function Canales() {
   return (
     <div className="flex-1 flex overflow-hidden">
       {/* Sidebar — Inboxes list */}
-      <div className="w-64 border-r border-gray-100 flex flex-col">
+      <div className="w-80 border-r border-gray-100 flex flex-col shrink-0">
         <div className="px-3 py-3 border-b border-gray-100 flex items-center justify-between">
           <h3 className="text-xs font-semibold text-gray-500 uppercase">Canales</h3>
           <button
