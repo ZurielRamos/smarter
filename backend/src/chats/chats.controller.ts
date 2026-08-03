@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
+import { Public } from '../auth/public.decorator';
 import { ChatsService } from './chats.service';
 import { WebhookForwarderService } from './webhook-forwarder.service';
 
@@ -44,12 +45,14 @@ export class ChatsController {
 
   // === OAUTH ===
 
+  @Public()
   @Get('oauth/connect')
   oauthConnect(@Query('inboxId') inboxId: string, @Query('channel') channel: string, @Res() res: Response) {
     const url = this.chatsService.getOAuthUrl(inboxId, channel);
     res.redirect(url);
   }
 
+  @Public()
   @Get('oauth/callback')
   async oauthCallback(@Query('code') code: string, @Query('state') state: string, @Res() res: Response) {
     try {
@@ -82,6 +85,7 @@ export class ChatsController {
   }
 
   // Get WhatsApp config ID for frontend
+  @Public()
   @Get('whatsapp/config')
   getWhatsAppConfig() {
     return {
@@ -109,10 +113,25 @@ export class ChatsController {
   // === CONVERSATIONS ===
 
   @Get('conversations')
-  getConversations(@Query('tenantId') tenantId?: string, @Query('inboxId') inboxId?: string) {
-    if (inboxId) return this.chatsService.getConversations(inboxId);
-    if (tenantId) return this.chatsService.getConversationsByTenant(tenantId);
-    return [];
+  getConversations(
+    @Query('tenantId') tenantId?: string,
+    @Query('inboxId') inboxId?: string,
+    @Query('inboxIds') inboxIds?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const opts = {
+      limit: limit ? parseInt(limit, 10) : 15,
+      offset: offset ? parseInt(offset, 10) : 0,
+    };
+
+    if (inboxIds) {
+      const ids = inboxIds.split(',').filter(Boolean);
+      return this.chatsService.getConversationsByInboxes(ids, opts);
+    }
+    if (inboxId) return this.chatsService.getConversationsPaginated(inboxId, opts);
+    if (tenantId) return this.chatsService.getConversationsByTenantPaginated(tenantId, opts);
+    return { data: [], total: 0 };
   }
 
   @Post('conversations/:id/read')

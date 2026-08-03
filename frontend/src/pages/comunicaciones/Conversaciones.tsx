@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MessageSquare, Send, Wifi, WifiOff, MessageCircle, Phone, Camera, Settings2, Inbox, CheckCheck, BellOff, Archive, Trash2, UserCircle, Reply, Copy, X, Smile, Paperclip, Mic, StickyNote, Image, FileText, Filter, ArrowUpDown } from "lucide-react";
+import { MessageSquare, Send, Wifi, WifiOff, MessageCircle, Phone, Camera, Mail, Settings2, Inbox, CheckCheck, BellOff, Archive, Trash2, UserCircle, Reply, Copy, X, Smile, Paperclip, Mic, StickyNote, Image, FileText, Filter, ArrowUpDown } from "lucide-react";
 import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/components/ChannelIcons";
 import { TemplateSelector, TemplateConfigModal } from "@/components/TemplateModal";
 import { useAuth } from "@/context/AuthContext";
@@ -91,7 +91,11 @@ export function Conversaciones() {
   const [inputMode, setInputMode] = useState<"reply" | "note">("reply");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [channelDropdownOpen, setChannelDropdownOpen] = useState(false);
-  const [selectedInboxFilter, setSelectedInboxFilter] = useState<string | null>(null);
+  const [selectedInboxFilter, setSelectedInboxFilter] = useState<Set<string>>(new Set());
+  const [conversationsTotal, setConversationsTotal] = useState(0);
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [hasMoreConversations, setHasMoreConversations] = useState(true);
+  const conversationListRef = useRef<HTMLDivElement>(null);
   const [labels, setLabels] = useState<Array<{ id: string; slug: string; label: string; description: string | null; color: string; showInSidebar: boolean }>>([]);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; conversation: Conversation } | null>(null);
   const [msgContextMenu, setMsgContextMenu] = useState<{ x: number; y: number; message: Message } | null>(null);
@@ -112,6 +116,12 @@ export function Conversaciones() {
     loadConversations();
     loadLabels();
   }, [tenantId]);
+
+  // Reload conversations when filter changes
+  useEffect(() => {
+    if (!tenantId) return;
+    loadConversations();
+  }, [selectedInboxFilter]);
 
   useEffect(() => {
     if (!activeConversation) return;
@@ -250,8 +260,29 @@ export function Conversaciones() {
     api.get<Inbox[]>("/chats/inboxes", { params: { tenantId } }).then(({ data }) => setInboxes(data)).catch(() => {});
   };
 
-  const loadConversations = () => {
-    api.get<Conversation[]>("/chats/conversations", { params: { tenantId } }).then(({ data }) => setConversations(data)).catch(() => {});
+  const loadConversations = (reset = true) => {
+    if (reset) {
+      setLoadingConversations(true);
+      setConversations([]);
+    }
+    const params: Record<string, string> = { limit: '15', offset: reset ? '0' : String(conversations.length) };
+    if (selectedInboxFilter.size > 0) {
+      params.inboxIds = Array.from(selectedInboxFilter).join(',');
+    } else {
+      params.tenantId = tenantId;
+    }
+    api.get<{ data: Conversation[]; total: number }>("/chats/conversations", { params })
+      .then(({ data: res }) => {
+        if (reset) {
+          setConversations(res.data);
+        } else {
+          setConversations((prev) => [...prev, ...res.data]);
+        }
+        setConversationsTotal(res.total);
+        setHasMoreConversations(reset ? res.data.length < res.total : conversations.length + res.data.length < res.total);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingConversations(false));
   };
 
   const loadLabels = () => {
@@ -421,9 +452,7 @@ export function Conversaciones() {
 
   const QUICK_EMOJIS = ["😀", "😂", "❤️", "👍", "🙏", "🎉", "🔥", "👋", "✅", "💯", "😊", "🤝", "⭐", "💪", "🙌", "😍", "🤔", "👏", "💚", "🚀"];
 
-  const filteredConversations = selectedInboxFilter
-    ? conversations.filter((c) => c.inboxId === selectedInboxFilter)
-    : conversations;
+  const filteredConversations = conversations;
 
   const getDisplayName = (conv: Conversation) => {
     if (conv.record) {
@@ -444,19 +473,12 @@ export function Conversaciones() {
                 onClick={() => setChannelDropdownOpen((v) => !v)}
                 className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
               >
-                {selectedInboxFilter ? (() => {
-                  const sel = inboxes.find((i) => i.id === selectedInboxFilter);
-                  if (!sel) return <><MessageSquare className="h-4 w-4 text-gray-400" /><span>Todos</span></>;
-                  return (
-                    <>
-                      {sel.channel === "whatsapp" && <WhatsAppIcon className="h-4 w-4 text-green-500" />}
-                      {sel.channel === "messenger" && <MessengerIcon className="h-4 w-4 text-blue-500" />}
-                      {sel.channel === "instagram" && <InstagramIcon className="h-4 w-4 text-pink-500" />}
-                      {sel.channel === "form" && <FormIcon className="h-4 w-4 text-purple-500" />}
-                      <span className="truncate max-w-[140px]">{sel.name}</span>
-                    </>
-                  );
-                })() : (
+                {selectedInboxFilter.size > 0 ? (
+                  <>
+                    <MessageSquare className="h-4 w-4 text-brand-500" />
+                    <span>{selectedInboxFilter.size} canal{selectedInboxFilter.size > 1 ? "es" : ""}</span>
+                  </>
+                ) : (
                   <>
                     <MessageSquare className="h-4 w-4 text-gray-400" />
                     <span>Todos los canales</span>
@@ -468,25 +490,37 @@ export function Conversaciones() {
                 <div className="absolute top-full left-0 mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-gray-200/80 py-1.5 z-50">
                   <p className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Canales</p>
                   <button
-                    onClick={() => { setSelectedInboxFilter(null); setChannelDropdownOpen(false); }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${!selectedInboxFilter ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                    onClick={() => { setSelectedInboxFilter(new Set()); }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${selectedInboxFilter.size === 0 ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
                   >
                     <div className="h-7 w-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
                       <MessageSquare className="h-3.5 w-3.5 text-gray-500" />
                     </div>
                     <span className="flex-1 text-left">Todos los canales</span>
-                    {!selectedInboxFilter && <span className="text-brand-500">✓</span>}
+                    {selectedInboxFilter.size === 0 && <span className="text-brand-500">✓</span>}
                   </button>
-                  {inboxes.map((inbox) => (
+                  {inboxes.map((inbox) => {
+                    const isSelected = selectedInboxFilter.has(inbox.id);
+                    return (
                     <button
                       key={inbox.id}
-                      onClick={() => { setSelectedInboxFilter(inbox.id); setChannelDropdownOpen(false); }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${selectedInboxFilter === inbox.id ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                      onClick={() => {
+                        setSelectedInboxFilter((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(inbox.id)) next.delete(inbox.id);
+                          else next.add(inbox.id);
+                          return next;
+                        });
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${isSelected ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
                     >
-                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${inbox.channel === "whatsapp" ? "bg-green-50" : inbox.channel === "messenger" ? "bg-blue-50" : inbox.channel === "form" ? "bg-purple-50" : "bg-pink-50"}`}>
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${inbox.channel === "whatsapp" ? "bg-green-50" : inbox.channel === "messenger" ? "bg-blue-50" : inbox.channel === "form" ? "bg-purple-50" : inbox.channel === "sms" ? "bg-sky-50" : inbox.channel === "llamada" ? "bg-purple-50" : inbox.channel === "email" ? "bg-orange-50" : "bg-pink-50"}`}>
                         {inbox.channel === "whatsapp" && <WhatsAppIcon className="h-3.5 w-3.5 text-green-600" />}
                         {inbox.channel === "messenger" && <MessengerIcon className="h-3.5 w-3.5 text-blue-600" />}
                         {inbox.channel === "instagram" && <InstagramIcon className="h-3.5 w-3.5 text-pink-600" />}
+                        {inbox.channel === "sms" && <MessageSquare className="h-3.5 w-3.5 text-sky-600" />}
+                        {inbox.channel === "llamada" && <Phone className="h-3.5 w-3.5 text-purple-600" />}
+                        {inbox.channel === "email" && <Mail className="h-3.5 w-3.5 text-orange-600" />}
                         {inbox.channel === "form" && <FormIcon className="h-3.5 w-3.5 text-purple-600" />}
                       </div>
                       <span className="flex-1 text-left">{inbox.name}</span>
@@ -497,9 +531,10 @@ export function Conversaciones() {
                       >
                         <Settings2 className="h-3.5 w-3.5" />
                       </button>
-                      {selectedInboxFilter === inbox.id && <span className="text-brand-500">✓</span>}
+                      {isSelected && <span className="text-brand-500">✓</span>}
                     </button>
-                  ))}
+                    );
+                  })}
                   <div className="border-t border-gray-100 mt-1.5 pt-1.5">
                     <button
                       onClick={() => { setChannelDropdownOpen(false); navigate(`/${slug}/inboxes/new`); }}
@@ -525,8 +560,18 @@ export function Conversaciones() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
-            {filteredConversations.length === 0 ? (
+          <div
+            className="flex-1 overflow-y-auto"
+            ref={conversationListRef}
+            onScroll={() => {
+              const el = conversationListRef.current;
+              if (!el || loadingConversations || !hasMoreConversations) return;
+              if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
+                loadConversations(false);
+              }
+            }}
+          >
+            {filteredConversations.length === 0 && !loadingConversations ? (
               <div className="flex flex-col items-center justify-center h-full text-center px-6">
                 <MessageSquare className="h-8 w-8 text-gray-300 mb-2" />
                 <p className="text-sm text-gray-500">Sin conversaciones</p>
@@ -606,6 +651,11 @@ export function Conversaciones() {
                   </div>
                 </button>
               ))
+            )}
+            {loadingConversations && (
+              <div className="flex items-center justify-center py-3">
+                <div className="h-4 w-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+              </div>
             )}
           </div>
 
@@ -998,18 +1048,58 @@ export function Conversaciones() {
                   return (
                     <button
                       key={lbl.id}
-                      onClick={async () => {
+                      onClick={() => {
                         if (!contextMenu) return;
                         const action = isAssigned ? "remove" : "add";
-                        await api.post(`/chats/conversations/${contextMenu.conversation.id}/toggle-label`, {
+                        const convId = contextMenu.conversation.id;
+
+                        // Optimistic update — instant UI
+                        setConversations((prev) =>
+                          prev.map((c) => {
+                            if (c.id !== convId) return c;
+                            const currentLabels = c.labelIds || [];
+                            const newLabels = action === "add"
+                              ? [...currentLabels, lbl.id]
+                              : currentLabels.filter((id) => id !== lbl.id);
+                            return { ...c, labelIds: newLabels };
+                          })
+                        );
+                        setContextMenu(null);
+
+                        // Optimistic: add note to chat instantly
+                        if (activeConversation?.id === convId) {
+                          const noteMsg: Message = {
+                            id: `temp-label-${Date.now()}`,
+                            conversationId: convId,
+                            direction: "outbound",
+                            messageType: "note",
+                            content: `${user?.name} ${action === "add" ? "agregó" : "quitó"} ${lbl.label}`,
+                            status: "delivered",
+                            createdAt: new Date().toISOString(),
+                            sender: user ? { id: user.id, name: user.name, avatarPath: null } : null,
+                          };
+                          setMessages((prev) => [...prev, noteMsg]);
+                        }
+
+                        // Fire and forget
+                        api.post(`/chats/conversations/${convId}/toggle-label`, {
                           labelId: lbl.id,
                           action,
                           userId: user?.id,
                           userName: user?.name,
+                        }).catch(() => {
+                          // Revert on error
+                          setConversations((prev) =>
+                            prev.map((c) => {
+                              if (c.id !== convId) return c;
+                              const currentLabels = c.labelIds || [];
+                              const reverted = action === "add"
+                                ? currentLabels.filter((id) => id !== lbl.id)
+                                : [...currentLabels, lbl.id];
+                              return { ...c, labelIds: reverted };
+                            })
+                          );
                         });
-                        loadConversations();
-                        if (activeConversation?.id === contextMenu.conversation.id) loadMessages(activeConversation.id);
-                        setContextMenu(null);
                       }}
                       className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
                     >

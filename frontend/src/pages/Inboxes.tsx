@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Plus, Settings2, Trash2, MessageCircle, Phone, Camera, MessageSquare, Wifi, WifiOff, ArrowLeft } from "lucide-react";
+import { Plus, Settings2, Trash2, MessageCircle, Phone, Camera, MessageSquare, Mail, Wifi, WifiOff, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import headerBg from "@/assets/header-background.jpg";
 import axios from "axios";
@@ -27,6 +27,9 @@ const CHANNEL_META: Record<string, { label: string; icon: typeof MessageSquare; 
   whatsapp: { label: "WhatsApp", icon: Phone, color: "text-green-600", bg: "bg-green-50" },
   messenger: { label: "Messenger", icon: MessageCircle, color: "text-blue-600", bg: "bg-blue-50" },
   instagram: { label: "Instagram", icon: Camera, color: "text-pink-600", bg: "bg-pink-50" },
+  sms: { label: "SMS", icon: MessageSquare, color: "text-sky-600", bg: "bg-sky-50" },
+  llamada: { label: "Llamada", icon: Phone, color: "text-purple-600", bg: "bg-purple-50" },
+  email: { label: "Email", icon: Mail, color: "text-orange-600", bg: "bg-orange-50" },
 };
 
 export function Inboxes() {

@@ -9,6 +9,7 @@ const navItems = [
   { to: "/admin/accounts", label: "Cuentas" },
   { to: "/admin/users", label: "Usuarios" },
   { to: "/admin/billing", label: "Créditos" },
+  { to: "/admin/providers", label: "Proveedores" },
 ];
 
 export function AdminHeader() {

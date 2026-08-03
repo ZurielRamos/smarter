@@ -1,14 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import axios from "axios";
-
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+import { Users } from "lucide-react";
+import { api } from "@/services/api";
 
 interface Agent {
   id: string;
@@ -23,17 +17,38 @@ export function Agentes() {
   const tenantRole = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
   const tenantId = tenantRole?.tenantId || "";
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [maxAgents, setMaxAgents] = useState<number>(5);
 
   useEffect(() => {
     if (!tenantId) return;
     api.get("/tenants/" + tenantId + "/members").then(({ data }) => setAgents(data)).catch(() => {});
+    api.get("/tenants/" + tenantId).then(({ data }) => setMaxAgents(data.maxAgents || 5)).catch(() => {});
   }, [tenantId]);
+
+  const usagePercent = Math.min((agents.length / maxAgents) * 100, 100);
+  const isNearLimit = agents.length >= maxAgents - 1;
+  const isAtLimit = agents.length >= maxAgents;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-900">Agentes</h3>
-        <p className="text-[11px] text-gray-400 mt-0.5">{agents.length} miembros del equipo</p>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Agentes</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">{agents.length} de {maxAgents} agentes</p>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <Users className="h-3.5 w-3.5" />
+            <span className="font-medium">{agents.length}/{maxAgents}</span>
+          </div>
+        </div>
+        {/* Capacity bar */}
+        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${isAtLimit ? "bg-red-500" : isNearLimit ? "bg-amber-500" : "bg-brand-500"}`}
+            style={{ width: `${usagePercent}%` }}
+          />
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto">
         {agents.map((agent) => (

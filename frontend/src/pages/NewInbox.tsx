@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check, MessageSquare, Phone } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/components/ChannelIcons";
+import { WhatsAppIcon, MessengerIcon, InstagramIcon, EmailIcon, FormIcon } from "@/components/ChannelIcons";
 import headerBg from "@/assets/header-background.jpg";
 import axios from "axios";
 
@@ -31,7 +31,10 @@ const CHANNELS = [
   { value: "whatsapp", label: "WhatsApp", description: "Conecta tu número de WhatsApp Business", color: "text-green-600", bg: "bg-green-50" },
   { value: "messenger", label: "Facebook Messenger", description: "Conecta tu página de Facebook", color: "text-blue-600", bg: "bg-blue-50" },
   { value: "instagram", label: "Instagram", description: "Conecta tu cuenta de Instagram", color: "text-pink-600", bg: "bg-pink-50" },
-  { value: "form", label: "Formulario", description: "Recibe mensajes desde un formulario web", color: "text-purple-600", bg: "bg-purple-50" },
+  { value: "sms", label: "SMS", description: "Envía mensajes de texto a tus contactos", color: "text-sky-600", bg: "bg-sky-50" },
+  { value: "llamada", label: "Llamada", description: "Realiza llamadas automáticas a tus contactos", color: "text-purple-600", bg: "bg-purple-50" },
+  { value: "email", label: "Email", description: "Envía correos desde tu propio dominio", color: "text-orange-600", bg: "bg-orange-50" },
+  { value: "form", label: "Formulario", description: "Recibe mensajes desde un formulario web", color: "text-violet-600", bg: "bg-violet-50" },
 ];
 
 const STEPS = [
@@ -204,6 +207,9 @@ export function NewInbox() {
                           {ch.value === "whatsapp" && <WhatsAppIcon className={`h-5 w-5 ${ch.color}`} />}
                           {ch.value === "messenger" && <MessengerIcon className={`h-5 w-5 ${ch.color}`} />}
                           {ch.value === "instagram" && <InstagramIcon className={`h-5 w-5 ${ch.color}`} />}
+                          {ch.value === "sms" && <MessageSquare className={`h-5 w-5 ${ch.color}`} />}
+                          {ch.value === "llamada" && <Phone className={`h-5 w-5 ${ch.color}`} />}
+                          {ch.value === "email" && <EmailIcon className={`h-5 w-5 ${ch.color}`} />}
                           {ch.value === "form" && <FormIcon className={`h-5 w-5 ${ch.color}`} />}
                         </div>
                         <p className="text-sm font-semibold text-gray-900">{ch.label}</p>
@@ -285,16 +291,27 @@ export function NewInbox() {
                   )}
                 </div>
                 <div className="flex gap-3 pt-4 mt-4">
-                  <button
-                    onClick={handleConnect}
-                    disabled={connecting}
-                    className="px-5 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50"
-                  >
-                    {connecting ? "Conectando..." : `Conectar ${channel}`}
-                  </button>
-                  <button onClick={() => { setStep(4); }} className="px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 font-medium">
-                    Omitir por ahora
-                  </button>
+                  {(channel === "sms" || channel === "email" || channel === "llamada") ? (
+                    <button
+                      onClick={() => setStep(4)}
+                      className="px-5 py-2 text-sm rounded-lg bg-brand-800 hover:bg-brand-700 text-white font-medium"
+                    >
+                      Continuar
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleConnect}
+                        disabled={connecting}
+                        className="px-5 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50"
+                      >
+                        {connecting ? "Conectando..." : `Conectar ${channel}`}
+                      </button>
+                      <button onClick={() => { setStep(4); }} className="px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 font-medium">
+                        Omitir por ahora
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -306,13 +323,16 @@ export function NewInbox() {
                 </div>
                 <h2 className="text-lg font-semibold text-gray-900 mb-2">¡Bandeja creada!</h2>
                 <p className="text-sm text-gray-500 mb-6 max-w-sm mx-auto">
-                  Tu bandeja <strong>{createdInbox?.name}</strong> está lista para recibir mensajes.
+                  {(channel === "sms" || channel === "email" || channel === "llamada")
+                    ? <>Tu bandeja <strong>{createdInbox?.name}</strong> fue creada. Ahora configura los datos del canal.</>
+                    : <>Tu bandeja <strong>{createdInbox?.name}</strong> está lista. Ahora conecta tu cuenta.</>
+                  }
                 </p>
                 <button
-                  onClick={() => navigate(`/${slug}/inboxes`)}
+                  onClick={() => navigate(`/${slug}/inboxes/${createdInbox?.id}/settings`)}
                   className="px-5 py-2.5 text-sm rounded-lg bg-brand-800 hover:bg-brand-700 text-white font-medium"
                 >
-                  Ir a Bandejas
+                  {(channel === "sms" || channel === "email" || channel === "llamada") ? "Configurar canal" : "Ir a configuración"}
                 </button>
               </div>
             )}

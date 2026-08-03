@@ -756,6 +756,17 @@ export class ChatsService {
     });
   }
 
+  async getConversationsPaginated(inboxId: string, opts: { limit: number; offset: number }): Promise<{ data: Conversation[]; total: number }> {
+    const [data, total] = await this.conversationRepo.findAndCount({
+      where: { inboxId },
+      relations: { inbox: true, record: true },
+      order: { lastMessageAt: 'DESC' },
+      take: opts.limit,
+      skip: opts.offset,
+    });
+    return { data, total };
+  }
+
   async getConversationsByTenant(tenantId: string): Promise<Conversation[]> {
     const inboxes = await this.inboxRepo.find({ where: { tenantId } });
     if (inboxes.length === 0) return [];
@@ -764,6 +775,31 @@ export class ChatsService {
       relations: { inbox: true, record: true },
       order: { lastMessageAt: 'DESC' },
     });
+  }
+
+  async getConversationsByTenantPaginated(tenantId: string, opts: { limit: number; offset: number }): Promise<{ data: Conversation[]; total: number }> {
+    const inboxes = await this.inboxRepo.find({ where: { tenantId } });
+    if (inboxes.length === 0) return { data: [], total: 0 };
+    const [data, total] = await this.conversationRepo.findAndCount({
+      where: inboxes.map((i) => ({ inboxId: i.id })),
+      relations: { inbox: true, record: true },
+      order: { lastMessageAt: 'DESC' },
+      take: opts.limit,
+      skip: opts.offset,
+    });
+    return { data, total };
+  }
+
+  async getConversationsByInboxes(inboxIds: string[], opts: { limit: number; offset: number }): Promise<{ data: Conversation[]; total: number }> {
+    if (inboxIds.length === 0) return { data: [], total: 0 };
+    const [data, total] = await this.conversationRepo.findAndCount({
+      where: inboxIds.map((id) => ({ inboxId: id })),
+      relations: { inbox: true, record: true },
+      order: { lastMessageAt: 'DESC' },
+      take: opts.limit,
+      skip: opts.offset,
+    });
+    return { data, total };
   }
 
   // === MESSAGES ===

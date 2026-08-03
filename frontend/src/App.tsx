@@ -27,6 +27,7 @@ import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { AdminAccounts } from "./pages/admin/AdminAccounts";
 import { AdminUsers } from "./pages/admin/AdminUsers";
 import { AdminBilling } from "./pages/admin/AdminBilling";
+import { AdminProviders } from "./pages/admin/AdminProviders";
 import { PrivacyPolicy } from "./pages/legal/PrivacyPolicy";
 import { TermsOfService } from "./pages/legal/TermsOfService";
 import { DataDeletion } from "./pages/legal/DataDeletion";
@@ -69,6 +70,7 @@ function App() {
             <Route path="/admin/accounts" element={<AdminAccounts />} />
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/billing" element={<AdminBilling />} />
+            <Route path="/admin/providers" element={<AdminProviders />} />
           </Route>
 
           {/* Tenant app routes */}
