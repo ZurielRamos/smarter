@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PendingInvites } from "./components/PendingInvites";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -33,6 +33,7 @@ import { PrivacyPolicy } from "./pages/legal/PrivacyPolicy";
 import { TermsOfService } from "./pages/legal/TermsOfService";
 import { DataDeletion } from "./pages/legal/DataDeletion";
 import { Login } from "./pages/Login";
+import { Pending } from "./pages/Pending";
 
 function ProtectedAppLayout() {
   return (
@@ -43,6 +44,10 @@ function ProtectedAppLayout() {
 }
 
 function ProtectedAdminLayout() {
+  const { user } = useAuth();
+  if (user && !user.isSuperAdmin) {
+    return <Navigate to="/login" replace />;
+  }
   return (
     <ProtectedRoute>
       <AdminLayout />
@@ -58,6 +63,7 @@ function App() {
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
+          <Route path="/pending" element={<Pending />} />
           <Route path="/f/:formSlug" element={<PublicForm />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />

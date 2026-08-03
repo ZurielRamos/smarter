@@ -51,13 +51,17 @@ export class AuthService {
     const token = this.jwtService.sign(payload);
 
     // Determine redirect path
-    let redirectTo = '/admin';
+    let redirectTo = '/';
     const activeRoles = user.tenantRoles?.filter((tr) => tr.status === 'active') || [];
     const pendingInvites = user.tenantRoles?.filter((tr) => tr.status === 'pending') || [];
 
-    if (!user.isSuperAdmin && activeRoles.length > 0) {
-      const firstTenant = activeRoles[0].tenant;
-      redirectTo = `/${firstTenant.slug}`;
+    if (user.isSuperAdmin) {
+      redirectTo = '/admin';
+    } else if (activeRoles.length > 0) {
+      redirectTo = `/${activeRoles[0].tenant.slug}`;
+    } else if (pendingInvites.length > 0) {
+      // Has pending invites but no active tenants — go to a waiting state
+      redirectTo = '/pending';
     }
 
     return {
