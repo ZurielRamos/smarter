@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Lock, CheckCircle2, AlertCircle } from "lucide-react";
 import { api } from "@/services/api";
-import logoCompleto from "@/assets/logo-completo.svg";
+import logoCompleto from "@/assets/logo-completo.png";
 
 export function SetupPassword() {
   const [searchParams] = useSearchParams();
