@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, Outlet } from "react-router-dom";
-import { Plus, Megaphone, MessageSquare, Phone, Send, Mail, X } from "lucide-react";
+import { Plus, Megaphone, MessageSquare, Phone, Send, Mail, X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,8 @@ export function Campanas() {
   const [description, setDescription] = useState("");
   const [channel, setChannel] = useState("sms");
   const [saving, setSaving] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; campaign: Campaign } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadCampaigns();
@@ -63,6 +65,24 @@ export function Campanas() {
       const { data } = await api.get<Campaign[]>("/campaigns", { params: tenantId ? { tenantId } : {} });
       setCampaigns(data);
     } catch {} finally { setLoading(false); }
+  };
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    function handleClick(e: MouseEvent) {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) setContextMenu(null);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [contextMenu]);
+
+  const handleDeleteCampaign = async (campaign: Campaign) => {
+    setContextMenu(null);
+    try {
+      await api.delete(`/campaigns/${campaign.id}`);
+      setCampaigns((prev) => prev.filter((c) => c.id !== campaign.id));
+      if (campaignId === campaign.id) navigate(`/${slug}/comunicaciones/campanas`, { replace: true });
+    } catch {}
   };
 
   const handleCreate = async () => {
@@ -123,6 +143,7 @@ export function Campanas() {
               <button
                 key={c.id}
                 onClick={() => navigate(`/${slug}/comunicaciones/campanas/${c.id}`)}
+                onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, campaign: c }); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b border-gray-50 transition-colors ${campaignId === c.id ? "bg-brand-50" : "hover:bg-gray-50"}`}
               >
                 <div className="h-9 w-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
@@ -147,6 +168,23 @@ export function Campanas() {
 
       {/* Campaign detail panel */}
       <Outlet />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-[60] w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1 animate-in fade-in zoom-in-95 duration-100"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <button
+            onClick={() => handleDeleteCampaign(contextMenu.campaign)}
+            className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <Trash2 className="h-4 w-4 text-red-400" />
+            Eliminar campaña
+          </button>
+        </div>
+      )}
 
       {/* Create Campaign Modal */}
       <AnimatePresence>
