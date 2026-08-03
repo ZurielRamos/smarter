@@ -15,6 +15,7 @@ import { FormsModule } from './forms/forms.module';
 import { EtlModule } from './etl/etl.module';
 import { BillingModule } from './billing/billing.module';
 import { ProvidersModule } from './providers/providers.module';
+import { TeamsModule } from './teams/teams.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { ProvidersModule } from './providers/providers.module';
     EtlModule,
     BillingModule,
     ProvidersModule,
+    TeamsModule,
   ],
 })
 export class AppModule {}
