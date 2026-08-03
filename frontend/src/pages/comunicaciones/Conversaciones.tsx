@@ -163,8 +163,12 @@ export function Conversaciones() {
       setConversations((prev) => {
         const exists = prev.find((c) => c.id === conv.id);
         if (exists) {
-          return prev.map((c) => c.id === conv.id ? { ...c, ...conv } : c)
-            .sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
+          return prev.map((c) => {
+            if (c.id !== conv.id) return c;
+            // If this is the active conversation, keep unreadCount at 0
+            const unreadCount = c.id === activeConversation?.id ? 0 : conv.unreadCount ?? c.unreadCount;
+            return { ...c, ...conv, unreadCount };
+          }).sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
         }
         // New conversation - add to list
         return [conv, ...prev];
