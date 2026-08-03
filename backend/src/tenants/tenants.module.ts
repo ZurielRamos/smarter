@@ -6,16 +6,20 @@ import { TenantsService } from './tenants.service';
 import { TenantsController } from './tenants.controller';
 import { ChannelConfigsService } from './channel-configs.service';
 import { ChannelConfigsController } from './channel-configs.controller';
+import { InviteAgentController } from './invite-agent.controller';
 import { UserTenant } from '../users/user-tenant.entity';
+import { User } from '../users/user.entity';
 import { CustomField } from '../records/custom-field.entity';
 import { BillingModule } from '../billing/billing.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Tenant, ChannelConfig, UserTenant, CustomField]),
+    TypeOrmModule.forFeature([Tenant, ChannelConfig, UserTenant, User, CustomField]),
     BillingModule,
+    MailModule,
   ],
-  controllers: [TenantsController, ChannelConfigsController],
+  controllers: [TenantsController, ChannelConfigsController, InviteAgentController],
   providers: [TenantsService, ChannelConfigsService],
   exports: [TenantsService, ChannelConfigsService],
 })
