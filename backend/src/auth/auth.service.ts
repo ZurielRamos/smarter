@@ -52,8 +52,11 @@ export class AuthService {
 
     // Determine redirect path
     let redirectTo = '/admin';
-    if (!user.isSuperAdmin && user.tenantRoles?.length > 0) {
-      const firstTenant = user.tenantRoles[0].tenant;
+    const activeRoles = user.tenantRoles?.filter((tr) => tr.status === 'active') || [];
+    const pendingInvites = user.tenantRoles?.filter((tr) => tr.status === 'pending') || [];
+
+    if (!user.isSuperAdmin && activeRoles.length > 0) {
+      const firstTenant = activeRoles[0].tenant;
       redirectTo = `/${firstTenant.slug}`;
     }
 
@@ -64,7 +67,18 @@ export class AuthService {
         name: user.name,
         email: user.email,
         isSuperAdmin: user.isSuperAdmin,
-        tenantRoles: user.tenantRoles?.map((tr) => ({
+        needsPasswordSetup: user.needsPasswordSetup,
+        tenantRoles: activeRoles.map((tr) => ({
+          tenantId: tr.tenantId,
+          role: tr.role,
+          tenant: {
+            id: tr.tenant.id,
+            name: tr.tenant.name,
+            slug: tr.tenant.slug,
+            iconPath: tr.tenant.iconPath,
+          },
+        })),
+        pendingInvites: pendingInvites.map((tr) => ({
           tenantId: tr.tenantId,
           role: tr.role,
           tenant: {
@@ -87,12 +101,27 @@ export class AuthService {
       },
     });
     if (!user || !user.isActive) return null;
+
+    const activeRoles = user.tenantRoles?.filter((tr) => tr.status === 'active') || [];
+    const pendingInvites = user.tenantRoles?.filter((tr) => tr.status === 'pending') || [];
+
     return {
       id: user.id,
       name: user.name,
       email: user.email,
       isSuperAdmin: user.isSuperAdmin,
-      tenantRoles: user.tenantRoles?.map((tr) => ({
+      needsPasswordSetup: user.needsPasswordSetup,
+      tenantRoles: activeRoles.map((tr) => ({
+        tenantId: tr.tenantId,
+        role: tr.role,
+        tenant: {
+          id: tr.tenant.id,
+          name: tr.tenant.name,
+          slug: tr.tenant.slug,
+          iconPath: tr.tenant.iconPath,
+        },
+      })),
+      pendingInvites: pendingInvites.map((tr) => ({
         tenantId: tr.tenantId,
         role: tr.role,
         tenant: {

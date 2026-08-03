@@ -12,12 +12,25 @@ interface TenantRole {
   };
 }
 
+interface PendingInvite {
+  tenantId: string;
+  role: string;
+  tenant: {
+    id: string;
+    name: string;
+    slug: string;
+    iconPath: string | null;
+  };
+}
+
 interface AuthUser {
   id: string;
   name: string;
   email: string;
   isSuperAdmin: boolean;
+  needsPasswordSetup?: boolean;
   tenantRoles: TenantRole[];
+  pendingInvites: PendingInvite[];
 }
 
 interface AuthContextType {
@@ -26,6 +39,8 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<string>;
   logout: () => void;
+  acceptInvite: (tenantId: string) => Promise<void>;
+  declineInvite: (tenantId: string) => void;
   isAuthenticated: boolean;
 }
 
@@ -58,7 +73,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: data.name,
         email: data.email,
         isSuperAdmin: data.isSuperAdmin,
+        needsPasswordSetup: data.needsPasswordSetup,
         tenantRoles: data.tenantRoles?.map((tr: any) => ({
+          tenantId: tr.tenantId,
+          role: tr.role,
+          tenant: {
+            id: tr.tenant.id,
+            name: tr.tenant.name,
+            slug: tr.tenant.slug,
+            iconPath: tr.tenant.iconPath,
+          },
+        })) ?? [],
+        pendingInvites: data.pendingInvites?.map((tr: any) => ({
           tenantId: tr.tenantId,
           role: tr.role,
           tenant: {
@@ -97,6 +123,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }
 
+  async function acceptInvite(tenantId: string) {
+    await axios.post(`${API_BASE}/auth/accept-invite`, { tenantId }, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    // Move from pendingInvites to tenantRoles
+    if (user) {
+      const invite = user.pendingInvites.find((i) => i.tenantId === tenantId);
+      if (invite) {
+        setUser({
+          ...user,
+          tenantRoles: [...user.tenantRoles, invite],
+          pendingInvites: user.pendingInvites.filter((i) => i.tenantId !== tenantId),
+        });
+      }
+    }
+  }
+
+  function declineInvite(tenantId: string) {
+    // Remove locally (backend can handle cleanup later)
+    if (user) {
+      setUser({
+        ...user,
+        pendingInvites: user.pendingInvites.filter((i) => i.tenantId !== tenantId),
+      });
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -105,6 +158,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         logout,
+        acceptInvite,
+        declineInvite,
         isAuthenticated: !!user,
       }}
     >

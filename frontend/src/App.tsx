@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { PendingInvites } from "./components/PendingInvites";
 import { AppLayout } from "./components/layout/AppLayout";
 import { AdminLayout } from "./components/layout/AdminLayout";
 import { Dashboard } from "./pages/Dashboard";
@@ -53,6 +54,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <PendingInvites />
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
