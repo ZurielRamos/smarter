@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Users, Send, Calendar, Clock, RefreshCw, Pencil, List } from "lucide-react";
+import { Users, Send, Calendar, Clock, RefreshCw, Pencil, List, Settings2, Filter, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MessageEditor } from "@/components/campaigns/MessageEditor";
 import { WhatsAppTemplateSelector } from "@/components/campaigns/WhatsAppTemplateSelector";
@@ -93,6 +93,7 @@ export function CampanaDetail() {
   const navigate = useNavigate();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
+  const [campaignTab, setCampaignTab] = useState<"general" | "segmentacion" | "programacion" | "ejecuciones">("general");
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [newName, setNewName] = useState("");
   const [savingMessage, setSavingMessage] = useState(false);
@@ -425,7 +426,31 @@ export function CampanaDetail() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="px-6 border-b border-gray-100 flex items-center gap-1 shrink-0 bg-white">
+        {([
+          { key: "general", label: "General", icon: Settings2 },
+          { key: "segmentacion", label: "Segmentación", icon: Filter },
+          { key: "programacion", label: "Programación", icon: Calendar },
+          { key: "ejecuciones", label: "Ejecuciones", icon: Play },
+        ] as const).map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setCampaignTab(key)}
+            className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              campaignTab === key
+                ? "border-brand-600 text-brand-700"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* Content */}
+      {campaignTab === "general" && (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1, ease: 'easeOut' }} className="flex-1 min-h-0 overflow-auto px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main info */}
@@ -785,6 +810,31 @@ export function CampanaDetail() {
           </div>
         </div>
       </motion.div>
+      )}
+
+      {campaignTab === "segmentacion" && (
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+          <Filter className="h-8 w-8 text-gray-300 mb-2" />
+          <p className="text-sm text-gray-500 font-medium">Segmentación</p>
+          <p className="text-[11px] text-gray-400 mt-1">La configuración de segmentación se gestiona desde la pestaña General por ahora</p>
+        </div>
+      )}
+
+      {campaignTab === "programacion" && (
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+          <Calendar className="h-8 w-8 text-gray-300 mb-2" />
+          <p className="text-sm text-gray-500 font-medium">Programación</p>
+          <p className="text-[11px] text-gray-400 mt-1">La configuración de programación se gestiona desde la pestaña General por ahora</p>
+        </div>
+      )}
+
+      {campaignTab === "ejecuciones" && (
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+          <Play className="h-8 w-8 text-gray-300 mb-2" />
+          <p className="text-sm text-gray-500 font-medium">Ejecuciones</p>
+          <p className="text-[11px] text-gray-400 mt-1">Historial de envíos de esta campaña</p>
+        </div>
+      )}
 
       {/* Schedule Editor Modal */}
       {showScheduleModal && (
