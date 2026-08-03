@@ -38,6 +38,20 @@ import { SetupPassword } from "./pages/SetupPassword";
 import { ForgotPassword } from "./pages/ForgotPassword";
 
 function ProtectedAppLayout() {
+  const { user } = useAuth();
+  const slug = window.location.pathname.split('/')[1];
+
+  if (user && slug) {
+    const hasAccess = user.tenantRoles.some((tr) => tr.tenant.slug === slug);
+    if (!hasAccess) {
+      // Redirect to first available tenant or /pending
+      if (user.tenantRoles.length > 0) {
+        return <Navigate to={`/${user.tenantRoles[0].tenant.slug}`} replace />;
+      }
+      return <Navigate to="/pending" replace />;
+    }
+  }
+
   return (
     <ProtectedRoute>
       <AppLayout />
