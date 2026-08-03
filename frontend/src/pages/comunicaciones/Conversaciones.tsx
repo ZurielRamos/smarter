@@ -535,9 +535,33 @@ export function Conversaciones() {
     const mimeType = audioPreview.blob.type;
     const ext = mimeType.includes('ogg') ? 'ogg' : 'webm';
     const file = new File([audioPreview.blob], `audio-${Date.now()}.${ext}`, { type: mimeType });
-    URL.revokeObjectURL(audioPreview.url);
+    const previewUrl = audioPreview.url;
     setAudioPreview(null);
-    await sendFile(file);
+
+    // Optimistic message
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: Message = {
+      id: tempId,
+      conversationId: activeConversation.id,
+      direction: "outbound",
+      messageType: "audio",
+      content: null,
+      mediaUrl: previewUrl,
+      mediaMimeType: mimeType,
+      status: "sending",
+      createdAt: new Date().toISOString(),
+      sender: user ? { id: user.id, name: user.name, avatarPath: null } : null,
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+
+    try {
+      await sendFile(file);
+      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "sent" } : m));
+    } catch {
+      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "failed" } : m));
+    } finally {
+      URL.revokeObjectURL(previewUrl);
+    }
   };
 
   const formatRecordingTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
