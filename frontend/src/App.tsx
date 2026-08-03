@@ -20,6 +20,8 @@ import { Campanas } from "./pages/comunicaciones/Campanas";
 import { CampanaEmpty } from "./pages/comunicaciones/CampanaEmpty";
 import { CampanaDetail } from "./pages/comunicaciones/CampanaDetail";
 import { Canales } from "./pages/comunicaciones/Canales";
+import { CanalEmpty } from "./pages/comunicaciones/CanalEmpty";
+import { CanalDetail } from "./pages/comunicaciones/CanalDetail";
 import { NewInbox } from "./pages/NewInbox";
 import { Inboxes } from "./pages/Inboxes";
 import { InboxSettings } from "./pages/InboxSettings";
@@ -119,7 +121,10 @@ function App() {
                 <Route index element={<CampanaEmpty />} />
                 <Route path=":campaignId" element={<CampanaDetail />} />
               </Route>
-              <Route path="canales" element={<Canales />} />
+              <Route path="canales" element={<Canales />}>
+                <Route index element={<CanalEmpty />} />
+                <Route path=":inboxId" element={<CanalDetail />} />
+              </Route>
             </Route>
             <Route path="/:slug/inboxes" element={<Inboxes />} />
             <Route path="/:slug/inboxes/new" element={<NewInbox />} />

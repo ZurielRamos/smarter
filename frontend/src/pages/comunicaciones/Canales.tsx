@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Plus, Phone, MessageSquare, Mail, MessageCircle, Camera, Wifi, WifiOff } from "lucide-react";
 import { WhatsAppIcon, FormIcon } from "@/components/ChannelIcons";
-import { InboxSettingsContent } from "@/components/InboxSettingsContent";
 import { api } from "@/services/api";
 
 interface Inbox {
@@ -26,14 +25,13 @@ const CHANNEL_ICONS: Record<string, { icon: any; color: string; bg: string }> = 
 };
 
 export function Canales() {
-  const { slug } = useParams();
+  const { slug, inboxId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const tenantRole = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
   const tenantId = tenantRole?.tenantId || "";
 
   const [inboxes, setInboxes] = useState<Inbox[]>([]);
-  const [selectedInbox, setSelectedInbox] = useState<Inbox | null>(null);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -75,9 +73,9 @@ export function Canales() {
               return (
                 <button
                   key={inbox.id}
-                  onClick={() => setSelectedInbox(inbox)}
+                  onClick={() => navigate(`/${slug}/comunicaciones/canales/${inbox.id}`)}
                   className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
-                    selectedInbox?.id === inbox.id ? "bg-brand-50 text-brand-700" : "text-gray-700 hover:bg-gray-50"
+                    inboxId === inbox.id ? "bg-brand-50 text-brand-700" : "text-gray-700 hover:bg-gray-50"
                   }`}
                 >
                   <div className={`h-7 w-7 rounded-lg ${channelInfo.bg} flex items-center justify-center shrink-0`}>
@@ -99,24 +97,9 @@ export function Canales() {
         </div>
       </div>
 
-      {/* Detail panel */}
+      {/* Detail panel — Outlet renders child route */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {selectedInbox ? (
-          <InboxSettingsContent
-            key={selectedInbox.id}
-            inboxId={selectedInbox.id}
-            onDeleted={() => {
-              setInboxes((prev) => prev.filter((i) => i.id !== selectedInbox.id));
-              setSelectedInbox(null);
-            }}
-          />
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
-            <MessageSquare className="h-8 w-8 text-gray-300 mb-2" />
-            <p className="text-sm text-gray-500 font-medium">Selecciona un canal</p>
-            <p className="text-[11px] text-gray-400 mt-1">O crea uno nuevo para conectar un proveedor de comunicación</p>
-          </div>
-        )}
+        <Outlet />
       </div>
     </div>
   );
