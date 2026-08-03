@@ -116,6 +116,49 @@ export class InviteAgentController {
     return { status: 'invited', message: 'Usuario creado e invitación enviada' };
   }
 
+  @Post(':tenantId/resend-invite')
+  async resendInvite(
+    @Param('tenantId') tenantId: string,
+    @Body() body: { userId: string },
+  ) {
+    const ut = await this.userTenantRepo.findOne({
+      where: { userId: body.userId, tenantId, status: 'pending' },
+    });
+    if (!ut) throw new BadRequestException('No hay invitación pendiente para este usuario');
+
+    const user = await this.userRepo.findOne({ where: { id: body.userId } });
+    if (!user) throw new BadRequestException('Usuario no encontrado');
+
+    const tenant = await this.tenantRepo.findOne({ where: { id: tenantId } });
+    if (!tenant) throw new BadRequestException('Tenant no encontrado');
+
+    const loginUrl = this.configService.get('FRONTEND_URL', 'http://localhost:5173') + '/login';
+    const setupToken = this.authService.generateSetupToken(user.id, user.email);
+    const setupUrl = `${loginUrl.replace('/login', '/setup-password')}?token=${setupToken}`;
+
+    if (user.needsPasswordSetup) {
+      // New user — resend invitation with setup link
+      await this.mailService.sendInvitation({
+        to: user.email,
+        name: user.name,
+        tenantName: tenant.name,
+        role: ut.role,
+        setupUrl,
+      });
+    } else {
+      // Existing user — resend access notification
+      await this.mailService.sendTenantAccess({
+        to: user.email,
+        name: user.name,
+        tenantName: tenant.name,
+        role: ut.role,
+        loginUrl,
+      });
+    }
+
+    return { status: 'sent', message: 'Correo reenviado' };
+  }
+
   private generatePassword(): string {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
     let password = '';

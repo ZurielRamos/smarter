@@ -52,11 +52,7 @@ export function Agentes() {
   const handleResendInvite = async (agent: Agent) => {
     setContextMenu(null);
     try {
-      await api.post(`/tenants/${tenantId}/invite`, {
-        name: agent.user.name,
-        email: agent.user.email,
-        role: agent.role,
-      });
+      await api.post(`/tenants/${tenantId}/resend-invite`, { userId: agent.userId });
     } catch {}
   };
 
