@@ -20,7 +20,7 @@ export class TenantAccessGuard implements CanActivate {
     // Determinar el tenantId del request
     const tenantId =
       request.params?.tenantId ||
-      request.params?.id ||
+      request.query?.tenantId ||
       request.body?.tenantId;
 
     if (!tenantId) {
