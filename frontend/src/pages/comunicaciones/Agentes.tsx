@@ -25,6 +25,7 @@ export function Agentes() {
   const [inviteResult, setInviteResult] = useState<{ status: string; message: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; agent: Agent } | null>(null);
   const [roleChangeAgent, setRoleChangeAgent] = useState<Agent | null>(null);
+  const [changingRole, setChangingRole] = useState<string | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
   const loadAgents = () => {
@@ -66,11 +67,14 @@ export function Agentes() {
   };
 
   const handleChangeRole = async (agent: Agent, newRole: string) => {
+    setChangingRole(newRole);
     try {
       await api.post(`/users/${agent.userId}/tenants`, { tenantId, role: newRole });
       setRoleChangeAgent(null);
       loadAgents();
-    } catch {}
+    } catch {} finally {
+      setChangingRole(null);
+    }
   };
 
   const handleInvite = async () => {
@@ -223,32 +227,42 @@ export function Agentes() {
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => handleChangeRole(roleChangeAgent, "agent")}
-                className={`p-3 rounded-xl border-2 text-left transition-all ${
+                disabled={!!changingRole}
+                className={`p-3 rounded-xl border-2 text-left transition-all disabled:opacity-70 ${
                   roleChangeAgent.role === "agent"
                     ? "border-brand-500 bg-brand-50"
                     : "border-gray-200 hover:border-gray-300"
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <svg className={`h-4 w-4 ${roleChangeAgent.role === "agent" ? "text-brand-600" : "text-gray-500"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-                  </svg>
+                  {changingRole === "agent" ? (
+                    <Loader2 className="h-4 w-4 text-brand-600 animate-spin" />
+                  ) : (
+                    <svg className={`h-4 w-4 ${roleChangeAgent.role === "agent" ? "text-brand-600" : "text-gray-500"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                    </svg>
+                  )}
                   <span className={`text-sm font-semibold ${roleChangeAgent.role === "agent" ? "text-brand-700" : "text-gray-700"}`}>Agente</span>
                 </div>
                 <p className="text-[10px] text-gray-500">Responde conversaciones</p>
               </button>
               <button
                 onClick={() => handleChangeRole(roleChangeAgent, "admin")}
-                className={`p-3 rounded-xl border-2 text-left transition-all ${
+                disabled={!!changingRole}
+                className={`p-3 rounded-xl border-2 text-left transition-all disabled:opacity-70 ${
                   roleChangeAgent.role === "admin"
                     ? "border-purple-500 bg-purple-50"
                     : "border-gray-200 hover:border-gray-300"
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <svg className={`h-4 w-4 ${roleChangeAgent.role === "admin" ? "text-purple-600" : "text-gray-500"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  </svg>
+                  {changingRole === "admin" ? (
+                    <Loader2 className="h-4 w-4 text-purple-600 animate-spin" />
+                  ) : (
+                    <svg className={`h-4 w-4 ${roleChangeAgent.role === "admin" ? "text-purple-600" : "text-gray-500"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                  )}
                   <span className={`text-sm font-semibold ${roleChangeAgent.role === "admin" ? "text-purple-700" : "text-gray-700"}`}>Admin</span>
                 </div>
                 <p className="text-[10px] text-gray-500">Acceso total</p>
