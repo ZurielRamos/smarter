@@ -22,9 +22,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import axios from "axios";
-
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
+import { api } from "@/services/api";
 
 interface Tenant {
   id: string;
@@ -814,8 +812,6 @@ function TenantsManagementModal({
     user.tenantRoles.map((tr) => ({ tenantId: tr.tenantId, role: tr.role }))
   );
   const [saving, setSaving] = useState(false);
-
-  const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
 
   const addRole = () => {
     if (tenants.length === 0) return;

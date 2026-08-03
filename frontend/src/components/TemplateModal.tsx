@@ -268,6 +268,7 @@ export function TemplateConfigModal({ template, conversationId, senderId, contac
       await api.post(`/chats/conversations/${conversationId}/send-template`, {
         templateName: template.name,
         languageCode: template.language,
+        category: template.category,
         components: components.length > 0 ? components : undefined,
         senderId,
         renderedContent,

@@ -1,7 +1,10 @@
-import { Controller, Get, Post, Body, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { RecordsService } from './records.service';
 
 @Controller('records')
+@UseGuards(JwtAuthGuard, TenantAccessGuard)
 export class RecordsController {
   constructor(private readonly recordsService: RecordsService) {}
 

@@ -9,6 +9,7 @@ import { ClientRecord } from '../records/record.entity';
 import { Label } from './label.entity';
 import { ChatsGateway } from './chats.gateway';
 import { MediaStorageService } from '../media/media-storage.service';
+import { BillingService } from '../billing/billing.service';
 
 @Injectable()
 export class ChatsService {
@@ -26,6 +27,7 @@ export class ChatsService {
     private readonly chatsGateway: ChatsGateway,
     private readonly mediaStorageService: MediaStorageService,
     private readonly configService: ConfigService,
+    private readonly billingService: BillingService,
   ) {}
 
   // === INBOXES ===
@@ -1102,6 +1104,8 @@ export class ChatsService {
     senderId?: string,
     renderedContent?: string,
     templateComponents?: any[],
+    category?: string,
+    performedBy?: string,
   ): Promise<Message> {
     const conversation = await this.conversationRepo.findOne({
       where: { id: conversationId },
@@ -1111,6 +1115,26 @@ export class ChatsService {
 
     const inbox = conversation.inbox;
     if (!inbox.accessToken || inbox.channel !== 'whatsapp') throw new Error('Inbox not configured for templates');
+
+    // Consumir créditos según categoría de plantilla
+    const categoryLower = (category || 'utility').toLowerCase();
+    const actionMap: Record<string, string> = {
+      utility: 'whatsapp_utility',
+      marketing: 'whatsapp_marketing',
+      authentication: 'whatsapp_authentication',
+    };
+    const billingAction = actionMap[categoryLower] || 'whatsapp_utility';
+
+    try {
+      await this.billingService.consumeByAction(
+        inbox.tenantId,
+        billingAction,
+        conversationId,
+        performedBy,
+      );
+    } catch (err) {
+      throw new Error(`No se pudo enviar la plantilla: ${err.message}`);
+    }
 
     // Send template via WhatsApp Cloud API
     const messageBody: any = {

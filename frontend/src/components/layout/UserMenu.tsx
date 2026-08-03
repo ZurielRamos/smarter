@@ -1,14 +1,19 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { User, LogOut } from "lucide-react";
+import { User, LogOut, Settings2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export function UserMenu() {
   const [open, setOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { slug } = useParams();
+  const location = useLocation();
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const isOnTenant = !!slug && !location.pathname.startsWith("/admin");
+  const isAdmin = user?.isSuperAdmin;
 
   const initials = user?.name
     ?.split(" ")
@@ -75,6 +80,18 @@ export function UserMenu() {
                 <User className="h-4 w-4 text-gray-400" />
                 Perfil
               </button>
+              {isOnTenant && isAdmin && (
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    navigate(`/${slug}/settings`);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Settings2 className="h-4 w-4 text-gray-400" />
+                  Configurar cuenta
+                </button>
+              )}
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"

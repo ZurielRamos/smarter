@@ -1,12 +1,15 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { CampaignsService } from './campaigns.service';
 import { WhatsAppService } from './whatsapp.service';
 import { SegmentGroup } from './campaign.entity';
 import { CustomField } from '../records/custom-field.entity';
 
 @Controller('campaigns')
+@UseGuards(JwtAuthGuard, TenantAccessGuard)
 export class CampaignsController {
   constructor(
     private readonly campaignsService: CampaignsService,

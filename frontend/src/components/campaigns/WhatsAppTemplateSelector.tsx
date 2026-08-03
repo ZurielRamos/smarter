@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Info, ChevronDown } from "lucide-react";
-import axios from "axios";
-
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
+import { api } from "@/services/api";
 
 interface AvailableField {
   field: string;

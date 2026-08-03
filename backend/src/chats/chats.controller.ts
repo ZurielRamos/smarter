@@ -1,11 +1,14 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Res, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, Res, UseInterceptors, UploadedFile, UseGuards } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { ChatsService } from './chats.service';
 import { WebhookForwarderService } from './webhook-forwarder.service';
 
 @Controller('chats')
+@UseGuards(JwtAuthGuard, TenantAccessGuard)
 export class ChatsController {
   constructor(
     private readonly chatsService: ChatsService,
@@ -97,9 +100,10 @@ export class ChatsController {
   @Post('conversations/:id/send-template')
   sendTemplate(
     @Param('id') id: string,
-    @Body() body: { templateName: string; languageCode: string; components?: any[]; senderId?: string; renderedContent?: string; templateComponents?: any[] },
+    @Body() body: { templateName: string; languageCode: string; category?: string; components?: any[]; senderId?: string; renderedContent?: string; templateComponents?: any[] },
+    @Req() req: any,
   ) {
-    return this.chatsService.sendTemplateMessage(id, body.templateName, body.languageCode, body.components, body.senderId, body.renderedContent, body.templateComponents);
+    return this.chatsService.sendTemplateMessage(id, body.templateName, body.languageCode, body.components, body.senderId, body.renderedContent, body.templateComponents, body.category, req.user?.id);
   }
 
   // === CONVERSATIONS ===

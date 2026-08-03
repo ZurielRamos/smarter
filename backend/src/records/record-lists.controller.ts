@@ -1,7 +1,10 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { RecordListsService } from './record-lists.service';
 
 @Controller('record-lists')
+@UseGuards(JwtAuthGuard, TenantAccessGuard)
 export class RecordListsController {
   constructor(private readonly listsService: RecordListsService) {}
 
@@ -22,6 +25,14 @@ export class RecordListsController {
     @Query('limit') limit = '50',
   ) {
     return this.listsService.getRecords(id, +page, +limit);
+  }
+
+  @Post('preview')
+  preview(@Body() body: {
+    tenantId: string;
+    filters: { groups: { logic: 'and' | 'or'; conditions: { field: string; operator: string; value: string }[] }[]; groupLogic: 'and' | 'or' };
+  }) {
+    return this.listsService.previewCount(body.tenantId, body.filters);
   }
 
   @Post()

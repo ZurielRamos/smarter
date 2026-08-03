@@ -8,9 +8,13 @@ import { ChannelConfigsService } from './channel-configs.service';
 import { ChannelConfigsController } from './channel-configs.controller';
 import { UserTenant } from '../users/user-tenant.entity';
 import { CustomField } from '../records/custom-field.entity';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Tenant, ChannelConfig, UserTenant, CustomField])],
+  imports: [
+    TypeOrmModule.forFeature([Tenant, ChannelConfig, UserTenant, CustomField]),
+    BillingModule,
+  ],
   controllers: [TenantsController, ChannelConfigsController],
   providers: [TenantsService, ChannelConfigsService],
   exports: [TenantsService, ChannelConfigsService],

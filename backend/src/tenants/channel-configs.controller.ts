@@ -7,10 +7,14 @@ import {
   Param,
   Query,
   Body,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { ChannelConfigsService } from './channel-configs.service';
 
 @Controller('channel-configs')
+@UseGuards(JwtAuthGuard, TenantAccessGuard)
 export class ChannelConfigsController {
   constructor(private readonly service: ChannelConfigsService) {}
 

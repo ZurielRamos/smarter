@@ -94,20 +94,41 @@ export class RecordListsService {
     const qb = this.recordRepo.createQueryBuilder('r')
       .where('r.tenant_id = :tenantId', { tenantId: list.tenantId });
 
-    if (list.filters && list.filters.conditions.length > 0) {
-      const { conditions, logic } = list.filters;
-      const clauses: string[] = [];
-      const params: Record<string, any> = {};
+    if (list.filters) {
+      const filters = list.filters as any;
+      const allParams: Record<string, any> = {};
 
-      conditions.forEach((cond, i) => {
-        const paramKey = `val_${i}`;
-        const clause = this.buildConditionClause(cond, paramKey, params);
-        if (clause) clauses.push(clause);
-      });
-
-      if (clauses.length > 0) {
-        const joined = clauses.join(logic === 'or' ? ' OR ' : ' AND ');
-        qb.andWhere(`(${joined})`, params);
+      if (filters.groups) {
+        // New format: { groups: [...], groupLogic }
+        const groupClauses: string[] = [];
+        filters.groups.forEach((group: any, gi: number) => {
+          const condClauses: string[] = [];
+          group.conditions.forEach((cond: any, ci: number) => {
+            const paramKey = `g${gi}_c${ci}`;
+            const clause = this.buildConditionClause(cond, paramKey, allParams);
+            if (clause) condClauses.push(clause);
+          });
+          if (condClauses.length > 0) {
+            const joined = condClauses.join(group.logic === 'or' ? ' OR ' : ' AND ');
+            groupClauses.push(`(${joined})`);
+          }
+        });
+        if (groupClauses.length > 0) {
+          const finalClause = groupClauses.join(filters.groupLogic === 'or' ? ' OR ' : ' AND ');
+          qb.andWhere(`(${finalClause})`, allParams);
+        }
+      } else if (filters.conditions && filters.conditions.length > 0) {
+        // Legacy format: { logic, conditions }
+        const clauses: string[] = [];
+        filters.conditions.forEach((cond: any, i: number) => {
+          const paramKey = `val_${i}`;
+          const clause = this.buildConditionClause(cond, paramKey, allParams);
+          if (clause) clauses.push(clause);
+        });
+        if (clauses.length > 0) {
+          const joined = clauses.join(filters.logic === 'or' ? ' OR ' : ' AND ');
+          qb.andWhere(`(${joined})`, allParams);
+        }
       }
     }
 
@@ -183,5 +204,37 @@ export class RecordListsService {
       default:
         return null;
     }
+  }
+
+  // === Preview: count records matching filters ===
+  async previewCount(tenantId: string, filters: { groups: { logic: 'and' | 'or'; conditions: { field: string; operator: string; value: string }[] }[]; groupLogic: 'and' | 'or' }): Promise<{ count: number }> {
+    const qb = this.recordRepo.createQueryBuilder('r')
+      .where('r.tenant_id = :tenantId', { tenantId });
+
+    if (filters.groups && filters.groups.length > 0) {
+      const groupClauses: string[] = [];
+      const allParams: Record<string, any> = {};
+
+      filters.groups.forEach((group, gi) => {
+        const condClauses: string[] = [];
+        group.conditions.forEach((cond, ci) => {
+          const paramKey = `g${gi}_c${ci}`;
+          const clause = this.buildConditionClause(cond, paramKey, allParams);
+          if (clause) condClauses.push(clause);
+        });
+        if (condClauses.length > 0) {
+          const joined = condClauses.join(group.logic === 'or' ? ' OR ' : ' AND ');
+          groupClauses.push(`(${joined})`);
+        }
+      });
+
+      if (groupClauses.length > 0) {
+        const finalClause = groupClauses.join(filters.groupLogic === 'or' ? ' OR ' : ' AND ');
+        qb.andWhere(`(${finalClause})`, allParams);
+      }
+    }
+
+    const count = await qb.getCount();
+    return { count };
   }
 }

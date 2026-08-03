@@ -4,6 +4,7 @@ import { Repository, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Campaign, SegmentGroup } from './campaign.entity';
 import { CampaignSend } from './campaign-send.entity';
+import { CampaignSendLog } from './campaign-send-log.entity';
 import { ClientRecord } from '../records/record.entity';
 import { ChannelConfig } from '../tenants/channel-config.entity';
 import { RecordList } from '../records/record-list.entity';
@@ -17,6 +18,8 @@ export class CampaignsService {
     private readonly campaignRepository: Repository<Campaign>,
     @InjectRepository(CampaignSend)
     private readonly sendRepository: Repository<CampaignSend>,
+    @InjectRepository(CampaignSendLog)
+    private readonly sendLogRepository: Repository<CampaignSendLog>,
     @InjectRepository(ClientRecord)
     private readonly clientRepository: Repository<ClientRecord>,
     @InjectRepository(ChannelConfig)
@@ -133,16 +136,29 @@ export class CampaignsService {
     }
 
     // Dynamic list — use same filter logic
-    if (list.filters && list.filters.conditions.length > 0) {
-      const segments: SegmentGroup[] = [{
-        logic: list.filters.logic === 'or' ? 'OR' : 'AND',
-        conditions: list.filters.conditions.map((c) => ({
-          field: c.field,
-          operator: c.operator,
-          value: c.value,
-        })),
-      }];
-      return this.countMatches(segments, tenantId || list.tenantId);
+    if (list.filters) {
+      const filters = list.filters;
+      if ('conditions' in filters && filters.conditions.length > 0) {
+        const segments: SegmentGroup[] = [{
+          logic: filters.logic === 'or' ? 'OR' : 'AND',
+          conditions: filters.conditions.map((c) => ({
+            field: c.field,
+            operator: c.operator,
+            value: c.value,
+          })),
+        }];
+        return this.countMatches(segments, tenantId || list.tenantId);
+      } else if ('groups' in filters && filters.groups.length > 0) {
+        const segments: SegmentGroup[] = filters.groups.map((g) => ({
+          logic: g.logic === 'or' ? 'OR' : 'AND',
+          conditions: g.conditions.map((c) => ({
+            field: c.field,
+            operator: c.operator,
+            value: c.value,
+          })),
+        }));
+        return this.countMatches(segments, tenantId || list.tenantId);
+      }
     }
     return 0;
   }
@@ -158,16 +174,29 @@ export class CampaignsService {
     }
 
     // Dynamic list
-    if (list.filters && list.filters.conditions.length > 0) {
-      const segments: SegmentGroup[] = [{
-        logic: list.filters.logic === 'or' ? 'OR' : 'AND',
-        conditions: list.filters.conditions.map((c) => ({
-          field: c.field,
-          operator: c.operator,
-          value: c.value,
-        })),
-      }];
-      return this.buildSegmentQuery(segments, tenantId || list.tenantId).getMany();
+    if (list.filters) {
+      const filters = list.filters;
+      if ('conditions' in filters && filters.conditions.length > 0) {
+        const segments: SegmentGroup[] = [{
+          logic: filters.logic === 'or' ? 'OR' : 'AND',
+          conditions: filters.conditions.map((c) => ({
+            field: c.field,
+            operator: c.operator,
+            value: c.value,
+          })),
+        }];
+        return this.buildSegmentQuery(segments, tenantId || list.tenantId).getMany();
+      } else if ('groups' in filters && filters.groups.length > 0) {
+        const segments: SegmentGroup[] = filters.groups.map((g) => ({
+          logic: g.logic === 'or' ? 'OR' : 'AND',
+          conditions: g.conditions.map((c) => ({
+            field: c.field,
+            operator: c.operator,
+            value: c.value,
+          })),
+        }));
+        return this.buildSegmentQuery(segments, tenantId || list.tenantId).getMany();
+      }
     }
     return [];
   }
@@ -356,7 +385,6 @@ export class CampaignsService {
     const { provider, credentials } = channelConfig;
 
     console.log(`[CampaignSend] Starting SMS send ${sendId} via ${provider} to ${recipients.length} recipients`);
-    console.log(`[CampaignSend] Credentials keys: ${Object.keys(credentials).join(', ')}`);
 
     let totalSent = 0;
     let totalFailed = 0;
@@ -364,17 +392,29 @@ export class CampaignsService {
     const batchSize = 10;
     for (let i = 0; i < recipients.length; i += batchSize) {
       const batch = recipients.slice(i, i + batchSize);
+      const logs: Partial<CampaignSendLog>[] = [];
 
       for (const client of batch) {
         if (!client.phone) {
           console.log(`[SMS] Skipping client ${client.id}: no phone number`);
           totalFailed++;
+          logs.push({
+            sendId,
+            campaignId: campaign.id,
+            tenantId: campaign.tenantId,
+            recordId: client.id,
+            phone: '',
+            channel: 'sms',
+            status: 'failed',
+            errorCode: 'no_phone',
+          });
           continue;
         }
 
         const message = this.renderMessage(campaign.messageTemplate, client);
-        console.log(`[SMS] Sending to ${client.phone} via ${provider} | message length: ${message.length}`);
         let success = false;
+        let providerMessageId: string | null = null;
+        let errorCode: string | null = null;
 
         try {
           switch (provider) {
@@ -388,18 +428,33 @@ export class CampaignsService {
               success = await this.sendViaBrevo(client.phone, message, credentials);
               break;
             default:
-              console.error(`[SMS] Proveedor no soportado: ${provider}`);
+              errorCode = 'unsupported_provider';
               success = false;
           }
         } catch (err) {
-          console.error(`[SMS] Exception for ${client.phone}:`, err);
+          errorCode = 'exception';
           success = false;
         }
 
         if (success) totalSent++;
         else totalFailed++;
+
+        logs.push({
+          sendId,
+          campaignId: campaign.id,
+          tenantId: campaign.tenantId,
+          recordId: client.id,
+          phone: client.phone,
+          channel: 'sms',
+          status: success ? 'sent' : 'failed',
+          providerMessageId,
+          errorCode,
+          sentAt: success ? new Date() : null,
+        });
       }
 
+      // Batch insert logs (mucho más eficiente que uno a uno)
+      await this.sendLogRepository.insert(logs);
       await this.sendRepository.update(sendId, { totalSent, totalFailed });
     }
 
@@ -510,10 +565,21 @@ export class CampaignsService {
     const batchSize = 10;
     for (let i = 0; i < recipients.length; i += batchSize) {
       const batch = recipients.slice(i, i + batchSize);
+      const logs: Partial<CampaignSendLog>[] = [];
 
       for (const client of batch) {
         if (!client.phone) {
           totalFailed++;
+          logs.push({
+            sendId,
+            campaignId: campaign.id,
+            tenantId: campaign.tenantId,
+            recordId: client.id,
+            phone: '',
+            channel: 'whatsapp',
+            status: 'failed',
+            errorCode: 'no_phone',
+          });
           continue;
         }
 
@@ -536,12 +602,33 @@ export class CampaignsService {
 
         if (result.success) {
           totalSent++;
+          logs.push({
+            sendId,
+            campaignId: campaign.id,
+            tenantId: campaign.tenantId,
+            recordId: client.id,
+            phone: client.phone,
+            channel: 'whatsapp',
+            status: 'sent',
+            providerMessageId: result.messageId ?? null,
+            sentAt: new Date(),
+          });
         } else {
-          console.error(`[WhatsApp] Failed for ${client.phone}: ${result.error}`);
           totalFailed++;
+          logs.push({
+            sendId,
+            campaignId: campaign.id,
+            tenantId: campaign.tenantId,
+            recordId: client.id,
+            phone: client.phone,
+            channel: 'whatsapp',
+            status: 'failed',
+            errorCode: result.error?.substring(0, 50) ?? 'unknown',
+          });
         }
       }
 
+      await this.sendLogRepository.insert(logs);
       await this.sendRepository.update(sendId, { totalSent, totalFailed });
     }
 
@@ -610,11 +697,21 @@ export class CampaignsService {
     const batchSize = 10;
     for (let i = 0; i < recipients.length; i += batchSize) {
       const batch = recipients.slice(i, i + batchSize);
+      const logs: Partial<CampaignSendLog>[] = [];
 
       for (const client of batch) {
         if (!client.phone) {
-          console.log(`[Call] Skipping client ${client.id}: no phone number`);
           totalFailed++;
+          logs.push({
+            sendId,
+            campaignId: campaign.id,
+            tenantId: campaign.tenantId,
+            recordId: client.id,
+            phone: '',
+            channel: 'llamada',
+            status: 'failed',
+            errorCode: 'no_phone',
+          });
           continue;
         }
 
@@ -635,12 +732,33 @@ export class CampaignsService {
 
         if (result.success) {
           totalSent++;
+          logs.push({
+            sendId,
+            campaignId: campaign.id,
+            tenantId: campaign.tenantId,
+            recordId: client.id,
+            phone: client.phone,
+            channel: 'llamada',
+            status: 'sent',
+            providerMessageId: result.messageId ?? null,
+            sentAt: new Date(),
+          });
         } else {
-          console.error(`[Call] Failed for ${client.phone}: ${result.error}`);
           totalFailed++;
+          logs.push({
+            sendId,
+            campaignId: campaign.id,
+            tenantId: campaign.tenantId,
+            recordId: client.id,
+            phone: client.phone,
+            channel: 'llamada',
+            status: 'failed',
+            errorCode: result.error?.substring(0, 50) ?? 'unknown',
+          });
         }
       }
 
+      await this.sendLogRepository.insert(logs);
       await this.sendRepository.update(sendId, { totalSent, totalFailed });
     }
 

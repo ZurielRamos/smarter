@@ -75,6 +75,7 @@ export function Clients() {
   const [showColumnConfig, setShowColumnConfig] = useState(false);
   const [showNewRecord, setShowNewRecord] = useState(false);
   const [showNewList, setShowNewList] = useState(false);
+  const [editingList, setEditingList] = useState<RecordListItem | null>(null);
   const [inboxMap, setInboxMap] = useState<Record<string, string>>({});
   const [listsDropdownOpen, setListsDropdownOpen] = useState(false);
   const [recordLists, setRecordLists] = useState<RecordListItem[]>([]);
@@ -306,14 +307,27 @@ export function Clients() {
                     <>
                       <p className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase">Mis listas</p>
                       {recordLists.map((list) => (
-                        <button
+                        <div
                           key={list.id}
-                          onClick={() => { setActiveList(list); setListsDropdownOpen(false); }}
-                          className={`flex items-center justify-between w-full px-3 py-2 text-sm transition-colors ${activeList?.id === list.id ? "bg-brand-50 text-brand-700" : "text-gray-700 hover:bg-gray-50"}`}
+                          className={`flex items-center justify-between w-full px-3 py-2 transition-colors group ${activeList?.id === list.id ? "bg-brand-50" : "hover:bg-gray-50"}`}
                         >
-                          <span>{list.name}</span>
-                          <span className="text-[10px] text-gray-400">{list.type === "dynamic" ? "Dinámica" : "Estática"}</span>
-                        </button>
+                          <button
+                            onClick={() => { setActiveList(list); setListsDropdownOpen(false); }}
+                            className={`flex-1 text-left text-sm ${activeList?.id === list.id ? "text-brand-700" : "text-gray-700"}`}
+                          >
+                            {list.name}
+                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-gray-400">{list.type === "dynamic" ? "Dinámica" : "Estática"}</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setListsDropdownOpen(false); setEditingList(list); }}
+                              className="p-1 rounded text-gray-300 hover:text-gray-600 hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-all"
+                              title="Configurar lista"
+                            >
+                              <Settings2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
                       ))}
                       <div className="border-t border-gray-100 my-1" />
                     </>
@@ -667,6 +681,26 @@ export function Clients() {
             onCreated={() => {
               setShowNewList(false);
               getRecordLists(tenantId).then(setRecordLists).catch(() => {});
+            }}
+          />
+        </Suspense>
+      )}
+
+      {/* Edit List Modal */}
+      {editingList && (
+        <Suspense fallback={null}>
+          <NewListModal
+            tenantId={tenantId}
+            onClose={() => setEditingList(null)}
+            onCreated={() => {
+              setEditingList(null);
+              getRecordLists(tenantId).then(setRecordLists).catch(() => {});
+            }}
+            editData={{
+              id: editingList.id,
+              name: editingList.name,
+              type: editingList.type as "static" | "dynamic",
+              filters: editingList.filters,
             }}
           />
         </Suspense>

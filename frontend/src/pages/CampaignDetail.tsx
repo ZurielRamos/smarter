@@ -13,9 +13,7 @@ import { motion } from "framer-motion";
 import headerBg from "@/assets/header-background.jpg";
 import { getRecordLists } from "@/services/api";
 import type { RecordListItem } from "@/services/api";
-import axios from "axios";
-
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
+import { api } from "@/services/api";
 
 interface Campaign {
   id: string;

@@ -8,12 +8,16 @@ import {
   Query,
   UploadedFile,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { EtlService } from './etl.service';
 import { CreateImportDto, ValidatePreviewDto, DeduplicatePreviewDto } from './dto/create-import.dto';
 
 @Controller('etl')
+@UseGuards(JwtAuthGuard, TenantAccessGuard)
 export class EtlController {
   constructor(private readonly etlService: EtlService) {}
 

@@ -5,10 +5,13 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Campaign } from './campaign.entity';
 
 @Entity('campaign_sends')
+@Index(['campaignId', 'createdAt'])
+@Index(['status'])
 export class CampaignSend {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -30,10 +30,13 @@ export class RecordList {
   @Column({ type: 'varchar', length: 20, default: 'static' })
   type: 'static' | 'dynamic';
 
-  // For dynamic lists: filter configuration
-  // { conditions: [{ field, operator, value }], logic: 'and' | 'or' }
+  // For dynamic lists: filter configuration (supports nested groups)
+  // { groups: [{ logic: 'and'|'or', conditions: [{ field, operator, value }] }], groupLogic: 'and'|'or' }
   @Column({ type: 'jsonb', nullable: true })
   filters: {
+    groups: { logic: 'and' | 'or'; conditions: { field: string; operator: string; value: string }[] }[];
+    groupLogic: 'and' | 'or';
+  } | {
     logic: 'and' | 'or';
     conditions: { field: string; operator: string; value: string }[];
   } | null;

@@ -13,6 +13,7 @@ import { AuthModule } from './auth/auth.module';
 import { ChatsModule } from './chats/chats.module';
 import { FormsModule } from './forms/forms.module';
 import { EtlModule } from './etl/etl.module';
+import { BillingModule } from './billing/billing.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { EtlModule } from './etl/etl.module';
     ChatsModule,
     FormsModule,
     EtlModule,
+    BillingModule,
   ],
 })
 export class AppModule {}

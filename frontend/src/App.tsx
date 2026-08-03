@@ -26,6 +26,10 @@ import { PublicForm } from "./pages/PublicForm";
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { AdminAccounts } from "./pages/admin/AdminAccounts";
 import { AdminUsers } from "./pages/admin/AdminUsers";
+import { AdminBilling } from "./pages/admin/AdminBilling";
+import { PrivacyPolicy } from "./pages/legal/PrivacyPolicy";
+import { TermsOfService } from "./pages/legal/TermsOfService";
+import { DataDeletion } from "./pages/legal/DataDeletion";
 import { Login } from "./pages/Login";
 
 function ProtectedAppLayout() {
@@ -52,6 +56,9 @@ function App() {
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/f/:formSlug" element={<PublicForm />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/data-deletion" element={<DataDeletion />} />
 
           {/* Redirect root to login */}
           <Route path="/" element={<Navigate to="/login" replace />} />
@@ -61,6 +68,7 @@ function App() {
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/accounts" element={<AdminAccounts />} />
             <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/billing" element={<AdminBilling />} />
           </Route>
 
           {/* Tenant app routes */}

@@ -6,10 +6,14 @@ import {
   Delete,
   Param,
   Body,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { CustomFieldsService } from './custom-fields.service';
 
 @Controller('custom-fields')
+@UseGuards(JwtAuthGuard, TenantAccessGuard)
 export class CustomFieldsController {
   constructor(private readonly customFieldsService: CustomFieldsService) {}
 

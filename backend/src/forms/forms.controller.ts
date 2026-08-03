@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { FormsService } from './forms.service';
 import { FormField, FormStyle } from './form.entity';
 
@@ -7,22 +9,24 @@ export class FormsController {
   constructor(private readonly service: FormsService) {}
 
   @Get()
+  @UseGuards(JwtAuthGuard, TenantAccessGuard)
   findAll(@Query('tenantId') tenantId: string) {
     return this.service.findAll(tenantId);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
-  }
-
-  // Public endpoint for rendering forms
   @Get('public/:slug')
   findBySlug(@Param('slug') slug: string) {
     return this.service.findBySlug(slug);
   }
 
+  @Get(':id')
+  @UseGuards(JwtAuthGuard, TenantAccessGuard)
+  findOne(@Param('id') id: string) {
+    return this.service.findOne(id);
+  }
+
   @Post()
+  @UseGuards(JwtAuthGuard, TenantAccessGuard)
   create(@Body() body: {
     tenantId: string;
     inboxId?: string;
@@ -35,6 +39,7 @@ export class FormsController {
   }
 
   @Put(':id')
+  @UseGuards(JwtAuthGuard, TenantAccessGuard)
   update(@Param('id') id: string, @Body() body: Partial<{
     name: string;
     description: string;
@@ -48,6 +53,7 @@ export class FormsController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, TenantAccessGuard)
   delete(@Param('id') id: string) {
     return this.service.delete(id);
   }

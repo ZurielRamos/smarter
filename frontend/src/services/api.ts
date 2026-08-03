@@ -26,6 +26,8 @@ api.interceptors.response.use(
   },
 );
 
+export { api };
+
 export interface MappingTemplate {
   id: string;
   name: string;

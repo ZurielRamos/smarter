@@ -1,14 +1,28 @@
-import { NavLink, useLocation, useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, useLocation, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Settings } from "lucide-react";
+import { Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "./UserMenu";
 import { TenantSelector } from "./TenantSelector";
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/services/api";
 
 export function Header() {
   const location = useLocation();
   const { slug } = useParams();
-  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [credits, setCredits] = useState<number | null>(null);
+
+  const currentTenant = user?.tenantRoles?.find((tr) => tr.tenant.slug === slug);
+
+  useEffect(() => {
+    if (!currentTenant) return;
+    api
+      .get(`/tenants/${currentTenant.tenantId}/billing/balance`)
+      .then(({ data }) => setCredits(data.available))
+      .catch(() => setCredits(null));
+  }, [currentTenant?.tenantId]);
 
   const navItems = [
     { to: `/${slug}`, label: "Dashboard" },
@@ -54,13 +68,12 @@ export function Header() {
 
       {/* Right side */}
       <div className="flex items-center gap-2">
-        <button
-          onClick={() => navigate(`/${slug}/settings`)}
-          className="h-9 w-9 rounded-full flex items-center justify-center text-brand-300 hover:text-white hover:bg-brand-700 transition-colors"
-          title="Configuración"
-        >
-          <Settings className="h-4.5 w-4.5" />
-        </button>
+        {credits !== null && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-700/50 border border-brand-500/30">
+            <Coins className="h-3.5 w-3.5 text-brand-300" />
+            <span className="text-xs font-semibold text-white">{credits.toLocaleString()}</span>
+          </div>
+        )}
         <UserMenu />
       </div>
     </header>

@@ -12,13 +12,13 @@ import {
   Settings2,
   Power,
   Trash2,
+  Coins,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ImageCropper } from "@/components/ImageCropper";
-import axios from "axios";
-
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/services/api";
 
 interface Tenant {
   id: string;
@@ -32,6 +32,7 @@ interface Tenant {
 }
 
 export function AdminAccounts() {
+  const { user } = useAuth();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -48,6 +49,15 @@ export function AdminAccounts() {
   const [configModalTenant, setConfigModalTenant] = useState<Tenant | null>(null);
   const [configForm, setConfigForm] = useState({ name: '', maxAgents: 5, isDev: false });
   const [configLoading, setConfigLoading] = useState(false);
+  const [billingForm, setBillingForm] = useState({ type: 'monthly' as 'monthly' | 'prepaid', monthlyCredits: 0, rollover: false });
+  const [billingBalance, setBillingBalance] = useState<{ available: number; reserved: number } | null>(null);
+  const [billingPlanExists, setBillingPlanExists] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [rechargeAmount, setRechargeAmount] = useState(0);
+  const [rechargeModalTenant, setRechargeModalTenant] = useState<Tenant | null>(null);
+  const [rechargeLoading, setRechargeLoading] = useState(false);
+  const [rechargeValue, setRechargeValue] = useState(0);
+  const [rechargeBalance, setRechargeBalance] = useState<number | null>(null);
   const [tenantMembers, setTenantMembers] = useState<{ id: string; userId: string; role: string; user: { id: string; name: string; email: string } }[]>([]);
   const [allUsers, setAllUsers] = useState<{ id: string; name: string; email: string }[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
@@ -107,7 +117,7 @@ export function AdminAccounts() {
     }
   };
 
-  const openConfigModal = (tenant: Tenant) => {
+  const openConfigModal = async (tenant: Tenant) => {
     setContextMenu(null);
     setConfigModalTenant(tenant);
     setConfigForm({
@@ -115,6 +125,56 @@ export function AdminAccounts() {
       maxAgents: tenant.maxAgents ?? 5,
       isDev: tenant.isDev ?? false,
     });
+    // Fetch billing info
+    setBillingLoading(true);
+    try {
+      const { data } = await api.get(`/tenants/${tenant.id}/billing`);
+      if (data.plan) {
+        setBillingPlanExists(true);
+        setBillingForm({
+          type: data.plan.type,
+          monthlyCredits: data.plan.monthlyCredits ?? 0,
+          rollover: data.plan.rollover ?? false,
+        });
+      } else {
+        setBillingPlanExists(false);
+        setBillingForm({ type: 'monthly', monthlyCredits: 0, rollover: false });
+      }
+      setBillingBalance(data.balance ?? null);
+    } catch {
+      setBillingPlanExists(false);
+      setBillingForm({ type: 'monthly', monthlyCredits: 0, rollover: false });
+      setBillingBalance(null);
+    } finally {
+      setBillingLoading(false);
+    }
+    setRechargeAmount(0);
+  };
+
+  const openRechargeModal = async (tenant: Tenant) => {
+    setContextMenu(null);
+    setRechargeModalTenant(tenant);
+    setRechargeValue(0);
+    setRechargeBalance(null);
+    try {
+      const { data } = await api.get(`/tenants/${tenant.id}/billing/balance`);
+      setRechargeBalance(data.available);
+    } catch {
+      setRechargeBalance(null);
+    }
+  };
+
+  const handleRecharge = async () => {
+    if (!rechargeModalTenant || rechargeValue < 1) return;
+    setRechargeLoading(true);
+    try {
+      await api.post(`/tenants/${rechargeModalTenant.id}/billing/recharge`, {
+        amount: rechargeValue,
+      });
+      setRechargeModalTenant(null);
+    } catch {} finally {
+      setRechargeLoading(false);
+    }
   };
 
   const handleSaveConfig = async () => {
@@ -126,6 +186,23 @@ export function AdminAccounts() {
         maxAgents: configForm.maxAgents,
         isDev: configForm.isDev,
       });
+
+      // Save billing plan
+      if (billingPlanExists) {
+        await api.patch(`/tenants/${configModalTenant.id}/billing/plan`, {
+          type: billingForm.type,
+          monthlyCredits: billingForm.monthlyCredits,
+          rollover: billingForm.rollover,
+        });
+      } else {
+        await api.post(`/tenants/${configModalTenant.id}/billing/plan`, {
+          type: billingForm.type,
+          monthlyCredits: billingForm.monthlyCredits,
+          rollover: billingForm.rollover,
+        });
+        setBillingPlanExists(true);
+      }
+
       fetchTenants();
       setConfigModalTenant(null);
     } catch {} finally {
@@ -362,6 +439,13 @@ export function AdminAccounts() {
               Gestionar usuarios
             </button>
             <button
+              onClick={() => openRechargeModal(contextMenu.tenant)}
+              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <Coins className="h-4 w-4 text-gray-400" />
+              Cargar créditos
+            </button>
+            <button
               onClick={() => handleToggleActive(contextMenu.tenant)}
               className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
             >
@@ -535,7 +619,7 @@ export function AdminAccounts() {
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ duration: 0.2 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md rounded-2xl shadow-2xl border border-white/30 p-6"
+              className="w-full max-w-md rounded-2xl shadow-2xl border border-white/30 p-6 max-h-[90vh] overflow-y-auto"
               style={{ background: 'rgba(255, 255, 255, 0.92)', backdropFilter: 'blur(20px)' }}
             >
               {/* Header */}
@@ -594,6 +678,99 @@ export function AdminAccounts() {
                       }`}
                     />
                   </button>
+                </div>
+
+                {/* Billing Section */}
+                <div className="pt-4 border-t border-gray-200">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Plan de créditos</p>
+
+                  {billingLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Plan type */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Tipo de plan</label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setBillingForm({ ...billingForm, type: 'monthly' })}
+                            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                              billingForm.type === 'monthly'
+                                ? 'border-brand-500 bg-brand-50 text-brand-700'
+                                : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                            }`}
+                          >
+                            Mensual
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBillingForm({ ...billingForm, type: 'prepaid' })}
+                            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                              billingForm.type === 'prepaid'
+                                ? 'border-brand-500 bg-brand-50 text-brand-700'
+                                : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                            }`}
+                          >
+                            Prepago
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Monthly credits (only for monthly) */}
+                      {billingForm.type === 'monthly' && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Créditos mensuales</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={billingForm.monthlyCredits}
+                              onChange={(e) => setBillingForm({ ...billingForm, monthlyCredits: parseInt(e.target.value) || 0 })}
+                              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                            />
+                            <p className="text-xs text-gray-400 mt-1">Créditos otorgados al inicio de cada mes</p>
+                          </div>
+
+                          {/* Rollover toggle */}
+                          <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">Acumular créditos</p>
+                              <p className="text-xs text-gray-400 mt-0.5">Los créditos no usados se acumulan al renovar</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setBillingForm({ ...billingForm, rollover: !billingForm.rollover })}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                billingForm.rollover ? 'bg-brand-600' : 'bg-gray-300'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                                  billingForm.rollover ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Balance display */}
+                      {billingBalance && (
+                        <div className="p-3 rounded-lg bg-brand-50 border border-brand-100">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-brand-800">Balance actual</p>
+                            <p className="text-lg font-bold text-brand-700">{billingBalance.available.toLocaleString()}</p>
+                          </div>
+                          {billingBalance.reserved > 0 && (
+                            <p className="text-xs text-brand-600 mt-1">Reservados: {billingBalance.reserved}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -709,6 +886,82 @@ export function AdminAccounts() {
                   </div>
                 </div>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Recharge Modal */}
+      <AnimatePresence>
+        {rechargeModalTenant && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4"
+            onClick={() => setRechargeModalTenant(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-2xl shadow-2xl border border-white/30 p-6"
+              style={{ background: 'rgba(255, 255, 255, 0.92)', backdropFilter: 'blur(20px)' }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Cargar créditos</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">{rechargeModalTenant.name}</p>
+                </div>
+                <button onClick={() => setRechargeModalTenant(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Balance actual */}
+              {rechargeBalance !== null && (
+                <div className="p-3 rounded-lg bg-brand-50 border border-brand-100 mb-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-brand-800">Balance actual</p>
+                    <p className="text-lg font-bold text-brand-700">{rechargeBalance.toLocaleString()}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Amount input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Créditos a cargar</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={rechargeValue || ''}
+                  placeholder="0"
+                  onChange={(e) => setRechargeValue(parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setRechargeModalTenant(null)}
+                  className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleRecharge}
+                  disabled={rechargeLoading || rechargeValue < 1}
+                  className="relative px-6 py-2.5 rounded-lg text-white font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden bg-brand-800 hover:bg-brand-700 shadow-lg border border-white/10"
+                >
+                  <span className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/20 via-white/5 to-transparent pointer-events-none" />
+                  <span className="relative">{rechargeLoading ? 'Cargando...' : 'Cargar créditos'}</span>
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
