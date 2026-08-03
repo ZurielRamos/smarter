@@ -83,7 +83,7 @@ export function Login() {
           transition={{ duration: isExiting ? 1.2 : 0.6, ease: [0.22, 1, 0.36, 1] }}
           onAnimationComplete={() => {
             if (isExiting) {
-              navigate(redirectTo, { replace: true });
+              navigate(redirectTo === '/' ? '/pending' : redirectTo, { replace: true });
             }
           }}
           className="w-full max-w-md rounded-2xl shadow-2xl p-10 border border-white/30"
