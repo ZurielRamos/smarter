@@ -8,6 +8,7 @@ interface Agent {
   id: string;
   userId: string;
   role: string;
+  status: string;
   user: { id: string; name: string; email: string };
 }
 
@@ -94,7 +95,14 @@ export function Agentes() {
               {agent.user.name.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{agent.user.name}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-gray-900 truncate">{agent.user.name}</p>
+                {agent.status === "pending" && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium border border-amber-200">
+                    Sin confirmar
+                  </span>
+                )}
+              </div>
               <p className="text-[11px] text-gray-400 truncate">{agent.user.email}</p>
             </div>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${agent.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"}`}>

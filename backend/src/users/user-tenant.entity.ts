@@ -25,6 +25,10 @@ export class UserTenant {
   @Column({ type: 'varchar', length: 30, default: 'agent' })
   role: string; // admin | agent
 
+  /** pending = invitado, no ha aceptado | active = confirmado */
+  @Column({ type: 'varchar', length: 20, default: 'active' })
+  status: string; // pending | active
+
   @ManyToOne(() => User, (user) => user.tenantRoles, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;

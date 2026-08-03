@@ -65,8 +65,8 @@ export class InviteAgentController {
         throw new BadRequestException('Este usuario ya pertenece a la cuenta');
       }
 
-      // Assign to tenant
-      const ut = this.userTenantRepo.create({ userId: user.id, tenantId, role });
+      // Assign to tenant with pending status (needs to accept)
+      const ut = this.userTenantRepo.create({ userId: user.id, tenantId, role, status: 'pending' });
       await this.userTenantRepo.save(ut);
 
       // Send access notification
@@ -78,10 +78,10 @@ export class InviteAgentController {
         loginUrl,
       });
 
-      return { status: 'assigned', message: 'Usuario existente asignado a la cuenta' };
+      return { status: 'pending', message: 'Invitación enviada. El usuario debe aceptarla para acceder.' };
     }
 
-    // User doesn't exist — create with temporary password
+    // User doesn't exist — create with temporary password and needsPasswordSetup
     const temporaryPassword = this.generatePassword();
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
@@ -91,11 +91,12 @@ export class InviteAgentController {
       password: hashedPassword,
       isActive: true,
       isSuperAdmin: false,
+      needsPasswordSetup: true,
     } as Partial<User>);
     user = await this.userRepo.save(user);
 
-    // Assign to tenant
-    const ut = this.userTenantRepo.create({ userId: user.id, tenantId, role });
+    // Assign to tenant with pending status
+    const ut = this.userTenantRepo.create({ userId: user.id, tenantId, role, status: 'pending' });
     await this.userTenantRepo.save(ut);
 
     // Send invitation email

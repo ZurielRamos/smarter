@@ -28,6 +28,10 @@ export class User {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
+  /** true si el usuario fue creado por invitación y aún no ha configurado su contraseña */
+  @Column({ name: 'needs_password_setup', type: 'boolean', default: false })
+  needsPasswordSetup: boolean;
+
   @Column({ name: 'avatar_path', type: 'varchar', nullable: true })
   avatarPath: string;
 
