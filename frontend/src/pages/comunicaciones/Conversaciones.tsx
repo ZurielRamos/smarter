@@ -104,6 +104,7 @@ export function Conversaciones() {
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [audioPreview, setAudioPreview] = useState<{ blob: Blob; url: string } | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -499,13 +500,10 @@ export function Conversaciones() {
 
   const stopRecording = () => {
     if (!mediaRecorderRef.current) return;
-    mediaRecorderRef.current.onstop = async () => {
+    mediaRecorderRef.current.onstop = () => {
       const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-      const file = new File([blob], `audio-${Date.now()}.webm`, { type: 'audio/webm' });
-      if (activeConversation) {
-        await sendFile(file);
-      }
-      // Stop all tracks
+      const url = URL.createObjectURL(blob);
+      setAudioPreview({ blob, url });
       mediaRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
     };
     mediaRecorderRef.current.stop();
@@ -514,13 +512,26 @@ export function Conversaciones() {
   };
 
   const cancelRecording = () => {
-    if (!mediaRecorderRef.current) return;
-    mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
-    mediaRecorderRef.current.stop();
-    mediaRecorderRef.current = null;
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    }
     audioChunksRef.current = [];
     setIsRecording(false);
     if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+    if (audioPreview) {
+      URL.revokeObjectURL(audioPreview.url);
+      setAudioPreview(null);
+    }
+  };
+
+  const sendAudio = async () => {
+    if (!audioPreview || !activeConversation) return;
+    const file = new File([audioPreview.blob], `audio-${Date.now()}.webm`, { type: 'audio/webm' });
+    URL.revokeObjectURL(audioPreview.url);
+    setAudioPreview(null);
+    await sendFile(file);
   };
 
   const formatRecordingTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
@@ -1022,6 +1033,24 @@ export function Conversaciones() {
                         <button
                           onClick={stopRecording}
                           className="p-1.5 rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors"
+                          title="Parar grabación"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : audioPreview ? (
+                      <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-brand-50 border border-brand-200">
+                        <button
+                          onClick={cancelRecording}
+                          className="p-1 rounded text-gray-500 hover:bg-gray-200 transition-colors"
+                          title="Descartar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                        <audio src={audioPreview.url} controls className="h-8 max-w-[160px]" />
+                        <button
+                          onClick={sendAudio}
+                          className="p-1.5 rounded-full bg-brand-600 hover:bg-brand-700 text-white transition-colors"
                           title="Enviar audio"
                         >
                           <Send className="h-3.5 w-3.5" />
