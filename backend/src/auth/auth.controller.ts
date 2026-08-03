@@ -29,6 +29,19 @@ export class AuthController {
     return req.user;
   }
 
+  /** Rechazar invitación a un tenant */
+  @UseGuards(JwtAuthGuard)
+  @Post('decline-invite')
+  async declineInvite(@Req() req: any, @Body() body: { tenantId: string }) {
+    const userId = req.user.id;
+    const ut = await this.userTenantRepo.findOne({
+      where: { userId, tenantId: body.tenantId, status: 'pending' },
+    });
+    if (!ut) return { error: 'No se encontró invitación pendiente' };
+    await this.userTenantRepo.remove(ut);
+    return { status: 'declined', message: 'Invitación rechazada' };
+  }
+
   /** Aceptar invitación a un tenant (usuario existente) */
   @UseGuards(JwtAuthGuard)
   @Post('accept-invite')

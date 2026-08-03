@@ -140,8 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  function declineInvite(tenantId: string) {
-    // Remove locally (backend can handle cleanup later)
+  async function declineInvite(tenantId: string) {
+    await axios.post(`${API_BASE}/auth/decline-invite`, { tenantId }, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     if (user) {
       setUser({
         ...user,
