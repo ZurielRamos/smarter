@@ -455,160 +455,6 @@ export function CampanaDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main info */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Segmentation */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-gray-900">Segmentación</h2>
-                {!campaign.listId && (
-                  <button
-                    onClick={handleOpenSegmentEditor}
-                    className="px-3 py-1 rounded-md text-xs font-medium text-brand-700 border border-brand-200 hover:bg-brand-50 transition-colors flex items-center gap-1.5"
-                  >
-                    <Pencil className="h-3 w-3" />
-                    Editar
-                  </button>
-                )}
-              </div>
-
-              {/* Source selector: Segments vs List */}
-              {(() => {
-                const usesList = !!campaign.listId;
-                const selectedList = recordLists.find((l) => l.id === campaign.listId);
-
-                return (
-                  <div className="space-y-4">
-                    {/* Two cards to pick source */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        onClick={async () => {
-                          if (campaign.listId) {
-                            const { data: updated } = await api.put(`/campaigns/${campaign.id}`, { listId: null });
-                            setCampaign(updated);
-                          }
-                        }}
-                        className={`p-4 rounded-xl border-2 text-left transition-all ${!usesList ? "border-brand-500 bg-brand-50/50" : "border-gray-200 hover:border-gray-300"}`}
-                      >
-                        <p className={`text-sm font-semibold ${!usesList ? "text-brand-800" : "text-gray-700"}`}>Segmentación</p>
-                        <p className="text-[11px] text-gray-500 mt-1">Define condiciones para filtrar contactos dinámicamente al enviar</p>
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (!campaign.listId) {
-                            setCampaign({ ...campaign, listId: "pending" });
-                          }
-                        }}
-                        className={`p-4 rounded-xl border-2 text-left transition-all ${usesList ? "border-brand-500 bg-brand-50/50" : "border-gray-200 hover:border-gray-300"}`}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <List className="h-3.5 w-3.5 text-gray-500" />
-                          <p className={`text-sm font-semibold ${usesList ? "text-brand-800" : "text-gray-700"}`}>Lista</p>
-                        </div>
-                        <p className="text-[11px] text-gray-500 mt-1">Usa una lista pre-definida de contactos (estática o dinámica)</p>
-                      </button>
-                    </div>
-
-                    {/* Content based on selection */}
-                    {usesList ? (
-                      <div className="space-y-2">
-                        {selectedList ? (
-                          <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-brand-200 bg-brand-50/50">
-                            <div>
-                              <p className="text-sm font-medium text-gray-800">{selectedList.name}</p>
-                              <p className="text-[11px] text-gray-500">{selectedList.type === "dynamic" ? "Dinámica — se recalcula al enviar" : "Estática"}{selectedList.type === "static" && selectedList.recordIds ? ` · ${selectedList.recordIds.length} contactos` : ""}</p>
-                            </div>
-                            <button
-                              onClick={() => setCampaign({ ...campaign, listId: "pending" })}
-                              className="text-xs text-brand-600 hover:text-brand-800 font-medium"
-                            >
-                              Cambiar
-                            </button>
-                          </div>
-                        ) : (
-                          /* List picker */
-                          recordLists.length === 0 ? (
-                            <p className="text-xs text-gray-400 py-4 text-center">No hay listas creadas. Crea una desde la vista de Contactos.</p>
-                          ) : (
-                            <div className="space-y-2">
-                              <p className="text-xs text-gray-500 mb-2">Selecciona una lista:</p>
-                              {recordLists.map((list) => (
-                                <button
-                                  key={list.id}
-                                  onClick={async () => {
-                                    const { data: updated } = await api.put(`/campaigns/${campaign.id}`, { listId: list.id });
-                                    setCampaign(updated);
-                                  }}
-                                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 hover:border-brand-300 hover:bg-brand-50/30 text-left transition-all"
-                                >
-                                  <div>
-                                    <p className="text-sm font-medium text-gray-800">{list.name}</p>
-                                    <p className="text-[11px] text-gray-400">{list.type === "dynamic" ? "Dinámica" : "Estática"}{list.type === "static" && list.recordIds ? ` · ${list.recordIds.length} contactos` : ""}</p>
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          )
-                        )}
-                      </div>
-                    ) : (
-                      /* Segment conditions display */
-                      <div className="space-y-3">
-                        {campaign.segments.length === 0 ? (
-                          <p className="text-xs text-gray-400 py-3 text-center">Sin condiciones configuradas. Haz click en "Editar" para agregar filtros.</p>
-                        ) : campaign.segments.map((group, gIdx) => (
-                          <div key={gIdx} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                            <div className="flex items-center gap-2 mb-3">
-                              <span className="text-xs font-semibold text-gray-500 uppercase">
-                                Grupo {gIdx + 1}
-                              </span>
-                              <span className="px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-700">
-                                {group.logic}
-                              </span>
-                            </div>
-                            <div className="space-y-2">
-                              {group.conditions.map((cond, cIdx) => (
-                                <div
-                                  key={cIdx}
-                                  className="flex items-center gap-2 text-sm bg-white rounded-md border border-gray-200 px-3 py-2"
-                                >
-                                  <span className="font-medium text-brand-700">
-                                    {fieldLabels[cond.field] || cond.field}
-                                  </span>
-                                  <span className="text-gray-500">
-                                    {operatorLabels[cond.operator] || cond.operator}
-                                  </span>
-                                  {!["is_true", "is_false", "is_null", "is_not_null"].includes(cond.operator) && (
-                                    <span className="font-medium text-gray-900">
-                                      {String(cond.value)}
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* Audience */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-base font-semibold text-gray-900 mb-2">Audiencia</h2>
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-lg bg-accent-50 flex items-center justify-center">
-                  <Users className="h-6 w-6 text-accent-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {campaign.matchedCount.toLocaleString()}
-                  </p>
-                  <p className="text-sm text-gray-500">clientes que cumplen las condiciones</p>
-                </div>
-              </div>
-            </div>
-
             {/* Message Editor - only for SMS */}
             {campaign.channel === "sms" && (
               <MessageEditor
@@ -650,75 +496,11 @@ export function CampanaDetail() {
                 retries={campaign.callRetries || ""}
                 leaveVoicemail={campaign.callLeaveVoicemail ?? true}
                 audioCode={campaign.callAudioCode || ""}
-                onMessageChange={(val) => setCampaign({ ...campaign, messageTemplate: val })}
-                onVoiceChange={(val) => setCampaign({ ...campaign, callVoice: val })}
-                onRetriesChange={(val) => setCampaign({ ...campaign, callRetries: val })}
-                onLeaveVoicemailChange={(val) => setCampaign({ ...campaign, callLeaveVoicemail: val })}
-                onAudioCodeChange={(val) => setCampaign({ ...campaign, callAudioCode: val })}
                 onSave={handleSaveCallConfig}
                 saving={savingCall}
                 variables={availableFields}
               />
             )}
-
-            {/* Send History */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-gray-900">Historial de Envíos</h2>
-                <button
-                  onClick={handleSendCampaign}
-                  disabled={sending || (campaign.channel === "sms" ? !campaign.messageTemplate : campaign.channel === "whatsapp" ? !campaign.whatsappTemplateName : campaign.channel === "llamada" ? (!campaign.messageTemplate && !campaign.callAudioCode) : true)}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-accent-500 text-white hover:bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  {sending ? "Enviando..." : "Enviar ahora"}
-                </button>
-              </div>
-
-              {sends.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">
-                  No se han realizado envíos aún
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {sends.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50">
-                      <div className="flex items-center gap-3">
-                        <div className={`h-2 w-2 rounded-full ${
-                          s.status === "completed" ? "bg-green-500" :
-                          s.status === "sending" ? "bg-amber-500 animate-pulse" :
-                          s.status === "failed" ? "bg-red-500" : "bg-gray-400"
-                        }`} />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            {new Date(s.createdAt).toLocaleString()}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {s.status === "completed" ? "Completado" :
-                             s.status === "sending" ? "Enviando..." :
-                             s.status === "failed" ? "Fallido" : "Pendiente"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 text-xs">
-                        <div className="text-center">
-                          <p className="font-semibold text-gray-900">{s.totalRecipients}</p>
-                          <p className="text-gray-400">Destinos</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="font-semibold text-green-600">{s.totalSent}</p>
-                          <p className="text-gray-400">Enviados</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="font-semibold text-red-600">{s.totalFailed}</p>
-                          <p className="text-gray-400">Fallidos</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Sidebar info */}
@@ -731,61 +513,6 @@ export function CampanaDetail() {
                 <span className="text-sm font-medium text-gray-900 uppercase">
                   {campaign.channel || "Sin definir"}
                 </span>
-              </div>
-            </div>
-
-            {/* Schedule */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-gray-900">Programación</h2>
-                <button
-                  onClick={handleOpenScheduleModal}
-                  className="p-1.5 rounded-md text-gray-400 hover:text-brand-700 hover:bg-brand-50 transition-colors"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <div className="space-y-3 text-sm">
-                {campaign.maxSends && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Users className="h-4 w-4 text-gray-400" />
-                    <span>Máx. {campaign.maxSends.toLocaleString()} envíos</span>
-                  </div>
-                )}
-                {campaign.isRecurring ? (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <RefreshCw className="h-4 w-4 text-gray-400" />
-                    <span>Recurrente</span>
-                  </div>
-                ) : (
-                  campaign.sendDate && (
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Calendar className="h-4 w-4 text-gray-400" />
-                      <span>{new Date(campaign.sendDate).toLocaleDateString()}</span>
-                    </div>
-                  )
-                )}
-                {campaign.sendTime && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Clock className="h-4 w-4 text-gray-400" />
-                    <span>{campaign.sendTime}</span>
-                  </div>
-                )}
-                {campaign.recurrenceDays && campaign.recurrenceDays.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {campaign.recurrenceDays.map((day) => (
-                      <span
-                        key={day}
-                        className="px-2 py-0.5 rounded-md text-xs font-medium bg-brand-100 text-brand-700"
-                      >
-                        {day}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {!campaign.maxSends && !campaign.sendDate && !campaign.sendTime && !campaign.isRecurring && (
-                  <p className="text-gray-400">Sin configurar</p>
-                )}
               </div>
             </div>
 
@@ -811,6 +538,7 @@ export function CampanaDetail() {
         </div>
       </motion.div>
       )}
+
 
       {campaignTab === "segmentacion" && (
         <div className="flex-1 min-h-0 overflow-auto px-6 py-6">
