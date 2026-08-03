@@ -2,16 +2,20 @@ import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { LoginDto } from './dto/login.dto';
 import { User } from '../users/user.entity';
 import { UserTenant } from '../users/user-tenant.entity';
+import { MailService } from '../mail/mail.service';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+    private readonly mailService: MailService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserTenant)
@@ -29,7 +33,29 @@ export class AuthController {
     return req.user;
   }
 
-  /** Rechazar invitación a un tenant */
+  /** Solicitar recuperación de contraseña */
+  @Post('forgot-password')
+  async forgotPassword(@Body() body: { email: string }) {
+    const user = await this.userRepo.findOne({ where: { email: body.email } });
+    if (!user) {
+      // No revelar si el email existe o no
+      return { status: 'sent', message: 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.' };
+    }
+
+    const token = this.authService.generateSetupToken(user.id, user.email);
+    const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:5173');
+    const resetUrl = `${frontendUrl}/setup-password?token=${token}&mode=reset`;
+
+    await this.mailService.sendPasswordReset({
+      to: user.email,
+      name: user.name,
+      resetUrl,
+    });
+
+    return { status: 'sent', message: 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.' };
+  }
+
+  /** Aceptar invitación a un tenant (usuario existente) */
   @UseGuards(JwtAuthGuard)
   @Post('decline-invite')
   async declineInvite(@Req() req: any, @Body() body: { tenantId: string }) {

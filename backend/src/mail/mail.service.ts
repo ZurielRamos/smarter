@@ -148,4 +148,48 @@ export class MailService {
       this.logger.error(`Failed to send access email to ${to}:`, err);
     }
   }
+
+  async sendPasswordReset(params: {
+    to: string;
+    name: string;
+    resetUrl: string;
+  }): Promise<void> {
+    const { to, name, resetUrl } = params;
+
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 0;">
+        <div style="background: #1a1a1a; padding: 24px 32px; border-radius: 12px 12px 0 0;">
+          <img src="https://crm.strategee.us/logo-completo.png" alt="Smartee" style="height: 28px;" />
+        </div>
+        <div style="background: #ffffff; padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+          <h2 style="color: #1a1a1a; margin: 0 0 16px 0; font-size: 20px;">Restablecer contraseña</h2>
+          <p style="color: #4b5563; font-size: 14px; line-height: 1.6; margin: 0 0 8px 0;">
+            Hola <strong>${name}</strong>,
+          </p>
+          <p style="color: #4b5563; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
+            Recibimos una solicitud para restablecer la contraseña de tu cuenta en Smartee.
+            Haz clic en el siguiente botón para crear una nueva contraseña:
+          </p>
+          <a href="${resetUrl}" style="display: inline-block; background: #1a1a1a; color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-size: 14px; font-weight: 600; margin: 8px 0 24px 0;">
+            Restablecer contraseña
+          </a>
+          <p style="color: #9ca3af; font-size: 12px; margin: 24px 0 0 0; padding-top: 16px; border-top: 1px solid #f3f4f6;">
+            Este enlace expira en 48 horas. Si no solicitaste este cambio, puedes ignorar este correo.
+          </p>
+        </div>
+      </div>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: this.from,
+        to,
+        subject: 'Restablecer contraseña — Smartee',
+        html,
+      });
+      this.logger.log(`Password reset email sent to ${to}`);
+    } catch (err) {
+      this.logger.error(`Failed to send password reset email to ${to}:`, err);
+    }
+  }
 }

@@ -35,6 +35,7 @@ import { DataDeletion } from "./pages/legal/DataDeletion";
 import { Login } from "./pages/Login";
 import { Pending } from "./pages/Pending";
 import { SetupPassword } from "./pages/SetupPassword";
+import { ForgotPassword } from "./pages/ForgotPassword";
 
 function ProtectedAppLayout() {
   return (
@@ -66,6 +67,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/pending" element={<Pending />} />
           <Route path="/setup-password" element={<SetupPassword />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/f/:formSlug" element={<PublicForm />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />

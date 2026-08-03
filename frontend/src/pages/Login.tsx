@@ -216,6 +216,7 @@ export function Login() {
               </div>
               <button
                 type="button"
+                onClick={() => navigate("/forgot-password")}
                 className="text-sm text-brand-700 hover:text-brand-900 font-medium transition-colors"
               >
                 ¿Olvidaste tu contraseña?
