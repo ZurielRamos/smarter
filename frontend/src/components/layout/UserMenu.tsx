@@ -66,6 +66,17 @@ export function UserMenu() {
               <p className="text-xs text-gray-500 truncate mt-0.5">
                 {user?.email}
               </p>
+              {isOnTenant && (() => {
+                const currentRole = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
+                if (!currentRole) return null;
+                return (
+                  <span className={`inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                    currentRole.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"
+                  }`}>
+                    {currentRole.role === "admin" ? "Administrador" : "Agente"}
+                  </span>
+                );
+              })()}
             </div>
 
             {/* Options */}
