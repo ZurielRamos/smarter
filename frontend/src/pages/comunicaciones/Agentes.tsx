@@ -24,6 +24,7 @@ export function Agentes() {
   const [inviting, setInviting] = useState(false);
   const [inviteResult, setInviteResult] = useState<{ status: string; message: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; agent: Agent } | null>(null);
+  const [roleChangeAgent, setRoleChangeAgent] = useState<Agent | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
   const loadAgents = () => {
@@ -60,6 +61,14 @@ export function Agentes() {
     setContextMenu(null);
     try {
       await api.delete(`/users/${agent.userId}/tenants/${tenantId}`);
+      loadAgents();
+    } catch {}
+  };
+
+  const handleChangeRole = async (agent: Agent, newRole: string) => {
+    try {
+      await api.post(`/users/${agent.userId}/tenants`, { tenantId, role: newRole });
+      setRoleChangeAgent(null);
       loadAgents();
     } catch {}
   };
@@ -175,7 +184,7 @@ export function Agentes() {
           )}
           {contextMenu.agent.status === "active" && (
             <button
-              onClick={() => { setContextMenu(null); /* TODO: edit role */ }}
+              onClick={() => { setRoleChangeAgent(contextMenu.agent); setContextMenu(null); }}
               className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
             >
               <Pencil className="h-4 w-4 text-gray-400" />
@@ -190,6 +199,68 @@ export function Agentes() {
             <Trash2 className="h-4 w-4 text-red-400" />
             Eliminar
           </button>
+        </div>
+      )}
+
+      {/* Role Change Modal */}
+      {roleChangeAgent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4"
+          onClick={() => setRoleChangeAgent(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl shadow-2xl border border-white/30 p-6"
+            style={{ background: "rgba(255, 255, 255, 0.95)", backdropFilter: "blur(20px)" }}
+          >
+            <div className="mb-4">
+              <h3 className="text-base font-semibold text-gray-900">Cambiar rol</h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {roleChangeAgent.user.name} · {roleChangeAgent.user.email}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handleChangeRole(roleChangeAgent, "agent")}
+                className={`p-3 rounded-xl border-2 text-left transition-all ${
+                  roleChangeAgent.role === "agent"
+                    ? "border-brand-500 bg-brand-50"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className={`h-4 w-4 ${roleChangeAgent.role === "agent" ? "text-brand-600" : "text-gray-500"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                  </svg>
+                  <span className={`text-sm font-semibold ${roleChangeAgent.role === "agent" ? "text-brand-700" : "text-gray-700"}`}>Agente</span>
+                </div>
+                <p className="text-[10px] text-gray-500">Responde conversaciones</p>
+              </button>
+              <button
+                onClick={() => handleChangeRole(roleChangeAgent, "admin")}
+                className={`p-3 rounded-xl border-2 text-left transition-all ${
+                  roleChangeAgent.role === "admin"
+                    ? "border-purple-500 bg-purple-50"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className={`h-4 w-4 ${roleChangeAgent.role === "admin" ? "text-purple-600" : "text-gray-500"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                  <span className={`text-sm font-semibold ${roleChangeAgent.role === "admin" ? "text-purple-700" : "text-gray-700"}`}>Admin</span>
+                </div>
+                <p className="text-[10px] text-gray-500">Acceso total</p>
+              </button>
+            </div>
+
+            <div className="mt-4 text-right">
+              <button onClick={() => setRoleChangeAgent(null)} className="text-xs text-gray-500 hover:text-gray-700">
+                Cancelar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
