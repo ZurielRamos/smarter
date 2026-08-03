@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Users, Plus, X, Loader2, CheckCircle2 } from "lucide-react";
+import { Users, Plus, X, Loader2, CheckCircle2, Pencil, Mail, Trash2 } from "lucide-react";
 import { api } from "@/services/api";
 
 interface Agent {
@@ -23,6 +23,8 @@ export function Agentes() {
   const [inviteForm, setInviteForm] = useState({ name: "", email: "", role: "agent" });
   const [inviting, setInviting] = useState(false);
   const [inviteResult, setInviteResult] = useState<{ status: string; message: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; agent: Agent } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   const loadAgents = () => {
     if (!tenantId) return;
@@ -31,6 +33,40 @@ export function Agentes() {
   };
 
   useEffect(() => { loadAgents(); }, [tenantId]);
+
+  // Close context menu on click outside
+  useEffect(() => {
+    if (!contextMenu) return;
+    function handleClick(e: MouseEvent) {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) setContextMenu(null);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [contextMenu]);
+
+  const handleContextMenu = (e: React.MouseEvent, agent: Agent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, agent });
+  };
+
+  const handleResendInvite = async (agent: Agent) => {
+    setContextMenu(null);
+    try {
+      await api.post(`/tenants/${tenantId}/invite`, {
+        name: agent.user.name,
+        email: agent.user.email,
+        role: agent.role,
+      });
+    } catch {}
+  };
+
+  const handleRemoveAgent = async (agent: Agent) => {
+    setContextMenu(null);
+    try {
+      await api.delete(`/users/${agent.userId}/tenants/${tenantId}`);
+      loadAgents();
+    } catch {}
+  };
 
   const handleInvite = async () => {
     if (!inviteForm.name || !inviteForm.email || !inviteForm.role) return;
@@ -90,7 +126,11 @@ export function Agentes() {
       </div>
       <div className="flex-1 overflow-y-auto">
         {agents.map((agent) => (
-          <div key={agent.id} className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors">
+          <div
+            key={agent.id}
+            onContextMenu={(e) => handleContextMenu(e, agent)}
+            className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-default"
+          >
             <div className="h-9 w-9 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 shrink-0">
               {agent.user.name.charAt(0).toUpperCase()}
             </div>
@@ -111,6 +151,51 @@ export function Agentes() {
           </div>
         ))}
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 animate-in fade-in zoom-in-95 duration-100"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          {contextMenu.agent.status === "pending" && (
+            <>
+              <button
+                onClick={() => { setContextMenu(null); /* TODO: edit modal */ }}
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Pencil className="h-4 w-4 text-gray-400" />
+                Editar
+              </button>
+              <button
+                onClick={() => handleResendInvite(contextMenu.agent)}
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Mail className="h-4 w-4 text-gray-400" />
+                Reenviar correo
+              </button>
+            </>
+          )}
+          {contextMenu.agent.status === "active" && (
+            <button
+              onClick={() => { setContextMenu(null); /* TODO: edit role */ }}
+              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <Pencil className="h-4 w-4 text-gray-400" />
+              Cambiar rol
+            </button>
+          )}
+          <div className="border-t border-gray-100 my-1" />
+          <button
+            onClick={() => handleRemoveAgent(contextMenu.agent)}
+            className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <Trash2 className="h-4 w-4 text-red-400" />
+            Eliminar
+          </button>
+        </div>
+      )}
 
       {/* Invite Modal */}
       {showInviteModal && (
