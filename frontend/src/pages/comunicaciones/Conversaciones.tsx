@@ -173,7 +173,19 @@ export function Conversaciones() {
     const offMsg = on("new_message", (data: { conversationId: string; message: any }) => {
       if (activeConversation?.id === data.conversationId) {
         setMessages((prev) => {
+          // Skip if already exists by real ID
           if (prev.find((m) => m.id === data.message.id)) return prev;
+          // If outbound, replace the optimistic temp message
+          if (data.message.direction === "outbound") {
+            const tempIdx = prev.findIndex(
+              (m) => m.id.startsWith("temp-") && m.content === data.message.content && m.direction === "outbound"
+            );
+            if (tempIdx !== -1) {
+              const updated = [...prev];
+              updated[tempIdx] = data.message;
+              return updated;
+            }
+          }
           return [...prev, data.message];
         });
       }
