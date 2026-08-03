@@ -12,12 +12,14 @@ import { User } from '../users/user.entity';
 import { CustomField } from '../records/custom-field.entity';
 import { BillingModule } from '../billing/billing.module';
 import { MailModule } from '../mail/mail.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Tenant, ChannelConfig, UserTenant, User, CustomField]),
     BillingModule,
     MailModule,
+    AuthModule,
   ],
   controllers: [TenantsController, ChannelConfigsController, InviteAgentController],
   providers: [TenantsService, ChannelConfigsService],

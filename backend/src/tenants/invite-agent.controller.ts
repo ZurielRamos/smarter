@@ -11,6 +11,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
+import { AuthService } from '../auth/auth.service';
 import { User } from '../users/user.entity';
 import { UserTenant } from '../users/user-tenant.entity';
 import { Tenant } from './tenant.entity';
@@ -29,6 +30,7 @@ export class InviteAgentController {
     private readonly tenantRepo: Repository<Tenant>,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
+    private readonly authService: AuthService,
   ) {}
 
   @Post(':tenantId/invite')
@@ -99,14 +101,16 @@ export class InviteAgentController {
     const ut = this.userTenantRepo.create({ userId: user.id, tenantId, role, status: 'pending' });
     await this.userTenantRepo.save(ut);
 
-    // Send invitation email
+    // Generate setup token and send invitation email
+    const setupToken = this.authService.generateSetupToken(user.id, email);
+    const setupUrl = `${loginUrl.replace('/login', '/setup-password')}?token=${setupToken}`;
+
     await this.mailService.sendInvitation({
       to: email,
       name,
       tenantName: tenant.name,
       role,
-      temporaryPassword,
-      loginUrl,
+      setupUrl,
     });
 
     return { status: 'invited', message: 'Usuario creado e invitación enviada' };

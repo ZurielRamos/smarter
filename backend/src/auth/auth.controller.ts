@@ -56,21 +56,17 @@ export class AuthController {
     return { status: 'active', message: 'Invitación aceptada' };
   }
 
-  /** Completar registro: usuario nuevo configura su contraseña */
+  /** Completar registro: usuario nuevo configura su contraseña via token */
   @Post('setup-password')
-  async setupPassword(@Body() body: { email: string; temporaryPassword: string; newPassword: string }) {
-    const user = await this.userRepo.findOne({
-      where: { email: body.email },
-      select: { id: true, email: true, password: true, needsPasswordSetup: true },
-    });
+  async setupPassword(@Body() body: { token: string; newPassword: string }) {
+    const payload = this.authService.verifySetupToken(body.token);
+    if (!payload || payload.purpose !== 'password-setup') {
+      return { error: 'Token inválido o expirado' };
+    }
+
+    const user = await this.userRepo.findOne({ where: { id: payload.sub } });
     if (!user) return { error: 'Usuario no encontrado' };
-    if (!user.needsPasswordSetup) return { error: 'Este usuario ya configuró su contraseña' };
 
-    // Verify temporary password
-    const isValid = await bcrypt.compare(body.temporaryPassword, user.password);
-    if (!isValid) return { error: 'Contraseña temporal incorrecta' };
-
-    // Set new password and activate
     user.password = await bcrypt.hash(body.newPassword, 10);
     (user as any).needsPasswordSetup = false;
     await this.userRepo.save(user);

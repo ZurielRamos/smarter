@@ -34,6 +34,7 @@ import { TermsOfService } from "./pages/legal/TermsOfService";
 import { DataDeletion } from "./pages/legal/DataDeletion";
 import { Login } from "./pages/Login";
 import { Pending } from "./pages/Pending";
+import { SetupPassword } from "./pages/SetupPassword";
 
 function ProtectedAppLayout() {
   return (
@@ -64,6 +65,7 @@ function App() {
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/pending" element={<Pending />} />
+          <Route path="/setup-password" element={<SetupPassword />} />
           <Route path="/f/:formSlug" element={<PublicForm />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />

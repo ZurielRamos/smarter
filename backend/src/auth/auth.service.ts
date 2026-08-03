@@ -13,6 +13,23 @@ export class AuthService {
     private readonly userRepo: Repository<User>,
   ) {}
 
+  /** Generate a short-lived token for password setup/reset */
+  generateSetupToken(userId: string, email: string): string {
+    return this.jwtService.sign(
+      { sub: userId, email, purpose: 'password-setup' },
+      { expiresIn: '48h' },
+    );
+  }
+
+  /** Verify a setup token */
+  verifySetupToken(token: string): { sub: string; email: string; purpose: string } | null {
+    try {
+      return this.jwtService.verify(token) as { sub: string; email: string; purpose: string };
+    } catch {
+      return null;
+    }
+  }
+
   async login(email: string, password: string) {
     const user = await this.userRepo.findOne({
       where: { email },
