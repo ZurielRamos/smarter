@@ -1,5 +1,5 @@
 import { Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
-import { MessageSquare, Settings2, Inbox, UserCircle, Megaphone } from "lucide-react";
+import { MessageSquare, Settings2, Inbox, UserCircle, Megaphone, Radio } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import headerBg from "@/assets/header-background.jpg";
 
@@ -16,6 +16,7 @@ export function ComunicacionesLayout() {
     if (path.includes("/equipos")) return "equipos";
     if (path.includes("/etiquetas")) return "etiquetas";
     if (path.includes("/campanas")) return "campanas";
+    if (path.includes("/canales")) return "canales";
     return "conversaciones";
   })();
 
@@ -53,6 +54,7 @@ export function ComunicacionesLayout() {
       label: "Etiquetas",
     },
     { key: "campanas", path: "campanas", icon: <Megaphone className="h-4.5 w-4.5" />, label: "Campañas" },
+    { key: "canales", path: "canales", icon: <Radio className="h-4.5 w-4.5" />, label: "Canales" },
   ];
 
   return (
