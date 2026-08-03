@@ -105,7 +105,8 @@ export class UsersService {
       where: { userId, tenantId },
     });
     if (!ut) throw new NotFoundException('Tenant role not found');
-    await this.userTenantRepo.remove(ut);
+    ut.status = 'removed';
+    await this.userTenantRepo.save(ut);
   }
 
   async getUserTenants(userId: string): Promise<UserTenant[]> {

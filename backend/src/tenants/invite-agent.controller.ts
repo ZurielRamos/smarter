@@ -47,8 +47,13 @@ export class InviteAgentController {
     const tenant = await this.tenantRepo.findOne({ where: { id: tenantId } });
     if (!tenant) throw new BadRequestException('Tenant no encontrado');
 
-    // Check max agents limit
-    const currentCount = await this.userTenantRepo.count({ where: { tenantId } });
+    // Check max agents limit (only count active + pending, not removed)
+    const currentCount = await this.userTenantRepo.count({
+      where: [
+        { tenantId, status: 'active' },
+        { tenantId, status: 'pending' },
+      ],
+    });
     if (currentCount >= tenant.maxAgents) {
       throw new BadRequestException(`Se alcanzó el límite de ${tenant.maxAgents} agentes para esta cuenta`);
     }
@@ -64,12 +69,19 @@ export class InviteAgentController {
         where: { userId: user.id, tenantId },
       });
       if (existingRole) {
-        throw new BadRequestException('Este usuario ya pertenece a la cuenta');
+        if (existingRole.status === 'removed') {
+          // Reactivate removed user
+          existingRole.status = 'pending';
+          existingRole.role = role;
+          await this.userTenantRepo.save(existingRole);
+        } else {
+          throw new BadRequestException('Este usuario ya pertenece a la cuenta');
+        }
+      } else {
+        // Assign to tenant with pending status (needs to accept)
+        const ut = this.userTenantRepo.create({ userId: user.id, tenantId, role, status: 'pending' });
+        await this.userTenantRepo.save(ut);
       }
-
-      // Assign to tenant with pending status (needs to accept)
-      const ut = this.userTenantRepo.create({ userId: user.id, tenantId, role, status: 'pending' });
-      await this.userTenantRepo.save(ut);
 
       // Send access notification
       await this.mailService.sendTenantAccess({

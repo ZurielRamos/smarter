@@ -123,7 +123,10 @@ export class TenantsService {
 
   async getMembers(tenantId: string): Promise<UserTenant[]> {
     return this.userTenantRepo.find({
-      where: { tenantId },
+      where: [
+        { tenantId, status: 'active' },
+        { tenantId, status: 'pending' },
+      ],
       relations: { user: true },
       order: { createdAt: 'ASC' },
     });
