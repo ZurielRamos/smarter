@@ -971,12 +971,20 @@ export class ChatsService {
     let externalId: string | null = null;
     if (inbox.accessToken && inbox.channel === 'whatsapp' && inbox.phoneNumberId) {
       try {
+        // WhatsApp accepts: audio/aac, audio/mp4, audio/mpeg, audio/amr, audio/ogg (opus)
+        // Browsers often record as audio/webm;codecs=opus which is opus in a webm container
+        // Force mime to audio/ogg for WhatsApp compatibility (opus codec is the same)
+        const whatsappMime = file.mimetype.includes('webm') ? 'audio/ogg' : file.mimetype;
+        const whatsappFilename = file.mimetype.includes('webm')
+          ? file.originalname.replace('.webm', '.ogg')
+          : file.originalname;
+
         // Upload media to WhatsApp using raw multipart
         const boundary = `----FormBoundary${Date.now()}`;
         const parts: Buffer[] = [];
 
         parts.push(Buffer.from(
-          `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${file.originalname}"\r\nContent-Type: ${file.mimetype}\r\n\r\n`,
+          `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${whatsappFilename}"\r\nContent-Type: ${whatsappMime}\r\n\r\n`,
         ));
         parts.push(file.buffer as Buffer<ArrayBuffer>);
         parts.push(Buffer.from('\r\n'));
@@ -984,7 +992,7 @@ export class ChatsService {
           `--${boundary}\r\nContent-Disposition: form-data; name="messaging_product"\r\n\r\nwhatsapp\r\n`,
         ));
         parts.push(Buffer.from(
-          `--${boundary}\r\nContent-Disposition: form-data; name="type"\r\n\r\n${file.mimetype}\r\n`,
+          `--${boundary}\r\nContent-Disposition: form-data; name="type"\r\n\r\n${whatsappMime}\r\n`,
         ));
         parts.push(Buffer.from(`--${boundary}--\r\n`));
 

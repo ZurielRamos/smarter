@@ -481,7 +481,11 @@ export function Conversaciones() {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      // Use ogg/opus which WhatsApp supports, fallback to webm/opus
+      const mimeType = MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
+        ? 'audio/ogg;codecs=opus'
+        : 'audio/webm;codecs=opus';
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -528,7 +532,9 @@ export function Conversaciones() {
 
   const sendAudio = async () => {
     if (!audioPreview || !activeConversation) return;
-    const file = new File([audioPreview.blob], `audio-${Date.now()}.webm`, { type: 'audio/webm' });
+    const mimeType = audioPreview.blob.type;
+    const ext = mimeType.includes('ogg') ? 'ogg' : 'webm';
+    const file = new File([audioPreview.blob], `audio-${Date.now()}.${ext}`, { type: mimeType });
     URL.revokeObjectURL(audioPreview.url);
     setAudioPreview(null);
     await sendFile(file);
