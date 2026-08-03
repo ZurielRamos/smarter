@@ -998,7 +998,7 @@ export function Conversaciones() {
           style={{ top: msgContextMenu.y, left: msgContextMenu.x }}
         >
           <button
-            onClick={() => { setReplyTo(msgContextMenu.message); setMsgContextMenu(null); }}
+            onClick={() => { setReplyTo(msgContextMenu.message); setMsgContextMenu(null); textareaRef.current?.focus(); }}
             className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
           >
             <Reply className="h-4 w-4 text-gray-400" />
