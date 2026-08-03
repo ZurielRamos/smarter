@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Settings2, Phone, MessageSquare, Mail, MessageCircle, Camera, Wifi, WifiOff } from "lucide-react";
+import { Plus, Phone, MessageSquare, Mail, MessageCircle, Camera, Wifi, WifiOff } from "lucide-react";
 import { WhatsAppIcon, FormIcon } from "@/components/ChannelIcons";
+import { InboxSettingsContent } from "@/components/InboxSettingsContent";
 import { api } from "@/services/api";
 
 interface Inbox {
@@ -101,72 +102,14 @@ export function Canales() {
       {/* Detail panel */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {selectedInbox ? (
-          <div className="flex-1 flex flex-col">
-            {/* Header */}
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {(() => {
-                  const info = CHANNEL_ICONS[selectedInbox.channel] || { icon: MessageSquare, color: "text-gray-500", bg: "bg-gray-50" };
-                  const Icon = info.icon;
-                  return (
-                    <div className={`h-10 w-10 rounded-lg ${info.bg} flex items-center justify-center`}>
-                      <Icon className={`h-5 w-5 ${info.color}`} />
-                    </div>
-                  );
-                })()}
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900">{selectedInbox.name}</h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[11px] text-gray-400 capitalize">{selectedInbox.channel}</span>
-                    {selectedInbox.status === "connected" ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-green-600 font-medium">
-                        <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Conectado
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-gray-400 font-medium">
-                        <span className="h-1.5 w-1.5 rounded-full bg-gray-300" /> Desconectado
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => navigate(`/${slug}/inboxes/${selectedInbox.id}/settings`)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-              >
-                <Settings2 className="h-3.5 w-3.5" />
-                Configurar
-              </button>
-            </div>
-
-            {/* Details */}
-            <div className="flex-1 overflow-y-auto p-5">
-              <div className="space-y-4 max-w-md">
-                <div className="p-4 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">Canal</span>
-                    <span className="text-gray-700 font-medium capitalize">{selectedInbox.channel}</span>
-                  </div>
-                  {selectedInbox.channelName && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500">Identificador</span>
-                      <span className="text-gray-700 font-mono">{selectedInbox.channelName}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">Estado</span>
-                    <span className={selectedInbox.status === "connected" ? "text-green-600 font-medium" : "text-red-500 font-medium"}>
-                      {selectedInbox.status === "connected" ? "Conectado" : "Desconectado"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">Creado</span>
-                    <span className="text-gray-700">{new Date(selectedInbox.createdAt).toLocaleDateString("es-CO")}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <InboxSettingsContent
+            key={selectedInbox.id}
+            inboxId={selectedInbox.id}
+            onDeleted={() => {
+              setInboxes((prev) => prev.filter((i) => i.id !== selectedInbox.id));
+              setSelectedInbox(null);
+            }}
+          />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
             <MessageSquare className="h-8 w-8 text-gray-300 mb-2" />
