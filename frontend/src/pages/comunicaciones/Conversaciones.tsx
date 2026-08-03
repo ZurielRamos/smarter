@@ -102,6 +102,11 @@ export function Conversaciones() {
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Conversation | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const msgContextMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -471,6 +476,54 @@ export function Conversaciones() {
   };
 
   const QUICK_EMOJIS = ["😀", "😂", "❤️", "👍", "🙏", "🎉", "🔥", "👋", "✅", "💯", "😊", "🤝", "⭐", "💪", "🙌", "😍", "🤔", "👏", "💚", "🚀"];
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingIntervalRef.current = setInterval(() => setRecordingTime((t) => t + 1), 1000);
+    } catch {
+      // Permission denied or not supported
+    }
+  };
+
+  const stopRecording = () => {
+    if (!mediaRecorderRef.current) return;
+    mediaRecorderRef.current.onstop = async () => {
+      const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+      const file = new File([blob], `audio-${Date.now()}.webm`, { type: 'audio/webm' });
+      if (activeConversation) {
+        await sendFile(file);
+      }
+      // Stop all tracks
+      mediaRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
+    };
+    mediaRecorderRef.current.stop();
+    setIsRecording(false);
+    if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+  };
+
+  const cancelRecording = () => {
+    if (!mediaRecorderRef.current) return;
+    mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+    mediaRecorderRef.current.stop();
+    mediaRecorderRef.current = null;
+    audioChunksRef.current = [];
+    setIsRecording(false);
+    if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+  };
+
+  const formatRecordingTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
   const filteredConversations = conversations;
 
@@ -955,12 +1008,34 @@ export function Conversaciones() {
                     </button>
                     <input ref={docInputRef} type="file" className="hidden" onChange={handleFileSelect} accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" />
                     {/* Audio note */}
-                    <button
-                      className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                      title="Nota de voz (próximamente)"
-                    >
-                      <Mic className="h-4.5 w-4.5" />
-                    </button>
+                    {isRecording ? (
+                      <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-red-50 border border-red-200">
+                        <button
+                          onClick={cancelRecording}
+                          className="p-1 rounded text-red-500 hover:bg-red-100 transition-colors"
+                          title="Cancelar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                        <span className="text-xs font-mono text-red-600 w-10">{formatRecordingTime(recordingTime)}</span>
+                        <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                        <button
+                          onClick={stopRecording}
+                          className="p-1.5 rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors"
+                          title="Enviar audio"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={startRecording}
+                        className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                        title="Grabar nota de voz"
+                      >
+                        <Mic className="h-4.5 w-4.5" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Send */}
