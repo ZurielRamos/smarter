@@ -40,7 +40,17 @@ export class ChatsService {
   }
 
   async createInbox(data: { tenantId: string; name: string; channel: string }): Promise<Inbox> {
-    const inbox = this.inboxRepo.create({ ...data, status: 'disconnected' });
+    const defaultSchedule = {
+      lunes: { enabled: true, start: '08:00', end: '18:00' },
+      martes: { enabled: true, start: '08:00', end: '18:00' },
+      miercoles: { enabled: true, start: '08:00', end: '18:00' },
+      jueves: { enabled: true, start: '08:00', end: '18:00' },
+      viernes: { enabled: true, start: '08:00', end: '18:00' },
+      sabado: { enabled: false, start: '09:00', end: '13:00' },
+      domingo: { enabled: false, start: '09:00', end: '13:00' },
+      festivos: { enabled: false, start: '09:00', end: '13:00' },
+    };
+    const inbox = this.inboxRepo.create({ ...data, status: 'disconnected', metadata: { schedule: defaultSchedule } });
     return this.inboxRepo.save(inbox);
   }
 
