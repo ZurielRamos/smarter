@@ -43,6 +43,23 @@ export class ChatsController {
     return this.chatsService.deleteInbox(id);
   }
 
+  // === INBOX COLLABORATORS ===
+
+  @Get('inboxes/:id/collaborators')
+  getCollaborators(@Param('id') id: string) {
+    return this.chatsService.getCollaborators(id);
+  }
+
+  @Post('inboxes/:id/collaborators')
+  addCollaborator(@Param('id') id: string, @Body() body: { type: string; referenceId: string }) {
+    return this.chatsService.addCollaborator(id, body.type, body.referenceId);
+  }
+
+  @Delete('inboxes/:id/collaborators/:collaboratorId')
+  removeCollaborator(@Param('id') id: string, @Param('collaboratorId') collaboratorId: string) {
+    return this.chatsService.removeCollaborator(collaboratorId);
+  }
+
   // === OAUTH ===
 
   @Public()

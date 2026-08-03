@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { Inbox } from './inbox.entity';
 import { Conversation } from './conversation.entity';
 import { Message } from './message.entity';
+import { InboxCollaborator } from './inbox-collaborator.entity';
 import { ClientRecord } from '../records/record.entity';
 import { Label } from './label.entity';
 import { ChatsGateway } from './chats.gateway';
@@ -24,6 +25,8 @@ export class ChatsService {
     private readonly clientRecordRepo: Repository<ClientRecord>,
     @InjectRepository(Label)
     private readonly labelRepo: Repository<Label>,
+    @InjectRepository(InboxCollaborator)
+    private readonly collaboratorRepo: Repository<InboxCollaborator>,
     private readonly chatsGateway: ChatsGateway,
     private readonly mediaStorageService: MediaStorageService,
     private readonly configService: ConfigService,
@@ -43,6 +46,26 @@ export class ChatsService {
 
   async deleteInbox(id: string): Promise<void> {
     await this.inboxRepo.delete(id);
+  }
+
+  // === INBOX COLLABORATORS ===
+
+  async getCollaborators(inboxId: string): Promise<InboxCollaborator[]> {
+    return this.collaboratorRepo.find({
+      where: { inboxId },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async addCollaborator(inboxId: string, type: string, referenceId: string): Promise<InboxCollaborator> {
+    const existing = await this.collaboratorRepo.findOne({ where: { inboxId, type, referenceId } });
+    if (existing) return existing;
+    const collab = this.collaboratorRepo.create({ inboxId, type, referenceId });
+    return this.collaboratorRepo.save(collab);
+  }
+
+  async removeCollaborator(collaboratorId: string): Promise<void> {
+    await this.collaboratorRepo.delete(collaboratorId);
   }
 
   async updateInbox(id: string, data: Partial<Inbox>): Promise<Inbox> {
