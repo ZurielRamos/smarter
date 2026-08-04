@@ -569,8 +569,14 @@ export class ChatsService {
       this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
       this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
-      // Dispatch webhooks
-      this.webhooksService.dispatch(inbox.tenantId, 'message_created', { message, conversation }).catch(() => {});
+      // Dispatch webhooks with full context
+      const contactRecord = conversation.recordId ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } }) : null;
+      this.webhooksService.dispatch(inbox.tenantId, 'message_created', {
+        message,
+        conversation: { id: conversation.id, contactId: conversation.contactId, contactName: conversation.contactName, status: conversation.status, recordId: conversation.recordId, inboxId: conversation.inboxId, lastMessage: conversation.lastMessage, lastMessageAt: conversation.lastMessageAt },
+        contact: contactRecord,
+        inbox: { id: inbox.id, name: inbox.name, channel: inbox.channel },
+      }).catch(() => {});
     }
   }
 
@@ -971,8 +977,14 @@ export class ChatsService {
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversationId, saved);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
-    // Dispatch webhooks
-    this.webhooksService.dispatch(inbox.tenantId, 'message_created', { message: saved, conversation }).catch(() => {});
+    // Dispatch webhooks with full context
+    const contactRecord = conversation.recordId ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } }) : null;
+    this.webhooksService.dispatch(inbox.tenantId, 'message_created', {
+      message: saved,
+      conversation: { id: conversation.id, contactId: conversation.contactId, contactName: conversation.contactName, status: conversation.status, recordId: conversation.recordId, inboxId: conversation.inboxId, lastMessage: conversation.lastMessage, lastMessageAt: conversation.lastMessageAt },
+      contact: contactRecord,
+      inbox: { id: inbox.id, name: inbox.name, channel: inbox.channel },
+    }).catch(() => {});
 
     return saved;
   }
