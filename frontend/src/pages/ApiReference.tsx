@@ -332,9 +332,228 @@ const result = await response.json();`,
       },
       {
         id: "conversations", label: "Conversaciones", endpoints: [
-          { id: "list-conversations", method: "GET", label: "Listar conversaciones", path: "/api/chats/conversations", description: "Lista conversaciones con paginación.", params: [{ name: "tenantId", type: "string", required: true, description: "ID del tenant" }, { name: "inboxId", type: "string", description: "Filtrar por bandeja" }, { name: "limit", type: "integer", description: "Default: 15" }, { name: "offset", type: "integer", description: "Default: 0" }], response: `{\n  "data": [...],\n  "total": 45\n}` },
-          { id: "mark-read", method: "POST", label: "Marcar como leída", path: "/api/chats/conversations/:id/read", description: "Marca una conversación como leída (unreadCount = 0).", response: `{ "success": true }` },
-          { id: "delete-conversation", method: "DELETE", label: "Eliminar conversación", path: "/api/chats/conversations/:id", description: "Elimina una conversación y sus mensajes.", response: `{ }` },
+          {
+            id: "list-conversations",
+            method: "GET",
+            label: "Listar conversaciones",
+            path: "/api/v1/{cuenta}/conversations",
+            description: "Lista todas las conversaciones de la cuenta con paginación. Incluye información del inbox, contacto vinculado y etiquetas asignadas.",
+            params: [
+              { name: "inboxId", type: "uuid", description: "Filtrar por bandeja específica" },
+              { name: "limit", type: "integer", description: "Registros por página, máximo 100 (default: 15)" },
+              { name: "offset", type: "integer", description: "Desplazamiento para paginación (default: 0)" },
+            ],
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/conversations?limit=15&offset=0",
+  {
+    method: "GET",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const data = await response.json();`,
+            response: `{
+  "data": [
+    {
+      "id": "c1d2e3f4-a5b6-7890-cdef-1234567890ab",
+      "inboxId": "i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
+      "inbox": {
+        "id": "i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
+        "name": "WhatsApp Principal",
+        "channel": "whatsapp",
+        "channelName": "+57 300 123 4567"
+      },
+      "contactId": "573001234567",
+      "contactName": "Juan Pérez",
+      "contactAvatar": null,
+      "record": {
+        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "firstName": "Juan",
+        "lastName": "Pérez",
+        "phone": "573001234567",
+        "email": "juan@ejemplo.com"
+      },
+      "status": "open",
+      "lastMessage": "Hola, necesito ayuda con mi pedido",
+      "lastMessageAt": "2026-08-04T14:30:00.000Z",
+      "unreadCount": 2,
+      "labels": [
+        {
+          "id": "l1m2n3o4-p5q6-7890-rstu-vwxyz1234567",
+          "slug": "urgente",
+          "label": "Urgente",
+          "color": "#ef4444"
+        },
+        {
+          "id": "l2m3n4o5-p6q7-8901-rstu-vwxyz2345678",
+          "slug": "vip",
+          "label": "VIP",
+          "color": "#8b5cf6"
+        }
+      ],
+      "createdAt": "2026-07-20T08:00:00.000Z",
+      "updatedAt": "2026-08-04T14:30:00.000Z"
+    }
+  ],
+  "total": 45
+}`,
+          },
+          {
+            id: "get-conversation",
+            method: "GET",
+            label: "Obtener conversación",
+            path: "/api/v1/{cuenta}/conversations/{id}",
+            description: "Obtiene todos los detalles de una conversación específica incluyendo inbox, contacto y etiquetas.",
+            params: [
+              { name: "id", type: "uuid", required: true, description: "ID de la conversación" },
+            ],
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-a5b6-7890-cdef-1234567890ab",
+  {
+    method: "GET",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const conversation = await response.json();`,
+            response: `{
+  "id": "c1d2e3f4-a5b6-7890-cdef-1234567890ab",
+  "inboxId": "i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
+  "inbox": {
+    "id": "i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
+    "name": "WhatsApp Principal",
+    "channel": "whatsapp",
+    "channelName": "+57 300 123 4567"
+  },
+  "contactId": "573001234567",
+  "contactName": "Juan Pérez",
+  "contactAvatar": null,
+  "record": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "firstName": "Juan",
+    "lastName": "Pérez",
+    "phone": "573001234567",
+    "email": "juan@ejemplo.com"
+  },
+  "status": "open",
+  "lastMessage": "Hola, necesito ayuda",
+  "lastMessageAt": "2026-08-04T14:30:00.000Z",
+  "unreadCount": 2,
+  "labels": [
+    {
+      "id": "l1m2n3o4-p5q6-7890-rstu-vwxyz1234567",
+      "slug": "urgente",
+      "label": "Urgente",
+      "color": "#ef4444"
+    }
+  ],
+  "createdAt": "2026-07-20T08:00:00.000Z",
+  "updatedAt": "2026-08-04T14:30:00.000Z"
+}`,
+          },
+          {
+            id: "toggle-label",
+            method: "POST",
+            label: "Modificar etiquetas",
+            path: "/api/v1/{cuenta}/conversations/{id}/labels",
+            description: "Agrega o quita una etiqueta de una conversación. Solo usuarios administradores pueden modificar etiquetas.",
+            params: [
+              { name: "id", type: "uuid", required: true, description: "ID de la conversación" },
+            ],
+            body: `{
+  "labelId": "l1m2n3o4-p5q6-7890-rstu-vwxyz1234567",
+  "action": "add"
+}`,
+            bodyDescription: "action puede ser 'add' para agregar o 'remove' para quitar la etiqueta.",
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-a5b6-7890-cdef-1234567890ab/labels",
+  {
+    method: "POST",
+    headers: {
+      "x-api-token": "tu_token_de_api",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      labelId: "l1m2n3o4-p5q6-7890-rstu-vwxyz1234567",
+      action: "add"
+    })
+  }
+);
+
+const result = await response.json();`,
+            response: `{
+  "labels": [
+    {
+      "id": "l1m2n3o4-p5q6-7890-rstu-vwxyz1234567",
+      "slug": "urgente",
+      "label": "Urgente",
+      "description": "Requiere atención inmediata",
+      "color": "#ef4444",
+      "showInSidebar": true
+    },
+    {
+      "id": "l2m3n4o5-p6q7-8901-rstu-vwxyz2345678",
+      "slug": "vip",
+      "label": "VIP",
+      "description": null,
+      "color": "#8b5cf6",
+      "showInSidebar": false
+    }
+  ]
+}`,
+          },
+          {
+            id: "mark-read",
+            method: "POST",
+            label: "Marcar como leída",
+            path: "/api/v1/{cuenta}/conversations/{id}/read",
+            description: "Marca una conversación como leída, poniendo el contador de mensajes no leídos en 0.",
+            params: [
+              { name: "id", type: "uuid", required: true, description: "ID de la conversación" },
+            ],
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-a5b6-7890-cdef-1234567890ab/read",
+  {
+    method: "POST",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const result = await response.json();`,
+            response: `{
+  "success": true
+}`,
+          },
+          {
+            id: "delete-conversation",
+            method: "DELETE",
+            label: "Eliminar conversación",
+            path: "/api/v1/{cuenta}/conversations/{id}",
+            description: "Elimina una conversación y todos sus mensajes permanentemente. Solo administradores. Esta acción no se puede deshacer.",
+            params: [
+              { name: "id", type: "uuid", required: true, description: "ID de la conversación" },
+            ],
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-a5b6-7890-cdef-1234567890ab",
+  {
+    method: "DELETE",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const result = await response.json();`,
+            response: `{
+  "message": "Conversación eliminada correctamente"
+}`,
+          },
         ],
       },
       {

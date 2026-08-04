@@ -6,21 +6,25 @@ import { Message } from './message.entity';
 import { InboxCollaborator } from './inbox-collaborator.entity';
 import { ClientRecord } from '../records/record.entity';
 import { Label } from './label.entity';
+import { Tenant } from '../tenants/tenant.entity';
 import { ChatsService } from './chats.service';
 import { ChatsController, WebhookController } from './chats.controller';
+import { ApiConversationsController } from './api-conversations.controller';
 import { ChatsGateway } from './chats.gateway';
 import { WebhookForwarderService } from './webhook-forwarder.service';
 import { BillingModule } from '../billing/billing.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Inbox, Conversation, Message, InboxCollaborator, ClientRecord, Label]),
+    TypeOrmModule.forFeature([Inbox, Conversation, Message, InboxCollaborator, ClientRecord, Label, Tenant]),
     BillingModule,
     WebhooksModule,
+    UsersModule,
   ],
   providers: [ChatsService, ChatsGateway, WebhookForwarderService],
-  controllers: [ChatsController, WebhookController],
+  controllers: [ChatsController, ApiConversationsController, WebhookController],
   exports: [ChatsService, ChatsGateway],
 })
 export class ChatsModule {}

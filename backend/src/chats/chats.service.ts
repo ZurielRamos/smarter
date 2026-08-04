@@ -816,6 +816,13 @@ export class ChatsService {
     });
   }
 
+  async findConversationById(id: string): Promise<Conversation | null> {
+    return this.conversationRepo.findOne({
+      where: { id },
+      relations: { inbox: true, record: true },
+    });
+  }
+
   async getConversationsPaginated(inboxId: string, opts: { limit: number; offset: number }): Promise<{ data: Conversation[]; total: number }> {
     const [data, total] = await this.conversationRepo.findAndCount({
       where: { inboxId },
