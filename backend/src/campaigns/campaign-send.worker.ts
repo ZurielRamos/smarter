@@ -208,7 +208,7 @@ export class CampaignSendWorker extends WorkerHost {
                 phone: client.phone,
                 channel: 'llamada',
                 status: 'sent',
-                providerMessageId: result.messageId ?? null,
+                providerMessageId: result.messageId ? result.messageId.substring(0, 100) : null,
                 sentAt: new Date(),
               });
             } else {

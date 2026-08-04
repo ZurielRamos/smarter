@@ -76,11 +76,11 @@ export class CallService {
 
       if (response.ok && result.status === 'string') {
         // API returns array of results per phone
-        return { success: true, messageId: result.id || JSON.stringify(result) };
+        return { success: true, messageId: result.id || String(result.status).substring(0, 100) };
       }
 
       if (response.ok) {
-        return { success: true, messageId: JSON.stringify(result) };
+        return { success: true, messageId: result.id || result.reference || String(response.status) };
       }
 
       console.error('[Call/Onurix] Send error:', result);
