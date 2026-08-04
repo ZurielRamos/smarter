@@ -227,6 +227,11 @@ export class CampaignSendWorker extends WorkerHost {
         completedAt: new Date(),
       });
 
+      // If manual send (not recurring, no scheduled date), mark campaign as completed
+      if (!campaign.isRecurring && !campaign.sendDate) {
+        await this.campaignRepo.update(campaignId, { status: 'completed' });
+      }
+
       this.gateway.emitSendProgress(sendId, campaign.tenantId, {
         status: 'completed',
         totalRecipients,
