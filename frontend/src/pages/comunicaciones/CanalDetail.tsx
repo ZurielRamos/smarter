@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Settings2, Users, Clock, UserPlus, X, Loader2, Save, CheckCircle2 } from "lucide-react";
+import { Settings2, Users, Clock, UserPlus, X, Loader2, Save, CheckCircle2, MessageSquare } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { InboxSettingsContent } from "@/components/InboxSettingsContent";
 import { api } from "@/services/api";
@@ -306,19 +306,145 @@ function CollaboratorsTab({ inboxId }: { inboxId: string }) {
   );
 }
 
-type Tab = "ajustes" | "colaboradores" | "horarios";
+interface WhatsAppTemplate {
+  name: string;
+  language: string;
+  status: string;
+  category: string;
+  components: Array<{ type: string; text?: string; format?: string; buttons?: Array<{ type: string; text: string; url?: string }> }>;
+}
+
+const categoryColors: Record<string, string> = {
+  MARKETING: "bg-purple-100 text-purple-700",
+  UTILITY: "bg-blue-100 text-blue-700",
+  AUTHENTICATION: "bg-amber-100 text-amber-700",
+};
+
+function TemplatesTab({ inboxId }: { inboxId: string }) {
+  const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    api.get<WhatsAppTemplate[]>("/chats/whatsapp/templates", { params: { inboxId } })
+      .then(({ data }) => setTemplates(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [inboxId]);
+
+  if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>;
+
+  return (
+    <div className="flex-1 overflow-y-auto p-5">
+      <div className="max-w-3xl">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Plantillas de WhatsApp</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">Plantillas aprobadas por Meta disponibles para este canal</p>
+          </div>
+          <span className="text-xs text-gray-400">{templates.length} plantillas</span>
+        </div>
+
+        {templates.length === 0 ? (
+          <div className="text-center py-12">
+            <MessageSquare className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-500">No hay plantillas aprobadas</p>
+            <p className="text-[11px] text-gray-400 mt-1">Crea plantillas desde Meta Business Manager</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {templates.map((tpl) => {
+              const body = tpl.components.find((c) => c.type === "BODY");
+              const header = tpl.components.find((c) => c.type === "HEADER");
+              const footer = tpl.components.find((c) => c.type === "FOOTER");
+              const buttons = tpl.components.find((c) => c.type === "BUTTONS");
+              const isExpanded = expanded === `${tpl.name}-${tpl.language}`;
+
+              return (
+                <div
+                  key={`${tpl.name}-${tpl.language}`}
+                  className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors"
+                >
+                  <button
+                    onClick={() => setExpanded(isExpanded ? null : `${tpl.name}-${tpl.language}`)}
+                    className="w-full flex items-center justify-between px-4 py-3 text-left"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-gray-900 truncate">{tpl.name}</p>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${categoryColors[tpl.category] || "bg-gray-100 text-gray-600"}`}>
+                          {tpl.category}
+                        </span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                          {tpl.language}
+                        </span>
+                      </div>
+                      {body?.text && !isExpanded && (
+                        <p className="text-[11px] text-gray-400 mt-0.5 truncate">{body.text.substring(0, 80)}...</p>
+                      )}
+                    </div>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="px-4 pb-4 border-t border-gray-100">
+                      <div className="mt-3 rounded-lg bg-green-50/50 border border-green-200 p-4 space-y-2">
+                        {header?.text && (
+                          <p className="text-sm font-semibold text-gray-900">{header.text}</p>
+                        )}
+                        {header?.format === "IMAGE" && (
+                          <div className="h-32 bg-gray-200 rounded-lg flex items-center justify-center text-xs text-gray-500">[Imagen]</div>
+                        )}
+                        {body?.text && (
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{body.text}</p>
+                        )}
+                        {footer?.text && (
+                          <p className="text-xs text-gray-400 mt-2">{footer.text}</p>
+                        )}
+                        {buttons?.buttons && buttons.buttons.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-green-200 space-y-1">
+                            {buttons.buttons.map((btn, i) => (
+                              <div key={i} className="text-xs text-blue-600 font-medium text-center py-1">
+                                {btn.text}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type Tab = "ajustes" | "colaboradores" | "horarios" | "plantillas";
 
 export function CanalDetail() {
   const { slug, inboxId } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("ajustes");
+  const [inboxChannel, setInboxChannel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!inboxId) return;
+    api.get(`/chats/inboxes/${inboxId}`).then(({ data }) => {
+      setInboxChannel(data.channel);
+    }).catch(() => {});
+  }, [inboxId]);
 
   if (!inboxId) return null;
 
-  const tabs = [
-    { key: "ajustes" as Tab, label: "Ajustes", icon: Settings2 },
-    { key: "colaboradores" as Tab, label: "Colaboradores", icon: Users },
-    { key: "horarios" as Tab, label: "Horarios", icon: Clock },
+  const tabs: Array<{ key: Tab; label: string; icon: typeof Settings2 }> = [
+    { key: "ajustes", label: "Ajustes", icon: Settings2 },
+    { key: "colaboradores", label: "Colaboradores", icon: Users },
+    { key: "horarios", label: "Horarios", icon: Clock },
+    ...(inboxChannel === "whatsapp" ? [{ key: "plantillas" as Tab, label: "Plantillas", icon: MessageSquare }] : []),
   ];
 
   return (
@@ -355,6 +481,10 @@ export function CanalDetail() {
 
       {activeTab === "horarios" && (
         <ScheduleTab inboxId={inboxId} />
+      )}
+
+      {activeTab === "plantillas" && (
+        <TemplatesTab inboxId={inboxId} />
       )}
     </div>
   );
