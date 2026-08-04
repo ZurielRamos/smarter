@@ -78,7 +78,10 @@ export class ChatsController {
       // Get tenant slug for proper redirect
       const tenant = await this.chatsService.getTenantByInboxId(inbox.id);
       const slug = tenant?.slug || '';
-      res.redirect(`${frontendUrl}/${slug}/inboxes/${inbox.id}/settings?connected=true`);
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+      const tenant = await this.chatsService.getTenantByInboxId(inbox.id);
+      const slug = tenant?.slug || '';
+      res.redirect(`${frontendUrl}/${slug}/comunicaciones/canales/${inbox.id}`);
     } catch (error) {
       console.error('[OAuth Callback] Error:', error);
       const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
@@ -109,6 +112,18 @@ export class ChatsController {
       appId: this.configService.get<string>('META_APP_ID'),
       configId: this.configService.get<string>('META_WA_CONFIG_ID'),
     };
+  }
+
+  // Sync WhatsApp phone number from WABA
+  @Post('whatsapp/sync-phone')
+  syncPhoneNumber(@Body() body: { inboxId: string }) {
+    return this.chatsService.syncWhatsAppPhoneNumber(body.inboxId);
+  }
+
+  // Register WhatsApp phone number for Cloud API
+  @Post('whatsapp/register-phone')
+  registerPhoneNumber(@Body() body: { inboxId: string; pin: string }) {
+    return this.chatsService.registerWhatsAppPhoneNumber(body.inboxId, body.pin);
   }
 
   // Upload media for WhatsApp template header

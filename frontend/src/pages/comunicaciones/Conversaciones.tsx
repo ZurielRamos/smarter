@@ -375,6 +375,9 @@ export function Conversaciones() {
     const savedReplyTo = replyTo;
     setReplyTo(null);
     setSending(true);
+    // Force scroll to bottom when user sends a message
+    isNearBottom.current = true;
+    requestAnimationFrame(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); });
 
     try {
       if (inputMode === "note") {
@@ -776,7 +779,7 @@ export function Conversaciones() {
         </div>
 
         {/* Chat panel */}
-        <div className="flex-1 flex flex-col bg-gray-50">
+        <div className="flex-1 flex flex-col bg-gray-50 min-w-0 overflow-hidden">
           {activeConversation ? (
             <>
               <div className="h-14 px-6 flex items-center border-b border-gray-200 bg-white shrink-0">
@@ -793,7 +796,7 @@ export function Conversaciones() {
 
               <div
                 ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto px-6 py-4 space-y-2"
+                className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 space-y-2"
                 onScroll={(e) => {
                   const el = e.currentTarget;
                   // Track if user is near bottom
@@ -844,7 +847,7 @@ export function Conversaciones() {
                         </div>
                       </div>
                     )}
-                    <div className={`${msg.messageType === "template" ? "max-w-[320px]" : "max-w-[70%]"} px-4 py-2.5 rounded-2xl text-sm ${msg.messageType === "template" ? "bg-green-50 border border-green-200 text-gray-800 rounded-br-md" : msg.messageType === "note" ? "bg-yellow-100 border border-yellow-200 text-yellow-900 rounded-br-md" : msg.direction === "outbound" ? "bg-brand-600 text-white rounded-br-md" : "bg-white border border-gray-200 text-gray-800 rounded-bl-md"}`}>
+                    <div className={`${msg.messageType === "template" ? "max-w-[320px]" : msg.direction === "outbound" ? "max-w-[min(70%,400px)]" : "max-w-[min(40%,300px)]"} px-4 py-2.5 rounded-2xl text-sm break-words ${msg.messageType === "template" ? "bg-green-50 border border-green-200 text-gray-800 rounded-br-md" : msg.messageType === "note" ? "bg-yellow-100 border border-yellow-200 text-yellow-900 rounded-br-md" : msg.direction === "outbound" ? "bg-brand-600 text-white rounded-br-md" : "bg-white border border-gray-200 text-gray-800 rounded-bl-md"}`}>
                       {msg.messageType === "template" && (
                         <TemplateBubble msg={msg} />
                       )}

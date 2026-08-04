@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Settings2, Users, Clock, UserPlus, X, Loader2, Save, CheckCircle2, MessageSquare, Activity, Shield, TrendingUp, Globe, Mail as MailIcon, MapPin, Building2, ExternalLink, Edit3, Upload, Camera } from "lucide-react";
+import { Settings2, Users, Clock, UserPlus, X, Loader2, Save, CheckCircle2, MessageSquare, Activity, Shield, TrendingUp, Globe, Mail as MailIcon, MapPin, Building2, ExternalLink, Edit3, Upload, Camera, RefreshCw } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { InboxSettingsContent } from "@/components/InboxSettingsContent";
 import { WhatsAppTemplatesManager } from "@/components/WhatsAppTemplatesManager";
@@ -315,6 +315,11 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [uploadingPicture, setUploadingPicture] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState("");
+  const [showRegister, setShowRegister] = useState(false);
+  const [registerPin, setRegisterPin] = useState("");
+  const [registering, setRegistering] = useState(false);
 
   const fetchData = () => {
     setLoading(true);
@@ -357,6 +362,30 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
     } catch (err: any) {
       setProfileError(err.response?.data?.message || "Error al subir imagen");
     } finally { setUploadingPicture(false); }
+  };
+
+  const handleSyncPhone = async () => {
+    setSyncing(true); setSyncResult("");
+    try {
+      const { data: result } = await api.post("/chats/whatsapp/sync-phone", { inboxId });
+      setSyncResult(`Sincronizado: ${result.displayPhoneNumber || result.phoneNumberId} — ${result.verifiedName || "OK"}`);
+      fetchData();
+    } catch (err: any) {
+      setSyncResult(err.response?.data?.message || "Error al sincronizar");
+    } finally { setSyncing(false); }
+  };
+
+  const handleRegisterPhone = async () => {
+    if (!registerPin || registerPin.length !== 6) return;
+    setRegistering(true);
+    try {
+      await api.post("/chats/whatsapp/register-phone", { inboxId, pin: registerPin });
+      setShowRegister(false);
+      setRegisterPin("");
+      fetchData();
+    } catch (err: any) {
+      setSyncResult(err.response?.data?.message || "Error al registrar");
+    } finally { setRegistering(false); }
   };
 
   if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>;
@@ -437,10 +466,27 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
                     <CheckCircle2 className="h-3 w-3" /> Cuenta oficial
                   </span>
                 )}
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${phone.status === "CONNECTED" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${phone.status === "CONNECTED" ? "bg-green-50 text-green-700" : phone.status === "PENDING" ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>
                   {phone.status || "Desconocido"}
                 </span>
               </div>
+              {phone.status === "PENDING" && (
+                <div className="mt-2">
+                  {!showRegister ? (
+                    <button onClick={() => setShowRegister(true)} className="text-xs text-brand-600 hover:text-brand-700 font-medium">
+                      Registrar número para Cloud API
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 mt-1">
+                      <input type="text" value={registerPin} onChange={(e) => setRegisterPin(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="PIN de 6 dígitos" maxLength={6} className="w-32 px-2.5 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                      <button onClick={handleRegisterPhone} disabled={registering || registerPin.length !== 6} className="px-3 py-1.5 rounded-lg bg-brand-700 text-white text-xs font-medium hover:bg-brand-600 disabled:opacity-50">
+                        {registering ? "Registrando..." : "Registrar"}
+                      </button>
+                      <button onClick={() => setShowRegister(false)} className="text-xs text-gray-500 hover:text-gray-700">Cancelar</button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -578,7 +624,14 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
 
         {/* IDs técnicos */}
         <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
-          <h4 className="text-[10px] text-gray-500 uppercase font-semibold mb-2">IDs técnicos</h4>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-[10px] text-gray-500 uppercase font-semibold">IDs técnicos</h4>
+            <button onClick={handleSyncPhone} disabled={syncing} className="flex items-center gap-1 text-[11px] text-brand-600 hover:text-brand-700 font-medium disabled:opacity-50">
+              {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+              Sincronizar
+            </button>
+          </div>
+          {syncResult && <p className="text-[10px] text-green-600 mb-2">{syncResult}</p>}
           <div className="space-y-1 text-xs font-mono">
             {data.phoneNumberId && <div className="flex justify-between"><span className="text-gray-500">Phone Number ID</span><span className="text-gray-700">{data.phoneNumberId}</span></div>}
             {data.wabaId && <div className="flex justify-between"><span className="text-gray-500">WABA ID</span><span className="text-gray-700">{data.wabaId}</span></div>}

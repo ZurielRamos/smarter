@@ -103,6 +103,7 @@ export function CampanaDetail() {
   const [savingCall, setSavingCall] = useState(false);
   const [sends, setSends] = useState<CampaignSendRecord[]>([]);
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
   const [recordLists, setRecordLists] = useState<RecordListItem[]>([]);
   const [availableFields, setAvailableFields] = useState<{ field: string; label: string }[]>([]);
   const [showSegmentEditor, setShowSegmentEditor] = useState(false);
@@ -234,13 +235,14 @@ export function CampanaDetail() {
   const handleSendCampaign = async () => {
     if (!campaign) return;
     setSending(true);
+    setSendError("");
     try {
       const { data } = await api.post<CampaignSendRecord>(`/campaigns/${campaign.id}/send`);
-      // Add to sends list immediately
       setSends((prev) => [data, ...prev]);
-      // Connect to WebSocket for real-time updates
       connectSendWs(data.id);
-    } catch {
+    } catch (err: any) {
+      const msg = err.response?.data?.message || "Error al enviar la campaña";
+      setSendError(msg);
       setSending(false);
     }
   };
@@ -893,6 +895,9 @@ export function CampanaDetail() {
                       </Button>
                       {!canSend && (
                         <p className="text-[11px] text-amber-600 text-center">Configura el contenido del mensaje en la pestaña General antes de enviar</p>
+                      )}
+                      {sendError && (
+                        <p className="text-[11px] text-red-600 text-center bg-red-50 px-3 py-2 rounded-lg">{sendError}</p>
                       )}
                     </div>
                   );

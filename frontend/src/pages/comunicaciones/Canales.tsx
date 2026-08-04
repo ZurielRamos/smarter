@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Plus, Phone, MessageSquare, Mail, MessageCircle, Camera, Wifi, WifiOff } from "lucide-react";
-import { WhatsAppIcon, FormIcon } from "@/components/ChannelIcons";
+import { WhatsAppIcon, FormIcon, MessengerIcon } from "@/components/ChannelIcons";
 import { api } from "@/services/api";
 
 interface Inbox {
@@ -16,7 +16,7 @@ interface Inbox {
 
 const CHANNEL_ICONS: Record<string, { icon: any; color: string; bg: string }> = {
   whatsapp: { icon: WhatsAppIcon, color: "text-green-600", bg: "bg-green-50" },
-  messenger: { icon: MessageCircle, color: "text-blue-600", bg: "bg-blue-50" },
+  messenger: { icon: MessengerIcon, color: "text-blue-600", bg: "bg-blue-50" },
   instagram: { icon: Camera, color: "text-pink-600", bg: "bg-pink-50" },
   sms: { icon: MessageSquare, color: "text-sky-600", bg: "bg-sky-50" },
   llamada: { icon: Phone, color: "text-purple-600", bg: "bg-purple-50" },

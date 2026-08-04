@@ -371,15 +371,19 @@ export class ChatsService {
       if (waScope?.target_ids?.length > 0) wabaId = waScope.target_ids[0];
 
       const msgScope = granularScopes.find((s: any) => s.scope === 'whatsapp_business_messaging');
-      if (msgScope?.target_ids?.length > 0) phoneNumberId = msgScope.target_ids[0];
+      if (msgScope?.target_ids?.length > 0) {
+        // This might be phone number ID or WABA ID depending on the token type
+        // We'll verify it below by fetching phone numbers from WABA
+        phoneNumberId = msgScope.target_ids[0];
+      }
 
-      // If we have WABA but no phone, get from WABA
-      if (wabaId && !phoneNumberId) {
-        const phonesRes = await fetch(`https://graph.facebook.com/v21.0/${wabaId}/phone_numbers?access_token=${accessToken}`);
+      // Always fetch phone numbers from WABA to get the correct phone number ID
+      if (wabaId) {
+        const phonesRes = await fetch(`https://graph.facebook.com/v21.0/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name&access_token=${accessToken}`);
         const phonesData = await phonesRes.json();
         if (phonesData.data?.length > 0) {
           phoneNumberId = phonesData.data[0].id;
-          phoneDisplay = phonesData.data[0].display_phone_number;
+          phoneDisplay = phonesData.data[0].display_phone_number || phonesData.data[0].verified_name;
         }
       }
 
@@ -1203,6 +1207,71 @@ export class ChatsService {
     if (uploadData.error) throw new Error(uploadData.error.message || 'Failed to upload file');
 
     return { handle: uploadData.h };
+  }
+
+  // === WHATSAPP SYNC PHONE NUMBER ===
+
+  async syncWhatsAppPhoneNumber(inboxId: string): Promise<any> {
+    const inbox = await this.findInboxById(inboxId);
+    if (!inbox.wabaId || !inbox.accessToken) throw new Error('WABA ID or access token not configured');
+
+    // Fetch phone numbers from WABA
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${inbox.wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating&access_token=${inbox.accessToken}`,
+    );
+    const data = await res.json();
+
+    if (data.error) throw new Error(data.error.message || 'Failed to fetch phone numbers');
+
+    const phones = data.data || [];
+    if (phones.length === 0) throw new Error('No hay números de teléfono asociados a esta WABA');
+
+    // Use first phone number (or match existing if possible)
+    const phone = inbox.phoneNumberId && phones.find((p: any) => p.id === inbox.phoneNumberId)
+      ? phones.find((p: any) => p.id === inbox.phoneNumberId)
+      : phones[0];
+
+    // Update inbox with correct phone number data
+    inbox.phoneNumberId = phone.id;
+    inbox.channelName = phone.display_phone_number || inbox.channelName;
+    await this.inboxRepo.save(inbox);
+
+    return {
+      phoneNumberId: phone.id,
+      displayPhoneNumber: phone.display_phone_number,
+      verifiedName: phone.verified_name,
+      qualityRating: phone.quality_rating,
+      totalPhoneNumbers: phones.length,
+    };
+  }
+
+  async registerWhatsAppPhoneNumber(inboxId: string, pin: string): Promise<any> {
+    const inbox = await this.findInboxById(inboxId);
+    if (!inbox.phoneNumberId || !inbox.accessToken) throw new Error('Phone Number ID or access token not configured');
+
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/register`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${inbox.accessToken}`,
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          pin,
+        }),
+      },
+    );
+    const data = await res.json();
+
+    if (data.error) throw new Error(data.error.message || 'Failed to register phone number');
+
+    // Update inbox status
+    inbox.status = 'connected';
+    await this.inboxRepo.save(inbox);
+
+    return { success: true, ...data };
   }
 
   // === WHATSAPP BUSINESS PROFILE UPDATE ===

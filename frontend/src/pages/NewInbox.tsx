@@ -59,10 +59,20 @@ export function NewInbox() {
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [waConfig, setWaConfig] = useState<{ appId: string; configId: string } | null>(null);
+
+  // Pre-load WhatsApp config so FB.login can be called synchronously on click
+  const preloadWaConfig = async () => {
+    try {
+      const { data } = await api.get("/chats/whatsapp/config");
+      setWaConfig(data);
+    } catch {}
+  };
 
   const handleSelectChannel = (ch: string) => {
     setChannel(ch);
     setStep(2);
+    if (ch === "whatsapp") preloadWaConfig();
   };
 
   const handleCreateInbox = async () => {
@@ -97,60 +107,44 @@ export function NewInbox() {
     });
   };
 
-  const handleConnect = async () => {
+  const handleConnect = () => {
     if (!createdInbox) return;
 
     if (createdInbox.channel === "whatsapp") {
-      // WhatsApp Embedded Signup via Facebook SDK
+      if (!waConfig) { alert("Configuración no cargada. Intenta de nuevo."); return; }
       setConnecting(true);
-      try {
-        // Get config from backend
-        const { data: config } = await api.get("/chats/whatsapp/config");
 
-        // Initialize FB SDK if not already
-        const FB = (window as any).FB;
-        if (!FB) {
-          alert("Facebook SDK no cargado. Recarga la página.");
-          setConnecting(false);
-          return;
-        }
+      const FB = (window as any).FB;
+      if (!FB) { alert("Facebook SDK no cargado. Recarga la página."); setConnecting(false); return; }
 
-        FB.init({ appId: config.appId, xfbml: true, version: "v21.0" });
+      FB.init({ appId: waConfig.appId, xfbml: true, version: "v21.0" });
 
-        FB.login(
-          (response: any) => {
-            if (response.authResponse?.code) {
-              // Send code to backend
-              api.post("/chats/whatsapp/embedded-signup", {
-                code: response.authResponse.code,
-                inboxId: createdInbox.id,
-              }).then(() => {
-                setStep(4);
-                setConnecting(false);
-              }).catch(() => {
-                setConnecting(false);
-              });
-            } else {
+      FB.login(
+        (response: any) => {
+          if (response.authResponse?.code) {
+            api.post("/chats/whatsapp/embedded-signup", {
+              code: response.authResponse.code,
+              inboxId: createdInbox.id,
+            }).then(() => {
+              setStep(4);
               setConnecting(false);
-            }
+            }).catch(() => { setConnecting(false); });
+          } else { setConnecting(false); }
+        },
+        {
+          config_id: waConfig.configId,
+          response_type: "code",
+          override_default_response_type: true,
+          extras: {
+            setup: {},
+            featureType: "whatsapp_business_app_onboarding",
+            sessionInfoVersion: "3",
+            version: "v4",
           },
-          {
-            config_id: config.configId,
-            response_type: "code",
-            override_default_response_type: true,
-            extras: {
-              setup: {},
-              featureType: "whatsapp_business_app_onboarding",
-              sessionInfoVersion: "3",
-              version: "v4",
-            },
-          }
-        );
-      } catch {
-        setConnecting(false);
-      }
+        }
+      );
     } else {
-      // Messenger / Instagram — regular OAuth redirect
+      // Messenger / Instagram — OAuth redirect
       window.location.href = `/api/chats/oauth/connect?inboxId=${createdInbox.id}&channel=${createdInbox.channel}`;
     }
   };
@@ -329,7 +323,7 @@ export function NewInbox() {
                   }
                 </p>
                 <button
-                  onClick={() => navigate(`/${slug}/inboxes/${createdInbox?.id}/settings`)}
+                  onClick={() => navigate(`/${slug}/comunicaciones/canales/${createdInbox?.id}`)}
                   className="px-5 py-2.5 text-sm rounded-lg bg-brand-800 hover:bg-brand-700 text-white font-medium"
                 >
                   {(channel === "sms" || channel === "email" || channel === "llamada") ? "Configurar canal" : "Ir a configuración"}
