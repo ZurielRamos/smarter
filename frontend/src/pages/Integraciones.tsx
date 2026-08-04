@@ -20,7 +20,7 @@ const INTEGRATIONS = [
     icon: Key,
     color: "text-blue-600",
     bg: "bg-blue-50",
-    status: "soon",
+    status: "active",
   },
   {
     id: "crm",
@@ -74,7 +74,13 @@ export function Integraciones() {
               return (
                 <div
                   key={integration.id}
-                  onClick={isClickable ? () => navigate(`/${slug}/integraciones/${integration.id}`) : undefined}
+                  onClick={isClickable ? () => {
+                    if (integration.id === "api") {
+                      window.open("/api-reference", "_blank");
+                    } else {
+                      navigate(`/${slug}/integraciones/${integration.id}`);
+                    }
+                  } : undefined}
                   className={`bg-white rounded-xl border border-gray-200 p-5 transition-colors ${isClickable ? "hover:border-brand-300 hover:bg-brand-50/20 cursor-pointer" : "hover:border-gray-300"}`}
                 >
                   <div className="flex items-start gap-4">
