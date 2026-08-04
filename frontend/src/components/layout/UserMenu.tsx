@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { User, LogOut, Settings2 } from "lucide-react";
+import { User, LogOut, Settings2, Puzzle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export function UserMenu() {
@@ -101,6 +101,18 @@ export function UserMenu() {
                 >
                   <Settings2 className="h-4 w-4 text-gray-400" />
                   Configurar cuenta
+                </button>
+              )}
+              {isOnTenant && isAdmin && (
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    navigate(`/${slug}/integraciones`);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Puzzle className="h-4 w-4 text-gray-400" />
+                  Integraciones
                 </button>
               )}
               <button

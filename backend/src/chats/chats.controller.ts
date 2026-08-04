@@ -75,10 +75,6 @@ export class ChatsController {
     try {
       const inbox = await this.chatsService.handleOAuthCallback(code, state);
       const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
-      // Get tenant slug for proper redirect
-      const tenant = await this.chatsService.getTenantByInboxId(inbox.id);
-      const slug = tenant?.slug || '';
-      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
       const tenant = await this.chatsService.getTenantByInboxId(inbox.id);
       const slug = tenant?.slug || '';
       res.redirect(`${frontendUrl}/${slug}/comunicaciones/canales/${inbox.id}`);
