@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smartee | Reach further, connect better</title>
+<meta name="description" content="Plataforma de comunicación empresarial. Centraliza WhatsApp, SMS, email y llamadas. Gestiona contactos, campañas masivas y conecta con tu API.">
+<meta name="keywords" content="CRM, WhatsApp Business, comunicación empresarial, campañas masivas, API, contactos, omnicanal">
+<meta property="og:title" content="Smartee | Reach further, connect better">
+<meta property="og:description" content="Plataforma de comunicación empresarial omnicanal para grandes empresas.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://crm.strategee.us">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Smartee | Reach further, connect better">
+<meta name="twitter:description" content="Centraliza WhatsApp, SMS, email y llamadas en una sola plataforma.">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;color:#111827;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;height:auto}
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+</style>
+</head>
+<body>
+<style>
+:root{--brand-50:#eff6ff;--brand-100:#dbeafe;--brand-200:#bfdbfe;--brand-600:#2563eb;--brand-700:#1d4ed8;--brand-800:#1e3a5f;--brand-900:#1e293b}
+nav{position:fixed;top:0;left:0;right:0;z-index:50;background:rgba(255,255,255,.85);backdrop-filter:blur(16px);border-bottom:1px solid #f3f4f6;height:64px;display:flex;align-items:center}
+nav .inner{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:1200px;margin:0 auto;padding:0 24px}
+nav .links{display:flex;align-items:center;gap:32px;font-size:14px;color:#4b5563}
+nav .links a:hover{color:#111827}
+nav .actions{display:flex;align-items:center;gap:12px}
+.btn{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;padding:10px 20px;border-radius:12px;border:none;cursor:pointer;transition:all .2s}
+.btn-primary{background:var(--brand-800);color:#fff}
+.btn-primary:hover{background:var(--brand-700)}
+.btn-outline{background:transparent;border:1px solid #d1d5db;color:#374151}
+.btn-outline:hover{border-color:#9ca3af}
+.btn-sm{padding:8px 16px;font-size:13px;border-radius:8px}
+</style>
+<style>
+.hero{padding:140px 0 80px;position:relative}
+.hero h1{font-size:clamp(36px,5vw,60px);font-weight:800;line-height:1.1;letter-spacing:-.02em;color:#111827;max-width:700px}
+.hero h1 span{color:var(--brand-600)}
+.hero p{font-size:18px;color:#4b5563;margin-top:24px;max-width:600px;line-height:1.7}
+.hero .ctas{display:flex;gap:16px;margin-top:32px;flex-wrap:wrap}
+.stats{padding:48px 0;border-top:1px solid #f3f4f6;border-bottom:1px solid #f3f4f6;background:#fafbfc}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:32px;text-align:center}
+.stats-grid .value{font-size:30px;font-weight:800;color:#111827}
+.stats-grid .label{font-size:13px;color:#6b7280;margin-top:4px}
+section.features{padding:96px 0}
+section.features .header{text-align:center;max-width:600px;margin:0 auto 64px}
+section.features .header .tag{font-size:13px;font-weight:600;color:var(--brand-600);margin-bottom:12px}
+section.features .header h2{font-size:clamp(24px,3.5vw,40px);font-weight:800;color:#111827}
+section.features .header p{color:#6b7280;margin-top:16px;font-size:15px}
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px}
+.feature-card{padding:28px;border-radius:16px;border:1px solid #e5e7eb;transition:all .2s}
+.feature-card:hover{border-color:var(--brand-200);background:var(--brand-50)}
+.feature-card .icon{width:44px;height:44px;border-radius:12px;background:var(--brand-100);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+.feature-card .icon svg{width:20px;height:20px;color:var(--brand-700)}
+.feature-card h3{font-size:15px;font-weight:700;color:#111827;margin-bottom:8px}
+.feature-card p{font-size:14px;color:#6b7280;line-height:1.6}
+</style>
+<style>
+section.usecases{padding:96px 0;background:#f9fafb}
+.usecases-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;max-width:900px;margin:0 auto}
+.usecase-card{background:#fff;padding:24px;border-radius:16px;border:1px solid #e5e7eb;display:flex;gap:16px}
+.usecase-card .icon{width:40px;height:40px;border-radius:10px;background:var(--brand-100);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.usecase-card .icon svg{width:20px;height:20px;color:var(--brand-700)}
+.usecase-card h3{font-size:14px;font-weight:700;color:#111827;margin-bottom:4px}
+.usecase-card p{font-size:13px;color:#6b7280;line-height:1.6}
+section.testimonials{padding:96px 0}
+.testimonials-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px}
+.testimonial-card{background:#f9fafb;padding:28px;border-radius:16px;border:1px solid #f3f4f6}
+.testimonial-card .stars{display:flex;gap:2px;margin-bottom:16px}
+.testimonial-card .stars svg{width:16px;height:16px;fill:#f59e0b;color:#f59e0b}
+.testimonial-card blockquote{font-size:14px;color:#374151;line-height:1.7;font-style:italic;margin-bottom:20px}
+.testimonial-card .author{font-size:13px;font-weight:600;color:#111827}
+.testimonial-card .role{font-size:12px;color:#6b7280}
+section.pricing{padding:96px 0;background:#f9fafb}
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:1000px;margin:0 auto}
+.price-card{background:#fff;padding:32px;border-radius:16px;border:1px solid #e5e7eb}
+.price-card.featured{background:var(--brand-800);color:#fff;border:none;position:relative}
+.price-card.featured .badge{position:absolute;top:16px;right:16px;font-size:10px;padding:3px 10px;border-radius:99px;background:rgba(255,255,255,.2);font-weight:600}
+.price-card h3{font-size:18px;font-weight:700}
+.price-card .subtitle{font-size:13px;color:#6b7280;margin-top:4px}
+.price-card.featured .subtitle{color:rgba(255,255,255,.6)}
+.price-card .price{font-size:40px;font-weight:800;margin-top:24px}
+.price-card .price span{font-size:14px;font-weight:400;color:#6b7280}
+.price-card.featured .price span{color:rgba(255,255,255,.6)}
+.price-card ul{list-style:none;margin-top:24px;display:flex;flex-direction:column;gap:12px}
+.price-card ul li{font-size:13px;display:flex;align-items:center;gap:8px;color:#4b5563}
+.price-card.featured ul li{color:rgba(255,255,255,.85)}
+.price-card ul li svg{width:16px;height:16px;color:#22c55e;flex-shrink:0}
+.price-card.featured ul li svg{color:#86efac}
+.price-card .btn-card{display:block;width:100%;text-align:center;margin-top:32px;padding:12px;border-radius:10px;font-size:14px;font-weight:600;border:1px solid #d1d5db;color:#374151;background:#fff;cursor:pointer;transition:all .2s}
+.price-card .btn-card:hover{background:#f9fafb}
+.price-card.featured .btn-card{background:#fff;color:var(--brand-800);border:none}
+.price-card.featured .btn-card:hover{background:#f1f5f9}
+</style>
+<style>
+section.cta{padding:96px 0;text-align:center}
+section.cta h2{font-size:clamp(24px,3.5vw,40px);font-weight:800;color:#111827}
+section.cta p{font-size:18px;color:#6b7280;margin-top:16px}
+section.cta .ctas{display:flex;justify-content:center;gap:16px;margin-top:32px}
+footer{border-top:1px solid #e5e7eb;padding:48px 0;background:#f9fafb}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:32px}
+.footer-grid h4{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#111827;margin-bottom:12px}
+.footer-grid ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+.footer-grid ul li a{font-size:13px;color:#6b7280;transition:color .2s}
+.footer-grid ul li a:hover{color:#111827}
+.footer-bottom{margin-top:40px;padding-top:24px;border-top:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#9ca3af}
+@media(max-width:768px){
+  nav .links{display:none}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .footer-grid{grid-template-columns:1fr 1fr}
+  .pricing-grid{grid-template-columns:1fr}
+}
+</style>
+
+<!-- NAV -->
+<nav><div class="inner">
+  <a href="/" aria-label="Smartee Home"><svg width="100" height="24" viewBox="0 0 100 24" fill="none"><circle cx="12" cy="12" r="10" fill="#1e3a5f"/><text x="28" y="17" font-family="Plus Jakarta Sans" font-size="16" font-weight="800" fill="#111827">smartee</text></svg></a>
+  <div class="links">
+    <a href="#features">Funcionalidades</a>
+    <a href="#use-cases">Casos de uso</a>
+    <a href="#testimonials">Testimonios</a>
+    <a href="#pricing">Precios</a>
+    <a href="/api-reference">API</a>
+  </div>
+  <div class="actions">
+    <a href="/login" class="btn btn-sm btn-outline">Iniciar sesión</a>
+    <a href="/login" class="btn btn-sm btn-primary">Solicitar demo</a>
+  </div>
+</div></nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <p style="font-size:13px;font-weight:600;color:var(--brand-600);margin-bottom:16px">Plataforma de comunicación empresarial</p>
+    <h1>Toda tu comunicación con clientes, <span>en un solo lugar</span></h1>
+    <p>Centraliza WhatsApp, SMS, email y llamadas. Gestiona contactos, lanza campañas masivas y conecta tus sistemas con nuestra API. Diseñado para empresas que necesitan escalar.</p>
+    <div class="ctas">
+      <a href="/login" class="btn btn-primary">Comenzar ahora →</a>
+      <a href="/login" class="btn btn-outline">Hablar con ventas</a>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section class="stats">
+  <div class="container">
+    <div class="stats-grid">
+      <div><div class="value">99.9%</div><div class="label">Uptime garantizado</div></div>
+      <div><div class="value">10M+</div><div class="label">Mensajes enviados/mes</div></div>
+      <div><div class="value">&lt;200ms</div><div class="label">Tiempo de respuesta API</div></div>
+      <div><div class="value">50+</div><div class="label">Empresas confían en nosotros</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="container">
+    <div class="header">
+      <p class="tag">Funcionalidades</p>
+      <h2>Todo lo que necesitas para conectar con tus clientes</h2>
+      <p>Una plataforma completa que crece con tu empresa. Sin límites artificiales.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <h3>Comunicación omnicanal</h3>
+        <p>WhatsApp, SMS, email y llamadas desde una sola plataforma. Centraliza todas tus conversaciones.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <h3>Gestión de contactos</h3>
+        <p>Base de datos inteligente con segmentación avanzada, campos personalizados y scoring automático.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+        <h3>Campañas masivas</h3>
+        <p>Envía miles de mensajes personalizados con segmentación precisa y reportes en tiempo real.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+        <h3>Analítica en tiempo real</h3>
+        <p>Dashboards con métricas de entrega, engagement y conversión para mejores decisiones.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <h3>Seguridad empresarial</h3>
+        <p>Roles y permisos granulares, autenticación segura y cifrado de datos en tránsito y reposo.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+        <h3>API abierta</h3>
+        <p>Integra Smartee con tus sistemas existentes mediante nuestra API REST completamente documentada.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- USE CASES -->
+<section class="features usecases" id="use-cases">
+  <div class="container">
+    <div class="header">
+      <p class="tag">Casos de uso</p>
+      <h2>Soluciones para cada necesidad</h2>
+      <p>Desde notificaciones transaccionales hasta campañas de marketing, Smartee se adapta a tu operación.</p>
+    </div>
+    <div class="usecases-grid">
+      <div class="usecase-card">
+        <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></div>
+        <div><h3>Notificaciones transaccionales</h3><p>Confirmaciones de pago, alertas de cuenta y actualizaciones de estado en tiempo real.</p></div>
+      </div>
+      <div class="usecase-card">
+        <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 18h.01"/><path d="M6 6h.01"/></svg></div>
+        <div><h3>Atención al cliente</h3><p>Gestiona conversaciones con asignación inteligente, etiquetas y métricas de respuesta.</p></div>
+      </div>
+      <div class="usecase-card">
+        <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg></div>
+        <div><h3>Marketing automatizado</h3><p>Campañas segmentadas con plantillas aprobadas y seguimiento de conversiones.</p></div>
+      </div>
+      <div class="usecase-card">
+        <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <div><h3>Recordatorios y cobros</h3><p>Automatiza recordatorios de pago, citas y vencimientos con mensajes programados.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="features testimonials" id="testimonials">
+  <div class="container">
+    <div class="header">
+      <p class="tag">Testimonios</p>
+      <h2>Empresas que confían en Smartee</h2>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testimonial-card">
+        <div class="stars"><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div>
+        <blockquote>"Smartee nos permitió centralizar toda la comunicación con nuestros clientes. La eficiencia de nuestro equipo aumentó un 40% en el primer trimestre."</blockquote>
+        <p class="author">Carlos Mendoza</p><p class="role">Director de Operaciones, SuperGiros</p>
+      </div>
+      <div class="testimonial-card">
+        <div class="stars"><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div>
+        <blockquote>"La API es robusta y bien documentada. Integramos Smartee con nuestro ERP en menos de una semana."</blockquote>
+        <p class="author">Andrea López</p><p class="role">CTO, Grupo Financiero del Valle</p>
+      </div>
+      <div class="testimonial-card">
+        <div class="stars"><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg><svg viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg></div>
+        <blockquote>"El soporte es excepcional. Siempre tienen respuestas rápidas y soluciones a medida para nuestras necesidades."</blockquote>
+        <p class="author">Roberto Sánchez</p><p class="role">Gerente de Tecnología, Redes &amp; Servicios</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="features pricing" id="pricing">
+  <div class="container">
+    <div class="header">
+      <p class="tag">Precios</p>
+      <h2>Planes que se adaptan a tu escala</h2>
+      <p>Sin contratos de permanencia. Paga solo por lo que usas.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <h3>Starter</h3>
+        <p class="subtitle">Para equipos pequeños</p>
+        <div class="price">$99<span>/mes</span></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Hasta 5,000 contactos</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>1 canal de WhatsApp</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>3 usuarios</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Campañas básicas</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Soporte por email</li>
+        </ul>
+        <a href="/login" class="btn-card">Comenzar</a>
+      </div>
+      <div class="price-card featured">
+        <div class="badge">Popular</div>
+        <h3>Business</h3>
+        <p class="subtitle">Para empresas en crecimiento</p>
+        <div class="price">$299<span>/mes</span></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Hasta 50,000 contactos</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>3 canales</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>10 usuarios</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Campañas avanzadas + API</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Webhooks e integraciones</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Soporte prioritario</li>
+        </ul>
+        <a href="/login" class="btn-card">Comenzar</a>
+      </div>
+      <div class="price-card">
+        <h3>Enterprise</h3>
+        <p class="subtitle">Para grandes operaciones</p>
+        <div class="price">Custom</div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Contactos ilimitados</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Canales ilimitados</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Usuarios ilimitados</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>SLA dedicado</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Onboarding personalizado</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Account Manager</li>
+        </ul>
+        <a href="/login" class="btn-card">Contactar ventas</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <div class="container">
+    <h2>¿Listo para transformar tu comunicación?</h2>
+    <p>Agenda una demo personalizada y descubre cómo Smartee puede impulsar tu operación.</p>
+    <div class="ctas">
+      <a href="/login" class="btn btn-primary">Solicitar demo →</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <svg width="100" height="24" viewBox="0 0 100 24" fill="none" style="margin-bottom:16px"><circle cx="12" cy="12" r="10" fill="#1e3a5f"/><text x="28" y="17" font-family="Plus Jakarta Sans" font-size="16" font-weight="800" fill="#111827">smartee</text></svg>
+        <p style="font-size:12px;color:#6b7280;line-height:1.7">Plataforma de comunicación empresarial para equipos que necesitan escalar.</p>
+      </div>
+      <div>
+        <h4>Producto</h4>
+        <ul><li><a href="#features">Funcionalidades</a></li><li><a href="/api-reference">API Reference</a></li><li><a href="#pricing">Precios</a></li></ul>
+      </div>
+      <div>
+        <h4>Empresa</h4>
+        <ul><li><a href="#testimonials">Clientes</a></li><li><a href="#">Sobre nosotros</a></li><li><a href="#">Contacto</a></li></ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul><li><a href="/privacy">Privacidad</a></li><li><a href="/terms">Términos</a></li></ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Smartee. Todos los derechos reservados.</span>
+      <span>soporte@strategee.us</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

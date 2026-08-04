@@ -96,8 +96,8 @@ function App() {
           <Route path="/data-deletion" element={<DataDeletion />} />
           <Route path="/api-reference" element={<ApiReference />} />
 
-          {/* Redirect root to landing */}
-          <Route path="/" element={<Landing />} />
+          {/* Redirect root to login */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
           {/* Admin routes */}
           <Route element={<ProtectedAdminLayout />}>
