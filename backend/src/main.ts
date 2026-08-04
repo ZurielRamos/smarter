@@ -37,7 +37,7 @@ async function bootstrap() {
   const expressApp = app.getHttpAdapter().getInstance();
   expressApp.use((req, res, next) => {
     if (
-      req.url.startsWith('/api') ||
+      (req.url.startsWith('/api') && !req.url.startsWith('/api-reference')) ||
       req.url.startsWith('/uploads') ||
       req.url.startsWith('/webhooks') ||
       req.url.match(/\.\w+$/)
