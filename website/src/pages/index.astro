@@ -1,0 +1,212 @@
+---
+import Base from "../layouts/Base.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+
+const APP_URL = "https://crm.strategee.us";
+
+const features = [
+  { title: "Comunicación omnicanal", description: "WhatsApp, SMS, email y llamadas desde una sola plataforma. Centraliza todas tus conversaciones.", icon: "message" },
+  { title: "Gestión de contactos", description: "Base de datos inteligente con segmentación avanzada, campos personalizados y scoring automático.", icon: "users" },
+  { title: "Campañas masivas", description: "Envía miles de mensajes personalizados con segmentación precisa y reportes en tiempo real.", icon: "zap" },
+  { title: "Analítica en tiempo real", description: "Dashboards con métricas de entrega, engagement y conversión para mejores decisiones.", icon: "chart" },
+  { title: "Seguridad empresarial", description: "Roles y permisos granulares, autenticación segura y cifrado de datos en tránsito y reposo.", icon: "shield" },
+  { title: "API abierta", description: "Integra Smartee con tus sistemas existentes mediante nuestra API REST documentada.", icon: "globe" },
+];
+
+const useCases = [
+  { title: "Notificaciones transaccionales", description: "Confirmaciones de pago, alertas de cuenta y actualizaciones de estado en tiempo real." },
+  { title: "Atención al cliente", description: "Gestiona conversaciones con asignación inteligente, etiquetas y métricas de respuesta." },
+  { title: "Marketing automatizado", description: "Campañas segmentadas con plantillas aprobadas y seguimiento de conversiones." },
+  { title: "Recordatorios y cobros", description: "Automatiza recordatorios de pago, citas y vencimientos con mensajes programados." },
+];
+
+const testimonials = [
+  { quote: "Smartee nos permitió centralizar toda la comunicación con nuestros clientes. La eficiencia de nuestro equipo aumentó un 40% en el primer trimestre.", name: "Carlos Mendoza", role: "Director de Operaciones, SuperGiros" },
+  { quote: "La API es robusta y bien documentada. Integramos Smartee con nuestro ERP en menos de una semana.", name: "Andrea López", role: "CTO, Grupo Financiero del Valle" },
+  { quote: "El soporte es excepcional. Siempre tienen respuestas rápidas y soluciones a medida para nuestras necesidades.", name: "Roberto Sánchez", role: "Gerente de Tecnología, Redes & Servicios" },
+];
+---
+
+<Base>
+  <Nav />
+
+  <!-- Hero -->
+  <section class="pt-32 pb-20 px-6">
+    <div class="max-w-7xl mx-auto">
+      <div class="max-w-3xl">
+        <p class="text-sm font-semibold text-brand-600 mb-4">Plataforma de comunicación empresarial</p>
+        <h1 class="text-5xl md:text-6xl font-extrabold text-gray-900 leading-tight tracking-tight">
+          Toda tu comunicación con clientes, <span class="text-brand-600">en un solo lugar</span>
+        </h1>
+        <p class="text-lg text-gray-600 mt-6 leading-relaxed max-w-2xl">
+          Centraliza WhatsApp, SMS, email y llamadas. Gestiona contactos, lanza campañas masivas
+          y conecta tus sistemas con nuestra API. Diseñado para empresas que necesitan escalar.
+        </p>
+        <div class="flex items-center gap-4 mt-8 flex-wrap">
+          <a href={`${APP_URL}/login`} class="inline-flex items-center gap-2 text-sm font-semibold text-white bg-brand-800 hover:bg-brand-700 px-6 py-3 rounded-xl transition-colors">
+            Comenzar ahora →
+          </a>
+          <a href={`${APP_URL}/login`} class="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 border border-gray-300 hover:border-gray-400 px-6 py-3 rounded-xl transition-colors">
+            Hablar con ventas
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <section class="py-12 border-y border-gray-100 bg-gray-50/50">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+        <div><p class="text-3xl font-extrabold text-gray-900">99.9%</p><p class="text-sm text-gray-500 mt-1">Uptime garantizado</p></div>
+        <div><p class="text-3xl font-extrabold text-gray-900">10M+</p><p class="text-sm text-gray-500 mt-1">Mensajes enviados/mes</p></div>
+        <div><p class="text-3xl font-extrabold text-gray-900">&lt;200ms</p><p class="text-sm text-gray-500 mt-1">Tiempo de respuesta API</p></div>
+        <div><p class="text-3xl font-extrabold text-gray-900">50+</p><p class="text-sm text-gray-500 mt-1">Empresas confían en nosotros</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="py-24 px-6">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <p class="text-sm font-semibold text-brand-600 mb-3">Funcionalidades</p>
+        <h2 class="text-3xl md:text-4xl font-extrabold text-gray-900">Todo lo que necesitas para conectar con tus clientes</h2>
+        <p class="text-gray-600 mt-4">Una plataforma completa que crece con tu empresa. Sin límites artificiales.</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {features.map((f) => (
+          <div class="p-6 rounded-2xl border border-gray-200 hover:border-brand-200 hover:bg-brand-50/30 transition-all">
+            <div class="h-11 w-11 rounded-xl bg-brand-100 flex items-center justify-center mb-4">
+              <div class="h-5 w-5 bg-brand-700 rounded" />
+            </div>
+            <h3 class="text-base font-semibold text-gray-900 mb-2">{f.title}</h3>
+            <p class="text-sm text-gray-600 leading-relaxed">{f.description}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Use Cases -->
+  <section id="use-cases" class="py-24 px-6 bg-gray-50">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <p class="text-sm font-semibold text-brand-600 mb-3">Casos de uso</p>
+        <h2 class="text-3xl md:text-4xl font-extrabold text-gray-900">Soluciones para cada necesidad</h2>
+        <p class="text-gray-600 mt-4">Desde notificaciones transaccionales hasta campañas de marketing, Smartee se adapta a tu operación.</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        {useCases.map((uc) => (
+          <div class="bg-white p-6 rounded-2xl border border-gray-200 flex gap-4">
+            <div class="h-10 w-10 rounded-lg bg-brand-100 flex items-center justify-center shrink-0">
+              <div class="h-5 w-5 bg-brand-700 rounded" />
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-gray-900 mb-1">{uc.title}</h3>
+              <p class="text-sm text-gray-600 leading-relaxed">{uc.description}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials -->
+  <section id="testimonials" class="py-24 px-6">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <p class="text-sm font-semibold text-brand-600 mb-3">Testimonios</p>
+        <h2 class="text-3xl md:text-4xl font-extrabold text-gray-900">Empresas que confían en Smartee</h2>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {testimonials.map((t) => (
+          <div class="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+            <div class="flex gap-1 mb-4">
+              {[1,2,3,4,5].map(() => (
+                <svg class="h-4 w-4 fill-amber-400 text-amber-400" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg>
+              ))}
+            </div>
+            <p class="text-sm text-gray-700 leading-relaxed mb-5 italic">"{t.quote}"</p>
+            <p class="text-sm font-semibold text-gray-900">{t.name}</p>
+            <p class="text-xs text-gray-500">{t.role}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section id="pricing" class="py-24 px-6 bg-gray-50">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <p class="text-sm font-semibold text-brand-600 mb-3">Precios</p>
+        <h2 class="text-3xl md:text-4xl font-extrabold text-gray-900">Planes que se adaptan a tu escala</h2>
+        <p class="text-gray-600 mt-4">Sin contratos de permanencia. Paga solo por lo que usas.</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <!-- Starter -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-8">
+          <h3 class="text-lg font-semibold text-gray-900">Starter</h3>
+          <p class="text-sm text-gray-500 mt-1">Para equipos pequeños</p>
+          <div class="mt-6"><span class="text-4xl font-extrabold text-gray-900">$99</span><span class="text-sm text-gray-500">/mes</span></div>
+          <ul class="mt-6 space-y-3 text-sm text-gray-600">
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Hasta 5,000 contactos</li>
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>1 canal de WhatsApp</li>
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>3 usuarios</li>
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Campañas básicas</li>
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Soporte por email</li>
+          </ul>
+          <a href={`${APP_URL}/login`} class="block w-full mt-8 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors text-center">Comenzar</a>
+        </div>
+        <!-- Business -->
+        <div class="bg-brand-800 rounded-2xl p-8 text-white relative">
+          <div class="absolute top-4 right-4 text-[10px] px-2 py-0.5 rounded-full bg-white/20 font-medium">Popular</div>
+          <h3 class="text-lg font-semibold">Business</h3>
+          <p class="text-sm text-brand-200 mt-1">Para empresas en crecimiento</p>
+          <div class="mt-6"><span class="text-4xl font-extrabold">$299</span><span class="text-sm text-brand-200">/mes</span></div>
+          <ul class="mt-6 space-y-3 text-sm text-white/85">
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Hasta 50,000 contactos</li>
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>3 canales</li>
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>10 usuarios</li>
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Campañas avanzadas + API</li>
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Webhooks e integraciones</li>
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Soporte prioritario</li>
+          </ul>
+          <a href={`${APP_URL}/login`} class="block w-full mt-8 py-2.5 rounded-lg bg-white text-brand-800 text-sm font-semibold hover:bg-gray-100 transition-colors text-center">Comenzar</a>
+        </div>
+        <!-- Enterprise -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-8">
+          <h3 class="text-lg font-semibold text-gray-900">Enterprise</h3>
+          <p class="text-sm text-gray-500 mt-1">Para grandes operaciones</p>
+          <div class="mt-6"><span class="text-4xl font-extrabold text-gray-900">Custom</span></div>
+          <ul class="mt-6 space-y-3 text-sm text-gray-600">
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Contactos ilimitados</li>
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Canales ilimitados</li>
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Usuarios ilimitados</li>
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>SLA dedicado</li>
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Onboarding personalizado</li>
+            <li class="flex items-center gap-2"><svg class="h-4 w-4 text-green-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Account Manager</li>
+          </ul>
+          <a href={`${APP_URL}/login`} class="block w-full mt-8 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors text-center">Contactar ventas</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="py-24 px-6 text-center">
+    <div class="max-w-4xl mx-auto">
+      <h2 class="text-3xl md:text-4xl font-extrabold text-gray-900">¿Listo para transformar tu comunicación?</h2>
+      <p class="text-gray-600 mt-4 text-lg">Agenda una demo personalizada y descubre cómo Smartee puede impulsar tu operación.</p>
+      <div class="flex items-center justify-center gap-4 mt-8">
+        <a href={`${APP_URL}/login`} class="inline-flex items-center gap-2 text-sm font-semibold text-white bg-brand-800 hover:bg-brand-700 px-6 py-3 rounded-xl transition-colors">
+          Solicitar demo →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <Footer />
+</Base>
