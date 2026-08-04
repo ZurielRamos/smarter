@@ -40,6 +40,7 @@ import { PrivacyPolicy } from "./pages/legal/PrivacyPolicy";
 import { TermsOfService } from "./pages/legal/TermsOfService";
 import { DataDeletion } from "./pages/legal/DataDeletion";
 import { Login } from "./pages/Login";
+import { Landing } from "./pages/Landing";
 import { Pending } from "./pages/Pending";
 import { SetupPassword } from "./pages/SetupPassword";
 import { ForgotPassword } from "./pages/ForgotPassword";
@@ -95,8 +96,8 @@ function App() {
           <Route path="/data-deletion" element={<DataDeletion />} />
           <Route path="/api-reference" element={<ApiReference />} />
 
-          {/* Redirect root to login */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          {/* Redirect root to landing */}
+          <Route path="/" element={<Landing />} />
 
           {/* Admin routes */}
           <Route element={<ProtectedAdminLayout />}>
