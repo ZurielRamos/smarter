@@ -743,10 +743,83 @@ const note = await response.json();`,
       },
       {
         id: "inboxes", label: "Bandejas", endpoints: [
-          { id: "list-inboxes", method: "GET", label: "Listar bandejas", path: "/api/chats/inboxes", description: "Lista las bandejas del tenant.", params: [{ name: "tenantId", type: "string", required: true, description: "ID del tenant" }], response: `[\n  {\n    "id": "uuid",\n    "name": "WhatsApp Principal",\n    "channel": "whatsapp",\n    "status": "connected"\n  }\n]` },
-          { id: "create-inbox", method: "POST", label: "Crear bandeja", path: "/api/chats/inboxes", description: "Crea una nueva bandeja.", body: `{\n  "tenantId": "uuid",\n  "name": "Mi canal",\n  "channel": "whatsapp"\n}`, response: `{ "id": "uuid", ... }` },
-          { id: "update-inbox", method: "PUT", label: "Actualizar bandeja", path: "/api/chats/inboxes/:id", description: "Actualiza nombre u otros campos.", body: `{ "name": "Nuevo nombre" }`, response: `{ "id": "uuid", ... }` },
-          { id: "delete-inbox", method: "DELETE", label: "Eliminar bandeja", path: "/api/chats/inboxes/:id", description: "Elimina una bandeja (soft-delete si tiene conversaciones).", response: `{ "softDeleted": true }` },
+          {
+            id: "list-inboxes",
+            method: "GET",
+            label: "Listar bandejas",
+            path: "/api/v1/{cuenta}/inboxes",
+            description: "Lista todas las bandejas (canales) configuradas en la cuenta. Incluye nombre, tipo de canal y estado de conexión.",
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/inboxes",
+  {
+    method: "GET",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const data = await response.json();`,
+            response: `{
+  "data": [
+    {
+      "id": "i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
+      "name": "WhatsApp Principal",
+      "channel": "whatsapp",
+      "status": "connected",
+      "channelName": "+57 300 123 4567",
+      "phoneNumberId": "123456789012345",
+      "createdAt": "2026-06-01T10:00:00.000Z"
+    },
+    {
+      "id": "i2j3k4l5-m6n7-8901-opqr-stuvwxyz2345",
+      "name": "Instagram",
+      "channel": "instagram",
+      "status": "connected",
+      "channelName": "@mi_negocio",
+      "phoneNumberId": null,
+      "createdAt": "2026-07-15T08:00:00.000Z"
+    }
+  ]
+}`,
+          },
+          {
+            id: "get-inbox",
+            method: "GET",
+            label: "Obtener bandeja",
+            path: "/api/v1/{cuenta}/inboxes/{id}",
+            description: "Obtiene el detalle completo de una bandeja específica incluyendo metadata del canal.",
+            params: [
+              { name: "id", type: "uuid", required: true, description: "ID de la bandeja" },
+            ],
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/inboxes/i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
+  {
+    method: "GET",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const inbox = await response.json();`,
+            response: `{
+  "id": "i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
+  "name": "WhatsApp Principal",
+  "channel": "whatsapp",
+  "status": "connected",
+  "channelName": "+57 300 123 4567",
+  "phoneNumberId": "123456789012345",
+  "pageId": null,
+  "wabaId": "109876543210",
+  "metadata": {
+    "profilePicture": "https://...",
+    "about": "Somos SuperGiros"
+  },
+  "createdAt": "2026-06-01T10:00:00.000Z",
+  "updatedAt": "2026-08-01T12:00:00.000Z"
+}`,
+          },
         ],
       },
       {
@@ -1044,7 +1117,7 @@ export function ApiReference() {
               {/* Endpoint badge */}
               <div className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white mb-8">
                 <span className={`text-xs px-2.5 py-1 rounded font-bold ${METHOD_BADGE[currentEndpoint.method]}`}>{currentEndpoint.method}</span>
-                <code className="text-base text-gray-700 font-mono flex-1 ml-1">
+                <code className="text-base text-gray-700 font-mono flex-1 ml-1 overflow-x-auto whitespace-nowrap">
                   {currentEndpoint.path.split(/(\{[^}]+\})/).map((part, i) =>
                     part.startsWith("{") ? <span key={i} className="mx-0.5 px-1.5 py-0.5 rounded bg-green-100 text-green-700 text-sm">{part}</span> : <span key={i}>{part}</span>
                   )}
