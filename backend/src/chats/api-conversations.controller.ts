@@ -215,7 +215,8 @@ export class ApiConversationsController {
    */
   @Post(':id/read')
   async markAsRead(@Req() req: any, @Param('slug') slug: string, @Param('id') id: string) {
-    const { tenantId } = await this.resolveTenant(req.user, slug);
+    const { tenantId, role } = await this.resolveTenant(req.user, slug);
+    this.requireAdmin(role);
     await this.validateConversationAccess(id, tenantId);
     await this.chatsService.markAsRead(id);
     return { success: true };
