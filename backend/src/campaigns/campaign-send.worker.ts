@@ -15,6 +15,7 @@ import { BillingService } from '../billing/billing.service';
 import { SmsService } from './sms.service';
 import { CallService } from './call.service';
 import { ConfigService } from '@nestjs/config';
+import { WebhooksService } from '../webhooks/webhooks.service';
 
 export interface CampaignSendJobData {
   sendId: string;
@@ -51,6 +52,7 @@ export class CampaignSendWorker extends WorkerHost {
     private readonly smsService: SmsService,
     private readonly callService: CallService,
     private readonly configService: ConfigService,
+    private readonly webhooksService: WebhooksService,
   ) {
     super();
   }
@@ -102,6 +104,15 @@ export class CampaignSendWorker extends WorkerHost {
       totalSent: 0,
       totalFailed: 0,
     });
+
+    // Dispatch webhook: campaign started
+    this.webhooksService.dispatch(campaign.tenantId, 'campaign_started', {
+      campaignId: campaign.id,
+      campaignName: campaign.name,
+      channel: campaign.channel,
+      sendId,
+      totalRecipients: recipientIds.length,
+    }).catch(() => {});
 
     // Fetch template components from Meta for proper message rendering
     let templateComponents: any[] | null = null;
@@ -326,6 +337,17 @@ export class CampaignSendWorker extends WorkerHost {
         totalSent,
         totalFailed,
       });
+
+      // Dispatch webhook: campaign completed
+      this.webhooksService.dispatch(campaign.tenantId, 'campaign_completed', {
+        campaignId: campaign.id,
+        campaignName: campaign.name,
+        channel: campaign.channel,
+        sendId,
+        totalRecipients,
+        totalSent,
+        totalFailed,
+      }).catch(() => {});
 
       // Settle credit reservation: charge only successful sends, release the rest
       if (totalSent >= 0 && campaign.tenantId) {

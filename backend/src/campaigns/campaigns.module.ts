@@ -20,12 +20,14 @@ import { WhatsAppService } from './whatsapp.service';
 import { CallService } from './call.service';
 import { SmsService } from './sms.service';
 import { BillingModule } from '../billing/billing.module';
+import { WebhooksModule } from '../webhooks/webhooks.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Campaign, CampaignSend, CampaignSendLog, ClientRecord, ChannelConfig, RecordList, CustomField, Inbox, Conversation, Message]),
     BullModule.registerQueue({ name: 'campaign-send' }),
     BillingModule,
+    WebhooksModule,
   ],
   providers: [CampaignsService, WhatsAppService, CallService, SmsService, CampaignsGateway, CampaignSendWorker, CampaignSchedulerService],
   controllers: [CampaignsController],

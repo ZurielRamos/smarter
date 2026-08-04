@@ -23,7 +23,8 @@ const AVAILABLE_EVENTS = [
   { key: "conversation_updated", label: "Conversación actualizada" },
   { key: "contact_created", label: "Contacto creado" },
   { key: "contact_updated", label: "Contacto actualizado" },
-  { key: "campaign_sent", label: "Campaña enviada" },
+  { key: "campaign_started", label: "Campaña iniciada" },
+  { key: "campaign_completed", label: "Campaña completada" },
 ];
 
 export function Webhooks() {
