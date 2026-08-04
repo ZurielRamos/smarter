@@ -13,6 +13,8 @@ import { Message } from '../chats/message.entity';
 import { CampaignsGateway } from './campaigns.gateway';
 import { BillingService } from '../billing/billing.service';
 import { SmsService } from './sms.service';
+import { CallService } from './call.service';
+import { ConfigService } from '@nestjs/config';
 
 export interface CampaignSendJobData {
   sendId: string;
@@ -47,6 +49,8 @@ export class CampaignSendWorker extends WorkerHost {
     private readonly gateway: CampaignsGateway,
     private readonly billingService: BillingService,
     private readonly smsService: SmsService,
+    private readonly callService: CallService,
+    private readonly configService: ConfigService,
   ) {
     super();
   }
@@ -78,7 +82,7 @@ export class CampaignSendWorker extends WorkerHost {
       await this.failSend(sendId, 'La bandeja no existe');
       return;
     }
-    // WhatsApp requires inbox credentials; SMS uses platform-level LabsMobile
+    // WhatsApp requires inbox credentials; SMS and calls use platform-level services
     if (campaign.channel === 'whatsapp' && (!inbox.accessToken || !inbox.phoneNumberId)) {
       await this.failSend(sendId, 'La bandeja no tiene credenciales configuradas');
       return;
@@ -173,6 +177,49 @@ export class CampaignSendWorker extends WorkerHost {
                 recordId: client.id,
                 phone: client.phone,
                 channel: 'sms',
+                status: 'failed',
+                errorCode: (result.error || 'unknown').substring(0, 50),
+              });
+            }
+          } else if (campaign.channel === 'llamada') {
+            // === Voice call via Onurix ===
+            const callMessage = this.interpolateMessage(campaign.messageTemplate || '', client);
+            const voice = inbox.metadata?.voice || campaign.callVoice || 'Mariana';
+            const result = await this.callService.sendCall({
+              phone: client.phone,
+              message: callMessage,
+              credentials: {
+                client: this.configService.get<string>('ONURIX_CLIENT', ''),
+                key: this.configService.get<string>('ONURIX_KEY', ''),
+              },
+              voice,
+              retries: campaign.callRetries || '1',
+              leaveVoicemail: campaign.callLeaveVoicemail ?? true,
+              audioCode: campaign.callAudioCode || undefined,
+            });
+
+            if (result.success) {
+              totalSent++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone,
+                channel: 'llamada',
+                status: 'sent',
+                providerMessageId: result.messageId ?? null,
+                sentAt: new Date(),
+              });
+            } else {
+              totalFailed++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone,
+                channel: 'llamada',
                 status: 'failed',
                 errorCode: (result.error || 'unknown').substring(0, 50),
               });
@@ -510,6 +557,10 @@ export class CampaignSendWorker extends WorkerHost {
 
         if (campaign.channel === 'sms') {
           // SMS: interpolate message template with client data
+          renderedContent = this.interpolateMessage(campaign.messageTemplate || '', client!);
+          messageType = 'text';
+        } else if (campaign.channel === 'llamada') {
+          // Call: interpolate message
           renderedContent = this.interpolateMessage(campaign.messageTemplate || '', client!);
           messageType = 'text';
         } else {

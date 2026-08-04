@@ -10,10 +10,18 @@ interface Variable {
 const DEFAULT_VARIABLES: Variable[] = [
   { field: "firstName", label: "Nombre" },
   { field: "lastName", label: "Apellido" },
+  { field: "fullName", label: "Nombre completo" },
   { field: "phone", label: "Teléfono" },
   { field: "email", label: "Email" },
+  { field: "documentType", label: "Tipo documento" },
+  { field: "documentNumber", label: "Nº documento" },
+  { field: "gender", label: "Género" },
+  { field: "city", label: "Ciudad" },
+  { field: "region", label: "Región" },
   { field: "status", label: "Estado" },
   { field: "channelSource", label: "Canal" },
+  { field: "source", label: "Fuente" },
+  { field: "score", label: "Score" },
 ];
 
 const VOICES = [
@@ -256,23 +264,6 @@ export function CallEditor({
 
       {!useAudio ? (
         <>
-          {/* Voice selector */}
-          <div className="mb-4">
-            <label className="text-sm font-medium text-gray-700 block mb-1.5">Voz</label>
-            <select
-              value={voice}
-              onChange={(e) => onVoiceChange(e.target.value)}
-              className="w-full max-w-xs px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
-            >
-              <option value="">Selecciona una voz</option>
-              {VOICES.map((v) => (
-                <option key={v.value} value={v.value}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Message editor with variables */}
           <div className="flex gap-4">
             <div className="w-[170px] shrink-0">

@@ -490,6 +490,11 @@ export function CampanaDetail() {
                 retries={campaign.callRetries || ""}
                 leaveVoicemail={campaign.callLeaveVoicemail ?? true}
                 audioCode={campaign.callAudioCode || ""}
+                onMessageChange={(val) => setCampaign({ ...campaign, messageTemplate: val })}
+                onVoiceChange={(val) => setCampaign({ ...campaign, callVoice: val })}
+                onRetriesChange={(val) => setCampaign({ ...campaign, callRetries: val })}
+                onLeaveVoicemailChange={(val) => setCampaign({ ...campaign, callLeaveVoicemail: val })}
+                onAudioCodeChange={(val) => setCampaign({ ...campaign, callAudioCode: val })}
                 onSave={handleSaveCallConfig}
                 saving={savingCall}
                 variables={availableFields}
