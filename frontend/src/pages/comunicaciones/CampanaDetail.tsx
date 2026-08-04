@@ -244,7 +244,10 @@ export function CampanaDetail() {
   };
 
   const connectSendWs = (sendId: string) => {
-    const wsUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/api$/, '');
+    const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
+    let resolved = false;
+
+    // Primary: WebSocket for real-time
     import('socket.io-client').then(({ io }) => {
       const socket = io(`${wsUrl}/ws/campaigns`, {
         query: { tenantId: campaign?.tenantId },
@@ -257,7 +260,7 @@ export function CampanaDetail() {
 
       socket.on('send_progress', (payload: { sendId: string; status: string; totalRecipients: number; totalSent: number; totalFailed: number; error?: string }) => {
         if (payload.sendId !== sendId) return;
-        // Update the send in the list in real-time
+        resolved = true;
         setSends((prev) => prev.map((s) => s.id === sendId ? {
           ...s,
           status: payload.status,
@@ -273,17 +276,29 @@ export function CampanaDetail() {
         }
       });
 
-      // Fallback: poll after 90s
-      const fallbackTimer = setTimeout(() => {
-        api.get<CampaignSendRecord[]>(`/campaigns/${campaign!.id}/sends`).then(({ data: allSends }) => {
-          setSends(allSends);
-          setSending(false);
-          socket.disconnect();
-        }).catch(() => { setSending(false); });
-      }, 90000);
+      // Disconnect after 2 min regardless
+      setTimeout(() => socket.disconnect(), 120000);
+    }).catch(() => {});
 
-      socket.on('disconnect', () => clearTimeout(fallbackTimer));
-    });
+    // Fallback: lightweight polling every 3s
+    const pollInterval = setInterval(async () => {
+      if (resolved) { clearInterval(pollInterval); return; }
+      try {
+        const { data: allSends } = await api.get<CampaignSendRecord[]>(`/campaigns/${campaign!.id}/sends`);
+        const current = allSends.find((s) => s.id === sendId);
+        if (current) {
+          setSends((prev) => prev.map((s) => s.id === sendId ? current : s));
+          if (current.status === 'completed' || current.status === 'failed') {
+            resolved = true;
+            setSending(false);
+            clearInterval(pollInterval);
+          }
+        }
+      } catch {}
+    }, 3000);
+
+    // Stop polling after 2 min
+    setTimeout(() => clearInterval(pollInterval), 120000);
   };
 
   const handleOpenSegmentEditor = () => {

@@ -90,6 +90,24 @@ export class CampaignSendWorker extends WorkerHost {
       totalFailed: 0,
     });
 
+    // Fetch template components from Meta for proper message rendering
+    let templateComponents: any[] | null = null;
+    if (campaign.whatsappTemplateName && inbox.wabaId && inbox.accessToken) {
+      try {
+        const tplRes = await fetch(
+          `https://graph.facebook.com/v21.0/${inbox.wabaId}/message_templates?fields=name,language,components&name=${campaign.whatsappTemplateName}&limit=1`,
+          { headers: { Authorization: `Bearer ${inbox.accessToken}` } },
+        );
+        const tplData = await tplRes.json();
+        const tpl = (tplData.data || []).find((t: any) => t.name === campaign.whatsappTemplateName);
+        if (tpl?.components) {
+          templateComponents = tpl.components;
+        }
+      } catch (err) {
+        this.logger.warn('[Worker] Could not fetch template components for rendering:', err);
+      }
+    }
+
     let totalSent = 0;
     let totalFailed = 0;
     const batchSize = 50;
@@ -178,6 +196,7 @@ export class CampaignSendWorker extends WorkerHost {
             campaign,
             inbox,
             clients,
+            templateComponents,
           );
         }
 
@@ -317,6 +336,7 @@ export class CampaignSendWorker extends WorkerHost {
     campaign: Campaign,
     inbox: Inbox,
     clients: ClientRecord[],
+    templateComponents: any[] | null,
   ): Promise<void> {
     try {
       const phones = successfulLogs.map((l) => l.phone!).filter(Boolean);
@@ -330,11 +350,12 @@ export class CampaignSendWorker extends WorkerHost {
         .getMany();
 
       const convByPhone = new Map(existingConvs.map((c) => [c.contactId, c]));
-      const newConversations: Partial<Conversation>[] = [];
-      const templateContent = `[Plantilla: ${campaign.whatsappTemplateName}]`;
       const now = new Date();
+      const templateName = campaign.whatsappTemplateName || '';
+      const lastMessageText = `📋 ${templateName}`;
 
       // Create missing conversations
+      const newConversations: Partial<Conversation>[] = [];
       for (const log of successfulLogs) {
         const phone = log.phone!;
         if (!convByPhone.has(phone)) {
@@ -346,7 +367,7 @@ export class CampaignSendWorker extends WorkerHost {
             contactName,
             recordId: log.recordId,
             status: 'open',
-            lastMessage: templateContent,
+            lastMessage: lastMessageText,
             lastMessageAt: now,
             unreadCount: 0,
           });
@@ -370,11 +391,34 @@ export class CampaignSendWorker extends WorkerHost {
         const conv = convByPhone.get(phone);
         if (!conv) continue;
 
+        const client = clients.find((c) => c.id === log.recordId);
+
+        // Build rendered content from template body with variables substituted
+        let renderedContent = `[Plantilla: ${templateName}]`;
+        if (templateComponents) {
+          const bodyComp = templateComponents.find((c: any) => c.type === 'BODY');
+          if (bodyComp?.text) {
+            renderedContent = bodyComp.text;
+            // Replace {{1}}, {{2}}, etc. with actual values
+            if (campaign.whatsappVariableMapping && client) {
+              for (const [pos, field] of Object.entries(campaign.whatsappVariableMapping)) {
+                renderedContent = renderedContent.replace(`{{${pos}}}`, this.getClientField(client, field));
+              }
+            }
+          }
+        }
+
+        // Store template metadata in mediaUrl (same format as chats service)
+        const templateMeta = templateComponents
+          ? JSON.stringify({ name: templateName, language: campaign.whatsappTemplateLanguage || 'es', components: templateComponents })
+          : null;
+
         messages.push({
           conversationId: conv.id,
           direction: 'outbound',
           messageType: 'template',
-          content: templateContent,
+          content: renderedContent,
+          mediaUrl: templateMeta,
           externalId: log.providerMessageId || undefined,
           status: 'sent',
         });
@@ -391,7 +435,7 @@ export class CampaignSendWorker extends WorkerHost {
         await this.conversationRepo
           .createQueryBuilder()
           .update(Conversation)
-          .set({ lastMessage: templateContent, lastMessageAt: now })
+          .set({ lastMessage: lastMessageText, lastMessageAt: now })
           .where('inbox_id = :inboxId AND contact_id IN (:...phones)', { inboxId: inbox.id, phones: existingPhones })
           .execute();
       }
