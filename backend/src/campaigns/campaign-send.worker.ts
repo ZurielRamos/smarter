@@ -11,6 +11,7 @@ import { Inbox } from '../chats/inbox.entity';
 import { Conversation } from '../chats/conversation.entity';
 import { Message } from '../chats/message.entity';
 import { CampaignsGateway } from './campaigns.gateway';
+import { BillingService } from '../billing/billing.service';
 
 export interface CampaignSendJobData {
   sendId: string;
@@ -43,6 +44,7 @@ export class CampaignSendWorker extends WorkerHost {
     @InjectRepository(Message)
     private readonly messageRepo: Repository<Message>,
     private readonly gateway: CampaignsGateway,
+    private readonly billingService: BillingService,
   ) {
     super();
   }
@@ -231,6 +233,27 @@ export class CampaignSendWorker extends WorkerHost {
         totalSent,
         totalFailed,
       });
+
+      // Charge credits for successful sends only
+      if (totalSent > 0 && campaign.tenantId) {
+        try {
+          const costAction = this.getCostAction(campaign.channel);
+          const unitCost = await this.billingService.getActionCost(costAction);
+          if (unitCost !== null) {
+            const totalCredits = totalSent * unitCost;
+            await this.billingService.consume(campaign.tenantId, {
+              amount: totalCredits,
+              source: `campaign_${campaign.channel}`,
+              referenceId: sendId,
+              description: `Campaña "${campaign.name}" — ${totalSent} envíos × ${unitCost} créditos`,
+            });
+            this.logger.log(`[Worker] Charged ${totalCredits} credits (${totalSent} × ${unitCost}) for send ${sendId}`);
+          }
+        } catch (billingError) {
+          this.logger.warn(`[Worker] Could not charge credits for send ${sendId}:`, billingError);
+          // Non-fatal: send already completed successfully
+        }
+      }
 
       this.logger.log(`[Worker] Send ${sendId} completed: ${totalSent} sent, ${totalFailed} failed`);
     } catch (error) {
@@ -442,6 +465,16 @@ export class CampaignSendWorker extends WorkerHost {
     } catch (error) {
       this.logger.error('[Worker] Error inserting conversations/messages:', error);
       // Non-fatal: don't fail the send because of this
+    }
+  }
+
+  private getCostAction(channel: string | null): string {
+    switch (channel) {
+      case 'whatsapp': return 'whatsapp_marketing';
+      case 'sms': return 'sms';
+      case 'llamada': return 'call';
+      case 'email': return 'email';
+      default: return 'whatsapp_marketing';
     }
   }
 

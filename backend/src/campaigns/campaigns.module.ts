@@ -17,11 +17,13 @@ import { CampaignsGateway } from './campaigns.gateway';
 import { CampaignSendWorker } from './campaign-send.worker';
 import { WhatsAppService } from './whatsapp.service';
 import { CallService } from './call.service';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Campaign, CampaignSend, CampaignSendLog, ClientRecord, ChannelConfig, RecordList, CustomField, Inbox, Conversation, Message]),
     BullModule.registerQueue({ name: 'campaign-send' }),
+    BillingModule,
   ],
   providers: [CampaignsService, WhatsAppService, CallService, CampaignsGateway, CampaignSendWorker],
   controllers: [CampaignsController],
