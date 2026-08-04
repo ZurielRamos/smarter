@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronRight, ChevronDown, Copy, CheckCircle2 } from "lucide-react";
+import { ChevronRight, ChevronDown, Copy, CheckCircle2, Play, X, Loader2 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import logo from "@/assets/logo.svg";
 
 interface EndpointDef {
@@ -457,6 +458,8 @@ function ResponseCard({ endpoint }: { endpoint: EndpointDef }) {
 export function ApiReference() {
   const [active, setActive] = useState("introduction");
   const [expanded, setExpanded] = useState<Set<string>>(new Set(["contacts"]));
+  const [tryItEndpoint, setTryItEndpoint] = useState<EndpointDef | null>(null);
+  const [urlCopied, setUrlCopied] = useState(false);
 
   const toggleExpand = (id: string) => {
     setExpanded((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -642,14 +645,23 @@ export function ApiReference() {
               <p className="text-base text-gray-600 mb-8">{currentEndpoint.description}</p>
 
               {/* Endpoint badge */}
-              <div className="flex items-center gap-1 px-4 py-3 rounded-xl border border-gray-200 bg-white mb-8">
+              <div className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white mb-8">
                 <span className={`text-xs px-2.5 py-1 rounded font-bold ${METHOD_BADGE[currentEndpoint.method]}`}>{currentEndpoint.method}</span>
-                <code className="text-base text-gray-700 font-mono flex-1 ml-2">
+                <code className="text-base text-gray-700 font-mono flex-1 ml-1">
                   {currentEndpoint.path.split(/(\{[^}]+\})/).map((part, i) =>
                     part.startsWith("{") ? <span key={i} className="mx-0.5 px-1.5 py-0.5 rounded bg-green-100 text-green-700 text-sm">{part}</span> : <span key={i}>{part}</span>
                   )}
                 </code>
-                <button onClick={() => navigator.clipboard.writeText(currentEndpoint!.path)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><Copy className="h-4 w-4" /></button>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.origin + currentEndpoint!.path);
+                    setUrlCopied(true);
+                    setTimeout(() => setUrlCopied(false), 2000);
+                  }}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 border border-gray-200 transition-colors"
+                >
+                  {urlCopied ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </button>
               </div>
 
               {/* Parameters */}
@@ -696,6 +708,264 @@ export function ApiReference() {
           </div>
         )}
       </main>
+
+      {/* Try It Modal */}
+      <AnimatePresence>
+        {tryItEndpoint && (
+          <TryItModal endpoint={tryItEndpoint} onClose={() => setTryItEndpoint(null)} />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function TryItModal({ endpoint, onClose }: { endpoint: EndpointDef; onClose: () => void }) {
+  const [apiToken, setApiToken] = useState("");
+  const [pathParams, setPathParams] = useState<Record<string, string>>(() => {
+    const params: Record<string, string> = {};
+    const matches = endpoint.path.matchAll(/\{(\w+)\}/g);
+    for (const m of matches) {
+      params[m[1]] = "";
+    }
+    return params;
+  });
+  const [queryParams, setQueryParams] = useState<Record<string, string>>(() => {
+    const params: Record<string, string> = {};
+    if (endpoint.params) {
+      for (const p of endpoint.params) {
+        if (!endpoint.path.includes(`{${p.name}}`)) {
+          params[p.name] = "";
+        }
+      }
+    }
+    return params;
+  });
+  const [bodyContent, setBodyContent] = useState(endpoint.body || "");
+  const [loading, setLoading] = useState(false);
+  const [response, setResponse] = useState<{ status: number; body: string } | null>(null);
+
+  function buildUrl(): string {
+    let url = endpoint.path;
+    for (const [key, value] of Object.entries(pathParams)) {
+      url = url.replace(`{${key}}`, value || `{${key}}`);
+    }
+    const queryEntries = Object.entries(queryParams).filter(([, v]) => v.trim());
+    if (queryEntries.length > 0) {
+      url += "?" + queryEntries.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+    }
+    return url;
+  }
+
+  async function handleSend() {
+    if (!apiToken.trim()) return;
+    setLoading(true);
+    setResponse(null);
+
+    const url = window.location.origin + buildUrl();
+    const options: RequestInit = {
+      method: endpoint.method,
+      headers: {
+        "x-api-token": apiToken,
+        "Content-Type": "application/json",
+      },
+    };
+    if (["POST", "PUT"].includes(endpoint.method) && bodyContent.trim()) {
+      options.body = bodyContent;
+    }
+
+    try {
+      const res = await fetch(url, options);
+      const text = await res.text();
+      let formatted = text;
+      try { formatted = JSON.stringify(JSON.parse(text), null, 2); } catch {}
+      setResponse({ status: res.status, body: formatted });
+    } catch (err: any) {
+      setResponse({ status: 0, body: `Error de red: ${err.message}` });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const pathParamKeys = Object.keys(pathParams);
+  const queryParamKeys = Object.keys(queryParams);
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/50 z-50"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+        className="fixed inset-4 z-50 flex items-start justify-center pt-8"
+      >
+        <div
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <span className={`text-xs px-2.5 py-1 rounded font-bold ${METHOD_BADGE[endpoint.method]}`}>{endpoint.method}</span>
+              <h2 className="text-lg font-semibold text-gray-900">{endpoint.label}</h2>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSend}
+                disabled={loading || !apiToken.trim()}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
+                Send
+              </button>
+              <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-h-0 flex overflow-hidden">
+            {/* Left: Parameters */}
+            <div className="flex-1 overflow-y-auto p-6 border-r border-gray-100 space-y-6">
+              {/* URL preview */}
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">URL</p>
+                <div className="px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200">
+                  <code className="text-xs font-mono text-gray-700 break-all">
+                    {endpoint.method} {buildUrl()}
+                  </code>
+                </div>
+              </div>
+
+              {/* Authorization */}
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Autenticación</p>
+                <div>
+                  <label className="text-xs font-medium text-gray-700 mb-1 block">
+                    x-api-token <span className="text-red-500 text-[10px] font-medium ml-1">required</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={apiToken}
+                    onChange={(e) => setApiToken(e.target.value)}
+                    placeholder="Pega tu token de API aquí"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Path Parameters */}
+              {pathParamKeys.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Path</p>
+                  <div className="space-y-3">
+                    {pathParamKeys.map((key) => (
+                      <div key={key}>
+                        <label className="text-xs font-medium text-gray-700 mb-1 flex items-center gap-2">
+                          {key}
+                          <span className="text-[10px] text-gray-400">string</span>
+                          <span className="text-red-500 text-[10px] font-medium">required</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={pathParams[key]}
+                          onChange={(e) => setPathParams({ ...pathParams, [key]: e.target.value })}
+                          placeholder={`Ingresa ${key}`}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Query Parameters */}
+              {queryParamKeys.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Query</p>
+                  <div className="space-y-3">
+                    {queryParamKeys.map((key) => {
+                      const paramDef = endpoint.params?.find((p) => p.name === key);
+                      return (
+                        <div key={key}>
+                          <label className="text-xs font-medium text-gray-700 mb-1 flex items-center gap-2">
+                            {key}
+                            <span className="text-[10px] text-gray-400">{paramDef?.type || "string"}</span>
+                            {paramDef?.required && <span className="text-red-500 text-[10px] font-medium">required</span>}
+                          </label>
+                          <input
+                            type="text"
+                            value={queryParams[key]}
+                            onChange={(e) => setQueryParams({ ...queryParams, [key]: e.target.value })}
+                            placeholder={paramDef?.description || `Ingresa ${key}`}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Request Body */}
+              {["POST", "PUT"].includes(endpoint.method) && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Body</p>
+                  <textarea
+                    value={bodyContent}
+                    onChange={(e) => setBodyContent(e.target.value)}
+                    rows={12}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none resize-y leading-relaxed"
+                    placeholder='{ "key": "value" }'
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Right: Response */}
+            <div className="w-[420px] shrink-0 flex flex-col bg-[#1e1e2e] overflow-hidden">
+              <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0">
+                <span className="text-xs text-gray-300 font-medium">Respuesta</span>
+                {response && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                    response.status >= 200 && response.status < 300
+                      ? "bg-green-500/20 text-green-400"
+                      : response.status >= 400
+                        ? "bg-red-500/20 text-red-400"
+                        : "bg-gray-500/20 text-gray-400"
+                  }`}>
+                    {response.status || "Error"}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 overflow-y-auto px-4 py-4">
+                {!response && !loading && (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-xs text-gray-500 text-center">
+                      Completa los parámetros y presiona <strong className="text-green-400">Send</strong> para probar
+                    </p>
+                  </div>
+                )}
+                {loading && (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                  </div>
+                )}
+                {response && (
+                  <pre className="text-[11px] font-mono leading-relaxed whitespace-pre-wrap text-green-300">{response.body}</pre>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </>
   );
 }
