@@ -35,22 +35,32 @@ export class ApiRecordsController {
 
   /**
    * Resuelve el slug a un tenantId y verifica que el usuario tiene acceso.
+   * Retorna { tenantId, role }.
    */
-  private async resolveTenant(user: any, slug: string): Promise<string> {
+  private async resolveTenant(user: any, slug: string): Promise<{ tenantId: string; role: string }> {
     // SuperAdmin puede acceder a cualquier tenant
     if (user.isSuperAdmin) {
       const tenant = await this.tenantRepo.findOne({ where: { slug } });
       if (!tenant) throw new NotFoundException('Cuenta no encontrada');
-      return tenant.id;
+      return { tenantId: tenant.id, role: 'admin' };
     }
 
     // Buscar en los roles activos del usuario
-    const role = user.tenantRoles?.find((tr: any) => tr.tenant.slug === slug);
-    if (!role) {
+    const tenantRole = user.tenantRoles?.find((tr: any) => tr.tenant.slug === slug);
+    if (!tenantRole) {
       throw new ForbiddenException('No tienes acceso a esta cuenta');
     }
 
-    return role.tenantId;
+    return { tenantId: tenantRole.tenantId, role: tenantRole.role };
+  }
+
+  /**
+   * Verifica que el usuario tenga rol de admin. Los agentes solo tienen acceso de lectura.
+   */
+  private requireAdmin(role: string): void {
+    if (role !== 'admin') {
+      throw new ForbiddenException('Los agentes solo tienen acceso de lectura. Necesitas permisos de administrador para esta acción.');
+    }
   }
 
   /**
@@ -66,7 +76,7 @@ export class ApiRecordsController {
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
   ) {
-    const tenantId = await this.resolveTenant(req.user, slug);
+    const { tenantId } = await this.resolveTenant(req.user, slug);
     return this.recordsService.findAll(+page, +limit, tenantId, sortBy, sortOrder);
   }
 
@@ -76,7 +86,7 @@ export class ApiRecordsController {
    */
   @Get(':id')
   async findOne(@Req() req: any, @Param('slug') slug: string, @Param('id') id: string) {
-    const tenantId = await this.resolveTenant(req.user, slug);
+    const { tenantId } = await this.resolveTenant(req.user, slug);
 
     const record = await this.recordsService.findOneById(id);
     if (!record) {
@@ -118,7 +128,8 @@ export class ApiRecordsController {
       customData?: Record<string, any>;
     },
   ) {
-    const tenantId = await this.resolveTenant(req.user, slug);
+    const { tenantId, role } = await this.resolveTenant(req.user, slug);
+    this.requireAdmin(role);
     return this.recordsService.createRecord({
       tenantId,
       firstName: body.firstName,
@@ -164,7 +175,8 @@ export class ApiRecordsController {
       customData?: Record<string, any>;
     },
   ) {
-    const tenantId = await this.resolveTenant(req.user, slug);
+    const { tenantId, role } = await this.resolveTenant(req.user, slug);
+    this.requireAdmin(role);
 
     const existing = await this.recordsService.findOneById(id);
     if (!existing) {
@@ -186,7 +198,8 @@ export class ApiRecordsController {
    */
   @Delete(':id')
   async remove(@Req() req: any, @Param('slug') slug: string, @Param('id') id: string) {
-    const tenantId = await this.resolveTenant(req.user, slug);
+    const { tenantId, role } = await this.resolveTenant(req.user, slug);
+    this.requireAdmin(role);
 
     const existing = await this.recordsService.findOneById(id);
     if (!existing) {
