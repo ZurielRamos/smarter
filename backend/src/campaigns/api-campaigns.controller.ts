@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Param,
   UseGuards,
   Req,
@@ -43,6 +44,12 @@ export class ApiCampaignsController {
     }
 
     return { tenantId: tenantRole.tenantId, role: tenantRole.role };
+  }
+
+  private requireAdmin(role: string): void {
+    if (role !== 'admin') {
+      throw new ForbiddenException('Necesitas permisos de administrador para ejecutar campañas.');
+    }
   }
 
   /**
@@ -137,5 +144,24 @@ export class ApiCampaignsController {
         createdAt: s.createdAt,
       })),
     };
+  }
+
+  /**
+   * POST /api/v1/:slug/campaigns/:id/send
+   * Ejecutar una campaña. Solo administradores.
+   * Encola el envío a todos los destinatarios que coincidan con los segmentos.
+   */
+  @Post(':id/send')
+  async sendCampaign(@Req() req: any, @Param('slug') slug: string, @Param('id') id: string) {
+    const { tenantId, role } = await this.resolveTenant(req.user, slug);
+    this.requireAdmin(role);
+
+    const campaign = await this.campaignRepo.findOne({ where: { id } });
+    if (!campaign || campaign.tenantId !== tenantId) {
+      throw new NotFoundException('Campaña no encontrada');
+    }
+
+    const result = await this.campaignsService.sendCampaign(id);
+    return result;
   }
 }

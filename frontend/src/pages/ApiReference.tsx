@@ -961,6 +961,33 @@ const sends = await response.json();`,
   ]
 }`,
           },
+          {
+            id: "send-campaign",
+            method: "POST",
+            label: "Ejecutar campaña",
+            path: "/api/v1/{cuenta}/campaigns/{id}/send",
+            description: "Ejecuta una campaña, encolando el envío a todos los destinatarios que coincidan con los segmentos configurados. Solo administradores. La campaña debe estar en estado 'draft' o 'active'.",
+            params: [
+              { name: "id", type: "uuid", required: true, description: "ID de la campaña a ejecutar" },
+            ],
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/campaigns/p1q2r3s4-t5u6-7890-abcd-ef1234567890/send",
+  {
+    method: "POST",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const result = await response.json();`,
+            response: `{
+  "id": "s2t3u4v5-w6x7-8901-yzab-cdef23456789",
+  "status": "queued",
+  "totalRecipients": 350,
+  "campaignId": "p1q2r3s4-t5u6-7890-abcd-ef1234567890"
+}`,
+          },
         ],
       },
       {
