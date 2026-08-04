@@ -48,9 +48,10 @@ export class CampaignSchedulerService {
   /**
    * Process one-time scheduled campaigns.
    * Finds active campaigns where sendDate + sendTime has passed.
+   * Times are interpreted in Colombia timezone (America/Bogota).
    */
   private async processScheduledOnce(): Promise<void> {
-    const now = new Date();
+    const nowColombia = this.getNowInColombia();
     const campaigns = await this.campaignRepo
       .createQueryBuilder('c')
       .where('c.status = :status', { status: 'active' })
@@ -60,7 +61,7 @@ export class CampaignSchedulerService {
 
     for (const campaign of campaigns) {
       const scheduledTime = this.getScheduledDateTime(campaign.sendDate, campaign.sendTime);
-      if (!scheduledTime || scheduledTime > now) continue;
+      if (!scheduledTime || scheduledTime > nowColombia) continue;
 
       this.logger.log(`[Scheduler] Executing scheduled campaign "${campaign.name}" (${campaign.id})`);
       try {
@@ -76,12 +77,13 @@ export class CampaignSchedulerService {
   /**
    * Process recurring campaigns.
    * Checks if today's day and current time match the recurrence config.
+   * Uses Colombia timezone (America/Bogota).
    */
   private async processRecurring(): Promise<void> {
-    const now = new Date();
+    const nowColombia = this.getNowInColombia();
     const dayNames = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-    const todayKey = dayNames[now.getDay()];
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const todayKey = dayNames[nowColombia.getDay()];
+    const currentTime = `${String(nowColombia.getHours()).padStart(2, '0')}:${String(nowColombia.getMinutes()).padStart(2, '0')}`;
 
     const campaigns = await this.campaignRepo
       .createQueryBuilder('c')
@@ -103,7 +105,7 @@ export class CampaignSchedulerService {
 
       // Prevent duplicate execution: check if already sent in the last 2 minutes
       const recentSend = await this.campaignsService.getSends(campaign.id);
-      const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
+      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
       const alreadyRan = recentSend.some(
         (s) => new Date(s.createdAt) > twoMinutesAgo,
       );
@@ -118,10 +120,22 @@ export class CampaignSchedulerService {
     }
   }
 
+  /** Get current date/time in Colombia timezone */
+  private getNowInColombia(): Date {
+    const now = new Date();
+    // Create a date string in Colombia timezone and parse it back
+    const colombiaStr = now.toLocaleString('en-US', { timeZone: 'America/Bogota' });
+    return new Date(colombiaStr);
+  }
+
   private getScheduledDateTime(sendDate: Date | string | null, sendTime: string | null): Date | null {
     if (!sendDate) return null;
     const dateStr = typeof sendDate === 'string' ? sendDate.split('T')[0] : sendDate.toISOString().split('T')[0];
     const time = sendTime || '00:00';
-    return new Date(`${dateStr}T${time}:00`);
+    // Parse as local time (matches what user configured in Colombia)
+    const [hours, minutes] = time.split(':').map(Number);
+    const date = new Date(dateStr + 'T12:00:00'); // noon to avoid DST issues
+    date.setHours(hours, minutes, 0, 0);
+    return date;
   }
 }
