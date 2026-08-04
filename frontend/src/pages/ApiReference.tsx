@@ -558,9 +558,187 @@ const result = await response.json();`,
       },
       {
         id: "messages", label: "Mensajes", endpoints: [
-          { id: "get-messages", method: "GET", label: "Obtener mensajes", path: "/api/chats/conversations/:id/messages", description: "Obtiene los mensajes de una conversación.", params: [{ name: "limit", type: "integer", description: "Default: 50" }, { name: "before", type: "string", description: "Cursor para paginación" }], response: `[\n  {\n    "id": "uuid",\n    "direction": "inbound",\n    "messageType": "text",\n    "content": "Hola!",\n    "status": "delivered",\n    "createdAt": "2026-08-04T..."\n  }\n]` },
-          { id: "send-message", method: "POST", label: "Enviar mensaje", path: "/api/chats/conversations/:id/send", description: "Envía un mensaje de texto en una conversación.", body: `{\n  "content": "Hola, ¿cómo te puedo ayudar?",\n  "messageType": "text",\n  "senderId": "uuid-agente"\n}`, response: `{\n  "id": "uuid",\n  "direction": "outbound",\n  "content": "Hola, ¿cómo te puedo ayudar?",\n  "status": "sent",\n  ...\n}` },
-          { id: "create-note", method: "POST", label: "Crear nota privada", path: "/api/chats/conversations/:id/note", description: "Crea una nota privada (no visible para el contacto).", body: `{\n  "content": "Cliente VIP, dar prioridad",\n  "senderId": "uuid-agente"\n}`, response: `{\n  "id": "uuid",\n  "messageType": "note",\n  ...\n}` },
+          {
+            id: "list-messages",
+            method: "GET",
+            label: "Listar mensajes",
+            path: "/api/v1/{cuenta}/conversations/{conversationId}/messages",
+            description: "Lista los mensajes de una conversación con paginación basada en cursor. Los mensajes se retornan en orden cronológico (más antiguos primero).",
+            params: [
+              { name: "conversationId", type: "uuid", required: true, description: "ID de la conversación" },
+              { name: "limit", type: "integer", description: "Mensajes por página, máximo 100 (default: 50)" },
+              { name: "before", type: "uuid", description: "ID del mensaje más antiguo para cargar mensajes anteriores (cursor)" },
+            ],
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-uuid/messages?limit=50",
+  {
+    method: "GET",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const data = await response.json();`,
+            response: `{
+  "data": [
+    {
+      "id": "m1a2b3c4-d5e6-7890-abcd-ef1234567890",
+      "conversationId": "c1d2e3f4-a5b6-7890-cdef-1234567890ab",
+      "direction": "inbound",
+      "messageType": "text",
+      "content": "Hola, necesito ayuda con mi pedido",
+      "mediaUrl": null,
+      "mediaMimeType": null,
+      "status": "delivered",
+      "senderId": null,
+      "sender": null,
+      "externalId": "wamid.abc123",
+      "replyToExternalId": null,
+      "createdAt": "2026-08-04T14:25:00.000Z"
+    },
+    {
+      "id": "m2b3c4d5-e6f7-8901-bcde-f23456789012",
+      "conversationId": "c1d2e3f4-a5b6-7890-cdef-1234567890ab",
+      "direction": "outbound",
+      "messageType": "text",
+      "content": "Claro, con gusto te ayudo. ¿Cuál es tu número de pedido?",
+      "mediaUrl": null,
+      "mediaMimeType": null,
+      "status": "delivered",
+      "senderId": "u1v2w3x4-y5z6-7890-abcd-ef1234567890",
+      "sender": {
+        "id": "u1v2w3x4-y5z6-7890-abcd-ef1234567890",
+        "name": "María García"
+      },
+      "externalId": "wamid.def456",
+      "replyToExternalId": null,
+      "createdAt": "2026-08-04T14:27:00.000Z"
+    }
+  ],
+  "hasMore": true
+}`,
+          },
+          {
+            id: "get-message",
+            method: "GET",
+            label: "Obtener mensaje",
+            path: "/api/v1/{cuenta}/conversations/{conversationId}/messages/{id}",
+            description: "Obtiene un mensaje específico por su ID, incluyendo información del agente que lo envió.",
+            params: [
+              { name: "conversationId", type: "uuid", required: true, description: "ID de la conversación" },
+              { name: "id", type: "uuid", required: true, description: "ID del mensaje" },
+            ],
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-uuid/messages/m1a2b3c4-uuid",
+  {
+    method: "GET",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const message = await response.json();`,
+            response: `{
+  "id": "m1a2b3c4-d5e6-7890-abcd-ef1234567890",
+  "conversationId": "c1d2e3f4-a5b6-7890-cdef-1234567890ab",
+  "direction": "outbound",
+  "messageType": "text",
+  "content": "Claro, con gusto te ayudo.",
+  "mediaUrl": null,
+  "mediaMimeType": null,
+  "status": "delivered",
+  "senderId": "u1v2w3x4-y5z6-7890-abcd-ef1234567890",
+  "sender": {
+    "id": "u1v2w3x4-y5z6-7890-abcd-ef1234567890",
+    "name": "María García"
+  },
+  "externalId": "wamid.def456",
+  "replyToExternalId": null,
+  "createdAt": "2026-08-04T14:27:00.000Z"
+}`,
+          },
+          {
+            id: "send-message",
+            method: "POST",
+            label: "Enviar mensaje",
+            path: "/api/v1/{cuenta}/conversations/{conversationId}/messages",
+            description: "Envía un mensaje de texto en una conversación. Solo administradores. El mensaje se envía al contacto a través del canal configurado (WhatsApp, Messenger, etc.).",
+            params: [
+              { name: "conversationId", type: "uuid", required: true, description: "ID de la conversación" },
+            ],
+            body: `{
+  "content": "Hola, ¿cómo te puedo ayudar?",
+  "messageType": "text",
+  "replyToExternalId": "wamid.abc123"
+}`,
+            bodyDescription: "messageType es opcional (default: 'text'). replyToExternalId es opcional para responder a un mensaje específico.",
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-uuid/messages",
+  {
+    method: "POST",
+    headers: {
+      "x-api-token": "tu_token_de_api",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      content: "Hola, ¿cómo te puedo ayudar?",
+      messageType: "text"
+    })
+  }
+);
+
+const message = await response.json();`,
+            response: `{
+  "id": "m3c4d5e6-f7g8-9012-cdef-345678901234",
+  "conversationId": "c1d2e3f4-a5b6-7890-cdef-1234567890ab",
+  "direction": "outbound",
+  "messageType": "text",
+  "content": "Hola, ¿cómo te puedo ayudar?",
+  "status": "sent",
+  "senderId": "u1v2w3x4-y5z6-7890-abcd-ef1234567890",
+  "createdAt": "2026-08-04T15:00:00.000Z"
+}`,
+          },
+          {
+            id: "create-note",
+            method: "POST",
+            label: "Crear nota privada",
+            path: "/api/v1/{cuenta}/conversations/{conversationId}/messages/note",
+            description: "Crea una nota privada visible solo para el equipo, no se envía al contacto. Solo administradores.",
+            params: [
+              { name: "conversationId", type: "uuid", required: true, description: "ID de la conversación" },
+            ],
+            body: `{
+  "content": "Cliente VIP, dar prioridad en la atención"
+}`,
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-uuid/messages/note",
+  {
+    method: "POST",
+    headers: {
+      "x-api-token": "tu_token_de_api",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      content: "Cliente VIP, dar prioridad en la atención"
+    })
+  }
+);
+
+const note = await response.json();`,
+            response: `{
+  "id": "m4d5e6f7-g8h9-0123-defg-456789012345",
+  "conversationId": "c1d2e3f4-a5b6-7890-cdef-1234567890ab",
+  "direction": "outbound",
+  "messageType": "note",
+  "content": "Cliente VIP, dar prioridad en la atención",
+  "status": "delivered",
+  "senderId": "u1v2w3x4-y5z6-7890-abcd-ef1234567890",
+  "createdAt": "2026-08-04T15:05:00.000Z"
+}`,
+          },
         ],
       },
       {

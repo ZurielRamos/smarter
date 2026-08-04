@@ -10,6 +10,7 @@ import { Tenant } from '../tenants/tenant.entity';
 import { ChatsService } from './chats.service';
 import { ChatsController, WebhookController } from './chats.controller';
 import { ApiConversationsController } from './api-conversations.controller';
+import { ApiMessagesController } from './api-messages.controller';
 import { ChatsGateway } from './chats.gateway';
 import { WebhookForwarderService } from './webhook-forwarder.service';
 import { BillingModule } from '../billing/billing.module';
@@ -24,7 +25,7 @@ import { UsersModule } from '../users/users.module';
     UsersModule,
   ],
   providers: [ChatsService, ChatsGateway, WebhookForwarderService],
-  controllers: [ChatsController, ApiConversationsController, WebhookController],
+  controllers: [ChatsController, ApiConversationsController, ApiMessagesController, WebhookController],
   exports: [ChatsService, ChatsGateway],
 })
 export class ChatsModule {}
