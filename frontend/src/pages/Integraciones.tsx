@@ -11,7 +11,7 @@ const INTEGRATIONS = [
     icon: Webhook,
     color: "text-purple-600",
     bg: "bg-purple-50",
-    status: "soon",
+    status: "active",
   },
   {
     id: "api",
@@ -70,8 +70,13 @@ export function Integraciones() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {INTEGRATIONS.map((integration) => {
               const Icon = integration.icon;
+              const isClickable = integration.status === "active";
               return (
-                <div key={integration.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:border-gray-300 transition-colors">
+                <div
+                  key={integration.id}
+                  onClick={isClickable ? () => navigate(`/${slug}/integraciones/${integration.id}`) : undefined}
+                  className={`bg-white rounded-xl border border-gray-200 p-5 transition-colors ${isClickable ? "hover:border-brand-300 hover:bg-brand-50/20 cursor-pointer" : "hover:border-gray-300"}`}
+                >
                   <div className="flex items-start gap-4">
                     <div className={`h-10 w-10 rounded-lg ${integration.bg} flex items-center justify-center shrink-0`}>
                       <Icon className={`h-5 w-5 ${integration.color}`} />

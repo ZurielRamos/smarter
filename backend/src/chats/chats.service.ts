@@ -11,6 +11,7 @@ import { Label } from './label.entity';
 import { ChatsGateway } from './chats.gateway';
 import { MediaStorageService } from '../media/media-storage.service';
 import { BillingService } from '../billing/billing.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 
 @Injectable()
 export class ChatsService {
@@ -31,6 +32,7 @@ export class ChatsService {
     private readonly mediaStorageService: MediaStorageService,
     private readonly configService: ConfigService,
     private readonly billingService: BillingService,
+    private readonly webhooksService: WebhooksService,
   ) {}
 
   // === INBOXES ===
@@ -566,6 +568,9 @@ export class ChatsService {
       // Emit real-time events
       this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
       this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
+
+      // Dispatch webhooks
+      this.webhooksService.dispatch(inbox.tenantId, 'message_created', { message, conversation }).catch(() => {});
     }
   }
 
@@ -965,6 +970,9 @@ export class ChatsService {
     // Emit real-time events
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversationId, saved);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
+
+    // Dispatch webhooks
+    this.webhooksService.dispatch(inbox.tenantId, 'message_created', { message: saved, conversation }).catch(() => {});
 
     return saved;
   }

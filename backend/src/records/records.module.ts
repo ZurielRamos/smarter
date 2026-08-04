@@ -9,9 +9,10 @@ import { CustomFieldsService } from './custom-fields.service';
 import { CustomFieldsController } from './custom-fields.controller';
 import { RecordListsService } from './record-lists.service';
 import { RecordListsController } from './record-lists.controller';
+import { WebhooksModule } from '../webhooks/webhooks.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ClientRecord, CustomField, RecordList])],
+  imports: [TypeOrmModule.forFeature([ClientRecord, CustomField, RecordList]), WebhooksModule],
   providers: [RecordsService, CustomFieldsService, RecordListsService],
   controllers: [RecordsController, CustomFieldsController, RecordListsController],
   exports: [RecordsService, CustomFieldsService, RecordListsService],

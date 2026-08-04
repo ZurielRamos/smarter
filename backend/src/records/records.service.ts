@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ClientRecord } from './record.entity';
+import { WebhooksService } from '../webhooks/webhooks.service';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -10,6 +11,7 @@ export class RecordsService {
   constructor(
     @InjectRepository(ClientRecord)
     private readonly recordRepository: Repository<ClientRecord>,
+    private readonly webhooksService: WebhooksService,
   ) {}
 
   // System field keys that are actual columns in the entity
@@ -33,7 +35,9 @@ export class RecordsService {
       tags: data.tags || null,
       customData: data.customData || null,
     } as Partial<ClientRecord>);
-    return this.recordRepository.save(record) as Promise<ClientRecord>;
+    const saved = await this.recordRepository.save(record) as ClientRecord;
+    this.webhooksService.dispatch(data.tenantId, 'contact_created', saved).catch(() => {});
+    return saved;
   }
 
   async findOneById(id: string): Promise<ClientRecord | null> {
@@ -42,7 +46,11 @@ export class RecordsService {
 
   async updateRecord(id: string, data: Partial<ClientRecord>): Promise<ClientRecord> {
     await this.recordRepository.update(id, data as any);
-    return this.recordRepository.findOne({ where: { id } }) as Promise<ClientRecord>;
+    const updated = await this.recordRepository.findOne({ where: { id } }) as ClientRecord;
+    if (updated?.tenantId) {
+      this.webhooksService.dispatch(updated.tenantId, 'contact_updated', updated).catch(() => {});
+    }
+    return updated;
   }
 
   async deleteRecord(id: string): Promise<void> {

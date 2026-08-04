@@ -16,6 +16,7 @@ import { EtlModule } from './etl/etl.module';
 import { BillingModule } from './billing/billing.module';
 import { ProvidersModule } from './providers/providers.module';
 import { TeamsModule } from './teams/teams.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { TeamsModule } from './teams/teams.module';
     BillingModule,
     ProvidersModule,
     TeamsModule,
+    WebhooksModule,
   ],
 })
 export class AppModule {}

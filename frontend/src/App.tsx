@@ -12,6 +12,7 @@ import { Campaigns } from "./pages/Campaigns";
 import { CampaignDetail } from "./pages/CampaignDetail";
 import { Settings } from "./pages/Settings";
 import { Integraciones } from "./pages/Integraciones";
+import { Webhooks } from "./pages/Webhooks";
 import { ComunicacionesLayout } from "./pages/comunicaciones/ComunicacionesLayout";
 import { Conversaciones } from "./pages/comunicaciones/Conversaciones";
 import { Agentes } from "./pages/comunicaciones/Agentes";
@@ -133,6 +134,7 @@ function App() {
             <Route path="/:slug/forms/:id" element={<FormBuilder />} />
             <Route path="/:slug/settings" element={<Settings />} />
             <Route path="/:slug/integraciones" element={<Integraciones />} />
+            <Route path="/:slug/integraciones/webhooks" element={<Webhooks />} />
           </Route>
         </Routes>
       </AuthProvider>

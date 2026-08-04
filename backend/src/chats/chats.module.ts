@@ -11,11 +11,13 @@ import { ChatsController, WebhookController } from './chats.controller';
 import { ChatsGateway } from './chats.gateway';
 import { WebhookForwarderService } from './webhook-forwarder.service';
 import { BillingModule } from '../billing/billing.module';
+import { WebhooksModule } from '../webhooks/webhooks.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Inbox, Conversation, Message, InboxCollaborator, ClientRecord, Label]),
     BillingModule,
+    WebhooksModule,
   ],
   providers: [ChatsService, ChatsGateway, WebhookForwarderService],
   controllers: [ChatsController, WebhookController],
