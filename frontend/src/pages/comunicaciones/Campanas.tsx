@@ -49,6 +49,13 @@ const statusColors: Record<string, string> = {
   completed: "bg-blue-100 text-blue-700",
 };
 
+const statusLabels: Record<string, string> = {
+  draft: "borrador",
+  active: "activa",
+  paused: "pausada",
+  completed: "enviada",
+};
+
 export function Campanas() {
   const navigate = useNavigate();
   const { slug, campaignId } = useParams();
@@ -188,7 +195,7 @@ export function Campanas() {
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-gray-900 truncate">{c.name}</p>
                     <span className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-medium shrink-0 ${statusColors[c.status] || statusColors.draft}`}>
-                      {c.status}
+                      {statusLabels[c.status] || c.status}
                     </span>
                   </div>
                   <p className="text-[11px] text-gray-400 mt-0.5 truncate">

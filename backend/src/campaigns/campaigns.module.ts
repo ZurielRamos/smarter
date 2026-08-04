@@ -15,6 +15,7 @@ import { CampaignsService } from './campaigns.service';
 import { CampaignsController } from './campaigns.controller';
 import { CampaignsGateway } from './campaigns.gateway';
 import { CampaignSendWorker } from './campaign-send.worker';
+import { CampaignSchedulerService } from './campaign-scheduler.service';
 import { WhatsAppService } from './whatsapp.service';
 import { CallService } from './call.service';
 import { BillingModule } from '../billing/billing.module';
@@ -25,7 +26,7 @@ import { BillingModule } from '../billing/billing.module';
     BullModule.registerQueue({ name: 'campaign-send' }),
     BillingModule,
   ],
-  providers: [CampaignsService, WhatsAppService, CallService, CampaignsGateway, CampaignSendWorker],
+  providers: [CampaignsService, WhatsAppService, CallService, CampaignsGateway, CampaignSendWorker, CampaignSchedulerService],
   controllers: [CampaignsController],
   exports: [CampaignsGateway],
 })
