@@ -61,6 +61,6 @@ export class Message {
   @Column({ type: 'varchar', length: 20, default: 'sent' })
   status: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

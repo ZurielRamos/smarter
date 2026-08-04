@@ -51,7 +51,7 @@ export class Conversation {
   @Column({ name: 'last_message', type: 'text', nullable: true })
   lastMessage: string | null;
 
-  @Column({ name: 'last_message_at', type: 'timestamp', nullable: true })
+  @Column({ name: 'last_message_at', type: 'timestamptz', nullable: true })
   lastMessageAt: Date | null;
 
   @Column({ name: 'unread_count', type: 'integer', default: 0 })
@@ -61,9 +61,9 @@ export class Conversation {
   @Column({ name: 'label_ids', type: 'jsonb', nullable: true, default: [] })
   labelIds: string[];
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 }
