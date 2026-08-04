@@ -16,15 +16,53 @@ interface WebhookItem {
 }
 
 const AVAILABLE_EVENTS = [
-  { key: "message_created", label: "Mensaje creado" },
-  { key: "message_updated", label: "Mensaje actualizado" },
-  { key: "conversation_created", label: "Conversación creada" },
-  { key: "conversation_status_changed", label: "Estado de conversación cambiado" },
-  { key: "conversation_updated", label: "Conversación actualizada" },
-  { key: "contact_created", label: "Contacto creado" },
-  { key: "contact_updated", label: "Contacto actualizado" },
-  { key: "campaign_started", label: "Campaña iniciada" },
-  { key: "campaign_completed", label: "Campaña completada" },
+  { key: "message_created", label: "Mensaje creado", payload: `{
+  "message": {
+    "id", "direction", "content",
+    "messageType", "status", "createdAt"
+  },
+  "conversation": {
+    "id", "contactId", "contactName",
+    "status", "inboxId"
+  },
+  "contact": {
+    "id", "firstName", "lastName",
+    "phone", "email", "tags", ...
+  },
+  "inbox": { "id", "name", "channel" }
+}` },
+  { key: "contact_created", label: "Contacto creado", payload: `{
+  "id", "firstName", "lastName",
+  "phone", "email", "documentType",
+  "documentNumber", "gender", "city",
+  "region", "status", "channelSource",
+  "score", "tags", "customData",
+  "createdAt"
+}` },
+  { key: "contact_updated", label: "Contacto actualizado", payload: `{
+  "id", "firstName", "lastName",
+  "phone", "email", "documentType",
+  "documentNumber", "gender", "city",
+  "region", "status", "channelSource",
+  "score", "tags", "customData",
+  "updatedAt"
+}` },
+  { key: "campaign_started", label: "Campaña iniciada", payload: `{
+  "campaignId": "uuid",
+  "campaignName": "string",
+  "channel": "sms|whatsapp|llamada",
+  "sendId": "uuid",
+  "totalRecipients": 150
+}` },
+  { key: "campaign_completed", label: "Campaña completada", payload: `{
+  "campaignId": "uuid",
+  "campaignName": "string",
+  "channel": "sms|whatsapp|llamada",
+  "sendId": "uuid",
+  "totalRecipients": 150,
+  "totalSent": 145,
+  "totalFailed": 5
+}` },
 ];
 
 export function Webhooks() {
@@ -50,13 +88,13 @@ export function Webhooks() {
   useEffect(() => { if (tenantId) fetchWebhooks(); }, [tenantId]);
 
   const handleToggle = async (wh: WebhookItem) => {
-    await api.put(`/webhooks/${wh.id}`, { enabled: !wh.enabled });
+    await api.put(`/user-webhooks/${wh.id}`, { enabled: !wh.enabled });
     fetchWebhooks();
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("¿Eliminar este webhook?")) return;
-    await api.delete(`/webhooks/${id}`);
+    await api.delete(`/user-webhooks/${id}`);
     fetchWebhooks();
   };
 
@@ -143,7 +181,7 @@ function WebhookModal({ tenantId, webhook, onClose, onSaved }: { tenantId: strin
     setSaving(true); setError("");
     try {
       if (webhook) {
-        await api.put(`/webhooks/${webhook.id}`, { name, url, events: Array.from(events), secret: secret || null });
+        await api.put(`/user-webhooks/${webhook.id}`, { name, url, events: Array.from(events), secret: secret || null });
       } else {
         await api.post("/user-webhooks", { tenantId, name, url, events: Array.from(events), secret: secret || null });
       }
@@ -177,10 +215,14 @@ function WebhookModal({ tenantId, webhook, onClose, onSaved }: { tenantId: strin
             <label className="text-[11px] text-gray-500 font-medium mb-2 block">Eventos suscritos</label>
             <div className="space-y-1.5">
               {AVAILABLE_EVENTS.map((ev) => (
-                <label key={ev.key} className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors">
+                <label key={ev.key} className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors group relative">
                   <input type="checkbox" checked={events.has(ev.key)} onChange={() => toggleEvent(ev.key)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
-                  <span className="text-sm text-gray-700">{ev.label}</span>
-                  <span className="text-[10px] text-gray-400 ml-auto font-mono">{ev.key}</span>
+                  <span className="text-sm text-gray-700 flex-1">{ev.label}</span>
+                  <span className="text-[10px] text-gray-400 font-mono">{ev.key}</span>
+                  <div className="absolute z-30 bottom-full left-0 mb-1 w-80 px-3 py-2.5 rounded-lg bg-gray-900 text-white text-[10px] shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150">
+                    <p className="font-semibold mb-1 text-gray-300">Payload:</p>
+                    <pre className="font-mono whitespace-pre text-[9px] text-green-300 leading-relaxed">{ev.payload}</pre>
+                  </div>
                 </label>
               ))}
             </div>

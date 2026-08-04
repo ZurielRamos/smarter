@@ -13,6 +13,7 @@ import { CampaignDetail } from "./pages/CampaignDetail";
 import { Settings } from "./pages/Settings";
 import { Integraciones } from "./pages/Integraciones";
 import { Webhooks } from "./pages/Webhooks";
+import { ApiReference } from "./pages/ApiReference";
 import { ComunicacionesLayout } from "./pages/comunicaciones/ComunicacionesLayout";
 import { Conversaciones } from "./pages/comunicaciones/Conversaciones";
 import { Agentes } from "./pages/comunicaciones/Agentes";
@@ -91,6 +92,7 @@ function App() {
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/data-deletion" element={<DataDeletion />} />
+          <Route path="/api-reference" element={<ApiReference />} />
 
           {/* Redirect root to login */}
           <Route path="/" element={<Navigate to="/login" replace />} />
