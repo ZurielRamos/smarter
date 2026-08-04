@@ -745,6 +745,7 @@ export function CampanaDetail() {
                           sendDate: campaign.sendDate || null,
                           sendTime: campaign.sendTime || null,
                           recurrenceDays: null,
+                          status: 'draft',
                         });
                         setCampaign(data);
                       } catch {} finally { setSavingSchedule(false); }
@@ -844,6 +845,7 @@ export function CampanaDetail() {
                           sendDate: null,
                           sendTime: null,
                           recurrenceDays: campaign.recurrenceDays || {},
+                          status: 'draft',
                         });
                         setCampaign(data);
                       } catch {} finally { setSavingSchedule(false); }
