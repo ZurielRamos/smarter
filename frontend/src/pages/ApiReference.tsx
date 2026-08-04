@@ -824,10 +824,143 @@ const inbox = await response.json();`,
       },
       {
         id: "campaigns", label: "Campañas", endpoints: [
-          { id: "list-campaigns", method: "GET", label: "Listar campañas", path: "/api/campaigns", description: "Lista las campañas del tenant.", params: [{ name: "tenantId", type: "string", required: true, description: "ID del tenant" }], response: `[\n  {\n    "id": "uuid",\n    "name": "Promo Julio",\n    "channel": "whatsapp",\n    "status": "draft"\n  }\n]` },
-          { id: "get-campaign", method: "GET", label: "Obtener campaña", path: "/api/campaigns/:id", description: "Obtiene detalle de una campaña.", response: `{ "id": "uuid", "name": "...", ... }` },
-          { id: "create-campaign", method: "POST", label: "Crear campaña", path: "/api/campaigns", description: "Crea una nueva campaña.", body: `{\n  "tenantId": "uuid",\n  "name": "Mi campaña",\n  "channel": "sms",\n  "inboxId": "uuid"\n}`, response: `{ "id": "uuid", ... }` },
-          { id: "send-campaign", method: "POST", label: "Ejecutar envío", path: "/api/campaigns/:id/send", description: "Inicia la ejecución de la campaña. Encola el envío a todos los destinatarios.", response: `{\n  "id": "uuid",\n  "status": "queued",\n  "totalRecipients": 150\n}` },
+          {
+            id: "list-campaigns",
+            method: "GET",
+            label: "Listar campañas",
+            path: "/api/v1/{cuenta}/campaigns",
+            description: "Lista todas las campañas de la cuenta con su estado, canal y estadísticas básicas.",
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/campaigns",
+  {
+    method: "GET",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const data = await response.json();`,
+            response: `{
+  "data": [
+    {
+      "id": "p1q2r3s4-t5u6-7890-abcd-ef1234567890",
+      "name": "Promo Agosto WhatsApp",
+      "description": "Campaña de descuentos para clientes VIP",
+      "status": "completed",
+      "channel": "whatsapp",
+      "inboxId": "i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
+      "matchedCount": 350,
+      "isRecurring": false,
+      "sendDate": "2026-08-01T00:00:00.000Z",
+      "sendTime": "09:00",
+      "createdAt": "2026-07-28T10:00:00.000Z",
+      "updatedAt": "2026-08-01T09:30:00.000Z"
+    },
+    {
+      "id": "p2q3r4s5-t6u7-8901-bcde-f23456789012",
+      "name": "Recordatorio semanal",
+      "description": null,
+      "status": "active",
+      "channel": "sms",
+      "inboxId": null,
+      "matchedCount": 120,
+      "isRecurring": true,
+      "sendDate": null,
+      "sendTime": null,
+      "createdAt": "2026-07-15T08:00:00.000Z",
+      "updatedAt": "2026-08-04T09:00:00.000Z"
+    }
+  ]
+}`,
+          },
+          {
+            id: "get-campaign",
+            method: "GET",
+            label: "Obtener campaña",
+            path: "/api/v1/{cuenta}/campaigns/{id}",
+            description: "Obtiene el detalle completo de una campaña incluyendo segmentos, plantilla de mensaje y configuración de envío.",
+            params: [
+              { name: "id", type: "uuid", required: true, description: "ID de la campaña" },
+            ],
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/campaigns/p1q2r3s4-t5u6-7890-abcd-ef1234567890",
+  {
+    method: "GET",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const campaign = await response.json();`,
+            response: `{
+  "id": "p1q2r3s4-t5u6-7890-abcd-ef1234567890",
+  "name": "Promo Agosto WhatsApp",
+  "description": "Campaña de descuentos para clientes VIP",
+  "status": "completed",
+  "channel": "whatsapp",
+  "inboxId": "i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
+  "segments": [
+    {
+      "logic": "AND",
+      "conditions": [
+        { "field": "status", "operator": "equals", "value": "active" },
+        { "field": "tags", "operator": "contains", "value": "vip" }
+      ]
+    }
+  ],
+  "listId": null,
+  "matchedCount": 350,
+  "maxSends": null,
+  "isRecurring": false,
+  "sendDate": "2026-08-01T00:00:00.000Z",
+  "sendTime": "09:00",
+  "recurrenceDays": null,
+  "messageTemplate": null,
+  "whatsappTemplateName": "promo_agosto_2026",
+  "whatsappTemplateLanguage": "es",
+  "whatsappTemplateCategory": "MARKETING",
+  "createdAt": "2026-07-28T10:00:00.000Z",
+  "updatedAt": "2026-08-01T09:30:00.000Z"
+}`,
+          },
+          {
+            id: "get-campaign-sends",
+            method: "GET",
+            label: "Obtener envíos",
+            path: "/api/v1/{cuenta}/campaigns/{id}/sends",
+            description: "Obtiene el historial de envíos (ejecuciones) de una campaña con estadísticas de entrega.",
+            params: [
+              { name: "id", type: "uuid", required: true, description: "ID de la campaña" },
+            ],
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/campaigns/p1q2r3s4-t5u6-7890-abcd-ef1234567890/sends",
+  {
+    method: "GET",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const sends = await response.json();`,
+            response: `{
+  "data": [
+    {
+      "id": "s1t2u3v4-w5x6-7890-yzab-cdef12345678",
+      "status": "completed",
+      "totalRecipients": 350,
+      "totalSent": 348,
+      "totalDelivered": 340,
+      "totalFailed": 2,
+      "startedAt": "2026-08-01T09:00:05.000Z",
+      "completedAt": "2026-08-01T09:05:30.000Z",
+      "createdAt": "2026-08-01T09:00:00.000Z"
+    }
+  ]
+}`,
+          },
         ],
       },
       {
