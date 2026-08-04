@@ -38,7 +38,7 @@ export function Canales() {
     api.get<Inbox[]>("/chats/inboxes", { params: { tenantId } })
       .then(({ data }) => setInboxes(data))
       .catch(() => {});
-  }, [tenantId]);
+  }, [tenantId, inboxId]);
 
   return (
     <div className="flex-1 flex overflow-hidden">

@@ -56,8 +56,16 @@ export class ChatsService {
     return this.inboxRepo.save(inbox);
   }
 
-  async deleteInbox(id: string): Promise<void> {
+  async deleteInbox(id: string): Promise<{ softDeleted: boolean }> {
+    const conversationCount = await this.conversationRepo.count({ where: { inboxId: id } });
+    if (conversationCount > 0) {
+      // Soft delete — inbox has conversations
+      await this.inboxRepo.softDelete(id);
+      return { softDeleted: true };
+    }
+    // Hard delete — no conversations
     await this.inboxRepo.delete(id);
+    return { softDeleted: false };
   }
 
   // === INBOX COLLABORATORS ===
@@ -1160,21 +1168,210 @@ export class ChatsService {
 
   // === TEMPLATES ===
 
+  // === WHATSAPP TEMPLATE MEDIA UPLOAD ===
+
+  async uploadTemplateMedia(inboxId: string, file: { buffer: Buffer; originalname: string; mimetype: string; size: number }): Promise<{ handle: string }> {
+    const inbox = await this.findInboxById(inboxId);
+    if (!inbox.accessToken) throw new Error('Inbox not configured');
+
+    const appId = this.configService.get<string>('META_APP_ID');
+
+    // Step 1: Create upload session
+    const sessionRes = await fetch(
+      `https://graph.facebook.com/v21.0/${appId}/uploads?file_name=${encodeURIComponent(file.originalname)}&file_length=${file.size}&file_type=${encodeURIComponent(file.mimetype)}&access_token=${inbox.accessToken}`,
+      { method: 'POST' },
+    );
+    const sessionData = await sessionRes.json();
+    if (sessionData.error) throw new Error(sessionData.error.message || 'Failed to create upload session');
+
+    const uploadSessionId = sessionData.id; // "upload:SESSION_ID"
+
+    // Step 2: Upload the file binary
+    const uploadRes = await fetch(
+      `https://graph.facebook.com/v21.0/${uploadSessionId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `OAuth ${inbox.accessToken}`,
+          'file_offset': '0',
+          'Content-Type': file.mimetype,
+        },
+        body: new Uint8Array(file.buffer),
+      },
+    );
+    const uploadData = await uploadRes.json();
+    if (uploadData.error) throw new Error(uploadData.error.message || 'Failed to upload file');
+
+    return { handle: uploadData.h };
+  }
+
+  // === WHATSAPP BUSINESS PROFILE UPDATE ===
+
+  async updateWhatsAppBusinessProfile(inboxId: string, profileData: { about?: string; description?: string; address?: string; email?: string; websites?: string[]; vertical?: string; profile_picture_handle?: string }): Promise<any> {
+    const inbox = await this.findInboxById(inboxId);
+    if (!inbox.phoneNumberId || !inbox.accessToken) throw new Error('Inbox not configured');
+
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/whatsapp_business_profile`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${inbox.accessToken}`,
+        },
+        body: JSON.stringify({ messaging_product: 'whatsapp', ...profileData }),
+      },
+    );
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || 'Failed to update business profile');
+    return data;
+  }
+
+  async uploadWhatsAppProfilePicture(inboxId: string, file: { buffer: Buffer; originalname: string; mimetype: string; size: number }): Promise<{ handle: string }> {
+    // Same as template media upload — reuse the resumable upload API to get a handle
+    return this.uploadTemplateMedia(inboxId, file);
+  }
+
+  // === WHATSAPP ACCOUNT STATUS ===
+
+  async getWhatsAppAccountStatus(inboxId: string): Promise<any> {
+    const inbox = await this.findInboxById(inboxId);
+    if (!inbox.accessToken) return { error: 'No access token configured' };
+
+    const result: any = { phoneNumberId: inbox.phoneNumberId, wabaId: inbox.wabaId };
+
+    // Fetch phone number details (quality, status, name, messaging limits)
+    if (inbox.phoneNumberId) {
+      try {
+        const fields = 'verified_name,display_phone_number,quality_rating,status,name_status,code_verification_status,platform_type,throughput,last_onboarded_time,is_official_business_account,account_mode,messaging_limit_tier';
+        const res = await fetch(
+          `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}?fields=${fields}&access_token=${inbox.accessToken}`,
+        );
+        const data = await res.json();
+        result.phoneNumber = data;
+      } catch (err) {
+        console.error('[WA Status] Failed to fetch phone number info:', err);
+        result.phoneNumber = { error: 'Failed to fetch' };
+      }
+
+      // Fetch business profile (about, address, description, email, profile picture, etc.)
+      try {
+        const profileFields = 'about,address,description,email,profile_picture_url,websites,vertical';
+        const res = await fetch(
+          `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/whatsapp_business_profile?fields=${profileFields}&access_token=${inbox.accessToken}`,
+        );
+        const data = await res.json();
+        result.businessProfile = data.data?.[0] || null;
+      } catch (err) {
+        console.error('[WA Status] Failed to fetch business profile:', err);
+        result.businessProfile = null;
+      }
+    }
+
+    // Fetch WABA info (name, currency, payment method, etc.)
+    if (inbox.wabaId) {
+      try {
+        const wabaFields = 'name,currency,message_template_namespace,account_review_status,business_verification_status,ownership_type';
+        const res = await fetch(
+          `https://graph.facebook.com/v21.0/${inbox.wabaId}?fields=${wabaFields}&access_token=${inbox.accessToken}`,
+        );
+        const data = await res.json();
+        result.waba = data;
+      } catch (err) {
+        console.error('[WA Status] Failed to fetch WABA info:', err);
+        result.waba = { error: 'Failed to fetch' };
+      }
+    }
+
+    return result;
+  }
+
+  // === TEMPLATES ===
+
   async getWhatsAppTemplates(inboxId: string): Promise<any[]> {
     const inbox = await this.findInboxById(inboxId);
     if (!inbox.wabaId || !inbox.accessToken) return [];
 
     try {
       const res = await fetch(
-        `https://graph.facebook.com/v21.0/${inbox.wabaId}/message_templates?fields=name,language,status,category,components&limit=100&access_token=${inbox.accessToken}`,
+        `https://graph.facebook.com/v21.0/${inbox.wabaId}/message_templates?fields=id,name,language,status,category,components,quality_score,rejected_reason,message_send_ttl_seconds&limit=250&access_token=${inbox.accessToken}`,
       );
       const data = await res.json();
-      // Only return approved templates
-      return (data.data || []).filter((t: any) => t.status === 'APPROVED');
+      return data.data || [];
     } catch (err) {
       console.error('[Templates] Failed to fetch:', err);
       return [];
     }
+  }
+
+  async createWhatsAppTemplate(inboxId: string, templateData: { name: string; category: string; language: string; components: any[] }): Promise<any> {
+    const inbox = await this.findInboxById(inboxId);
+    if (!inbox.wabaId || !inbox.accessToken) throw new Error('Inbox not configured for WhatsApp');
+
+    // Ensure example values exist for components with variables (fallback if frontend didn't provide them)
+    const components = templateData.components.map((comp: any) => {
+      if (comp.type === 'BODY' && comp.text && !comp.example) {
+        const vars = comp.text.match(/\{\{\d+\}\}/g);
+        if (vars && vars.length > 0) {
+          comp.example = { body_text: [vars.map((_: string, i: number) => `ejemplo_${i + 1}`)] };
+        }
+      }
+      if (comp.type === 'HEADER' && comp.format === 'TEXT' && comp.text && !comp.example) {
+        const vars = comp.text.match(/\{\{\d+\}\}/g);
+        if (vars && vars.length > 0) {
+          comp.example = { header_text: vars.map((_: string, i: number) => `ejemplo_${i + 1}`) };
+        }
+      }
+      return comp;
+    });
+
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${inbox.wabaId}/message_templates`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${inbox.accessToken}`,
+        },
+        body: JSON.stringify({ ...templateData, components }),
+      },
+    );
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || 'Failed to create template');
+    return data;
+  }
+
+  async updateWhatsAppTemplate(inboxId: string, templateId: string, templateData: { components: any[]; category?: string }): Promise<any> {
+    const inbox = await this.findInboxById(inboxId);
+    if (!inbox.accessToken) throw new Error('Inbox not configured');
+
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${templateId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${inbox.accessToken}`,
+        },
+        body: JSON.stringify(templateData),
+      },
+    );
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || 'Failed to update template');
+    return data;
+  }
+
+  async deleteWhatsAppTemplate(inboxId: string, templateName: string): Promise<any> {
+    const inbox = await this.findInboxById(inboxId);
+    if (!inbox.wabaId || !inbox.accessToken) throw new Error('Inbox not configured');
+
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${inbox.wabaId}/message_templates?name=${encodeURIComponent(templateName)}&access_token=${inbox.accessToken}`,
+      { method: 'DELETE' },
+    );
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || 'Failed to delete template');
+    return data;
   }
 
   async sendTemplateMessage(

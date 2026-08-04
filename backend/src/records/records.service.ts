@@ -36,6 +36,19 @@ export class RecordsService {
     return this.recordRepository.save(record) as Promise<ClientRecord>;
   }
 
+  async findOneById(id: string): Promise<ClientRecord | null> {
+    return this.recordRepository.findOne({ where: { id } });
+  }
+
+  async updateRecord(id: string, data: Partial<ClientRecord>): Promise<ClientRecord> {
+    await this.recordRepository.update(id, data as any);
+    return this.recordRepository.findOne({ where: { id } }) as Promise<ClientRecord>;
+  }
+
+  async deleteRecord(id: string): Promise<void> {
+    await this.recordRepository.delete(id);
+  }
+
   async saveRecords(
     records: Record<string, unknown>[],
     tenantId?: string,

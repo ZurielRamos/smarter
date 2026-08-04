@@ -12,6 +12,7 @@ import { Conversation } from '../chats/conversation.entity';
 import { Message } from '../chats/message.entity';
 import { CampaignsGateway } from './campaigns.gateway';
 import { BillingService } from '../billing/billing.service';
+import { SmsService } from './sms.service';
 
 export interface CampaignSendJobData {
   sendId: string;
@@ -45,6 +46,7 @@ export class CampaignSendWorker extends WorkerHost {
     private readonly messageRepo: Repository<Message>,
     private readonly gateway: CampaignsGateway,
     private readonly billingService: BillingService,
+    private readonly smsService: SmsService,
   ) {
     super();
   }
@@ -72,7 +74,12 @@ export class CampaignSendWorker extends WorkerHost {
     }
 
     const inbox = await this.inboxRepo.findOneBy({ id: campaign.inboxId });
-    if (!inbox || !inbox.accessToken || !inbox.phoneNumberId) {
+    if (!inbox) {
+      await this.failSend(sendId, 'La bandeja no existe');
+      return;
+    }
+    // WhatsApp requires inbox credentials; SMS uses platform-level LabsMobile
+    if (campaign.channel === 'whatsapp' && (!inbox.accessToken || !inbox.phoneNumberId)) {
       await this.failSend(sendId, 'La bandeja no tiene credenciales configuradas');
       return;
     }
@@ -132,56 +139,90 @@ export class CampaignSendWorker extends WorkerHost {
               tenantId: campaign.tenantId,
               recordId: client.id,
               phone: '',
-              channel: 'whatsapp',
+              channel: campaign.channel || 'whatsapp',
               status: 'failed',
               errorCode: 'no_phone',
             });
             continue;
           }
 
-          // Build variables from mapping
-          const variables: Record<string, string> = {};
-          if (campaign.whatsappVariableMapping) {
-            for (const [position, field] of Object.entries(campaign.whatsappVariableMapping)) {
-              variables[position] = this.getClientField(client, field);
+          if (campaign.channel === 'sms') {
+            // === SMS via LabsMobile ===
+            const smsMessage = this.interpolateMessage(campaign.messageTemplate || '', client);
+            const result = await this.smsService.sendSms(client.phone, smsMessage);
+
+            if (result.success) {
+              totalSent++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone,
+                channel: 'sms',
+                status: 'sent',
+                providerMessageId: result.subId ?? null,
+                sentAt: new Date(),
+              });
+            } else {
+              totalFailed++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone,
+                channel: 'sms',
+                status: 'failed',
+                errorCode: (result.error || 'unknown').substring(0, 50),
+              });
             }
-          }
-
-          // Send via Meta Cloud API
-          const result = await this.sendWhatsAppMessage(
-            inbox.accessToken,
-            inbox.phoneNumberId,
-            client.phone,
-            campaign.whatsappTemplateName,
-            campaign.whatsappTemplateLanguage || 'es',
-            variables,
-          );
-
-          if (result.success) {
-            totalSent++;
-            logs.push({
-              sendId,
-              campaignId,
-              tenantId: campaign.tenantId,
-              recordId: client.id,
-              phone: client.phone,
-              channel: 'whatsapp',
-              status: 'sent',
-              providerMessageId: result.messageId ?? null,
-              sentAt: new Date(),
-            });
           } else {
-            totalFailed++;
-            logs.push({
-              sendId,
-              campaignId,
-              tenantId: campaign.tenantId,
-              recordId: client.id,
-              phone: client.phone,
-              channel: 'whatsapp',
-              status: 'failed',
-              errorCode: (result.error || 'unknown').substring(0, 50),
-            });
+            // === WhatsApp via Meta Cloud API ===
+            // Build variables from mapping
+            const variables: Record<string, string> = {};
+            if (campaign.whatsappVariableMapping) {
+              for (const [position, field] of Object.entries(campaign.whatsappVariableMapping)) {
+                variables[position] = this.getClientField(client, field);
+              }
+            }
+
+            // Send via Meta Cloud API
+            const result = await this.sendWhatsAppMessage(
+              inbox.accessToken!,
+              inbox.phoneNumberId!,
+              client.phone,
+              campaign.whatsappTemplateName,
+              campaign.whatsappTemplateLanguage || 'es',
+              variables,
+            );
+
+            if (result.success) {
+              totalSent++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone,
+                channel: 'whatsapp',
+                status: 'sent',
+                providerMessageId: result.messageId ?? null,
+                sentAt: new Date(),
+              });
+            } else {
+              totalFailed++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone,
+                channel: 'whatsapp',
+                status: 'failed',
+                errorCode: (result.error || 'unknown').substring(0, 50),
+              });
+            }
           }
         }
 
@@ -366,17 +407,35 @@ export class CampaignSendWorker extends WorkerHost {
     const systemFields: Record<string, () => string> = {
       firstName: () => client.firstName || '',
       lastName: () => client.lastName || '',
+      fullName: () => client.fullName || [client.firstName, client.lastName].filter(Boolean).join(' '),
       phone: () => client.phone || '',
       email: () => client.email || '',
+      documentType: () => client.documentType || '',
+      documentNumber: () => client.documentNumber || '',
+      gender: () => client.gender || '',
+      city: () => client.city || '',
+      region: () => client.region || '',
       status: () => (client as any).status || '',
       channelSource: () => (client as any).channelSource || '',
+      source: () => (client as any).source || '',
+      score: () => String((client as any).score || 0),
+      countryCode: () => client.countryCode || '',
     };
 
     if (systemFields[field]) return systemFields[field]();
 
     // Custom fields from JSONB
-    const custom = (client as any).customFields || (client as any).custom_fields || {};
+    const custom = (client as any).customData || {};
     return String(custom[field] ?? '');
+  }
+
+  /**
+   * Replace {{fieldName}} variables in a message template with actual client data.
+   */
+  private interpolateMessage(template: string, client: ClientRecord): string {
+    return template.replace(/\{\{(\w+)\}\}/g, (_, field) => {
+      return this.getClientField(client, field);
+    });
   }
 
   /**
@@ -403,8 +462,9 @@ export class CampaignSendWorker extends WorkerHost {
 
       const convByPhone = new Map(existingConvs.map((c) => [c.contactId, c]));
       const now = new Date();
-      const templateName = campaign.whatsappTemplateName || '';
-      const lastMessageText = `📋 ${templateName}`;
+      const lastMessageText = campaign.channel === 'sms'
+        ? (campaign.messageTemplate || 'SMS').substring(0, 100)
+        : `📋 ${campaign.whatsappTemplateName || ''}`;
 
       // Create missing conversations
       const newConversations: Partial<Conversation>[] = [];
@@ -444,31 +504,39 @@ export class CampaignSendWorker extends WorkerHost {
         if (!conv) continue;
 
         const client = clients.find((c) => c.id === log.recordId);
+        let renderedContent: string;
+        let messageType: string;
+        let templateMeta: string | null = null;
 
-        // Build rendered content from template body with variables substituted
-        let renderedContent = `[Plantilla: ${templateName}]`;
-        if (templateComponents) {
-          const bodyComp = templateComponents.find((c: any) => c.type === 'BODY');
-          if (bodyComp?.text) {
-            renderedContent = bodyComp.text;
-            // Replace {{1}}, {{2}}, etc. with actual values
-            if (campaign.whatsappVariableMapping && client) {
-              for (const [pos, field] of Object.entries(campaign.whatsappVariableMapping)) {
-                renderedContent = renderedContent.replace(`{{${pos}}}`, this.getClientField(client, field));
+        if (campaign.channel === 'sms') {
+          // SMS: interpolate message template with client data
+          renderedContent = this.interpolateMessage(campaign.messageTemplate || '', client!);
+          messageType = 'text';
+        } else {
+          // WhatsApp: render template
+          messageType = 'template';
+          const templateName = campaign.whatsappTemplateName || '';
+          renderedContent = `[Plantilla: ${templateName}]`;
+          if (templateComponents) {
+            const bodyComp = templateComponents.find((c: any) => c.type === 'BODY');
+            if (bodyComp?.text) {
+              renderedContent = bodyComp.text;
+              if (campaign.whatsappVariableMapping && client) {
+                for (const [pos, field] of Object.entries(campaign.whatsappVariableMapping)) {
+                  renderedContent = renderedContent.replace(`{{${pos}}}`, this.getClientField(client, field));
+                }
               }
             }
           }
+          templateMeta = templateComponents
+            ? JSON.stringify({ name: templateName, language: campaign.whatsappTemplateLanguage || 'es', components: templateComponents })
+            : null;
         }
-
-        // Store template metadata in mediaUrl (same format as chats service)
-        const templateMeta = templateComponents
-          ? JSON.stringify({ name: templateName, language: campaign.whatsappTemplateLanguage || 'es', components: templateComponents })
-          : null;
 
         messages.push({
           conversationId: conv.id,
           direction: 'outbound',
-          messageType: 'template',
+          messageType,
           content: renderedContent,
           mediaUrl: templateMeta,
           externalId: log.providerMessageId || undefined,

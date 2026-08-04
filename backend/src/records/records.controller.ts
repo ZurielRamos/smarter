@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { RecordsService } from './records.service';
@@ -32,5 +32,22 @@ export class RecordsController {
   @Get('distinct-values')
   getDistinctValues(@Query('field') field: string) {
     return this.recordsService.getDistinctValues(field);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.recordsService.findOneById(id);
+  }
+
+  @Put(':id')
+  update(@Param('id') id: string, @Body() body: Partial<{ firstName: string; lastName: string; phone: string; countryCode: string; email: string; documentType: string; documentNumber: string; gender: string; birthDate: string; city: string; region: string; status: string; channelSource: string; source: string; score: number; optInWhatsapp: boolean; optInEmail: boolean; assignedTo: string; tags: string[]; customData: Record<string, any> }>) {
+    const data: any = { ...body };
+    if (data.birthDate) data.birthDate = new Date(data.birthDate);
+    return this.recordsService.updateRecord(id, data);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.recordsService.deleteRecord(id);
   }
 }

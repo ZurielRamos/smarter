@@ -111,10 +111,57 @@ export class ChatsController {
     };
   }
 
+  // Upload media for WhatsApp template header
+  @Post('whatsapp/templates/upload-media')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadTemplateMedia(@UploadedFile() file: Express.Multer.File, @Body() body: { inboxId: string }) {
+    return this.chatsService.uploadTemplateMedia(body.inboxId, file);
+  }
+
+  // Update WhatsApp business profile
+  @Put('whatsapp/profile')
+  updateWhatsAppProfile(@Body() body: { inboxId: string; about?: string; description?: string; address?: string; email?: string; websites?: string[]; vertical?: string; profile_picture_handle?: string }) {
+    const { inboxId, ...profileData } = body;
+    return this.chatsService.updateWhatsAppBusinessProfile(inboxId, profileData);
+  }
+
+  // Upload WhatsApp profile picture
+  @Post('whatsapp/profile/upload-picture')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadProfilePicture(@UploadedFile() file: Express.Multer.File, @Body() body: { inboxId: string }) {
+    return this.chatsService.uploadWhatsAppProfilePicture(body.inboxId, file);
+  }
+
+  // Get WhatsApp account status for an inbox
+  @Get('whatsapp/status')
+  getWhatsAppStatus(@Query('inboxId') inboxId: string) {
+    return this.chatsService.getWhatsAppAccountStatus(inboxId);
+  }
+
   // Get WhatsApp message templates for an inbox
   @Get('whatsapp/templates')
   getTemplates(@Query('inboxId') inboxId: string) {
     return this.chatsService.getWhatsAppTemplates(inboxId);
+  }
+
+  // Create a WhatsApp message template
+  @Post('whatsapp/templates')
+  createTemplate(@Body() body: { inboxId: string; name: string; category: string; language: string; components: any[] }) {
+    const { inboxId, ...templateData } = body;
+    return this.chatsService.createWhatsAppTemplate(inboxId, templateData);
+  }
+
+  // Update a WhatsApp message template
+  @Put('whatsapp/templates/:templateId')
+  updateTemplate(@Param('templateId') templateId: string, @Body() body: { inboxId: string; components: any[]; category?: string }) {
+    const { inboxId, ...templateData } = body;
+    return this.chatsService.updateWhatsAppTemplate(inboxId, templateId, templateData);
+  }
+
+  // Delete a WhatsApp message template
+  @Delete('whatsapp/templates/:templateName')
+  deleteTemplate(@Param('templateName') templateName: string, @Query('inboxId') inboxId: string) {
+    return this.chatsService.deleteWhatsAppTemplate(inboxId, templateName);
   }
 
   // Send a template message

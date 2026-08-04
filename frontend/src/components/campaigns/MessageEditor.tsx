@@ -10,10 +10,18 @@ interface Variable {
 const DEFAULT_VARIABLES: Variable[] = [
   { field: "firstName", label: "Nombre" },
   { field: "lastName", label: "Apellido" },
+  { field: "fullName", label: "Nombre completo" },
   { field: "phone", label: "Teléfono" },
   { field: "email", label: "Email" },
+  { field: "documentType", label: "Tipo documento" },
+  { field: "documentNumber", label: "Nº documento" },
+  { field: "gender", label: "Género" },
+  { field: "city", label: "Ciudad" },
+  { field: "region", label: "Región" },
   { field: "status", label: "Estado" },
   { field: "channelSource", label: "Canal" },
+  { field: "source", label: "Fuente" },
+  { field: "score", label: "Score" },
 ];
 
 interface MessageEditorProps {

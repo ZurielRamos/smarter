@@ -1,6 +1,6 @@
 // Force reload - v3
 import { useEffect, useState, useRef, useMemo, useCallback, useTransition, lazy, Suspense } from "react";
-import { Users, Database, Upload, Settings2, Columns, Eye, EyeOff, ListOrdered, RotateCcw, ArrowUpNarrowWide, ArrowDownNarrowWide, Filter, Plus, Loader2, ChevronDown, List } from "lucide-react";
+import { Users, Database, Upload, Settings2, Columns, Eye, EyeOff, ListOrdered, RotateCcw, ArrowUpNarrowWide, ArrowDownNarrowWide, Filter, Plus, Loader2, ChevronDown, List, Edit3, Copy, UserX, Trash2, X, Save } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import headerBg from "@/assets/header-background.jpg";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,23 @@ const SYSTEM_COLUMNS: ColumnDef[] = [
   { key: "channelSource", label: "Canal", visible: true },
   { key: "lastContactAt", label: "Último contacto", visible: true },
   { key: "tags", label: "Tags", visible: true },
+  { key: "firstName", label: "Nombre", visible: false },
+  { key: "lastName", label: "Apellido", visible: false },
+  { key: "fullName", label: "Nombre completo", visible: false },
+  { key: "documentType", label: "Tipo documento", visible: false },
+  { key: "documentNumber", label: "Número documento", visible: false },
+  { key: "countryCode", label: "Código país", visible: false },
+  { key: "gender", label: "Género", visible: false },
+  { key: "birthDate", label: "Fecha de nacimiento", visible: false },
+  { key: "city", label: "Ciudad", visible: false },
+  { key: "region", label: "Región/Departamento", visible: false },
+  { key: "source", label: "Fuente", visible: false },
+  { key: "score", label: "Score", visible: false },
+  { key: "optInWhatsapp", label: "Opt-in WhatsApp", visible: false },
+  { key: "optInEmail", label: "Opt-in Email", visible: false },
+  { key: "assignedTo", label: "Asignado a", visible: false },
+  { key: "lastActivityAt", label: "Última actividad", visible: false },
+  { key: "createdAt", label: "Fecha de creación", visible: false },
 ];
 
 
@@ -84,6 +101,8 @@ export function Clients() {
   const [tableMenuOpen, setTableMenuOpen] = useState(false);
   const [colMenuOpen, setColMenuOpen] = useState<string | null>(null);
   const [hoveredCol, setHoveredCol] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; client: ClientRecord } | null>(null);
+  const [editingClient, setEditingClient] = useState<ClientRecord | null>(null);
   const tableMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   // Defer heavy content to allow tab animation to complete first
@@ -154,12 +173,14 @@ export function Clients() {
       if (listsDropdownRef.current && !listsDropdownRef.current.contains(e.target as Node)) {
         setListsDropdownOpen(false);
       }
-      // Close column menu if clicking outside
       if (colMenuOpen) {
         const target = e.target as HTMLElement;
         if (!target.closest('[data-col-menu]')) {
           setColMenuOpen(null);
         }
+      }
+      if (contextMenu) {
+        setContextMenu(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -256,8 +277,15 @@ export function Clients() {
               <span key={tag} className="inline-block mr-1 px-2 py-0.5 rounded-full text-xs bg-brand-100 text-brand-700">{tag}</span>
             ))
           : "—";
-      default:
-        return "—";
+      default: {
+        const val = (client as any)[key];
+        if (val === null || val === undefined || val === "") return "—";
+        if (typeof val === "boolean") return val ? "Sí" : "No";
+        if (val instanceof Date || (typeof val === "string" && /^\d{4}-\d{2}-\d{2}/.test(val) && key.toLowerCase().includes("date"))) {
+          return new Date(val).toLocaleDateString([], { dateStyle: "short" });
+        }
+        return String(val);
+      }
     }
   };
 
@@ -589,7 +617,11 @@ export function Clients() {
                 </thead>
                 <tbody>
                   {clients.map((client) => (
-                    <tr key={client.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr
+                      key={client.id}
+                      className="border-b border-gray-100 hover:bg-gray-50"
+                      onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, client }); }}
+                    >
                       {visibleColumns.map((col) => col ? (
                         <td
                           key={col.key}
@@ -705,6 +737,188 @@ export function Clients() {
           />
         </Suspense>
       )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <button onClick={() => { setEditingClient(contextMenu.client); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <Edit3 className="h-3.5 w-3.5 text-gray-500" /> Editar contacto
+          </button>
+          <button onClick={() => { navigator.clipboard.writeText(contextMenu.client.phone || ""); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <Copy className="h-3.5 w-3.5 text-gray-500" /> Copiar teléfono
+          </button>
+          <button onClick={() => { navigator.clipboard.writeText(contextMenu.client.email || ""); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <Copy className="h-3.5 w-3.5 text-gray-500" /> Copiar email
+          </button>
+          <div className="border-t border-gray-100 my-1" />
+          <button onClick={async () => { const c = contextMenu.client; await tenantApi.put(`/records/${c.id}`, { status: c.status === "active" ? "inactive" : "active" }); setContextMenu(null); loadClients(); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <UserX className="h-3.5 w-3.5 text-gray-500" /> {contextMenu.client.status === "active" ? "Desactivar" : "Activar"}
+          </button>
+          <button onClick={async () => { if (confirm("¿Eliminar este contacto?")) { await tenantApi.delete(`/records/${contextMenu.client.id}`); setContextMenu(null); loadClients(); } }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+            <Trash2 className="h-3.5 w-3.5" /> Eliminar
+          </button>
+        </div>
+      )}
+
+      {/* Edit Contact Modal */}
+      {editingClient && (
+        <EditContactModal
+          client={editingClient}
+          onClose={() => setEditingClient(null)}
+          onSaved={() => { setEditingClient(null); loadClients(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function EditContactModal({ client, onClose, onSaved }: { client: ClientRecord; onClose: () => void; onSaved: () => void }) {
+  const { slug } = useParams();
+  const { user } = useAuth();
+  const tenantRole = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
+  const tenantId = tenantRole?.tenantId || "";
+
+  const [fields, setFields] = useState<any[]>([]);
+  const [form, setForm] = useState<Record<string, any>>({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [loadingFields, setLoadingFields] = useState(true);
+
+  useEffect(() => {
+    const EXCLUDED_FIELDS = ["lastContactAt", "lastActivityAt"];
+    getCustomFields(tenantId).then((allFields) => {
+      const editableFields = allFields.filter((f) => !EXCLUDED_FIELDS.includes(f.fieldKey));
+      setFields(editableFields.sort((a, b) => a.sortOrder - b.sortOrder));
+      const initial: Record<string, any> = {};
+      allFields.forEach((f) => {
+        if (f.isSystem) {
+          const val = (client as any)[f.fieldKey];
+          if (f.fieldType === "date" && val) initial[f.fieldKey] = String(val).split("T")[0];
+          else if (f.fieldType === "boolean") initial[f.fieldKey] = val || false;
+          else initial[f.fieldKey] = val ?? "";
+        } else {
+          initial[f.fieldKey] = client.customData?.[f.fieldKey] ?? "";
+        }
+      });
+      initial._tags = (client.tags || []).join(", ");
+      setForm(initial);
+    }).catch(() => {}).finally(() => setLoadingFields(false));
+  }, [tenantId]);
+
+  const set = (key: string, value: any) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleSave = async () => {
+    setSaving(true); setError("");
+    try {
+      const systemFields: Record<string, any> = {};
+      const customData: Record<string, any> = { ...(client.customData || {}) };
+      fields.forEach((f) => {
+        const val = form[f.fieldKey];
+        if (f.isSystem) {
+          if (f.fieldType === "boolean") systemFields[f.fieldKey] = !!val;
+          else if (f.fieldType === "number") systemFields[f.fieldKey] = val ? Number(val) : 0;
+          else systemFields[f.fieldKey] = val || null;
+        } else {
+          customData[f.fieldKey] = val || null;
+        }
+      });
+      const tags = form._tags ? form._tags.split(",").map((t: string) => t.trim()).filter(Boolean) : null;
+      const token = localStorage.getItem("token");
+      await axios.put(`${import.meta.env.VITE_API_URL || "/api"}/records/${client.id}`, { ...systemFields, tags, customData }, { headers: { Authorization: `Bearer ${token}` } });
+      onSaved();
+    } catch (err: any) { setError(err.response?.data?.message || "Error al guardar"); } finally { setSaving(false); }
+  };
+
+  const groups = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    fields.forEach((f) => { const g = f.fieldGroup || "general"; if (!map[g]) map[g] = []; map[g].push(f); });
+    return map;
+  }, [fields]);
+
+  const GROUP_LABELS: Record<string, string> = { identificacion: "Identificación", contacto: "Contacto", demografia: "Demografía", ubicacion: "Ubicación", segmentacion: "Segmentación", consentimiento: "Consentimiento", actividad: "Actividad", general: "General" };
+  const GROUP_ORDER = ["identificacion", "contacto", "demografia", "ubicacion", "segmentacion", "consentimiento", "actividad", "general"];
+
+  const renderField = (f: any) => {
+    const val = form[f.fieldKey] ?? "";
+    if (f.fieldType === "boolean") return (
+      <label className="flex items-center gap-2 cursor-pointer py-1">
+        <button type="button" onClick={() => set(f.fieldKey, !val)} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${val ? "bg-green-500" : "bg-gray-300"}`}>
+          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${val ? "translate-x-[18px]" : "translate-x-1"}`} />
+        </button>
+        <span className="text-sm text-gray-700">{f.fieldLabel}</span>
+      </label>
+    );
+    if (f.fieldType === "select") return (
+      <div>
+        <label className="text-[11px] text-gray-500 font-medium mb-1 block">{f.fieldLabel}</label>
+        <div className="flex gap-1.5 flex-wrap">
+          {(f.options || []).map((opt: string) => (
+            <button key={opt} type="button" onClick={() => set(f.fieldKey, opt)} className={`px-2.5 py-1 rounded text-[11px] font-medium border transition-colors ${val === opt ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>{opt}</button>
+          ))}
+        </div>
+      </div>
+    );
+    if (f.fieldType === "date") return (
+      <div>
+        <label className="text-[11px] text-gray-500 font-medium mb-1 block">{f.fieldLabel}</label>
+        <input type="date" value={val} onChange={(e) => set(f.fieldKey, e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+      </div>
+    );
+    if (f.fieldType === "number") return (
+      <div>
+        <label className="text-[11px] text-gray-500 font-medium mb-1 block">{f.fieldLabel}</label>
+        <input type="number" value={val} onChange={(e) => set(f.fieldKey, e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+      </div>
+    );
+    return (
+      <div>
+        <label className="text-[11px] text-gray-500 font-medium mb-1 block">{f.fieldLabel}</label>
+        <input type={f.fieldType === "url" ? "url" : f.fieldKey === "email" ? "email" : "text"} value={val} onChange={(e) => set(f.fieldKey, e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+      </div>
+    );
+  };
+
+  if (loadingFields) return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"><div className="bg-white rounded-xl shadow-xl p-8"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div></div>;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col mx-4">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">Editar contacto</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">{client.firstName} {client.lastName} · {client.phone || client.email || ""}</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4 text-gray-500" /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {[...GROUP_ORDER, ...Object.keys(groups).filter((g) => !GROUP_ORDER.includes(g))].filter((g) => groups[g]?.length).map((groupKey) => {
+            const groupFields = groups[groupKey];
+            const booleans = groupFields.filter((f: any) => f.fieldType === "boolean");
+            const others = groupFields.filter((f: any) => f.fieldType !== "boolean");
+            return (
+              <section key={groupKey}>
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">{GROUP_LABELS[groupKey] || groupKey}</h4>
+                {others.length > 0 && <div className="grid grid-cols-2 gap-3">{others.map((f: any) => <div key={f.id}>{renderField(f)}</div>)}</div>}
+                {booleans.length > 0 && <div className="flex gap-6 flex-wrap mt-2">{booleans.map((f: any) => <div key={f.id}>{renderField(f)}</div>)}</div>}
+              </section>
+            );
+          })}
+          <section>
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Etiquetas</h4>
+            <input type="text" value={form._tags || ""} onChange={(e) => set("_tags", e.target.value)} placeholder="vip, nuevo, referido (separados por coma)" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+          </section>
+          {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+        </div>
+        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2 shrink-0">
+          <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
+          <button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-brand-700 text-white text-sm font-medium hover:bg-brand-600 disabled:opacity-50">
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />} Guardar cambios
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

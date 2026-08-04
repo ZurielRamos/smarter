@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Save, Trash2, Wifi, WifiOff, Phone, MessageCircle, Camera, MessageSquare, Mail, Copy, CheckCircle2, XCircle, RefreshCw, Loader2 } from "lucide-react";
+import { Save, Trash2, Wifi, WifiOff, Phone, MessageCircle, Camera, MessageSquare, Mail, Copy, CheckCircle2, XCircle, RefreshCw, Loader2, AlertTriangle } from "lucide-react";
 import { api } from "@/services/api";
 
 interface Inbox {
@@ -126,10 +126,21 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
     } catch {} finally { setVerifying(false); }
   };
 
+  // Delete modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
   const handleDelete = async () => {
-    if (!inbox) return;
-    await api.delete(`/chats/inboxes/${inbox.id}`);
-    onDeleted?.();
+    if (!inbox || deleteConfirmName !== inbox.name) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/chats/inboxes/${inbox.id}`);
+      setShowDeleteModal(false);
+      onDeleted?.();
+    } catch {} finally {
+      setDeleting(false);
+    }
   };
 
   const copyToClipboard = (text: string, key: string) => {
@@ -272,11 +283,53 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
         <div className="bg-white rounded-xl border border-red-200 p-5">
           <h2 className="text-sm font-semibold text-red-600 mb-1">Zona de peligro</h2>
           <p className="text-[11px] text-gray-500 mb-3">Eliminar esta bandeja borrará todas las conversaciones asociadas.</p>
-          <button onClick={handleDelete} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-medium">
+          <button onClick={() => setShowDeleteModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-medium">
             <Trash2 className="h-3 w-3" /> Eliminar bandeja
           </button>
         </div>
       </div>
+
+      {/* Delete confirmation modal */}
+      {showDeleteModal && inbox && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 mx-4">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <h3 className="text-base font-semibold text-gray-900">Eliminar bandeja</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-1">
+              Esta acción no se puede deshacer. Se eliminará la bandeja <strong>{inbox.name}</strong> y todas sus conversaciones asociadas.
+            </p>
+            <p className="text-sm text-gray-600 mb-4">
+              Escribe <strong>{inbox.name}</strong> para confirmar:
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmName}
+              onChange={(e) => setDeleteConfirmName(e.target.value)}
+              placeholder={inbox.name}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 mb-4"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteConfirmName(""); }}
+                className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteConfirmName !== inbox.name || deleting}
+                className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
