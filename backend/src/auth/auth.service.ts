@@ -123,6 +123,13 @@ export class AuthService {
     });
     if (!user || !user.isActive) return null;
 
+    // Auto-generate API token for existing users that don't have one
+    if (!user.apiToken) {
+      const { randomBytes } = await import('crypto');
+      user.apiToken = randomBytes(32).toString('hex');
+      await this.userRepo.save(user);
+    }
+
     const activeRoles = user.tenantRoles?.filter((tr) => tr.status === 'active') || [];
     const pendingInvites = user.tenantRoles?.filter((tr) => tr.status === 'pending') || [];
 
@@ -132,6 +139,8 @@ export class AuthService {
       email: user.email,
       isSuperAdmin: user.isSuperAdmin,
       needsPasswordSetup: user.needsPasswordSetup,
+      avatarPath: user.avatarPath ?? null,
+      apiToken: user.apiToken ?? null,
       tenantRoles: activeRoles.map((tr) => ({
         tenantId: tr.tenantId,
         role: tr.role,

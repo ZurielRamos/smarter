@@ -1,7 +1,10 @@
-import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, Patch, UseGuards, Req, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import * as path from 'path';
+import * as fs from 'fs';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -80,6 +83,82 @@ export class AuthController {
     ut.status = 'active';
     await this.userTenantRepo.save(ut);
     return { status: 'active', message: 'Invitación aceptada' };
+  }
+
+  /** Actualizar perfil del usuario autenticado */
+  @UseGuards(JwtAuthGuard)
+  @Patch('profile')
+  @UseInterceptors(FileInterceptor('avatar'))
+  async updateProfile(
+    @Req() req: any,
+    @Body() body: { name?: string; currentPassword?: string; newPassword?: string },
+    @UploadedFile() avatar?: Express.Multer.File,
+  ) {
+    const user = await this.userRepo.findOne({
+      where: { id: req.user.id },
+      select: { id: true, name: true, email: true, password: true, avatarPath: true },
+    });
+    if (!user) return { error: 'Usuario no encontrado' };
+
+    // Update name
+    if (body.name && body.name.trim()) {
+      user.name = body.name.trim();
+    }
+
+    // Update password
+    if (body.newPassword) {
+      if (!body.currentPassword) {
+        return { error: 'Debes proporcionar la contraseña actual' };
+      }
+      const isValid = await bcrypt.compare(body.currentPassword, user.password);
+      if (!isValid) {
+        return { error: 'La contraseña actual es incorrecta' };
+      }
+      user.password = await bcrypt.hash(body.newPassword, 10);
+    }
+
+    // Update avatar
+    if (avatar) {
+      const uploadsDir = path.join(process.cwd(), 'uploads', 'avatars');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      const ext = path.extname(avatar.originalname) || '.png';
+      const filename = `${user.id}-${Date.now()}${ext}`;
+      const filePath = path.join(uploadsDir, filename);
+      fs.writeFileSync(filePath, avatar.buffer);
+
+      // Remove old avatar if exists
+      if (user.avatarPath) {
+        const oldPath = path.join(process.cwd(), user.avatarPath);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+
+      user.avatarPath = `uploads/avatars/${filename}`;
+    }
+
+    await this.userRepo.save(user);
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatarPath: user.avatarPath,
+    };
+  }
+
+  /** Regenerar el token de API del usuario autenticado */
+  @UseGuards(JwtAuthGuard)
+  @Post('regenerate-api-token')
+  async regenerateApiToken(@Req() req: any) {
+    const { randomBytes } = await import('crypto');
+    const user = await this.userRepo.findOne({ where: { id: req.user.id } });
+    if (!user) return { error: 'Usuario no encontrado' };
+
+    user.apiToken = randomBytes(32).toString('hex');
+    await this.userRepo.save(user);
+
+    return { apiToken: user.apiToken };
   }
 
   /** Completar registro: usuario nuevo configura su contraseña via token */

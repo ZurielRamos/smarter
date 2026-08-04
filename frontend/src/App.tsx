@@ -11,6 +11,7 @@ import { ClientSchema } from "./pages/ClientSchema";
 import { Campaigns } from "./pages/Campaigns";
 import { CampaignDetail } from "./pages/CampaignDetail";
 import { Settings } from "./pages/Settings";
+import { Profile } from "./pages/Profile";
 import { Integraciones } from "./pages/Integraciones";
 import { Webhooks } from "./pages/Webhooks";
 import { ApiReference } from "./pages/ApiReference";
@@ -135,6 +136,7 @@ function App() {
             <Route path="/:slug/inboxes/:id/settings" element={<InboxSettings />} />
             <Route path="/:slug/forms/:id" element={<FormBuilder />} />
             <Route path="/:slug/settings" element={<Settings />} />
+            <Route path="/:slug/profile" element={<Profile />} />
             <Route path="/:slug/integraciones" element={<Integraciones />} />
             <Route path="/:slug/integraciones/webhooks" element={<Webhooks />} />
           </Route>

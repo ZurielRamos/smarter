@@ -5,8 +5,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  BeforeInsert,
 } from 'typeorm';
 import { UserTenant } from './user-tenant.entity';
+import { randomBytes } from 'crypto';
 
 @Entity('users')
 export class User {
@@ -35,6 +37,10 @@ export class User {
   @Column({ name: 'avatar_path', type: 'varchar', nullable: true })
   avatarPath: string;
 
+  /** Token fijo para acceso a la API */
+  @Column({ name: 'api_token', type: 'varchar', unique: true, nullable: true })
+  apiToken: string;
+
   @OneToMany(() => UserTenant, (ut) => ut.user, { eager: true })
   tenantRoles: UserTenant[];
 
@@ -43,4 +49,11 @@ export class User {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @BeforeInsert()
+  generateApiToken() {
+    if (!this.apiToken) {
+      this.apiToken = randomBytes(32).toString('hex');
+    }
+  }
 }

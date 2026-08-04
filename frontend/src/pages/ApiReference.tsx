@@ -10,7 +10,9 @@ interface EndpointDef {
   description: string;
   params?: Array<{ name: string; type: string; required?: boolean; description: string }>;
   body?: string;
+  bodyDescription?: string;
   response?: string;
+  curl?: string;
 }
 
 interface SidebarSection {
@@ -49,11 +51,282 @@ const SIDEBAR: SidebarSection[] = [
     items: [
       {
         id: "contacts", label: "Contactos", endpoints: [
-          { id: "list-contacts", method: "GET", label: "Listar contactos", path: "/api/records", description: "Lista todos los contactos del tenant con paginación.", params: [{ name: "tenantId", type: "string", required: true, description: "ID del tenant" }, { name: "page", type: "integer", description: "Página (default: 1)" }, { name: "limit", type: "integer", description: "Registros por página (default: 50)" }, { name: "sortBy", type: "string", description: "Campo para ordenar" }, { name: "sortOrder", type: "ASC|DESC", description: "Dirección del orden" }], response: `{\n  "data": [\n    {\n      "id": "uuid",\n      "firstName": "Juan",\n      "lastName": "Pérez",\n      "phone": "573001234567",\n      "email": "juan@ejemplo.com",\n      "status": "active",\n      ...\n    }\n  ],\n  "total": 150\n}` },
-          { id: "get-contact", method: "GET", label: "Obtener contacto", path: "/api/records/:id", description: "Obtiene un contacto por su ID.", params: [{ name: "id", type: "uuid", required: true, description: "ID del contacto" }], response: `{\n  "id": "uuid",\n  "firstName": "Juan",\n  "lastName": "Pérez",\n  "phone": "573001234567",\n  "email": "juan@ejemplo.com",\n  "status": "active",\n  "tags": ["vip"],\n  "customData": { "campo": "valor" },\n  ...\n}` },
-          { id: "create-contact", method: "POST", label: "Crear contacto", path: "/api/records", description: "Crea un nuevo contacto.", body: `{\n  "tenantId": "uuid",\n  "firstName": "María",\n  "lastName": "García",\n  "phone": "573009876543",\n  "email": "maria@ejemplo.com",\n  "status": "active",\n  "tags": ["nuevo"]\n}`, response: `{\n  "id": "uuid",\n  "firstName": "María",\n  ...\n}` },
-          { id: "update-contact", method: "PUT", label: "Actualizar contacto", path: "/api/records/:id", description: "Actualiza los campos de un contacto.", body: `{\n  "firstName": "María José",\n  "city": "Medellín",\n  "tags": ["vip", "premium"]\n}`, response: `{\n  "id": "uuid",\n  "firstName": "María José",\n  "city": "Medellín",\n  ...\n}` },
-          { id: "delete-contact", method: "DELETE", label: "Eliminar contacto", path: "/api/records/:id", description: "Elimina un contacto permanentemente.", params: [{ name: "id", type: "uuid", required: true, description: "ID del contacto" }], response: `{ }` },
+          {
+            id: "list-contacts",
+            method: "GET",
+            label: "Listar contactos",
+            path: "/api/v1/{cuenta}/records",
+            description: "Lista todos los contactos de la cuenta con paginación. Retorna un array de contactos junto con el total para facilitar la navegación entre páginas.",
+            params: [
+              { name: "page", type: "integer", description: "Número de página (default: 1)" },
+              { name: "limit", type: "integer", description: "Registros por página, máximo 100 (default: 50)" },
+              { name: "sortBy", type: "string", description: "Campo para ordenar: firstName, lastName, email, phone, status, createdAt, score" },
+              { name: "sortOrder", type: "ASC|DESC", description: "Dirección del orden (default: DESC por createdAt)" },
+            ],
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/records?page=1&limit=25&sortBy=createdAt&sortOrder=DESC",
+  {
+    method: "GET",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const data = await response.json();`,
+            response: `{
+  "data": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "firstName": "Juan",
+      "lastName": "Pérez",
+      "fullName": "Juan Pérez",
+      "phone": "573001234567",
+      "countryCode": "+57",
+      "email": "juan@ejemplo.com",
+      "documentType": "CC",
+      "documentNumber": "1234567890",
+      "gender": "male",
+      "birthDate": "1990-05-15",
+      "city": "Bogotá",
+      "region": "Cundinamarca",
+      "status": "active",
+      "channelSource": "api",
+      "source": "landing-page",
+      "score": 75,
+      "optInWhatsapp": true,
+      "optInEmail": true,
+      "assignedTo": null,
+      "tags": ["vip", "premium"],
+      "customData": {
+        "empresa": "Acme Corp",
+        "cargo": "Director"
+      },
+      "lastContactAt": "2026-08-01T14:30:00.000Z",
+      "lastActivityAt": "2026-08-03T09:15:00.000Z",
+      "createdAt": "2026-07-15T10:00:00.000Z",
+      "updatedAt": "2026-08-03T09:15:00.000Z"
+    }
+  ],
+  "total": 1523
+}`,
+          },
+          {
+            id: "get-contact",
+            method: "GET",
+            label: "Obtener contacto",
+            path: "/api/v1/{cuenta}/records/{id}",
+            description: "Obtiene toda la información de un contacto específico por su ID. Incluye campos del sistema, datos personalizados y etiquetas.",
+            params: [
+              { name: "id", type: "uuid", required: true, description: "ID único del contacto" },
+            ],
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/records/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  {
+    method: "GET",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const contact = await response.json();`,
+            response: `{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "firstName": "Juan",
+  "lastName": "Pérez",
+  "fullName": "Juan Pérez",
+  "phone": "573001234567",
+  "countryCode": "+57",
+  "email": "juan@ejemplo.com",
+  "documentType": "CC",
+  "documentNumber": "1234567890",
+  "gender": "male",
+  "birthDate": "1990-05-15",
+  "city": "Bogotá",
+  "region": "Cundinamarca",
+  "status": "active",
+  "channelSource": "api",
+  "source": "landing-page",
+  "score": 75,
+  "optInWhatsapp": true,
+  "optInEmail": true,
+  "assignedTo": null,
+  "tags": ["vip", "premium"],
+  "customData": {
+    "empresa": "Acme Corp",
+    "cargo": "Director"
+  },
+  "lastContactAt": "2026-08-01T14:30:00.000Z",
+  "lastActivityAt": "2026-08-03T09:15:00.000Z",
+  "createdAt": "2026-07-15T10:00:00.000Z",
+  "updatedAt": "2026-08-03T09:15:00.000Z"
+}`,
+          },
+          {
+            id: "create-contact",
+            method: "POST",
+            label: "Crear contacto",
+            path: "/api/v1/{cuenta}/records",
+            description: "Crea un nuevo contacto en la cuenta. Solo firstName o phone son suficientes para crear un registro. Los campos personalizados se envían en el objeto customData.",
+            bodyDescription: "Todos los campos son opcionales excepto que al menos uno de firstName, lastName, phone o email debe estar presente.",
+            body: `{
+  "firstName": "María",
+  "lastName": "García",
+  "phone": "573009876543",
+  "countryCode": "+57",
+  "email": "maria@ejemplo.com",
+  "documentType": "CC",
+  "documentNumber": "9876543210",
+  "gender": "female",
+  "birthDate": "1985-03-20",
+  "city": "Medellín",
+  "region": "Antioquia",
+  "status": "active",
+  "source": "api-integracion",
+  "score": 50,
+  "optInWhatsapp": true,
+  "optInEmail": true,
+  "tags": ["nuevo", "web"],
+  "customData": {
+    "empresa": "Tech Solutions",
+    "plan": "premium",
+    "referido_por": "Juan Pérez"
+  }
+}`,
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/records",
+  {
+    method: "POST",
+    headers: {
+      "x-api-token": "tu_token_de_api",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      firstName: "María",
+      lastName: "García",
+      phone: "573009876543",
+      email: "maria@ejemplo.com",
+      status: "active",
+      tags: ["nuevo"],
+      customData: { empresa: "Tech Solutions" }
+    })
+  }
+);
+
+const newContact = await response.json();`,
+            response: `{
+  "id": "f7e8d9c0-b1a2-3456-7890-abcdef123456",
+  "firstName": "María",
+  "lastName": "García",
+  "fullName": null,
+  "phone": "573009876543",
+  "countryCode": "+57",
+  "email": "maria@ejemplo.com",
+  "documentType": "CC",
+  "documentNumber": "9876543210",
+  "gender": "female",
+  "birthDate": "1985-03-20",
+  "city": "Medellín",
+  "region": "Antioquia",
+  "status": "active",
+  "channelSource": "api",
+  "source": "api-integracion",
+  "score": 50,
+  "optInWhatsapp": true,
+  "optInEmail": true,
+  "tags": ["nuevo", "web"],
+  "customData": {
+    "empresa": "Tech Solutions",
+    "plan": "premium",
+    "referido_por": "Juan Pérez"
+  },
+  "createdAt": "2026-08-04T15:30:00.000Z",
+  "updatedAt": "2026-08-04T15:30:00.000Z"
+}`,
+          },
+          {
+            id: "update-contact",
+            method: "PUT",
+            label: "Actualizar contacto",
+            path: "/api/v1/{cuenta}/records/{id}",
+            description: "Actualiza uno o más campos de un contacto existente. Solo envía los campos que deseas modificar; los demás se mantienen sin cambios.",
+            bodyDescription: "Envía únicamente los campos que deseas actualizar.",
+            params: [
+              { name: "id", type: "uuid", required: true, description: "ID único del contacto a actualizar" },
+            ],
+            body: `{
+  "firstName": "María José",
+  "city": "Bogotá",
+  "score": 85,
+  "tags": ["vip", "premium", "leal"],
+  "customData": {
+    "empresa": "Tech Solutions",
+    "plan": "enterprise",
+    "nps": 9
+  }
+}`,
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/records/f7e8d9c0-b1a2-3456-7890-abcdef123456",
+  {
+    method: "PUT",
+    headers: {
+      "x-api-token": "tu_token_de_api",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      firstName: "María José",
+      city: "Bogotá",
+      score: 85,
+      tags: ["vip", "premium", "leal"]
+    })
+  }
+);
+
+const updated = await response.json();`,
+            response: `{
+  "id": "f7e8d9c0-b1a2-3456-7890-abcdef123456",
+  "firstName": "María José",
+  "lastName": "García",
+  "phone": "573009876543",
+  "email": "maria@ejemplo.com",
+  "city": "Bogotá",
+  "region": "Antioquia",
+  "status": "active",
+  "score": 85,
+  "tags": ["vip", "premium", "leal"],
+  "customData": {
+    "empresa": "Tech Solutions",
+    "plan": "enterprise",
+    "nps": 9
+  },
+  "updatedAt": "2026-08-04T16:00:00.000Z"
+}`,
+          },
+          {
+            id: "delete-contact",
+            method: "DELETE",
+            label: "Eliminar contacto",
+            path: "/api/v1/{cuenta}/records/{id}",
+            description: "Elimina un contacto permanentemente. Esta acción no se puede deshacer. Se eliminará toda la información del contacto incluyendo su historial de actividad.",
+            params: [
+              { name: "id", type: "uuid", required: true, description: "ID único del contacto a eliminar" },
+            ],
+            curl: `const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/records/f7e8d9c0-b1a2-3456-7890-abcdef123456",
+  {
+    method: "DELETE",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+
+const result = await response.json();`,
+            response: `{
+  "message": "Contacto eliminado correctamente"
+}`,
+          },
         ],
       },
       {
@@ -70,7 +343,6 @@ const SIDEBAR: SidebarSection[] = [
           { id: "create-note", method: "POST", label: "Crear nota privada", path: "/api/chats/conversations/:id/note", description: "Crea una nota privada (no visible para el contacto).", body: `{\n  "content": "Cliente VIP, dar prioridad",\n  "senderId": "uuid-agente"\n}`, response: `{\n  "id": "uuid",\n  "messageType": "note",\n  ...\n}` },
         ],
       },
-
       {
         id: "inboxes", label: "Bandejas", endpoints: [
           { id: "list-inboxes", method: "GET", label: "Listar bandejas", path: "/api/chats/inboxes", description: "Lista las bandejas del tenant.", params: [{ name: "tenantId", type: "string", required: true, description: "ID del tenant" }], response: `[\n  {\n    "id": "uuid",\n    "name": "WhatsApp Principal",\n    "channel": "whatsapp",\n    "status": "connected"\n  }\n]` },
@@ -106,15 +378,78 @@ const SIDEBAR: SidebarSection[] = [
   },
 ];
 
-function CodeBlock({ code }: { code: string }) {
+function CodeBlock({ code, title }: { code: string; title?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); };
   return (
     <div className="relative rounded-lg bg-[#1e1e2e] text-gray-100 text-[11px] font-mono overflow-x-auto">
+      {title && (
+        <div className="px-4 py-2 border-b border-white/10 flex items-center justify-between">
+          <span className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">{title}</span>
+        </div>
+      )}
       <button onClick={copy} className="absolute top-2 right-2 p-1 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300">
         {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
       </button>
       <pre className="p-4 leading-relaxed text-green-300">{code}</pre>
+    </div>
+  );
+}
+
+function ResponseCard({ endpoint }: { endpoint: EndpointDef }) {
+  const [activeTab, setActiveTab] = useState<"200" | "error">("200");
+  const [copied, setCopied] = useState(false);
+
+  const errorResponse = endpoint.method === "DELETE"
+    ? `{\n  "statusCode": 404,\n  "message": "Contacto no encontrado",\n  "error": "Not Found"\n}`
+    : `{\n  "statusCode": 403,\n  "message": "No tienes acceso a esta cuenta",\n  "error": "Forbidden"\n}`;
+
+  const currentCode = activeTab === "200" ? (endpoint.response || "{}") : errorResponse;
+
+  const copy = () => {
+    navigator.clipboard.writeText(currentCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="sticky top-5 bg-[#1e1e2e] rounded-xl shadow-xl overflow-hidden">
+      {/* Tabs header */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-0 border-b border-white/10">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setActiveTab("200")}
+            className={`text-xs font-medium pb-2 border-b-2 transition-colors ${
+              activeTab === "200"
+                ? "text-blue-400 border-blue-400"
+                : "text-gray-500 border-transparent hover:text-gray-300"
+            }`}
+          >
+            200
+          </button>
+          <button
+            onClick={() => setActiveTab("error")}
+            className={`text-xs font-medium pb-2 border-b-2 transition-colors ${
+              activeTab === "error"
+                ? "text-blue-400 border-blue-400"
+                : "text-gray-500 border-transparent hover:text-gray-300"
+            }`}
+          >
+            {endpoint.method === "DELETE" ? "404" : "403"}
+          </button>
+        </div>
+        <button
+          onClick={copy}
+          className="p-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors mb-2"
+        >
+          {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+
+      {/* JSON Content */}
+      <div className="px-5 py-4 overflow-y-auto max-h-[70vh]">
+        <pre className="text-[12px] font-mono leading-relaxed whitespace-pre-wrap text-green-300">{currentCode}</pre>
+      </div>
     </div>
   );
 }
@@ -182,16 +517,37 @@ export function ApiReference() {
       {/* Main content */}
       <main className="flex-1 overflow-y-auto">
         {active === "introduction" && (
-          <div className="max-w-3xl mx-auto px-8 py-10 space-y-6">
+          <div className="max-w-3xl mx-auto px-8 py-10 space-y-8">
             <div>
               <p className="text-xs text-brand-600 font-medium mb-1">Primeros pasos</p>
               <h1 className="text-2xl font-bold text-gray-900">Introducción a la API</h1>
               <p className="text-sm text-gray-600 mt-3 leading-relaxed">La API de Smartee te permite interactuar programáticamente con contactos, conversaciones, mensajes, campañas y más. Usa una arquitectura REST con respuestas JSON.</p>
             </div>
+
             <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
               <h3 className="text-sm font-semibold text-gray-900 mb-2">Base URL</h3>
               <CodeBlock code="https://crm.strategee.us/api" />
             </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Estructura de URLs</h3>
+              <p className="text-sm text-gray-600 mb-3">Todos los endpoints de la API v1 siguen esta estructura:</p>
+              <CodeBlock code={`/api/v1/{cuenta}/recurso\n\nEjemplos:\n  GET  /api/v1/supergiros/records        → Lista contactos de "supergiros"\n  POST /api/v1/mi-empresa/records         → Crea contacto en "mi-empresa"\n  GET  /api/v1/supergiros/records/{id}    → Obtiene un contacto específico`} />
+              <p className="text-xs text-gray-500 mt-3">El <code className="bg-gray-100 px-1.5 py-0.5 rounded">{"{cuenta}"}</code> es el slug de la cuenta (lo ves en la URL cuando navegas la plataforma). Tu token solo funcionará en cuentas donde tengas rol activo.</p>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Códigos de respuesta</h3>
+              <div className="space-y-1.5 text-sm">
+                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-green-600 text-xs font-bold w-8">200</code><span className="text-gray-600 text-xs">Operación exitosa</span></div>
+                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-green-600 text-xs font-bold w-8">201</code><span className="text-gray-600 text-xs">Recurso creado correctamente</span></div>
+                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-amber-600 text-xs font-bold w-8">401</code><span className="text-gray-600 text-xs">Token inválido o no proporcionado</span></div>
+                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-amber-600 text-xs font-bold w-8">403</code><span className="text-gray-600 text-xs">Sin permisos para esta cuenta o recurso</span></div>
+                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-red-600 text-xs font-bold w-8">404</code><span className="text-gray-600 text-xs">Recurso no encontrado</span></div>
+                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-red-600 text-xs font-bold w-8">500</code><span className="text-gray-600 text-xs">Error interno del servidor</span></div>
+              </div>
+            </div>
+
             <div>
               <h3 className="text-sm font-semibold text-gray-900 mb-2">Eventos de Webhook disponibles</h3>
               <div className="space-y-1.5 text-sm">
@@ -206,19 +562,72 @@ export function ApiReference() {
         )}
 
         {active === "authentication" && (
-          <div className="max-w-3xl mx-auto px-8 py-10 space-y-6">
+          <div className="max-w-3xl mx-auto px-8 py-10 space-y-8">
             <div>
               <p className="text-xs text-brand-600 font-medium mb-1">Seguridad</p>
               <h1 className="text-2xl font-bold text-gray-900">Autenticación</h1>
-              <p className="text-sm text-gray-600 mt-3 leading-relaxed">Todas las peticiones requieren un token JWT en el header <code className="bg-gray-100 px-1 rounded text-xs">Authorization</code>.</p>
+              <p className="text-sm text-gray-600 mt-3 leading-relaxed">
+                La API utiliza un <strong>token de API personal</strong> para autenticarte. Este token es fijo y único por usuario; lo puedes obtener y regenerar desde tu perfil en la plataforma.
+              </p>
             </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Obtener token</h3>
-              <CodeBlock code={`curl -X POST https://crm.strategee.us/api/auth/login \\\n  -H "Content-Type: application/json" \\\n  -d '{"email": "tu@email.com", "password": "tu_contraseña"}'`} />
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <p className="text-sm text-amber-800">
+                <strong>Importante:</strong> Tu token de API tiene los mismos permisos que tu usuario. Solo podrás acceder a cuentas donde tengas un rol activo (administrador o agente).
+              </p>
             </div>
+
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Usar el token</h3>
-              <CodeBlock code={`curl https://crm.strategee.us/api/records?tenantId=uuid \\\n  -H "Authorization: Bearer eyJhbGciOi..."`} />
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Obtener tu token</h3>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
+                <li>Inicia sesión en la plataforma</li>
+                <li>Ve a <strong>Perfil</strong> desde el menú de usuario</li>
+                <li>En la sección <strong>"Token de API"</strong>, haz clic en el ícono de ojo para revelarlo</li>
+                <li>Copia el token con el botón de copiar</li>
+              </ol>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Enviar el token</h3>
+              <p className="text-sm text-gray-600 mb-3">Puedes enviar tu token de dos formas:</p>
+
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-medium text-gray-700 mb-2">Opción 1: Header <code className="bg-gray-100 px-1.5 py-0.5 rounded">x-api-token</code> (recomendado)</p>
+                  <CodeBlock code={`const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/records",
+  {
+    headers: {
+      "x-api-token": "a1b2c3d4e5f6...tu_token_aqui"
+    }
+  }
+);`} title="javascript" />
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium text-gray-700 mb-2">Opción 2: Header <code className="bg-gray-100 px-1.5 py-0.5 rounded">Authorization: Bearer</code></p>
+                  <CodeBlock code={`const response = await fetch(
+  "https://crm.strategee.us/api/v1/supergiros/records",
+  {
+    headers: {
+      "Authorization": "Bearer a1b2c3d4e5f6...tu_token_aqui"
+    }
+  }
+);`} title="javascript" />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Respuesta de error de autenticación</h3>
+              <p className="text-sm text-gray-600 mb-3">Si el token es inválido o no se proporciona:</p>
+              <CodeBlock code={`// HTTP 401 Unauthorized\n{\n  "statusCode": 401,\n  "message": "Token de API inválido o usuario desactivado",\n  "error": "Unauthorized"\n}`} />
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Respuesta de error de permisos</h3>
+              <p className="text-sm text-gray-600 mb-3">Si intentas acceder a una cuenta donde no tienes rol:</p>
+              <CodeBlock code={`// HTTP 403 Forbidden\n{\n  "statusCode": 403,\n  "message": "No tienes acceso a esta cuenta",\n  "error": "Forbidden"\n}`} />
             </div>
           </div>
         )}
@@ -227,28 +636,33 @@ export function ApiReference() {
         {currentEndpoint && (
           <div className="flex h-full">
             {/* Left: Documentation */}
-            <div className="flex-1 overflow-y-auto px-8 py-10 border-r border-gray-100">
-              <p className="text-xs text-brand-600 font-medium mb-1">{currentSection}</p>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{currentEndpoint.label}</h1>
-              <p className="text-sm text-gray-600 mb-6">{currentEndpoint.description}</p>
+            <div className="flex-1 overflow-y-auto px-10 py-12 border-r border-gray-100">
+              <p className="text-sm text-brand-600 font-medium mb-2">{currentSection}</p>
+              <h1 className="text-3xl font-bold text-gray-900 mb-3">{currentEndpoint.label}</h1>
+              <p className="text-base text-gray-600 mb-8">{currentEndpoint.description}</p>
 
               {/* Endpoint badge */}
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-900 mb-6">
-                <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${METHOD_BADGE[currentEndpoint.method]}`}>{currentEndpoint.method}</span>
-                <code className="text-sm text-gray-100 font-mono">{currentEndpoint.path}</code>
+              <div className="flex items-center gap-1 px-4 py-3 rounded-xl border border-gray-200 bg-white mb-8">
+                <span className={`text-xs px-2.5 py-1 rounded font-bold ${METHOD_BADGE[currentEndpoint.method]}`}>{currentEndpoint.method}</span>
+                <code className="text-base text-gray-700 font-mono flex-1 ml-2">
+                  {currentEndpoint.path.split(/(\{[^}]+\})/).map((part, i) =>
+                    part.startsWith("{") ? <span key={i} className="mx-0.5 px-1.5 py-0.5 rounded bg-green-100 text-green-700 text-sm">{part}</span> : <span key={i}>{part}</span>
+                  )}
+                </code>
+                <button onClick={() => navigator.clipboard.writeText(currentEndpoint!.path)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><Copy className="h-4 w-4" /></button>
               </div>
 
               {/* Parameters */}
               {currentEndpoint.params && currentEndpoint.params.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Parámetros</h3>
-                  <div className="space-y-3">
-                    {currentEndpoint.params.map((p) => (
-                      <div key={p.name} className="flex items-baseline gap-3">
-                        <code className="text-xs text-brand-700 font-semibold">{p.name}</code>
-                        <span className="text-[10px] text-gray-500">{p.type}</span>
-                        {p.required && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium">required</span>}
-                        <span className="text-xs text-gray-600 ml-auto">{p.description}</span>
+                <div className="mb-8">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Parámetros</h3>
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    {currentEndpoint.params.map((p, i) => (
+                      <div key={p.name} className={`flex items-baseline gap-3 px-4 py-3 ${i > 0 ? "border-t border-gray-100" : ""}`}>
+                        <code className="text-sm text-brand-700 font-semibold min-w-[100px]">{p.name}</code>
+                        <span className="text-xs text-gray-400 min-w-[60px]">{p.type}</span>
+                        {p.required && <span className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-600 font-medium">required</span>}
+                        <span className="text-sm text-gray-600 ml-auto text-right">{p.description}</span>
                       </div>
                     ))}
                   </div>
@@ -257,22 +671,27 @@ export function ApiReference() {
 
               {/* Request body */}
               {currentEndpoint.body && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Body</h3>
-                  <CodeBlock code={currentEndpoint.body} />
+                <div className="mb-8">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Body</h3>
+                  {currentEndpoint.bodyDescription && (
+                    <p className="text-sm text-gray-500 mb-3">{currentEndpoint.bodyDescription}</p>
+                  )}
+                  <CodeBlock code={currentEndpoint.body} title="application/json" />
+                </div>
+              )}
+
+              {/* cURL example */}
+              {currentEndpoint.curl && (
+                <div className="mb-8">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Ejemplo de petición</h3>
+                  <CodeBlock code={currentEndpoint.curl} title="javascript" />
                 </div>
               )}
             </div>
 
-            {/* Right: Response example */}
-            <div className="w-[380px] shrink-0 bg-[#1a1a2e] overflow-y-auto p-5 hidden lg:block">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] text-gray-400 font-medium">{currentEndpoint.label}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">200</span>
-              </div>
-              {currentEndpoint.response && (
-                <pre className="text-[11px] font-mono text-green-300 leading-relaxed whitespace-pre-wrap">{currentEndpoint.response}</pre>
-              )}
+            {/* Right: Response example card */}
+            <div className="w-[420px] shrink-0 p-5 hidden lg:block overflow-y-auto">
+              <ResponseCard endpoint={currentEndpoint} />
             </div>
           </div>
         )}

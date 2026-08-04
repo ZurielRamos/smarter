@@ -29,6 +29,8 @@ interface AuthUser {
   email: string;
   isSuperAdmin: boolean;
   needsPasswordSetup?: boolean;
+  avatarPath?: string | null;
+  apiToken?: string | null;
   tenantRoles: TenantRole[];
   pendingInvites: PendingInvite[];
 }
@@ -41,6 +43,7 @@ interface AuthContextType {
   logout: () => void;
   acceptInvite: (tenantId: string) => Promise<void>;
   declineInvite: (tenantId: string) => void;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -74,6 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: data.email,
         isSuperAdmin: data.isSuperAdmin,
         needsPasswordSetup: data.needsPasswordSetup,
+        avatarPath: data.avatarPath ?? null,
+        apiToken: data.apiToken ?? null,
         tenantRoles: data.tenantRoles?.map((tr: any) => ({
           tenantId: tr.tenantId,
           role: tr.role,
@@ -162,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         acceptInvite,
         declineInvite,
+        refreshUser: fetchProfile,
         isAuthenticated: !!user,
       }}
     >
