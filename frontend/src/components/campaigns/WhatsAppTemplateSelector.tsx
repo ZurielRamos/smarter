@@ -26,7 +26,7 @@ interface Props {
   selectedTemplate: string | null;
   selectedLanguage: string | null;
   variableMapping: Record<string, string>;
-  onTemplateChange: (name: string, language: string) => void;
+  onTemplateChange: (name: string, language: string, category: string) => void;
   onMappingChange: (mapping: Record<string, string>) => void;
   onSave: () => void;
   saving: boolean;
@@ -93,7 +93,7 @@ export function WhatsAppTemplateSelector({
   const variableCount = variableMatches.length;
 
   const handleSelectTemplate = (template: WhatsAppTemplate) => {
-    onTemplateChange(template.name, template.language);
+    onTemplateChange(template.name, template.language, template.category);
     // Reset variable mapping for new template
     const newBodyText = template.components.find((c) => c.type === "BODY")?.text || "";
     const matches = newBodyText.match(/\{\{\d+\}\}/g) || [];

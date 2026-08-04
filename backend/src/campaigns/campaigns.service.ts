@@ -362,7 +362,7 @@ export class CampaignsService {
 
     // Reserve credits for the full audience before sending
     if (campaign.tenantId) {
-      const costAction = this.getCostActionForChannel(campaign.channel);
+      const costAction = this.getCostActionForChannel(campaign.channel, campaign.whatsappTemplateCategory);
       const unitCost = await this.billingService.getActionCost(costAction);
       if (unitCost !== null) {
         const totalToReserve = recipientIds.length * unitCost;
@@ -385,9 +385,16 @@ export class CampaignsService {
     return savedSend;
   }
 
-  private getCostActionForChannel(channel: string | null): string {
+  private getCostActionForChannel(channel: string | null, templateCategory?: string | null): string {
+    if (channel === 'whatsapp') {
+      switch (templateCategory?.toUpperCase()) {
+        case 'UTILITY': return 'whatsapp_utility';
+        case 'AUTHENTICATION': return 'whatsapp_authentication';
+        case 'MARKETING':
+        default: return 'whatsapp_marketing';
+      }
+    }
     switch (channel) {
-      case 'whatsapp': return 'whatsapp_marketing';
       case 'sms': return 'sms';
       case 'llamada': return 'call';
       case 'email': return 'email';

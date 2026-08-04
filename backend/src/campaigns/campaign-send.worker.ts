@@ -237,7 +237,7 @@ export class CampaignSendWorker extends WorkerHost {
       // Settle credit reservation: charge only successful sends, release the rest
       if (totalSent >= 0 && campaign.tenantId) {
         try {
-          const costAction = this.getCostAction(campaign.channel);
+          const costAction = this.getCostAction(campaign.channel, campaign.whatsappTemplateCategory);
           const unitCost = await this.billingService.getActionCost(costAction);
           if (unitCost !== null) {
             const reservedAmount = recipientIds.length * unitCost;
@@ -279,7 +279,7 @@ export class CampaignSendWorker extends WorkerHost {
       // Settle reservation on failure (charge only what was sent)
       if (campaign.tenantId) {
         try {
-          const costAction = this.getCostAction(campaign.channel);
+          const costAction = this.getCostAction(campaign.channel, campaign.whatsappTemplateCategory);
           const unitCost = await this.billingService.getActionCost(costAction);
           if (unitCost !== null) {
             const reservedAmount = recipientIds.length * unitCost;
@@ -492,9 +492,16 @@ export class CampaignSendWorker extends WorkerHost {
     }
   }
 
-  private getCostAction(channel: string | null): string {
+  private getCostAction(channel: string | null, templateCategory?: string | null): string {
+    if (channel === 'whatsapp') {
+      switch (templateCategory?.toUpperCase()) {
+        case 'UTILITY': return 'whatsapp_utility';
+        case 'AUTHENTICATION': return 'whatsapp_authentication';
+        case 'MARKETING':
+        default: return 'whatsapp_marketing';
+      }
+    }
     switch (channel) {
-      case 'whatsapp': return 'whatsapp_marketing';
       case 'sms': return 'sms';
       case 'llamada': return 'call';
       case 'email': return 'email';

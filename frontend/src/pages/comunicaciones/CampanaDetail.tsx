@@ -34,6 +34,7 @@ interface Campaign {
   whatsappTemplateName: string | null;
   whatsappTemplateLanguage: string | null;
   whatsappVariableMapping: Record<string, string> | null;
+  whatsappTemplateCategory: string | null;
   callVoice: string | null;
   callRetries: string | null;
   callLeaveVoicemail: boolean | null;
@@ -191,6 +192,7 @@ export function CampanaDetail() {
         whatsappTemplateName: campaign.whatsappTemplateName,
         whatsappTemplateLanguage: campaign.whatsappTemplateLanguage,
         whatsappVariableMapping: campaign.whatsappVariableMapping,
+        whatsappTemplateCategory: campaign.whatsappTemplateCategory,
       });
       setCampaign(data);
     } catch {
@@ -462,11 +464,12 @@ export function CampanaDetail() {
                 selectedTemplate={campaign.whatsappTemplateName || null}
                 selectedLanguage={campaign.whatsappTemplateLanguage || null}
                 variableMapping={campaign.whatsappVariableMapping || {}}
-                onTemplateChange={(name, lang) =>
+                onTemplateChange={(name, lang, category) =>
                   setCampaign((prev) => prev ? ({
                     ...prev,
                     whatsappTemplateName: name,
                     whatsappTemplateLanguage: lang,
+                    whatsappTemplateCategory: category,
                   }) : prev)
                 }
                 onMappingChange={(mapping) =>

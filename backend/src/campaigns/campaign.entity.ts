@@ -93,6 +93,9 @@ export class Campaign {
   @Column({ name: 'whatsapp_variable_mapping', type: 'jsonb', nullable: true })
   whatsappVariableMapping: Record<string, string>; // { "1": "nombreCompleto", "2": "ciudad" }
 
+  @Column({ name: 'whatsapp_template_category', type: 'varchar', nullable: true })
+  whatsappTemplateCategory: string; // UTILITY, MARKETING, AUTHENTICATION
+
   // === CALL (Llamada) fields ===
   @Column({ name: 'call_voice', type: 'varchar', nullable: true })
   callVoice: string; // Mariana, Penelope, Conchita, Mia, Lucia, Enrique, Miguel
