@@ -9,6 +9,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Tenant } from '../tenants/tenant.entity';
+import { Inbox } from '../chats/inbox.entity';
 
 export interface SegmentCondition {
   field: string;
@@ -51,8 +52,16 @@ export class Campaign {
   @Column({ name: 'list_id', type: 'uuid', nullable: true })
   listId: string | null;
 
+  // === INBOX ===
+  @Column({ name: 'inbox_id', type: 'uuid', nullable: true })
+  inboxId: string | null;
+
+  @ManyToOne(() => Inbox, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'inbox_id' })
+  inbox: Inbox;
+
   @Column({ type: 'varchar', nullable: true })
-  channel: string; // sms, whatsapp, llamada
+  channel: string; // sms, whatsapp, llamada, email
 
   @Column({ name: 'max_sends', type: 'integer', nullable: true })
   maxSends: number;
@@ -67,7 +76,7 @@ export class Campaign {
   sendTime: string; // HH:mm format
 
   @Column({ name: 'recurrence_days', type: 'jsonb', nullable: true })
-  recurrenceDays: string[]; // ['lunes', 'miercoles', 'viernes']
+  recurrenceDays: Record<string, string> | null; // { 'lunes': '09:00', 'miercoles': '14:00' }
 
   @Column({ name: 'matched_count', type: 'integer', default: 0 })
   matchedCount: number;

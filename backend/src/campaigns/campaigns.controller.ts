@@ -26,8 +26,15 @@ export class CampaignsController {
   // === WhatsApp Templates (must be before :id routes) ===
 
   @Get('whatsapp/templates')
-  getWhatsAppTemplates() {
-    return this.whatsappService.getTemplates();
+  async getWhatsAppTemplates(@Query('inboxId') inboxId?: string) {
+    if (!inboxId) return [];
+    // Get inbox credentials
+    const inbox = await this.campaignsService.getInboxById(inboxId);
+    if (!inbox || !inbox.accessToken || !inbox.wabaId) return [];
+    return this.whatsappService.getTemplates({
+      metaToken: inbox.accessToken,
+      metaBusinessId: inbox.wabaId,
+    });
   }
 
   @Get('whatsapp/available-fields')
@@ -70,6 +77,7 @@ export class CampaignsController {
       description?: string;
       segments: SegmentGroup[];
       channel?: string;
+      inboxId?: string;
       tenantId?: string;
     },
   ) {
@@ -84,6 +92,7 @@ export class CampaignsController {
       description: string;
       segments: SegmentGroup[];
       channel: string;
+      inboxId: string | null;
       status: string;
       listId: string | null;
       messageTemplate: string;
@@ -98,7 +107,7 @@ export class CampaignsController {
       isRecurring: boolean;
       sendDate: string | null;
       sendTime: string | null;
-      recurrenceDays: string[] | null;
+      recurrenceDays: Record<string, string> | null;
     }>,
   ) {
     return this.campaignsService.update(id, body);

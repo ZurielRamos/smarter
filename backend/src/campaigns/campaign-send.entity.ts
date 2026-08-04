@@ -38,6 +38,10 @@ export class CampaignSend {
   @Column({ name: 'total_failed', type: 'integer', default: 0 })
   totalFailed: number;
 
+  /** Snapshot of recipient record IDs at execution time */
+  @Column({ name: 'recipient_ids', type: 'jsonb', nullable: true })
+  recipientIds: string[] | null;
+
   @Column({ name: 'error_message', type: 'text', nullable: true })
   errorMessage: string;
 

@@ -712,17 +712,6 @@ export function CampaignDetail() {
 
           {/* Sidebar info */}
           <div className="space-y-6">
-            {/* Channel */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">Canal</h2>
-              <div className="flex items-center gap-3">
-                <Send className="h-5 w-5 text-brand-600" />
-                <span className="text-sm font-medium text-gray-900 uppercase">
-                  {campaign.channel || "Sin definir"}
-                </span>
-              </div>
-            </div>
-
             {/* Schedule */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
@@ -778,24 +767,6 @@ export function CampaignDetail() {
               </div>
             </div>
 
-            {/* Meta */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">Información</h2>
-              <div className="space-y-2 text-sm text-gray-600">
-                <div className="flex justify-between">
-                  <span>Creada</span>
-                  <span className="text-gray-900">
-                    {new Date(campaign.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Actualizada</span>
-                  <span className="text-gray-900">
-                    {new Date(campaign.updatedAt).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </motion.div>

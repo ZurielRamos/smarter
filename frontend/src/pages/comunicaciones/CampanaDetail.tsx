@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Users, Send, Calendar, Clock, RefreshCw, Pencil, List, Settings2, Filter, Play } from "lucide-react";
+import { Users, Send, Calendar, Clock, RefreshCw, Pencil, List, Settings2, Filter, Play, Pause, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MessageEditor } from "@/components/campaigns/MessageEditor";
 import { WhatsAppTemplateSelector } from "@/components/campaigns/WhatsAppTemplateSelector";
@@ -17,6 +17,7 @@ import { api } from "@/services/api";
 interface Campaign {
   id: string;
   tenantId: string;
+  inboxId: string | null;
   name: string;
   description: string | null;
   status: string;
@@ -27,7 +28,7 @@ interface Campaign {
   isRecurring: boolean;
   sendDate: string | null;
   sendTime: string | null;
-  recurrenceDays: string[] | null;
+  recurrenceDays: Record<string, string> | null;
   matchedCount: number;
   messageTemplate: string | null;
   whatsappTemplateName: string | null;
@@ -101,8 +102,6 @@ export function CampanaDetail() {
   const [savingCall, setSavingCall] = useState(false);
   const [sends, setSends] = useState<CampaignSendRecord[]>([]);
   const [sending, setSending] = useState(false);
-  const [activeSend, setActiveSend] = useState<CampaignSendRecord | null>(null);
-  const [showSendModal, setShowSendModal] = useState(false);
   const [recordLists, setRecordLists] = useState<RecordListItem[]>([]);
   const [availableFields, setAvailableFields] = useState<{ field: string; label: string }[]>([]);
   const [showSegmentEditor, setShowSegmentEditor] = useState(false);
@@ -115,7 +114,7 @@ export function CampanaDetail() {
   const [editIsRecurring, setEditIsRecurring] = useState(false);
   const [editSendDate, setEditSendDate] = useState("");
   const [editSendTime, setEditSendTime] = useState("");
-  const [editRecurrenceDays, setEditRecurrenceDays] = useState<string[]>([]);
+  const [editRecurrenceDays, setEditRecurrenceDays] = useState<Record<string, string>>({});
   const [savingSchedule, setSavingSchedule] = useState(false);
 
   useEffect(() => {
@@ -233,37 +232,58 @@ export function CampanaDetail() {
   const handleSendCampaign = async () => {
     if (!campaign) return;
     setSending(true);
-    setShowSendModal(true);
     try {
       const { data } = await api.post<CampaignSendRecord>(`/campaigns/${campaign.id}/send`);
-      setActiveSend(data);
-      // Poll for progress
-      pollSendStatus(data.id);
+      // Add to sends list immediately
+      setSends((prev) => [data, ...prev]);
+      // Connect to WebSocket for real-time updates
+      connectSendWs(data.id);
     } catch {
-      setActiveSend({ id: '', campaignId: '', status: 'failed', totalRecipients: 0, totalSent: 0, totalDelivered: 0, totalFailed: 0, errorMessage: 'Error al iniciar el envío', startedAt: null, completedAt: null, createdAt: new Date().toISOString() });
       setSending(false);
     }
   };
 
-  const pollSendStatus = async (sendId: string) => {
-    const poll = async () => {
-      try {
-        const { data: allSends } = await api.get<CampaignSendRecord[]>(`/campaigns/${campaign!.id}/sends`);
-        const current = allSends.find((s) => s.id === sendId);
-        if (current) {
-          setActiveSend(current);
-          if (current.status === 'completed' || current.status === 'failed') {
-            setSending(false);
-            await loadSends();
-            return;
-          }
+  const connectSendWs = (sendId: string) => {
+    const wsUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/api$/, '');
+    import('socket.io-client').then(({ io }) => {
+      const socket = io(`${wsUrl}/ws/campaigns`, {
+        query: { tenantId: campaign?.tenantId },
+        transports: ['websocket'],
+      });
+
+      socket.on('connect', () => {
+        socket.emit('join_send', sendId);
+      });
+
+      socket.on('send_progress', (payload: { sendId: string; status: string; totalRecipients: number; totalSent: number; totalFailed: number; error?: string }) => {
+        if (payload.sendId !== sendId) return;
+        // Update the send in the list in real-time
+        setSends((prev) => prev.map((s) => s.id === sendId ? {
+          ...s,
+          status: payload.status,
+          totalRecipients: payload.totalRecipients,
+          totalSent: payload.totalSent,
+          totalFailed: payload.totalFailed,
+          errorMessage: payload.error || s.errorMessage,
+        } : s));
+
+        if (payload.status === 'completed' || payload.status === 'failed') {
+          setSending(false);
+          setTimeout(() => socket.disconnect(), 1000);
         }
-        setTimeout(poll, 1500);
-      } catch {
-        setSending(false);
-      }
-    };
-    setTimeout(poll, 1500);
+      });
+
+      // Fallback: poll after 90s
+      const fallbackTimer = setTimeout(() => {
+        api.get<CampaignSendRecord[]>(`/campaigns/${campaign!.id}/sends`).then(({ data: allSends }) => {
+          setSends(allSends);
+          setSending(false);
+          socket.disconnect();
+        }).catch(() => { setSending(false); });
+      }, 90000);
+
+      socket.on('disconnect', () => clearTimeout(fallbackTimer));
+    });
   };
 
   const handleOpenSegmentEditor = () => {
@@ -287,7 +307,17 @@ export function CampanaDetail() {
 
   const handleSegmentPreview = async () => {
     try {
-      const segments = editSegments.map((g) => ({
+      const source = editSegments.length > 0 ? editSegments : (campaign?.segments || []).map((g, idx) => ({
+        id: `group_${idx}`,
+        logic: g.logic as "AND" | "OR",
+        conditions: g.conditions.map((c, cIdx) => ({
+          id: `cond_${idx}_${cIdx}`,
+          field: c.field,
+          operator: c.operator,
+          value: c.value as string | number | boolean,
+        })),
+      }));
+      const segments = source.map((g) => ({
         logic: g.logic,
         conditions: g.conditions.map((c) => ({
           field: c.field,
@@ -295,7 +325,7 @@ export function CampanaDetail() {
           value: c.value,
         })),
       }));
-      const { data } = await api.post<{ count: number; sample: Array<{ idCliente: string; nombreCompleto: string; estado: string; numTransacciones: number }> }>("/campaigns/preview", { segments });
+      const { data } = await api.post<{ count: number; sample: Array<{ idCliente: string; nombreCompleto: string; estado: string; numTransacciones: number }> }>("/campaigns/preview", { segments, tenantId: campaign?.tenantId });
       setSegmentPreviewCount(data.count);
       setSegmentPreviewSample(data.sample || []);
     } catch {
@@ -331,7 +361,7 @@ export function CampanaDetail() {
     setEditIsRecurring(campaign.isRecurring || false);
     setEditSendDate(campaign.sendDate ? campaign.sendDate.split("T")[0] : "");
     setEditSendTime(campaign.sendTime || "");
-    setEditRecurrenceDays(campaign.recurrenceDays || []);
+    setEditRecurrenceDays(campaign.recurrenceDays || {});
     setShowScheduleModal(true);
   };
 
@@ -397,9 +427,9 @@ export function CampanaDetail() {
       {/* Content */}
       {campaignTab === "general" && (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1, ease: 'easeOut' }} className="flex-1 min-h-0 overflow-auto px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="max-w-3xl space-y-6">
           {/* Main info */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="space-y-6">
             {/* Message Editor - only for SMS */}
             {campaign.channel === "sms" && (
               <MessageEditor
@@ -418,18 +448,19 @@ export function CampanaDetail() {
                 selectedLanguage={campaign.whatsappTemplateLanguage || null}
                 variableMapping={campaign.whatsappVariableMapping || {}}
                 onTemplateChange={(name, lang) =>
-                  setCampaign({
-                    ...campaign,
+                  setCampaign((prev) => prev ? ({
+                    ...prev,
                     whatsappTemplateName: name,
                     whatsappTemplateLanguage: lang,
-                  })
+                  }) : prev)
                 }
                 onMappingChange={(mapping) =>
-                  setCampaign({ ...campaign, whatsappVariableMapping: mapping })
+                  setCampaign((prev) => prev ? ({ ...prev, whatsappVariableMapping: mapping }) : prev)
                 }
                 onSave={handleSaveWhatsAppTemplate}
                 saving={savingWhatsApp}
                 tenantId={campaign.tenantId}
+                inboxId={campaign.inboxId}
               />
             )}
 
@@ -447,39 +478,6 @@ export function CampanaDetail() {
               />
             )}
           </div>
-
-          {/* Sidebar info */}
-          <div className="space-y-6">
-            {/* Channel */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">Canal</h2>
-              <div className="flex items-center gap-3">
-                <Send className="h-5 w-5 text-brand-600" />
-                <span className="text-sm font-medium text-gray-900 uppercase">
-                  {campaign.channel || "Sin definir"}
-                </span>
-              </div>
-            </div>
-
-            {/* Meta */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">Información</h2>
-              <div className="space-y-2 text-sm text-gray-600">
-                <div className="flex justify-between">
-                  <span>Creada</span>
-                  <span className="text-gray-900">
-                    {new Date(campaign.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Actualizada</span>
-                  <span className="text-gray-900">
-                    {new Date(campaign.updatedAt).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </motion.div>
       )}
@@ -492,15 +490,6 @@ export function CampanaDetail() {
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-semibold text-gray-900">Segmentación</h2>
-                {!campaign.listId && (
-                  <button
-                    onClick={handleOpenSegmentEditor}
-                    className="px-3 py-1 rounded-md text-xs font-medium text-brand-700 border border-brand-200 hover:bg-brand-50 transition-colors flex items-center gap-1.5"
-                  >
-                    <Pencil className="h-3 w-3" />
-                    Editar
-                  </button>
-                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -521,6 +510,89 @@ export function CampanaDetail() {
                   <p className="text-[11px] text-gray-500 mt-1">Usa una lista pre-definida de contactos (estática o dinámica)</p>
                 </button>
               </div>
+
+              {/* Content based on selection */}
+              {campaign.listId ? (
+                <div className="mt-4 space-y-2">
+                  {(() => {
+                    const selectedList = recordLists.find((l) => l.id === campaign.listId);
+                    if (selectedList) {
+                      return (
+                        <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-brand-200 bg-brand-50/50">
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">{selectedList.name}</p>
+                            <p className="text-[11px] text-gray-500">{selectedList.type === "dynamic" ? "Dinámica — se recalcula al enviar" : "Estática"}{selectedList.type === "static" && selectedList.recordIds ? ` · ${selectedList.recordIds.length} contactos` : ""}</p>
+                          </div>
+                          <button
+                            onClick={() => setCampaign({ ...campaign, listId: "pending" })}
+                            className="text-xs text-brand-600 hover:text-brand-800 font-medium"
+                          >
+                            Cambiar
+                          </button>
+                        </div>
+                      );
+                    }
+                    // List picker
+                    if (recordLists.length === 0) {
+                      return <p className="text-xs text-gray-400 py-4 text-center">No hay listas creadas. Crea una desde la vista de Contactos.</p>;
+                    }
+                    return (
+                      <div className="space-y-2">
+                        <p className="text-xs text-gray-500 mb-2">Selecciona una lista:</p>
+                        {recordLists.map((list) => (
+                          <button
+                            key={list.id}
+                            onClick={async () => {
+                              const { data: updated } = await api.put(`/campaigns/${campaign.id}`, { listId: list.id });
+                              setCampaign(updated);
+                            }}
+                            className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 hover:border-brand-300 hover:bg-brand-50/30 text-left transition-all"
+                          >
+                            <div>
+                              <p className="text-sm font-medium text-gray-800">{list.name}</p>
+                              <p className="text-[11px] text-gray-400">{list.type === "dynamic" ? "Dinámica" : "Estática"}{list.type === "static" && list.recordIds ? ` · ${list.recordIds.length} contactos` : ""}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <div className="mt-4">
+                  <SegmentBuilder
+                    groups={campaign.segments.map((g, idx) => ({
+                      id: `group_${idx}`,
+                      logic: g.logic as "AND" | "OR",
+                      conditions: g.conditions.map((c, cIdx) => ({
+                        id: `cond_${idx}_${cIdx}`,
+                        field: c.field,
+                        operator: c.operator,
+                        value: c.value as string | number | boolean,
+                      })),
+                    }))}
+                    onChange={async (groups) => {
+                      const segments = groups.map((g) => ({
+                        logic: g.logic,
+                        conditions: g.conditions.map((c) => ({
+                          field: c.field,
+                          operator: c.operator,
+                          value: c.value,
+                        })),
+                      }));
+                      setCampaign({ ...campaign, segments });
+                      // Auto-save
+                      try {
+                        const { data } = await api.put(`/campaigns/${campaign.id}`, { segments });
+                        setCampaign(data);
+                      } catch {}
+                    }}
+                    matchedCount={segmentPreviewCount}
+                    previewSample={segmentPreviewSample}
+                    onPreview={handleSegmentPreview}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Audience */}
@@ -542,300 +614,406 @@ export function CampanaDetail() {
 
       {campaignTab === "programacion" && (
         <div className="flex-1 min-h-0 overflow-auto px-6 py-6">
-          <div className="max-w-md space-y-6">
+          <div className="max-w-lg space-y-6">
+            {/* Type selector cards */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-gray-900">Programación</h2>
-                <button onClick={handleOpenScheduleModal} className="p-1.5 rounded-md text-gray-400 hover:text-brand-700 hover:bg-brand-50 transition-colors">
-                  <Pencil className="h-3.5 w-3.5" />
+              <h2 className="text-base font-semibold text-gray-900 mb-4">Tipo de envío</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setCampaign({ ...campaign, isRecurring: false })}
+                  className={cn(
+                    "p-4 rounded-xl border-2 text-left transition-all",
+                    !campaign.isRecurring ? "border-brand-500 bg-brand-50/50" : "border-gray-200 hover:border-gray-300"
+                  )}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Calendar className="h-4 w-4" />
+                    <p className={cn("text-sm font-semibold", !campaign.isRecurring ? "text-brand-800" : "text-gray-700")}>Envío único</p>
+                  </div>
+                  <p className="text-[11px] text-gray-500">Enviar una vez, de forma manual o en una fecha programada</p>
+                </button>
+                <button
+                  onClick={() => setCampaign({ ...campaign, isRecurring: true })}
+                  className={cn(
+                    "p-4 rounded-xl border-2 text-left transition-all",
+                    campaign.isRecurring ? "border-brand-500 bg-brand-50/50" : "border-gray-200 hover:border-gray-300"
+                  )}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <RefreshCw className="h-4 w-4" />
+                    <p className={cn("text-sm font-semibold", campaign.isRecurring ? "text-brand-800" : "text-gray-700")}>Envío recurrente</p>
+                  </div>
+                  <p className="text-[11px] text-gray-500">Enviar automáticamente en días y horas específicos cada semana</p>
                 </button>
               </div>
-              <div className="space-y-3 text-sm">
-                {campaign.maxSends && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Users className="h-4 w-4 text-gray-400" />
-                    <span>Máx. {campaign.maxSends.toLocaleString()} envíos</span>
-                  </div>
-                )}
-                {campaign.isRecurring ? (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <RefreshCw className="h-4 w-4 text-gray-400" />
-                    <span>Recurrente</span>
-                  </div>
-                ) : campaign.sendDate ? (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Calendar className="h-4 w-4 text-gray-400" />
-                    <span>{new Date(campaign.sendDate).toLocaleDateString()}</span>
-                  </div>
-                ) : null}
-                {campaign.sendTime && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Clock className="h-4 w-4 text-gray-400" />
-                    <span>{campaign.sendTime}</span>
-                  </div>
-                )}
-                {campaign.recurrenceDays && campaign.recurrenceDays.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {campaign.recurrenceDays.map((day) => (
-                      <span key={day} className="px-2 py-0.5 rounded-md text-xs font-medium bg-brand-100 text-brand-700">{day}</span>
-                    ))}
-                  </div>
-                )}
-                {!campaign.maxSends && !campaign.sendDate && !campaign.sendTime && !campaign.isRecurring && (
-                  <p className="text-gray-400">Sin configurar — haz clic en el ícono de editar para programar</p>
-                )}
-              </div>
             </div>
+
+            {/* Configuration based on selection */}
+            {!campaign.isRecurring ? (
+              /* === ENVÍO ÚNICO === */
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 className="text-base font-semibold text-gray-900 mb-5">Configuración de envío único</h2>
+                <div className="space-y-5">
+                  {/* Send type: manual or scheduled */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">¿Cuándo enviar?</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCampaign({ ...campaign, sendDate: null, sendTime: null })}
+                        className={cn(
+                          "px-3 py-2.5 rounded-lg border text-sm font-medium transition-all text-center",
+                          !campaign.sendDate ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:border-gray-300"
+                        )}
+                      >
+                        Manual (ahora)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCampaign({ ...campaign, sendDate: campaign.sendDate || new Date().toISOString().split("T")[0] })}
+                        className={cn(
+                          "px-3 py-2.5 rounded-lg border text-sm font-medium transition-all text-center",
+                          campaign.sendDate ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:border-gray-300"
+                        )}
+                      >
+                        Programado
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Date & Time (only if scheduled) */}
+                  {campaign.sendDate && (
+                    <div className="space-y-4 p-4 rounded-lg bg-gray-50 border border-gray-100">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1.5">Fecha de envío</label>
+                        <input
+                          type="date"
+                          value={campaign.sendDate ? campaign.sendDate.split("T")[0] : ""}
+                          onChange={(e) => setCampaign({ ...campaign, sendDate: e.target.value || null })}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1.5">Hora de envío</label>
+                        <TimePicker value={campaign.sendTime || ""} onChange={(val) => setCampaign({ ...campaign, sendTime: val || null })} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Limit */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1.5">Límite de envíos</label>
+                    <input
+                      type="number"
+                      value={campaign.maxSends || ""}
+                      onChange={(e) => setCampaign({ ...campaign, maxSends: e.target.value ? Number(e.target.value) : null })}
+                      placeholder="Sin límite (se envía a toda la audiencia)"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-1">Máximo de mensajes a enviar en esta ejecución. Déjalo vacío para enviar a todos.</p>
+                  </div>
+                </div>
+
+                {/* Save */}
+                <div className="flex justify-end pt-5 mt-5 border-t border-gray-100">
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      setSavingSchedule(true);
+                      try {
+                        const { data } = await api.put(`/campaigns/${campaign.id}`, {
+                          isRecurring: false,
+                          maxSends: campaign.maxSends || null,
+                          sendDate: campaign.sendDate || null,
+                          sendTime: campaign.sendTime || null,
+                          recurrenceDays: null,
+                        });
+                        setCampaign(data);
+                      } catch {} finally { setSavingSchedule(false); }
+                    }}
+                    disabled={savingSchedule}
+                    className="bg-brand-800 hover:bg-brand-700 text-white"
+                  >
+                    {savingSchedule ? "Guardando..." : "Guardar programación"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              /* === ENVÍO RECURRENTE === */
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 className="text-base font-semibold text-gray-900 mb-5">Configuración de envío recurrente</h2>
+                <div className="space-y-5">
+                  {/* Days with individual time */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">Días y horas de envío</label>
+                    <p className="text-[11px] text-gray-400 mb-3">Selecciona los días y configura la hora de envío para cada uno</p>
+                    <div className="space-y-2">
+                      {["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"].map((dayLabel, idx) => {
+                        const dayKey = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"][idx];
+                        const recDays = campaign.recurrenceDays || {};
+                        const isSelected = dayKey in recDays;
+                        const dayTime = recDays[dayKey] || "";
+                        return (
+                          <div key={dayKey} className={cn(
+                            "flex items-center gap-3 p-3 rounded-lg border transition-all",
+                            isSelected ? "border-brand-200 bg-brand-50/30" : "border-gray-100 bg-gray-50/50"
+                          )}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = { ...(campaign.recurrenceDays || {}) };
+                                if (isSelected) {
+                                  delete updated[dayKey];
+                                } else {
+                                  updated[dayKey] = "09:00";
+                                }
+                                setCampaign({ ...campaign, recurrenceDays: Object.keys(updated).length > 0 ? updated : null });
+                              }}
+                              className={cn(
+                                "w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
+                                isSelected ? "border-brand-600 bg-brand-600" : "border-gray-300"
+                              )}
+                            >
+                              {isSelected && (
+                                <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+                            <span className={cn("text-sm font-medium w-20", isSelected ? "text-gray-900" : "text-gray-400")}>{dayLabel}</span>
+                            {isSelected && (
+                              <div className="flex-1">
+                                <TimePicker
+                                  value={dayTime}
+                                  onChange={(val) => {
+                                    const updated = { ...(campaign.recurrenceDays || {}) };
+                                    updated[dayKey] = val || "09:00";
+                                    setCampaign({ ...campaign, recurrenceDays: updated });
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Limit per execution */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1.5">Límite por ejecución</label>
+                    <input
+                      type="number"
+                      value={campaign.maxSends || ""}
+                      onChange={(e) => setCampaign({ ...campaign, maxSends: e.target.value ? Number(e.target.value) : null })}
+                      placeholder="Sin límite"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-1">Máximo de mensajes a enviar en cada ejecución recurrente. Déjalo vacío para enviar a todos.</p>
+                  </div>
+                </div>
+
+                {/* Save */}
+                <div className="flex justify-end pt-5 mt-5 border-t border-gray-100">
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      setSavingSchedule(true);
+                      try {
+                        const { data } = await api.put(`/campaigns/${campaign.id}`, {
+                          isRecurring: true,
+                          maxSends: campaign.maxSends || null,
+                          sendDate: null,
+                          sendTime: null,
+                          recurrenceDays: campaign.recurrenceDays || {},
+                        });
+                        setCampaign(data);
+                      } catch {} finally { setSavingSchedule(false); }
+                    }}
+                    disabled={savingSchedule}
+                    className="bg-brand-800 hover:bg-brand-700 text-white"
+                  >
+                    {savingSchedule ? "Guardando..." : "Guardar programación"}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {campaignTab === "ejecuciones" && (
         <div className="flex-1 min-h-0 overflow-auto px-6 py-6">
-          <div className="max-w-3xl">
+          <div className="max-w-3xl space-y-6">
+            {/* Action buttons */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-gray-900">Historial de Envíos</h2>
-                <button
-                  onClick={handleSendCampaign}
-                  disabled={sending || (campaign.channel === "sms" ? !campaign.messageTemplate : campaign.channel === "whatsapp" ? !campaign.whatsappTemplateName : campaign.channel === "llamada" ? (!campaign.messageTemplate && !campaign.callAudioCode) : true)}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-accent-500 text-white hover:bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  {sending ? "Enviando..." : "Enviar ahora"}
-                </button>
-              </div>
+              <h2 className="text-base font-semibold text-gray-900 mb-4">Acciones</h2>
+              {(() => {
+                const isManual = !campaign.isRecurring && !campaign.sendDate;
+                const isScheduled = !campaign.isRecurring && !!campaign.sendDate;
+                const isRecurring = campaign.isRecurring;
+                const canSend = campaign.channel === "sms" ? !!campaign.messageTemplate : campaign.channel === "whatsapp" ? !!campaign.whatsappTemplateName : campaign.channel === "llamada" ? (!!campaign.messageTemplate || !!campaign.callAudioCode) : false;
+
+                if (isManual) {
+                  return (
+                    <div className="space-y-3">
+                      <p className="text-sm text-gray-500 mb-3">Envío manual — ejecuta el envío inmediatamente a toda la audiencia</p>
+                      <Button
+                        onClick={handleSendCampaign}
+                        disabled={sending || !canSend}
+                        className="w-full py-3 text-base bg-accent-500 hover:bg-accent-600 text-white gap-2"
+                      >
+                        <Send className="h-5 w-5" />
+                        {sending ? "Enviando..." : "Enviar ahora"}
+                      </Button>
+                      {!canSend && (
+                        <p className="text-[11px] text-amber-600 text-center">Configura el contenido del mensaje en la pestaña General antes de enviar</p>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-500 mb-3">
+                      {isScheduled ? "Envío programado" : "Envío recurrente"} — gestiona el estado de la programación
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {(campaign.status === "draft" || campaign.status === "paused") && (
+                        <Button
+                          onClick={() => handleStatusChange("active")}
+                          className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white gap-2"
+                        >
+                          <Play className="h-4 w-4" />
+                          Activar programación
+                        </Button>
+                      )}
+                      {campaign.status === "active" && (
+                        <Button
+                          onClick={() => handleStatusChange("paused")}
+                          variant="outline"
+                          className="flex-1 py-2.5 border-amber-300 text-amber-700 hover:bg-amber-50 gap-2"
+                        >
+                          <Pause className="h-4 w-4" />
+                          Pausar programación
+                        </Button>
+                      )}
+                      {campaign.status !== "completed" && (
+                        <Button
+                          onClick={() => handleStatusChange("completed")}
+                          variant="outline"
+                          className="flex-1 py-2.5 border-gray-300 text-gray-700 hover:bg-gray-50 gap-2"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          Marcar como terminada
+                        </Button>
+                      )}
+                    </div>
+                    {campaign.status === "active" && (
+                      <p className="text-[11px] text-green-600 text-center flex items-center justify-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                        Programación activa — los envíos se ejecutarán según la configuración
+                      </p>
+                    )}
+                    {campaign.status === "paused" && (
+                      <p className="text-[11px] text-amber-600 text-center">Programación pausada — no se ejecutarán envíos hasta reactivar</p>
+                    )}
+                    {campaign.status === "completed" && (
+                      <p className="text-[11px] text-gray-500 text-center">Campaña terminada — no se ejecutarán más envíos</p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Send history */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-base font-semibold text-gray-900 mb-4">Historial de Envíos</h2>
               {sends.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-6">No se han realizado envíos aún</p>
               ) : (
-                <div className="space-y-2">
-                  {sends.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50">
-                      <div className="flex items-center gap-3">
-                        <div className={`h-2 w-2 rounded-full ${s.status === "completed" ? "bg-green-500" : s.status === "sending" ? "bg-amber-500 animate-pulse" : s.status === "failed" ? "bg-red-500" : "bg-gray-400"}`} />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{new Date(s.createdAt).toLocaleString()}</p>
-                          <p className="text-xs text-gray-500">{s.status === "completed" ? "Completado" : s.status === "sending" ? "Enviando..." : s.status === "failed" ? "Fallido" : "Pendiente"}</p>
+                <div className="space-y-3">
+                  {sends.map((s) => {
+                    const isActive = s.status === "sending" || s.status === "queued";
+                    const processed = s.totalSent + s.totalFailed;
+                    const progress = s.totalRecipients > 0 ? (processed / s.totalRecipients) * 100 : 0;
+
+                    return (
+                      <div key={s.id} className={cn(
+                        "p-4 rounded-lg border transition-all",
+                        isActive ? "border-amber-200 bg-amber-50/30" : s.status === "completed" ? "border-green-100 bg-green-50/20" : s.status === "failed" ? "border-red-100 bg-red-50/20" : "border-gray-100 bg-gray-50"
+                      )}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "h-2.5 w-2.5 rounded-full",
+                              s.status === "completed" ? "bg-green-500" :
+                              isActive ? "bg-amber-500 animate-pulse" :
+                              s.status === "failed" ? "bg-red-500" : "bg-gray-400"
+                            )} />
+                            <span className="text-sm font-medium text-gray-900">
+                              {s.status === "completed" ? "Completado" :
+                               s.status === "sending" ? "Enviando..." :
+                               s.status === "queued" ? "En cola..." :
+                               s.status === "failed" ? "Fallido" : "Pendiente"}
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-400">{new Date(s.createdAt).toLocaleString()}</span>
                         </div>
+
+                        {/* Progress bar for active sends */}
+                        {isActive && s.totalRecipients > 0 && (
+                          <div className="mb-3">
+                            <div className="flex justify-between text-[11px] text-gray-500 mb-1">
+                              <span>{processed.toLocaleString()} / {s.totalRecipients.toLocaleString()} procesados</span>
+                              <span>{Math.round(progress)}%</span>
+                            </div>
+                            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-amber-500 transition-all duration-300"
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Stats */}
+                        <div className="flex items-center gap-4 text-xs">
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-400">Destinos:</span>
+                            <span className="font-semibold text-gray-900">{s.totalRecipients.toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-400">Enviados:</span>
+                            <span className="font-semibold text-green-600">{s.totalSent.toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-400">Fallidos:</span>
+                            <span className="font-semibold text-red-600">{s.totalFailed.toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        {/* Timestamps */}
+                        {(s.startedAt || s.completedAt) && (
+                          <div className="flex items-center gap-3 mt-2 text-[11px] text-gray-400">
+                            {s.startedAt && <span>Inicio: {new Date(s.startedAt).toLocaleTimeString()}</span>}
+                            {s.completedAt && <span>Fin: {new Date(s.completedAt).toLocaleTimeString()}</span>}
+                            {s.startedAt && s.completedAt && (
+                              <span>Duración: {Math.round((new Date(s.completedAt).getTime() - new Date(s.startedAt).getTime()) / 1000)}s</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Error message */}
+                        {s.status === "failed" && s.errorMessage && (
+                          <p className="text-[11px] text-red-500 mt-2">{s.errorMessage}</p>
+                        )}
                       </div>
-                      <div className="flex items-center gap-4 text-xs">
-                        <div className="text-center"><p className="font-semibold text-gray-900">{s.totalRecipients}</p><p className="text-gray-400">Destinos</p></div>
-                        <div className="text-center"><p className="font-semibold text-green-600">{s.totalSent}</p><p className="text-gray-400">Enviados</p></div>
-                        <div className="text-center"><p className="font-semibold text-red-600">{s.totalFailed}</p><p className="text-gray-400">Fallidos</p></div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Schedule Editor Modal */}
-      {showScheduleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowScheduleModal(false)} />
-          <div className="relative bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-5">Editar Programación</h3>
-
-            <div className="space-y-5">
-              {/* Max sends */}
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1.5">Máximo de envíos</label>
-                <input
-                  type="number"
-                  value={editMaxSends}
-                  onChange={(e) => setEditMaxSends(e.target.value ? Number(e.target.value) : "")}
-                  placeholder="Sin límite"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
-                />
-              </div>
-
-              {/* Recurring */}
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-gray-700">Recurrente</label>
-                <button
-                  type="button"
-                  onClick={() => setEditIsRecurring(!editIsRecurring)}
-                  className={cn(
-                    "relative w-10 h-5 rounded-full transition-colors",
-                    editIsRecurring ? "bg-accent-500" : "bg-gray-300"
-                  )}
-                >
-                  <span className={cn(
-                    "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
-                    editIsRecurring && "translate-x-5"
-                  )} />
-                </button>
-              </div>
-
-              {/* Date (if not recurring) */}
-              {!editIsRecurring && (
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1.5">Fecha de envío</label>
-                  <input
-                    type="date"
-                    value={editSendDate}
-                    onChange={(e) => setEditSendDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
-                  />
-                </div>
-              )}
-
-              {/* Time */}
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1.5">Hora de envío</label>
-                <TimePicker value={editSendTime} onChange={setEditSendTime} />
-              </div>
-
-              {/* Recurrence days */}
-              {editIsRecurring && (
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1.5">Días de envío</label>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day, idx) => {
-                      const dayKey = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"][idx];
-                      const isSelected = editRecurrenceDays.includes(dayKey);
-                      return (
-                        <button
-                          key={dayKey}
-                          type="button"
-                          onClick={() =>
-                            setEditRecurrenceDays(
-                              isSelected
-                                ? editRecurrenceDays.filter((d) => d !== dayKey)
-                                : [...editRecurrenceDays, dayKey]
-                            )
-                          }
-                          className={cn(
-                            "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                            isSelected
-                              ? "bg-brand-600 text-white"
-                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                          )}
-                        >
-                          {day}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2 mt-6">
-              <Button variant="outline" size="sm" onClick={() => setShowScheduleModal(false)}>
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSaveSchedule}
-                disabled={savingSchedule}
-                className="bg-brand-800 hover:bg-brand-700 text-white"
-              >
-                {savingSchedule ? "Guardando..." : "Guardar"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Send Progress Modal */}
-      {showSendModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" />
-          <div className="relative bg-white rounded-xl shadow-xl p-8 w-full max-w-md">
-            {activeSend ? (
-              <div>
-                {/* Status icon */}
-                <div className="flex justify-center mb-4">
-                  {activeSend.status === 'sending' && (
-                    <div className="h-16 w-16 rounded-full bg-amber-50 flex items-center justify-center">
-                      <Send className="h-7 w-7 text-amber-500 animate-pulse" />
-                    </div>
-                  )}
-                  {activeSend.status === 'completed' && (
-                    <div className="h-16 w-16 rounded-full bg-green-50 flex items-center justify-center">
-                      <Send className="h-7 w-7 text-green-500" />
-                    </div>
-                  )}
-                  {activeSend.status === 'failed' && (
-                    <div className="h-16 w-16 rounded-full bg-red-50 flex items-center justify-center">
-                      <Send className="h-7 w-7 text-red-500" />
-                    </div>
-                  )}
-                  {activeSend.status === 'pending' && (
-                    <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center">
-                      <Send className="h-7 w-7 text-gray-400" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Title */}
-                <h3 className="text-lg font-semibold text-center text-gray-900 mb-1">
-                  {activeSend.status === 'sending' && 'Enviando campaña...'}
-                  {activeSend.status === 'completed' && 'Envío completado'}
-                  {activeSend.status === 'failed' && 'Error en el envío'}
-                  {activeSend.status === 'pending' && 'Preparando envío...'}
-                </h3>
-                <p className="text-sm text-center text-gray-500 mb-6">
-                  {activeSend.status === 'sending' && 'Los mensajes se están enviando a los destinatarios'}
-                  {activeSend.status === 'completed' && 'Todos los mensajes han sido procesados'}
-                  {activeSend.status === 'failed' && (activeSend.errorMessage || 'Ocurrió un error durante el envío')}
-                  {activeSend.status === 'pending' && 'Preparando la lista de destinatarios'}
-                </p>
-
-                {/* Progress bar */}
-                {activeSend.totalRecipients > 0 && (
-                  <div className="mb-6">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1.5">
-                      <span>Progreso</span>
-                      <span>{activeSend.totalSent + activeSend.totalFailed} / {activeSend.totalRecipients}</span>
-                    </div>
-                    <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500 bg-accent-500"
-                        style={{ width: `${((activeSend.totalSent + activeSend.totalFailed) / activeSend.totalRecipients) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="text-center p-3 bg-gray-50 rounded-lg">
-                    <p className="text-xl font-bold text-gray-900">{activeSend.totalRecipients}</p>
-                    <p className="text-xs text-gray-500">Destinatarios</p>
-                  </div>
-                  <div className="text-center p-3 bg-green-50 rounded-lg">
-                    <p className="text-xl font-bold text-green-600">{activeSend.totalSent}</p>
-                    <p className="text-xs text-gray-500">Enviados</p>
-                  </div>
-                  <div className="text-center p-3 bg-red-50 rounded-lg">
-                    <p className="text-xl font-bold text-red-600">{activeSend.totalFailed}</p>
-                    <p className="text-xs text-gray-500">Fallidos</p>
-                  </div>
-                </div>
-
-                {/* Close button */}
-                {(activeSend.status === 'completed' || activeSend.status === 'failed') && (
-                  <Button
-                    onClick={() => { setShowSendModal(false); setActiveSend(null); }}
-                    className="w-full bg-brand-800 hover:bg-brand-700 text-white"
-                  >
-                    Cerrar
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center py-8">
-                <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center animate-pulse mb-4">
-                  <Send className="h-6 w-6 text-gray-400" />
-                </div>
-                <p className="text-gray-500">Iniciando envío...</p>
-              </div>
-            )}
           </div>
         </div>
       )}

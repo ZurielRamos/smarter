@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, Outlet } from "react-router-dom";
 import { Plus, Megaphone, MessageSquare, Phone, Send, Mail, X, Trash2 } from "lucide-react";
+import { WhatsAppIcon } from "@/components/ChannelIcons";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
@@ -24,12 +25,22 @@ interface Campaign {
   createdAt: string;
 }
 
-const channels = [
-  { value: "sms", label: "SMS", description: "Mensajes de texto cortos", icon: MessageSquare, color: "border-blue-200 bg-blue-50 text-blue-700", activeColor: "border-blue-500 bg-blue-50 ring-2 ring-blue-200" },
-  { value: "whatsapp", label: "WhatsApp", description: "Mensajes con plantillas", icon: Send, color: "border-green-200 bg-green-50 text-green-700", activeColor: "border-green-500 bg-green-50 ring-2 ring-green-200" },
-  { value: "email", label: "Email", description: "Correos personalizados", icon: Mail, color: "border-purple-200 bg-purple-50 text-purple-700", activeColor: "border-purple-500 bg-purple-50 ring-2 ring-purple-200" },
-  { value: "llamada", label: "Llamada", description: "Llamadas de voz", icon: Phone, color: "border-orange-200 bg-orange-50 text-orange-700", activeColor: "border-orange-500 bg-orange-50 ring-2 ring-orange-200" },
-];
+interface InboxOption {
+  id: string;
+  name: string;
+  channel: string;
+  status: string;
+  channelName: string | null;
+}
+
+const CAMPAIGN_CHANNELS = ["sms", "whatsapp", "llamada", "email"];
+
+const channelMeta: Record<string, { label: string; icon: React.ComponentType<{ className?: string }>; color: string; activeColor: string }> = {
+  sms: { label: "SMS", icon: MessageSquare, color: "border-blue-200 bg-blue-50 text-blue-700", activeColor: "border-blue-500 bg-blue-50 ring-2 ring-blue-200" },
+  whatsapp: { label: "WhatsApp", icon: WhatsAppIcon, color: "border-green-200 bg-green-50 text-green-700", activeColor: "border-green-500 bg-green-50 ring-2 ring-green-200" },
+  email: { label: "Email", icon: Mail, color: "border-purple-200 bg-purple-50 text-purple-700", activeColor: "border-purple-500 bg-purple-50 ring-2 ring-purple-200" },
+  llamada: { label: "Llamada", icon: Phone, color: "border-orange-200 bg-orange-50 text-orange-700", activeColor: "border-orange-500 bg-orange-50 ring-2 ring-orange-200" },
+};
 
 const statusColors: Record<string, string> = {
   draft: "bg-gray-100 text-gray-600",
@@ -50,7 +61,9 @@ export function Campanas() {
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [channel, setChannel] = useState("sms");
+  const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
+  const [inboxes, setInboxes] = useState<InboxOption[]>([]);
+  const [loadingInboxes, setLoadingInboxes] = useState(false);
   const [saving, setSaving] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; campaign: Campaign } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -66,6 +79,19 @@ export function Campanas() {
       setCampaigns(data);
     } catch {} finally { setLoading(false); }
   };
+
+  const loadInboxes = async () => {
+    if (!tenantId) return;
+    setLoadingInboxes(true);
+    try {
+      const { data } = await api.get<InboxOption[]>("/chats/inboxes", { params: { tenantId } });
+      setInboxes(data);
+    } catch {} finally { setLoadingInboxes(false); }
+  };
+
+  useEffect(() => {
+    if (showModal) loadInboxes();
+  }, [showModal]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -86,10 +112,19 @@ export function Campanas() {
   };
 
   const handleCreate = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !selectedInboxId) return;
+    const selectedInbox = inboxes.find((i) => i.id === selectedInboxId);
+    if (!selectedInbox) return;
     setSaving(true);
     try {
-      const { data } = await api.post<Campaign>("/campaigns", { name, description, channel, segments: [], tenantId });
+      const { data } = await api.post<Campaign>("/campaigns", {
+        name,
+        description,
+        channel: selectedInbox.channel,
+        inboxId: selectedInboxId,
+        segments: [],
+        tenantId,
+      });
       setShowModal(false);
       resetForm();
       loadCampaigns();
@@ -97,12 +132,12 @@ export function Campanas() {
     } catch {} finally { setSaving(false); }
   };
 
-  const resetForm = () => { setName(""); setDescription(""); setChannel("sms"); };
+  const resetForm = () => { setName(""); setDescription(""); setSelectedInboxId(null); };
 
   const channelIcon = (ch: string | null) => {
     switch (ch) {
       case "sms": return <MessageSquare className="h-4 w-4 text-blue-500" />;
-      case "whatsapp": return <Send className="h-4 w-4 text-green-500" />;
+      case "whatsapp": return <WhatsAppIcon className="h-4 w-4 text-green-500" />;
       case "email": return <Mail className="h-4 w-4 text-purple-500" />;
       case "llamada": return <Phone className="h-4 w-4 text-orange-500" />;
       default: return <Megaphone className="h-4 w-4 text-gray-400" />;
@@ -213,6 +248,49 @@ export function Campanas() {
                 </div>
                 <div className="px-6 py-5 space-y-5">
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Bandeja</label>
+                    {loadingInboxes ? (
+                      <div className="flex items-center justify-center py-6">
+                        <div className="h-5 w-5 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
+                      </div>
+                    ) : inboxes.filter((i) => CAMPAIGN_CHANNELS.includes(i.channel) && i.status === "connected").length === 0 ? (
+                      <div className="text-center py-4 text-sm text-gray-500 border border-dashed border-gray-300 rounded-lg">
+                        No hay bandejas conectadas para campañas
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                        {inboxes.filter((i) => CAMPAIGN_CHANNELS.includes(i.channel) && i.status === "connected").map((inbox) => {
+                          const meta = channelMeta[inbox.channel];
+                          if (!meta) return null;
+                          const Icon = meta.icon;
+                          const isActive = selectedInboxId === inbox.id;
+                          return (
+                            <button
+                              key={inbox.id}
+                              type="button"
+                              onClick={() => setSelectedInboxId(inbox.id)}
+                              className={cn(
+                                "flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer text-left",
+                                isActive ? meta.activeColor : "border-gray-200 hover:border-gray-300 bg-white"
+                              )}
+                            >
+                              <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", isActive ? "" : "bg-gray-100")}>
+                                <Icon className={cn("h-4 w-4", isActive ? "" : "text-gray-400")} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={cn("text-sm font-medium truncate", isActive ? "" : "text-gray-700")}>{inbox.name}</p>
+                                <p className="text-[11px] text-gray-400 truncate">{meta.label}{inbox.channelName ? ` · ${inbox.channelName}` : ""}</p>
+                              </div>
+                              <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-medium bg-green-100 text-green-700")}>
+                                Conectada
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre</label>
                     <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Promoción fin de semana" className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all" />
                   </div>
@@ -220,25 +298,10 @@ export function Campanas() {
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Descripción <span className="text-gray-400 font-normal">(opcional)</span></label>
                     <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción de la campaña" rows={3} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all resize-none" />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Canal</label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {channels.map((ch) => {
-                        const Icon = ch.icon;
-                        const isActive = channel === ch.value;
-                        return (
-                          <button key={ch.value} type="button" onClick={() => setChannel(ch.value)} className={cn("flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all cursor-pointer", isActive ? ch.activeColor : "border-gray-200 hover:border-gray-300 bg-white")}>
-                            <Icon className={cn("h-5 w-5", isActive ? "" : "text-gray-400")} />
-                            <span className={cn("text-xs font-medium", isActive ? "" : "text-gray-600")}>{ch.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
                 </div>
                 <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-3">
                   <Button onClick={() => { setShowModal(false); resetForm(); }} variant="outline" size="sm">Cancelar</Button>
-                  <Button onClick={handleCreate} disabled={saving || !name.trim()} size="sm" className="bg-brand-800 hover:bg-brand-700 text-white">
+                  <Button onClick={handleCreate} disabled={saving || !name.trim() || !selectedInboxId} size="sm" className="bg-brand-800 hover:bg-brand-700 text-white">
                     {saving ? "Creando..." : "Crear Campaña"}
                   </Button>
                 </div>

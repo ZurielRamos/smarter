@@ -50,7 +50,9 @@ export class ChatsService {
       domingo: { enabled: false, start: '09:00', end: '13:00' },
       festivos: { enabled: false, start: '09:00', end: '13:00' },
     };
-    const inbox = this.inboxRepo.create({ ...data, status: 'disconnected', metadata: { schedule: defaultSchedule } });
+    const alwaysConnected = ['sms', 'llamada', 'form'];
+    const status = alwaysConnected.includes(data.channel) ? 'connected' : 'disconnected';
+    const inbox = this.inboxRepo.create({ ...data, status, metadata: { schedule: defaultSchedule } });
     return this.inboxRepo.save(inbox);
   }
 

@@ -1,6 +1,8 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { Campaign, SegmentGroup } from './campaign.entity';
 import { CampaignSend } from './campaign-send.entity';
@@ -8,8 +10,10 @@ import { CampaignSendLog } from './campaign-send-log.entity';
 import { ClientRecord } from '../records/record.entity';
 import { ChannelConfig } from '../tenants/channel-config.entity';
 import { RecordList } from '../records/record-list.entity';
+import { Inbox } from '../chats/inbox.entity';
 import { WhatsAppService } from './whatsapp.service';
 import { CallService } from './call.service';
+import type { CampaignSendJobData } from './campaign-send.worker';
 
 @Injectable()
 export class CampaignsService {
@@ -26,6 +30,10 @@ export class CampaignsService {
     private readonly channelConfigRepo: Repository<ChannelConfig>,
     @InjectRepository(RecordList)
     private readonly recordListRepo: Repository<RecordList>,
+    @InjectRepository(Inbox)
+    private readonly inboxRepo: Repository<Inbox>,
+    @InjectQueue('campaign-send')
+    private readonly sendQueue: Queue<CampaignSendJobData>,
     private readonly configService: ConfigService,
     private readonly whatsappService: WhatsAppService,
     private readonly callService: CallService,
@@ -37,6 +45,10 @@ export class CampaignsService {
     return this.campaignRepository.find({ where, order: { createdAt: 'DESC' } });
   }
 
+  async getInboxById(id: string): Promise<Inbox | null> {
+    return this.inboxRepo.findOneBy({ id });
+  }
+
   async findOne(id: string): Promise<Campaign> {
     return this.campaignRepository.findOneByOrFail({ id });
   }
@@ -46,6 +58,7 @@ export class CampaignsService {
     description?: string;
     segments: SegmentGroup[];
     channel?: string;
+    inboxId?: string;
     tenantId?: string;
     listId?: string;
   }): Promise<Campaign> {
@@ -79,7 +92,7 @@ export class CampaignsService {
       isRecurring: boolean;
       sendDate: string | null;
       sendTime: string | null;
-      recurrenceDays: string[] | null;
+      recurrenceDays: Record<string, string> | null;
     }>,
   ): Promise<Campaign> {
     await this.campaignRepository.update(id, data as any);
@@ -309,23 +322,23 @@ export class CampaignsService {
   async sendCampaign(campaignId: string): Promise<CampaignSend> {
     const campaign = await this.findOne(campaignId);
 
-    if (campaign.channel === 'sms') {
-      if (!campaign.messageTemplate) {
-        throw new BadRequestException('La campaña no tiene un mensaje configurado');
-      }
-    } else if (campaign.channel === 'whatsapp') {
+    if (campaign.channel === 'whatsapp') {
       if (!campaign.whatsappTemplateName) {
         throw new BadRequestException('La campaña no tiene una plantilla de WhatsApp configurada');
       }
+    } else if (campaign.channel === 'sms') {
+      if (!campaign.messageTemplate) {
+        throw new BadRequestException('La campaña no tiene un mensaje configurado');
+      }
     } else if (campaign.channel === 'llamada') {
       if (!campaign.messageTemplate && !campaign.callAudioCode) {
-        throw new BadRequestException('La campaña de llamada necesita un mensaje o un audio-code configurado');
+        throw new BadRequestException('La campaña de llamada necesita un mensaje o audio configurado');
       }
     } else {
       throw new BadRequestException('Canal no soportado para envío');
     }
 
-    // Get matching clients
+    // === SNAPSHOT: resolve audience at this exact moment ===
     const clients = await this.getAudienceClients(campaign);
 
     if (clients.length === 0) {
@@ -334,31 +347,28 @@ export class CampaignsService {
 
     // Apply max sends limit
     const maxSends = campaign.maxSends || clients.length;
-    const recipients = clients.slice(0, maxSends);
+    const recipientIds = clients.slice(0, maxSends).map((c) => c.id);
 
-    // Create send record
+    // Create send record with snapshot
     const send = this.sendRepository.create({
       campaignId,
-      status: 'sending',
-      totalRecipients: recipients.length,
-      startedAt: new Date(),
+      status: 'queued',
+      totalRecipients: recipientIds.length,
+      recipientIds,
     });
     const savedSend = await this.sendRepository.save(send);
 
-    // Send messages async (non-blocking)
-    if (campaign.channel === 'whatsapp') {
-      this.processWhatsAppSend(savedSend.id, campaign, recipients).catch((err) => {
-        console.error('Error processing WhatsApp send:', err);
-      });
-    } else if (campaign.channel === 'llamada') {
-      this.processCallSend(savedSend.id, campaign, recipients).catch((err) => {
-        console.error('Error processing Call send:', err);
-      });
-    } else {
-      this.processSend(savedSend.id, campaign, recipients).catch((err) => {
-        console.error('Error processing send:', err);
-      });
-    }
+    // Enqueue the job to BullMQ
+    await this.sendQueue.add(
+      'send-campaign',
+      { sendId: savedSend.id, campaignId },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      },
+    );
 
     return savedSend;
   }
@@ -543,102 +553,163 @@ export class CampaignsService {
     campaign: Campaign,
     recipients: ClientRecord[],
   ): Promise<void> {
-    // Get channel config for WhatsApp
-    const channelConfig = await this.channelConfigRepo.findOne({
-      where: { tenantId: campaign.tenantId, channel: 'whatsapp' },
-    });
+    // Get inbox credentials for WhatsApp
+    let inbox: Inbox | null = null;
+    if (campaign.inboxId) {
+      inbox = await this.inboxRepo.findOneBy({ id: campaign.inboxId });
+    }
 
-    if (!channelConfig) {
+    if (!inbox || !inbox.accessToken || !inbox.phoneNumberId) {
       await this.sendRepository.update(sendId, {
         status: 'failed',
-        errorMessage: 'No hay configuración de WhatsApp para esta cuenta. Configúrala en Ajustes > Canales.',
+        errorMessage: 'La bandeja de WhatsApp no tiene credenciales configuradas (accessToken o phoneNumberId).',
         completedAt: new Date(),
       });
       return;
     }
 
-    console.log(`[WhatsAppSend] Starting send ${sendId} via ${channelConfig.provider} to ${recipients.length} recipients`);
+    const accessToken = inbox.accessToken;
+    const phoneNumberId = inbox.phoneNumberId;
+
+    console.log(`[WhatsAppSend] Starting send ${sendId} via Meta Cloud API to ${recipients.length} recipients`);
 
     let totalSent = 0;
     let totalFailed = 0;
 
-    const batchSize = 10;
-    for (let i = 0; i < recipients.length; i += batchSize) {
-      const batch = recipients.slice(i, i + batchSize);
-      const logs: Partial<CampaignSendLog>[] = [];
+    try {
+      const batchSize = 10;
+      for (let i = 0; i < recipients.length; i += batchSize) {
+        const batch = recipients.slice(i, i + batchSize);
+        const logs: Partial<CampaignSendLog>[] = [];
 
-      for (const client of batch) {
-        if (!client.phone) {
-          totalFailed++;
-          logs.push({
-            sendId,
-            campaignId: campaign.id,
-            tenantId: campaign.tenantId,
-            recordId: client.id,
-            phone: '',
-            channel: 'whatsapp',
-            status: 'failed',
-            errorCode: 'no_phone',
-          });
-          continue;
-        }
+        for (const client of batch) {
+          if (!client.phone) {
+            totalFailed++;
+            logs.push({
+              sendId,
+              campaignId: campaign.id,
+              tenantId: campaign.tenantId,
+              recordId: client.id,
+              phone: '',
+              channel: 'whatsapp',
+              status: 'failed',
+              errorCode: 'no_phone',
+            });
+            continue;
+          }
 
-        // Build variables from mapping
-        const variables: Record<string, string> = {};
-        if (campaign.whatsappVariableMapping) {
-          for (const [position, field] of Object.entries(campaign.whatsappVariableMapping)) {
-            variables[position] = this.getClientField(client, field);
+          // Build variables from mapping
+          const variables: Record<string, string> = {};
+          if (campaign.whatsappVariableMapping) {
+            for (const [position, field] of Object.entries(campaign.whatsappVariableMapping)) {
+              variables[position] = this.getClientField(client, field);
+            }
+          }
+
+          // Build Meta Cloud API request body
+          const phone = client.phone.startsWith('+') ? client.phone.slice(1) : client.phone;
+          const components: any[] = [];
+
+          // Body parameters
+          const bodyParams = Object.entries(variables)
+            .sort(([a], [b]) => Number(a) - Number(b))
+            .map(([, value]) => ({ type: 'text', text: value }));
+
+          if (bodyParams.length > 0) {
+            components.push({ type: 'body', parameters: bodyParams });
+          }
+
+          const requestBody = {
+            messaging_product: 'whatsapp',
+            to: phone,
+            type: 'template',
+            template: {
+              name: campaign.whatsappTemplateName,
+              language: { code: campaign.whatsappTemplateLanguage || 'es' },
+              components,
+            },
+          };
+
+          try {
+            const response = await fetch(
+              `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+              {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+              },
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.messages?.[0]?.id) {
+              totalSent++;
+              logs.push({
+                sendId,
+                campaignId: campaign.id,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone,
+                channel: 'whatsapp',
+                status: 'sent',
+                providerMessageId: result.messages[0].id,
+                sentAt: new Date(),
+              });
+            } else {
+              totalFailed++;
+              const errorMsg = result.error?.message || JSON.stringify(result).substring(0, 50);
+              console.error(`[WhatsAppSend] Failed for ${phone}:`, result.error || result);
+              logs.push({
+                sendId,
+                campaignId: campaign.id,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone,
+                channel: 'whatsapp',
+                status: 'failed',
+                errorCode: errorMsg.substring(0, 50),
+              });
+            }
+          } catch (error) {
+            totalFailed++;
+            console.error(`[WhatsAppSend] Exception for ${phone}:`, error);
+            logs.push({
+              sendId,
+              campaignId: campaign.id,
+              tenantId: campaign.tenantId,
+              recordId: client.id,
+              phone: client.phone,
+              channel: 'whatsapp',
+              status: 'failed',
+              errorCode: String(error).substring(0, 50),
+            });
           }
         }
 
-        const result = await this.whatsappService.sendTemplate(
-          client.phone,
-          campaign.whatsappTemplateName,
-          campaign.whatsappTemplateLanguage || 'es',
-          variables,
-          channelConfig.credentials,
-          channelConfig.provider,
-        );
-
-        if (result.success) {
-          totalSent++;
-          logs.push({
-            sendId,
-            campaignId: campaign.id,
-            tenantId: campaign.tenantId,
-            recordId: client.id,
-            phone: client.phone,
-            channel: 'whatsapp',
-            status: 'sent',
-            providerMessageId: result.messageId ?? null,
-            sentAt: new Date(),
-          });
-        } else {
-          totalFailed++;
-          logs.push({
-            sendId,
-            campaignId: campaign.id,
-            tenantId: campaign.tenantId,
-            recordId: client.id,
-            phone: client.phone,
-            channel: 'whatsapp',
-            status: 'failed',
-            errorCode: result.error?.substring(0, 50) ?? 'unknown',
-          });
-        }
+        await this.sendLogRepository.insert(logs);
+        await this.sendRepository.update(sendId, { totalSent, totalFailed });
       }
 
-      await this.sendLogRepository.insert(logs);
-      await this.sendRepository.update(sendId, { totalSent, totalFailed });
+      await this.sendRepository.update(sendId, {
+        status: 'completed',
+        totalSent,
+        totalDelivered: totalSent,
+        totalFailed,
+        completedAt: new Date(),
+      });
+    } catch (error) {
+      console.error(`[WhatsAppSend] Fatal error in send ${sendId}:`, error);
+      await this.sendRepository.update(sendId, {
+        status: 'failed',
+        totalSent,
+        totalFailed,
+        errorMessage: String(error).substring(0, 200),
+        completedAt: new Date(),
+      });
     }
-
-    await this.sendRepository.update(sendId, {
-      status: 'completed',
-      totalSent,
-      totalDelivered: totalSent,
-      totalFailed,
-      completedAt: new Date(),
-    });
   }
 
   private getClientField(client: ClientRecord, field: string): string {
