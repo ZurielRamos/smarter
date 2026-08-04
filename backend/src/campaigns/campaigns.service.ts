@@ -14,6 +14,7 @@ import { Inbox } from '../chats/inbox.entity';
 import { WhatsAppService } from './whatsapp.service';
 import { CallService } from './call.service';
 import type { CampaignSendJobData } from './campaign-send.worker';
+import { BillingService } from '../billing/billing.service';
 
 @Injectable()
 export class CampaignsService {
@@ -37,6 +38,7 @@ export class CampaignsService {
     private readonly configService: ConfigService,
     private readonly whatsappService: WhatsAppService,
     private readonly callService: CallService,
+    private readonly billingService: BillingService,
   ) {}
 
   async findAll(tenantId?: string): Promise<Campaign[]> {
@@ -358,6 +360,16 @@ export class CampaignsService {
     });
     const savedSend = await this.sendRepository.save(send);
 
+    // Reserve credits for the full audience before sending
+    if (campaign.tenantId) {
+      const costAction = this.getCostActionForChannel(campaign.channel);
+      const unitCost = await this.billingService.getActionCost(costAction);
+      if (unitCost !== null) {
+        const totalToReserve = recipientIds.length * unitCost;
+        await this.billingService.reserve(campaign.tenantId, totalToReserve, savedSend.id);
+      }
+    }
+
     // Enqueue the job to BullMQ
     await this.sendQueue.add(
       'send-campaign',
@@ -371,6 +383,16 @@ export class CampaignsService {
     );
 
     return savedSend;
+  }
+
+  private getCostActionForChannel(channel: string | null): string {
+    switch (channel) {
+      case 'whatsapp': return 'whatsapp_marketing';
+      case 'sms': return 'sms';
+      case 'llamada': return 'call';
+      case 'email': return 'email';
+      default: return 'whatsapp_marketing';
+    }
   }
 
   private async processSend(

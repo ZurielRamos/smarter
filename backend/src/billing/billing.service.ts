@@ -202,6 +202,97 @@ export class BillingService {
     }, performedBy);
   }
 
+  // ─── RESERVA (para campañas en proceso) ─────────────
+
+  /**
+   * Reserva créditos para una campaña en proceso.
+   * Mueve créditos de available a reserved.
+   */
+  async reserve(tenantId: string, amount: number, referenceId?: string): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const balance = await manager.findOne(CreditBalance, {
+        where: { tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!balance) {
+        throw new NotFoundException('No se encontró balance para esta cuenta');
+      }
+
+      if (balance.available < amount) {
+        throw new BadRequestException(
+          `Créditos insuficientes para reservar. Disponible: ${balance.available}, requerido: ${amount}`,
+        );
+      }
+
+      balance.available -= amount;
+      balance.reserved += amount;
+      await manager.save(balance);
+
+      const transaction = manager.create(CreditTransaction, {
+        tenantId,
+        type: TransactionType.CONSUME,
+        amount: 0, // No consume aún, solo reserva
+        balanceAfter: balance.available,
+        source: 'campaign_reserve',
+        referenceId: referenceId ?? null,
+        description: `Reserva de ${amount} créditos para campaña`,
+      });
+      await manager.save(transaction);
+    });
+  }
+
+  /**
+   * Liquida una reserva: cobra los créditos usados y libera el resto.
+   * @param reservedAmount - Total que se reservó inicialmente
+   * @param usedAmount - Total efectivamente consumido
+   */
+  async settleReservation(
+    tenantId: string,
+    reservedAmount: number,
+    usedAmount: number,
+    source: string,
+    referenceId?: string,
+    description?: string,
+  ): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const balance = await manager.findOne(CreditBalance, {
+        where: { tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!balance) {
+        throw new NotFoundException('No se encontró balance para esta cuenta');
+      }
+
+      // Liberar toda la reserva
+      const actualReserved = Math.min(reservedAmount, balance.reserved);
+      balance.reserved -= actualReserved;
+
+      // Devolver la diferencia (no usados) a available
+      const released = actualReserved - usedAmount;
+      if (released > 0) {
+        balance.available += released;
+      }
+
+      await manager.save(balance);
+
+      // Registrar la transacción de consumo real
+      if (usedAmount > 0) {
+        const transaction = manager.create(CreditTransaction, {
+          tenantId,
+          type: TransactionType.CONSUME,
+          amount: -usedAmount,
+          balanceAfter: balance.available,
+          source,
+          referenceId: referenceId ?? null,
+          description: description ?? `Consumo de ${usedAmount} créditos`,
+        });
+        await manager.save(transaction);
+      }
+    });
+  }
+
   // ─── REEMBOLSO ──────────────────────────────────────
 
   async refund(

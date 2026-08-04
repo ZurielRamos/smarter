@@ -234,24 +234,26 @@ export class CampaignSendWorker extends WorkerHost {
         totalFailed,
       });
 
-      // Charge credits for successful sends only
-      if (totalSent > 0 && campaign.tenantId) {
+      // Settle credit reservation: charge only successful sends, release the rest
+      if (totalSent >= 0 && campaign.tenantId) {
         try {
           const costAction = this.getCostAction(campaign.channel);
           const unitCost = await this.billingService.getActionCost(costAction);
           if (unitCost !== null) {
-            const totalCredits = totalSent * unitCost;
-            await this.billingService.consume(campaign.tenantId, {
-              amount: totalCredits,
-              source: `campaign_${campaign.channel}`,
-              referenceId: sendId,
-              description: `Campaña "${campaign.name}" — ${totalSent} envíos × ${unitCost} créditos`,
-            });
-            this.logger.log(`[Worker] Charged ${totalCredits} credits (${totalSent} × ${unitCost}) for send ${sendId}`);
+            const reservedAmount = recipientIds.length * unitCost;
+            const usedAmount = totalSent * unitCost;
+            await this.billingService.settleReservation(
+              campaign.tenantId,
+              reservedAmount,
+              usedAmount,
+              `campaign_${campaign.channel}`,
+              sendId,
+              `Campaña "${campaign.name}" — ${totalSent} envíos × ${unitCost} créditos`,
+            );
+            this.logger.log(`[Worker] Settled reservation: charged ${usedAmount}, released ${reservedAmount - usedAmount} credits for send ${sendId}`);
           }
         } catch (billingError) {
-          this.logger.warn(`[Worker] Could not charge credits for send ${sendId}:`, billingError);
-          // Non-fatal: send already completed successfully
+          this.logger.warn(`[Worker] Could not settle credits for send ${sendId}:`, billingError);
         }
       }
 
@@ -273,6 +275,28 @@ export class CampaignSendWorker extends WorkerHost {
         totalFailed,
         error: String(error).substring(0, 100),
       });
+
+      // Settle reservation on failure (charge only what was sent)
+      if (campaign.tenantId) {
+        try {
+          const costAction = this.getCostAction(campaign.channel);
+          const unitCost = await this.billingService.getActionCost(costAction);
+          if (unitCost !== null) {
+            const reservedAmount = recipientIds.length * unitCost;
+            const usedAmount = totalSent * unitCost;
+            await this.billingService.settleReservation(
+              campaign.tenantId,
+              reservedAmount,
+              usedAmount,
+              `campaign_${campaign.channel}`,
+              sendId,
+              `Campaña "${campaign.name}" (fallida) — ${totalSent} envíos × ${unitCost} créditos`,
+            );
+          }
+        } catch (billingError) {
+          this.logger.warn(`[Worker] Could not settle credits on failure for send ${sendId}:`, billingError);
+        }
+      }
     }
   }
 
