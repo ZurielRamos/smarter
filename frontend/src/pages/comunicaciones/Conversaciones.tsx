@@ -893,7 +893,7 @@ export function Conversaciones() {
             <>
               <div className="h-14 px-6 flex items-center border-b border-gray-200 bg-white shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
+                  <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-gray-600 ${activeConversation.hasAdTracking ? "ring-2 ring-blue-500 ring-offset-1 bg-gradient-to-br from-blue-50 to-indigo-100" : "bg-gray-200"}`}>
                     {getDisplayName(activeConversation).charAt(0).toUpperCase()}
                   </div>
                   <div>
