@@ -97,7 +97,7 @@ export class LinkTrackerController {
   }
 
   // Create AdEvent and get tracking code
-  function getTrackingCode(callback) {
+  function getTrackingCode(callback, fallback) {
     var cached = sessionStorage.getItem("__sg_code");
     if (cached) return callback(cached);
 
@@ -105,13 +105,18 @@ export class LinkTrackerController {
     xhr.open("POST", API + "/event", true);
     xhr.setRequestHeader("Content-Type", "application/json");
     xhr.onreadystatechange = function() {
-      if (xhr.readyState === 4 && xhr.status === 201) {
-        var data = JSON.parse(xhr.responseText);
-        var code = data.code;
-        sessionStorage.setItem("__sg_code", code);
-        callback(code);
+      if (xhr.readyState === 4) {
+        if (xhr.status === 201) {
+          var data = JSON.parse(xhr.responseText);
+          var code = data.code;
+          sessionStorage.setItem("__sg_code", code);
+          callback(code);
+        } else {
+          fallback();
+        }
       }
     };
+    xhr.onerror = function() { fallback(); };
     xhr.send(JSON.stringify({
       params: storedParams,
       landingPage: storedParams._lp,
@@ -140,7 +145,10 @@ export class LinkTrackerController {
           var separator = existingText ? " " : "";
           url.searchParams.set("text", existingText + separator + codeText);
 
-          window.location.href = url.toString();
+          window.open(url.toString(), "_blank");
+        }, function() {
+          // Fallback: open link without tracking code
+          window.open(href, "_blank");
         });
       });
     });
