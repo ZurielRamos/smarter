@@ -226,7 +226,21 @@ export class ConversionsService {
 
   async createAdPlatform(data: Partial<AdPlatform>): Promise<AdPlatform> {
     const platform = this.adPlatformRepo.create(data);
-    return this.adPlatformRepo.save(platform);
+    const saved = await this.adPlatformRepo.save(platform);
+
+    // Auto-activate this platform in all existing conversion events for the tenant
+    if (data.tenantId && data.platform) {
+      const events = await this.conversionEventRepo.find({ where: { tenantId: data.tenantId } });
+      for (const evt of events) {
+        const platforms = evt.platforms || [];
+        if (!platforms.includes(data.platform)) {
+          platforms.push(data.platform);
+          await this.conversionEventRepo.update(evt.id, { platforms } as any);
+        }
+      }
+    }
+
+    return saved;
   }
 
   async updateAdPlatform(id: string, data: Partial<AdPlatform>): Promise<AdPlatform> {
@@ -235,6 +249,15 @@ export class ConversionsService {
   }
 
   async deleteAdPlatform(id: string): Promise<void> {
+    const platform = await this.adPlatformRepo.findOneBy({ id });
+    if (platform) {
+      // Remove this platform from all conversion events
+      const events = await this.conversionEventRepo.find({ where: { tenantId: platform.tenantId } });
+      for (const evt of events) {
+        const platforms = (evt.platforms || []).filter((p) => p !== platform.platform);
+        await this.conversionEventRepo.update(evt.id, { platforms } as any);
+      }
+    }
     await this.adPlatformRepo.delete(id);
   }
 
