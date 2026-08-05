@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Puzzle, Webhook, Key, Database, Globe, ChevronRight } from "lucide-react";
+import { Puzzle, Webhook, Key, Database, Globe, ChevronRight, ShoppingCart } from "lucide-react";
 
 const INTEGRATIONS = [
   {
@@ -21,6 +21,15 @@ const INTEGRATIONS = [
     status: "active",
   },
   {
+    id: "woocommerce",
+    name: "WordPress / WooCommerce",
+    description: "Rastrea conversiones y envía notificaciones desde tu tienda",
+    icon: ShoppingCart,
+    color: "text-purple-700",
+    bg: "bg-purple-50",
+    status: "active",
+  },
+  {
     id: "crm",
     name: "CRM Externo",
     description: "Sincroniza contactos con HubSpot, Salesforce u otros",
@@ -31,8 +40,8 @@ const INTEGRATIONS = [
   },
   {
     id: "ecommerce",
-    name: "E-commerce",
-    description: "Conecta tu tienda online para notificaciones de pedidos",
+    name: "E-commerce (otros)",
+    description: "Conecta Shopify, PrestaShop u otras plataformas",
     icon: Globe,
     color: "text-orange-600",
     bg: "bg-orange-50",
