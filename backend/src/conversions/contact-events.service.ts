@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { ContactEvent } from './contact-event.entity';
 import { WooHook } from './woo-hook.entity';
 import { Inbox } from '../chats/inbox.entity';
+import { Conversation } from '../chats/conversation.entity';
+import { Message } from '../chats/message.entity';
 import { ConversionsService } from './conversions.service';
 
 export interface CreateContactEventParams {
@@ -30,6 +32,10 @@ export class ContactEventsService {
     private readonly wooHookRepo: Repository<WooHook>,
     @InjectRepository(Inbox)
     private readonly inboxRepo: Repository<Inbox>,
+    @InjectRepository(Conversation)
+    private readonly conversationRepo: Repository<Conversation>,
+    @InjectRepository(Message)
+    private readonly messageRepo: Repository<Message>,
     private readonly conversionsService: ConversionsService,
   ) {}
 
@@ -241,11 +247,96 @@ export class ContactEventsService {
 
       if (response.ok && result.messages?.[0]?.id) {
         this.logger.log(`[WooHook] WhatsApp sent to ${cleanPhone}: messageId=${result.messages[0].id}`);
+
+        // Add message to conversation (same as campaigns)
+        await this.addMessageToConversation(
+          inbox,
+          cleanPhone,
+          event.recordId,
+          contact[0],
+          hook.config.templateName!,
+          templateLanguage,
+          resolvedVars,
+          result.messages[0].id,
+        );
       } else {
         this.logger.warn(`[WooHook] WhatsApp send failed for ${cleanPhone}:`, result.error || result);
       }
     } catch (error) {
       this.logger.error(`[WooHook] WhatsApp send exception for ${cleanPhone}:`, error);
+    }
+  }
+
+  /**
+   * Find or create a conversation and insert the outbound template message.
+   */
+  private async addMessageToConversation(
+    inbox: Inbox,
+    phone: string,
+    recordId: string,
+    contact: { first_name?: string; last_name?: string },
+    templateName: string,
+    languageCode: string,
+    resolvedVars: Record<string, string>,
+    externalId: string,
+  ): Promise<void> {
+    try {
+      // Find existing conversation for this phone in this inbox
+      let conversation = await this.conversationRepo.findOne({
+        where: { inboxId: inbox.id, contactId: phone },
+      });
+
+      const now = new Date();
+      const contactName = [contact?.first_name, contact?.last_name].filter(Boolean).join(' ') || phone;
+      const lastMessageText = `📋 ${templateName}`;
+
+      if (!conversation) {
+        // Create new conversation
+        conversation = await this.conversationRepo.save(
+          this.conversationRepo.create({
+            inboxId: inbox.id,
+            contactId: phone,
+            contactName,
+            recordId,
+            status: 'open',
+            lastMessage: lastMessageText,
+            lastMessageAt: now,
+            lastMessageSource: 'automation',
+            unreadCount: 0,
+          }),
+        );
+      } else {
+        // Update existing conversation
+        await this.conversationRepo.update(conversation.id, {
+          lastMessage: lastMessageText,
+          lastMessageAt: now,
+          lastMessageSource: 'automation',
+        });
+      }
+
+      // Build rendered content from template variables
+      let renderedContent = `[Plantilla: ${templateName}]`;
+      // We'll store the variable values as the rendered message
+      const varEntries = Object.entries(resolvedVars).sort(([a], [b]) => Number(a) - Number(b));
+      if (varEntries.length > 0) {
+        // Build a simple representation
+        renderedContent = `📋 ${templateName}\n${varEntries.map(([k, v]) => `{{${k}}} = ${v}`).join(', ')}`;
+      }
+
+      // Insert message
+      await this.messageRepo.insert({
+        conversationId: conversation.id,
+        direction: 'outbound',
+        messageType: 'template',
+        content: renderedContent,
+        externalId,
+        status: 'sent',
+        source: 'automation',
+      });
+
+      this.logger.log(`[WooHook] Message added to conversation ${conversation.id}`);
+    } catch (error) {
+      this.logger.warn(`[WooHook] Error adding message to conversation:`, error);
     }
   }
 
