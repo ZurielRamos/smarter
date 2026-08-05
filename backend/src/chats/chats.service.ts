@@ -568,18 +568,19 @@ export class ChatsService {
         await this.clientRecordRepo.update(conversation.recordId, { lastContactAt: new Date() });
       }
 
+      // Mark ad tracking if from Meta ad
+      if (msg.referral) {
+        conversation.hasAdTracking = true;
+      }
+
       await this.conversationRepo.save(conversation);
 
       // Capture ad attribution if message comes from a Meta ad (click-to-WhatsApp)
       if (msg.referral) {
         const referral = msg.referral;
-        // Mark conversation as having ad tracking
-        conversation.hasAdTracking = true;
-        await this.conversationRepo.save(conversation);
-
         this.conversionsService.trackEvent({
           tenantId: inbox.tenantId,
-          recordId: conversation.recordId || undefined,
+          recordId: conversation.recordId!,
           platform: 'meta',
           clickId: referral.ctwa_clid || undefined,
           clickIdType: referral.ctwa_clid ? 'fbclid' : undefined,
