@@ -162,9 +162,9 @@ const VARIABLES_BY_EVENT: Record<string, Array<{ key: string; label: string; des
   ],
 };
 const ACTION_TYPES = [
-  { key: "conversion", label: "Evento de conversión", description: "Registrar como conversión y despachar a Meta, Google Ads, TikTok", icon: Zap, color: "text-amber-600", bg: "bg-amber-50", borderActive: "border-amber-300 bg-amber-50", tip: "Ideal para medir ROI de campañas publicitarias" },
-  { key: "notification", label: "Enviar notificación", description: "Enviar mensaje automático por WhatsApp, SMS o email", icon: Bell, color: "text-blue-600", bg: "bg-blue-50", borderActive: "border-blue-300 bg-blue-50", tip: "Confirma pedidos o da la bienvenida a nuevos clientes" },
-  { key: "tag", label: "Agregar etiqueta", description: "Clasificar al contacto con una etiqueta en el CRM", icon: Tag, color: "text-green-600", bg: "bg-green-50", borderActive: "border-green-300 bg-green-50", tip: "Segmenta contactos para futuras campañas" },
+  { key: "conversion", label: "Evento de conversión", description: "Registrar como conversión y despachar a Meta, Google Ads, TikTok", icon: Zap, color: "text-amber-600", bg: "bg-amber-50", borderActive: "border-amber-300 bg-amber-50", tip: "Ideal para medir ROI de campañas publicitarias", active: true },
+  { key: "notification", label: "Enviar notificación", description: "Enviar mensaje automático por WhatsApp, SMS o email", icon: Bell, color: "text-blue-600", bg: "bg-blue-50", borderActive: "border-blue-300 bg-blue-50", tip: "Confirma pedidos o da la bienvenida a nuevos clientes", active: true },
+  { key: "tag", label: "Agregar etiqueta", description: "Clasificar al contacto con una etiqueta en el CRM", icon: Tag, color: "text-green-600", bg: "bg-green-50", borderActive: "border-green-300 bg-green-50", tip: "Segmenta contactos para futuras campañas", active: false },
 ];
 
 interface WooHook {
@@ -517,25 +517,36 @@ export function WooCommerceIntegration() {
                         <button
                           key={act.key}
                           type="button"
+                          disabled={!act.active}
                           onClick={() => {
+                            if (!act.active) return;
                             setFormAction(act.key);
                             setFormConfig({});
                           }}
                           className={`group text-left p-4 rounded-xl border-2 transition-all duration-200 ${
-                            isSelected
+                            !act.active
+                              ? "border-gray-100 opacity-50 cursor-not-allowed"
+                              : isSelected
                               ? `${act.borderActive} shadow-sm`
                               : "border-gray-100 hover:border-gray-200 hover:shadow-sm"
                           }`}
                         >
-                          <div className={`h-9 w-9 rounded-lg ${act.bg} flex items-center justify-center mb-2.5 transition-transform group-hover:scale-110`}>
-                            <Icon className={`h-4.5 w-4.5 ${act.color}`} />
+                          <div className={`h-9 w-9 rounded-lg ${act.bg} flex items-center justify-center mb-2.5 transition-transform ${act.active ? "group-hover:scale-110" : ""}`}>
+                            <Icon className={`h-4.5 w-4.5 ${act.active ? act.color : "text-gray-400"}`} />
                           </div>
-                          <span className="text-xs font-bold text-gray-900 block">{act.label}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-gray-900">{act.label}</span>
+                            {!act.active && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">Próximamente</span>
+                            )}
+                          </div>
                           <span className="block text-[11px] text-gray-500 mt-1 leading-relaxed">{act.description}</span>
-                          <span className={`block text-[10px] mt-2 font-medium transition-opacity ${isSelected ? `${act.color} opacity-100` : "text-gray-400 opacity-0 group-hover:opacity-100"}`}>
-                            {act.tip}
-                          </span>
-                          {isSelected && (
+                          {act.active && (
+                            <span className={`block text-[10px] mt-2 font-medium transition-opacity ${isSelected ? `${act.color} opacity-100` : "text-gray-400 opacity-0 group-hover:opacity-100"}`}>
+                              {act.tip}
+                            </span>
+                          )}
+                          {isSelected && act.active && (
                             <CheckCircle2 className={`h-4 w-4 ${act.color} absolute top-3 right-3`} />
                           )}
                         </button>
