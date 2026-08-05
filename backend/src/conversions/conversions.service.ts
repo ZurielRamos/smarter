@@ -7,6 +7,8 @@ import { ConversionEvent } from './conversion-event.entity';
 import { AdPlatform } from './ad-platform.entity';
 import { ConversionLog } from './conversion-log.entity';
 import { MetaDispatcher } from './dispatchers/meta.dispatcher';
+import { GoogleDispatcher } from './dispatchers/google.dispatcher';
+import { TikTokDispatcher } from './dispatchers/tiktok.dispatcher';
 
 export interface TrackEventParams {
   tenantId: string;
@@ -43,6 +45,8 @@ export class ConversionsService {
     @InjectRepository(ConversionLog)
     private readonly conversionLogRepo: Repository<ConversionLog>,
     private readonly metaDispatcher: MetaDispatcher,
+    private readonly googleDispatcher: GoogleDispatcher,
+    private readonly tiktokDispatcher: TikTokDispatcher,
   ) {}
 
   // ============================
@@ -320,8 +324,11 @@ export class ConversionsService {
         try {
           if (platformName === 'meta') {
             log = await this.dispatchToMeta(params, convEvent, matchingAdEvent, platformConfig, convValue);
+          } else if (platformName === 'google') {
+            log = await this.dispatchToGoogle(params, convEvent, matchingAdEvent, platformConfig, convValue);
+          } else if (platformName === 'tiktok') {
+            log = await this.dispatchToTikTok(params, convEvent, matchingAdEvent, platformConfig, convValue);
           } else {
-            // Other platforms: mark as skipped for now
             log = this.conversionLogRepo.create({
               tenantId: params.tenantId,
               recordId: params.recordId,
@@ -331,7 +338,7 @@ export class ConversionsService {
               platform: platformName,
               eventName: convEvent.name,
               status: 'skipped',
-              errorMessage: `Dispatcher for ${platformName} not implemented yet`,
+              errorMessage: `Dispatcher for ${platformName} not available`,
               value: convValue || null,
               currency: convEvent.currency,
             });
@@ -396,6 +403,99 @@ export class ConversionsService {
       adPlatformId: platform.id,
       platform: 'meta',
       eventName: convEvent.metaEventName || 'Lead',
+      status: result.success ? 'success' : 'failed',
+      httpStatus: result.httpStatus,
+      responseBody: result.responseBody,
+      errorMessage: result.error || null,
+      value: value || null,
+      currency: convEvent.currency,
+    });
+
+    if (result.success) {
+      await this.adPlatformRepo.update(platform.id, {
+        lastSentAt: new Date(),
+        totalSent: () => 'total_sent + 1',
+      } as any);
+    }
+
+    return this.conversionLogRepo.save(log);
+  }
+
+  private async dispatchToGoogle(
+    params: { tenantId: string; recordId: string; email?: string; phone?: string },
+    convEvent: ConversionEvent,
+    adEvent: AdEvent,
+    platform: AdPlatform,
+    value?: number,
+  ): Promise<ConversionLog> {
+    const result = await this.googleDispatcher.send({
+      customerId: platform.credentials.customerId,
+      conversionActionId: platform.credentials.conversionActionId || convEvent.googleConversionAction || '',
+      developerToken: platform.credentials.developerToken,
+      eventName: convEvent.name,
+      eventTime: Math.floor(Date.now() / 1000),
+      gclid: adEvent.clickId || undefined,
+      email: params.email,
+      phone: params.phone,
+      value,
+      currency: convEvent.currency,
+    });
+
+    const log = this.conversionLogRepo.create({
+      tenantId: params.tenantId,
+      recordId: params.recordId,
+      adEventId: adEvent.id,
+      conversionEventId: convEvent.id,
+      adPlatformId: platform.id,
+      platform: 'google',
+      eventName: convEvent.name,
+      status: result.success ? 'success' : 'failed',
+      httpStatus: result.httpStatus,
+      responseBody: result.responseBody,
+      errorMessage: result.error || null,
+      value: value || null,
+      currency: convEvent.currency,
+    });
+
+    if (result.success) {
+      await this.adPlatformRepo.update(platform.id, {
+        lastSentAt: new Date(),
+        totalSent: () => 'total_sent + 1',
+      } as any);
+    }
+
+    return this.conversionLogRepo.save(log);
+  }
+
+  private async dispatchToTikTok(
+    params: { tenantId: string; recordId: string; email?: string; phone?: string },
+    convEvent: ConversionEvent,
+    adEvent: AdEvent,
+    platform: AdPlatform,
+    value?: number,
+  ): Promise<ConversionLog> {
+    const result = await this.tiktokDispatcher.send({
+      pixelCode: platform.credentials.pixelCode,
+      accessToken: platform.credentials.accessToken,
+      eventName: convEvent.tiktokEventName || 'CompletePayment',
+      eventTime: Math.floor(Date.now() / 1000),
+      ttclid: adEvent.clickId || undefined,
+      email: params.email,
+      phone: params.phone,
+      ipAddress: adEvent.ipAddress || undefined,
+      userAgent: adEvent.userAgent || undefined,
+      value,
+      currency: convEvent.currency,
+    });
+
+    const log = this.conversionLogRepo.create({
+      tenantId: params.tenantId,
+      recordId: params.recordId,
+      adEventId: adEvent.id,
+      conversionEventId: convEvent.id,
+      adPlatformId: platform.id,
+      platform: 'tiktok',
+      eventName: convEvent.tiktokEventName || 'CompletePayment',
       status: result.success ? 'success' : 'failed',
       httpStatus: result.httpStatus,
       responseBody: result.responseBody,

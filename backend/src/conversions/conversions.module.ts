@@ -12,10 +12,12 @@ import { ConversionsController } from './conversions.controller';
 import { ContactEventsController } from './contact-events.controller';
 import { LinkTrackerController } from './link-tracker.controller';
 import { MetaDispatcher } from './dispatchers/meta.dispatcher';
+import { GoogleDispatcher } from './dispatchers/google.dispatcher';
+import { TikTokDispatcher } from './dispatchers/tiktok.dispatcher';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AdEvent, ConversionEvent, AdPlatform, ConversionLog, ContactEvent, Tenant])],
-  providers: [ConversionsService, ContactEventsService, MetaDispatcher],
+  providers: [ConversionsService, ContactEventsService, MetaDispatcher, GoogleDispatcher, TikTokDispatcher],
   controllers: [ConversionsController, ContactEventsController, LinkTrackerController],
   exports: [ConversionsService, ContactEventsService],
 })
