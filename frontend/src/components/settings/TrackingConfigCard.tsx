@@ -53,7 +53,7 @@ export function TrackingConfigCard() {
 
   const baseUrl = window.location.origin;
   const pixelScript = `<script src="${baseUrl}/api/t/${slug}/pixel.js"></script>`;
-  const previewCode = `${slug?.substring(0, 2).toUpperCase()}00001`;
+  const previewCode = "1";
   const previewResult = (config.codePattern || "ref-{{code}}").replace("{{code}}", previewCode);
 
   return (

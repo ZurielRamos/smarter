@@ -574,16 +574,12 @@ export class ChatsService {
       }
 
       // Check if message contains a tracking code (from pixel/link tracker)
-      const trackingCodeMatch = (content || '').match(/\b([A-Z]{2}\d{5})\b/);
-      if (trackingCodeMatch && !msg.referral) {
-        const code = trackingCodeMatch[1];
-        // Find AdEvent with this tracking code
-        const adEvent = await this.conversionsService.findByTrackingCode(inbox.tenantId, code);
-        if (adEvent && !adEvent.recordId) {
-          // Link the ad event to this contact
-          await this.conversionsService.linkEventToRecord(adEvent.id, conversation.recordId!);
-          conversation.hasAdTracking = true;
-        }
+      if (!msg.referral && content) {
+        this.conversionsService.matchAndLinkTrackingCode(inbox.tenantId, content, conversation.recordId!).then((linked) => {
+          if (linked) {
+            this.conversationRepo.update(conversation.id, { hasAdTracking: true });
+          }
+        }).catch(() => {});
       }
 
       await this.conversationRepo.save(conversation);

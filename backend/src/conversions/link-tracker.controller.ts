@@ -206,8 +206,6 @@ export class LinkTrackerController {
       trackingConfig: { ...config, nextCode: nextCode + 1 },
     } as any);
 
-    // Format: 2 letter prefix (tenant slug) + 5 digit padded number
-    const prefix = tenant.slug.substring(0, 2).toUpperCase();
-    return `${prefix}${String(nextCode).padStart(5, '0')}`;
+    return String(nextCode);
   }
 }

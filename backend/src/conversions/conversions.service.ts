@@ -396,6 +396,35 @@ export class ConversionsService {
     await this.adEventRepo.update(adEventId, { recordId });
   }
 
+  /**
+   * Parse a message for a tracking code based on the tenant's configured pattern,
+   * then link the AdEvent to the record if found.
+   * Returns true if a link was made.
+   */
+  async matchAndLinkTrackingCode(tenantId: string, messageContent: string, recordId: string): Promise<boolean> {
+    // Get tenant config to know the code pattern
+    const tenant = await this.adEventRepo.manager.query(
+      'SELECT tracking_config FROM tenants WHERE id = $1', [tenantId],
+    );
+    const trackingConfig = tenant?.[0]?.tracking_config;
+    if (!trackingConfig?.codePattern) return false;
+
+    const pattern: string = trackingConfig.codePattern;
+    // Convert pattern like "ref-{{code}}" to regex like "ref-(\d+)"
+    const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped.replace('\\{\\{code\\}\\}', '(\\d+)'));
+
+    const match = messageContent.match(regex);
+    if (!match || !match[1]) return false;
+
+    const code = match[1];
+    const adEvent = await this.findByTrackingCode(tenantId, code);
+    if (!adEvent || adEvent.recordId) return false;
+
+    await this.linkEventToRecord(adEvent.id, recordId);
+    return true;
+  }
+
   // ============================
   // MAINTENANCE
   // ============================
