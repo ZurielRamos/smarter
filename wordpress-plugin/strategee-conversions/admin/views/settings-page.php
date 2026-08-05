@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) exit;
                     <td>
                         <input type="url" id="api_url" name="strategee_conv_settings[api_url]"
                                value="<?php echo esc_attr($settings['api_url'] ?? ''); ?>"
-                               class="regular-text" placeholder="https://crm.strategee.us/api" />
+                               placeholder="https://crm.strategee.us/api" />
                         <p class="description">URL base de la API de Strategee (sin slash final).</p>
                     </td>
                 </tr>
@@ -25,8 +25,7 @@ if (!defined('ABSPATH')) exit;
                     <th><label for="api_token">API Token</label></th>
                     <td>
                         <input type="password" id="api_token" name="strategee_conv_settings[api_token]"
-                               value="<?php echo esc_attr($settings['api_token'] ?? ''); ?>"
-                               class="regular-text" />
+                               value="<?php echo esc_attr($settings['api_token'] ?? ''); ?>" />
                         <p class="description">Token de autenticación (header x-api-token).</p>
                     </td>
                 </tr>
@@ -35,7 +34,7 @@ if (!defined('ABSPATH')) exit;
                     <td>
                         <input type="text" id="slug" name="strategee_conv_settings[slug]"
                                value="<?php echo esc_attr($settings['slug'] ?? ''); ?>"
-                               class="regular-text" placeholder="mi-empresa" />
+                               placeholder="mi-empresa" />
                         <p class="description">El slug de tu cuenta en Strategee.</p>
                     </td>
                 </tr>
@@ -44,7 +43,7 @@ if (!defined('ABSPATH')) exit;
                     <td>
                         <input type="number" id="timeout" name="strategee_conv_settings[timeout]"
                                value="<?php echo esc_attr($settings['timeout'] ?? 10); ?>"
-                               min="3" max="30" class="small-text" />
+                               min="3" max="30" />
                     </td>
                 </tr>
                 <tr>
@@ -73,17 +72,17 @@ if (!defined('ABSPATH')) exit;
                             <input type="checkbox" name="strategee_conv_settings[woo_events][purchase]" value="1"
                                 <?php checked(!empty($settings['woo_events']['purchase'])); ?> />
                             <strong>Purchase</strong> — Compra completada (pago confirmado)
-                        </label><br>
+                        </label>
                         <label>
                             <input type="checkbox" name="strategee_conv_settings[woo_events][add_to_cart]" value="1"
                                 <?php checked(!empty($settings['woo_events']['add_to_cart'])); ?> />
                             <strong>Add to Cart</strong> — Producto agregado al carrito
-                        </label><br>
+                        </label>
                         <label>
                             <input type="checkbox" name="strategee_conv_settings[woo_events][initiate_checkout]" value="1"
                                 <?php checked(!empty($settings['woo_events']['initiate_checkout'])); ?> />
                             <strong>Initiate Checkout</strong> — Inicio del proceso de pago
-                        </label><br>
+                        </label>
                         <label>
                             <input type="checkbox" name="strategee_conv_settings[woo_events][view_content]" value="1"
                                 <?php checked(!empty($settings['woo_events']['view_content'])); ?> />
@@ -104,22 +103,22 @@ if (!defined('ABSPATH')) exit;
                         <label>
                             <input type="checkbox" name="strategee_conv_settings[forms_cf7]" value="1"
                                 <?php checked(!empty($settings['forms_cf7'])); ?> />
-                            Contact Form 7
+                            <strong>Contact Form 7</strong>
                             <?php if (!defined('WPCF7_VERSION')): ?><span class="strategee-inactive">(no instalado)</span><?php endif; ?>
-                        </label><br>
+                        </label>
                         <label>
                             <input type="checkbox" name="strategee_conv_settings[forms_wpforms]" value="1"
                                 <?php checked(!empty($settings['forms_wpforms'])); ?> />
-                            WPForms
+                            <strong>WPForms</strong>
                             <?php if (!function_exists('wpforms')): ?><span class="strategee-inactive">(no instalado)</span><?php endif; ?>
-                        </label><br>
+                        </label>
                         <label>
                             <input type="checkbox" name="strategee_conv_settings[forms_gravityforms]" value="1"
                                 <?php checked(!empty($settings['forms_gravityforms'])); ?> />
-                            Gravity Forms
+                            <strong>Gravity Forms</strong>
                             <?php if (!class_exists('GFAPI')): ?><span class="strategee-inactive">(no instalado)</span><?php endif; ?>
-                        </label><br><br>
-                        <label>
+                        </label>
+                        <label style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f3f4f6;">
                             <input type="checkbox" name="strategee_conv_settings[track_registration]" value="1"
                                 <?php checked(!empty($settings['track_registration'])); ?> />
                             <strong>Registro de usuarios</strong> — Evento sign_up al crear cuenta
@@ -134,28 +133,35 @@ if (!defined('ABSPATH')) exit;
 
     <!-- Logs -->
     <div class="strategee-card">
-        <h2>📋 Logs de eventos
-            <button type="button" id="strategee-clear-logs" class="button button-small" style="margin-left: 10px;">
+        <h2>
+            📋 Logs de eventos
+            <button type="button" id="strategee-clear-logs" class="button button-small" style="margin-left: auto; font-size: 12px;">
                 Limpiar logs
             </button>
         </h2>
 
         <?php if ($queue_stats['pending'] > 0 || $queue_stats['failed'] > 0): ?>
-            <p class="strategee-notice">
-                Cola: <strong><?php echo $queue_stats['pending']; ?></strong> pendientes,
-                <strong><?php echo $queue_stats['failed']; ?></strong> fallidos.
-            </p>
+            <div class="queue-stats">
+                <div class="queue-stat">
+                    <div class="value"><?php echo $queue_stats['pending']; ?></div>
+                    <div class="label">Pendientes</div>
+                </div>
+                <div class="queue-stat">
+                    <div class="value"><?php echo $queue_stats['failed']; ?></div>
+                    <div class="label">Fallidos</div>
+                </div>
+            </div>
         <?php endif; ?>
 
         <?php if (empty($logs)): ?>
-            <p>No hay logs aún.</p>
+            <p style="color: #9ca3af; font-size: 13px;">No hay logs aún. Los eventos aparecerán aquí una vez configurado.</p>
         <?php else: ?>
-            <table class="widefat striped strategee-logs-table">
+            <table class="strategee-logs-table">
                 <thead>
                     <tr>
-                        <th>Estado</th>
+                        <th style="width: 40px;">Estado</th>
                         <th>Mensaje</th>
-                        <th>Fecha</th>
+                        <th style="width: 150px;">Fecha</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -168,7 +174,7 @@ if (!defined('ABSPATH')) exit;
                                 ?>
                             </td>
                             <td><?php echo esc_html($log['message']); ?></td>
-                            <td><?php echo esc_html($log['timestamp']); ?></td>
+                            <td style="color: #6b7280; font-size: 12px;"><?php echo esc_html($log['timestamp']); ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>

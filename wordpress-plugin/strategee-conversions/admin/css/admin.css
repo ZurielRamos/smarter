@@ -1,61 +1,293 @@
 /* Strategee Conversions Admin Styles */
+/* Based on Smartee brand: Plus Jakarta Sans, brand-800 #1e3a5f, brand-600 #2563eb */
 
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+.strategee-settings {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    max-width: 860px;
+}
+
+.strategee-settings h1 {
+    font-size: 28px;
+    font-weight: 800;
+    color: #111827;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+}
+
+.strategee-settings > p.description {
+    font-size: 14px;
+    color: #6b7280;
+    margin-bottom: 24px;
+}
+
+/* Cards */
 .strategee-settings .strategee-card {
     background: #fff;
-    border: 1px solid #ccd0d4;
-    border-radius: 4px;
-    padding: 20px 24px;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 28px 32px;
     margin: 20px 0;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .strategee-settings .strategee-card h2 {
     margin-top: 0;
     padding-top: 0;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 12px;
-    font-size: 1.2em;
+    border-bottom: 1px solid #f3f4f6;
+    padding-bottom: 16px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.strategee-settings .strategee-notice {
-    background: #fff3cd;
-    border-left: 4px solid #ffc107;
-    padding: 8px 12px;
-    margin: 10px 0;
+/* Form table */
+.strategee-settings .form-table th {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    padding: 16px 10px 16px 0;
+    vertical-align: top;
 }
 
-.strategee-settings .strategee-inactive {
-    color: #999;
-    font-style: italic;
-    font-size: 0.9em;
+.strategee-settings .form-table td {
+    padding: 16px 10px;
 }
 
+.strategee-settings .form-table td p.description {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 6px;
+}
+
+/* Inputs */
+.strategee-settings input[type="text"],
+.strategee-settings input[type="url"],
+.strategee-settings input[type="password"],
+.strategee-settings input[type="number"] {
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    transition: all 0.2s;
+    width: 100%;
+    max-width: 420px;
+    color: #111827;
+}
+
+.strategee-settings input[type="number"] {
+    max-width: 80px;
+}
+
+.strategee-settings input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Checkboxes */
+.strategee-settings label {
+    font-size: 13px;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.strategee-settings input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    accent-color: #1e3a5f;
+    cursor: pointer;
+}
+
+.strategee-settings label strong {
+    font-weight: 700;
+    color: #111827;
+}
+
+/* Buttons */
+.strategee-settings .button,
+.strategee-settings .button-secondary {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.strategee-settings .button:hover,
+.strategee-settings .button-secondary:hover {
+    border-color: #1e3a5f;
+    color: #1e3a5f;
+    background: #f8fafc;
+}
+
+.strategee-settings .button-primary,
+.strategee-settings #submit {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 24px;
+    border-radius: 12px;
+    border: none;
+    background: #1e3a5f;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.strategee-settings .button-primary:hover,
+.strategee-settings #submit:hover {
+    background: #1d4ed8;
+}
+
+/* Test connection result */
 .strategee-settings #strategee-test-result {
-    margin-left: 10px;
-    font-weight: 500;
+    margin-left: 12px;
+    font-size: 13px;
+    font-weight: 600;
 }
 
 .strategee-settings #strategee-test-result.success {
-    color: #46b450;
+    color: #22c55e;
 }
 
 .strategee-settings #strategee-test-result.error {
-    color: #dc3232;
+    color: #ef4444;
+}
+
+/* Notices */
+.strategee-settings .strategee-notice {
+    background: #fffbeb;
+    border-left: 4px solid #f59e0b;
+    padding: 10px 16px;
+    margin: 12px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    color: #92400e;
+}
+
+.strategee-settings .strategee-inactive {
+    color: #9ca3af;
+    font-style: italic;
+    font-size: 12px;
+    margin-left: 4px;
 }
 
 /* Logs table */
-.strategee-logs-table {
+.strategee-settings .strategee-logs-table {
     font-size: 13px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
 }
 
-.strategee-logs-table td {
+.strategee-settings .strategee-logs-table thead th {
+    background: #f9fafb;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    padding: 12px 16px;
+}
+
+.strategee-settings .strategee-logs-table td {
+    padding: 10px 16px;
     vertical-align: middle;
+    border-top: 1px solid #f3f4f6;
 }
 
-.strategee-log-error td {
-    background-color: #fff5f5 !important;
+.strategee-settings .strategee-log-error td {
+    background-color: #fef2f2 !important;
 }
 
-.strategee-log-queued td {
+.strategee-settings .strategee-log-queued td {
     background-color: #fffbeb !important;
+}
+
+.strategee-settings .strategee-log-success td {
+    background-color: #f0fdf4 !important;
+}
+
+/* Queue stats */
+.strategee-settings .queue-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.strategee-settings .queue-stat {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 12px 20px;
+    text-align: center;
+}
+
+.strategee-settings .queue-stat .value {
+    font-size: 24px;
+    font-weight: 800;
+    color: #111827;
+}
+
+.strategee-settings .queue-stat .label {
+    font-size: 11px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 2px;
+}
+
+/* Connection status indicator */
+.strategee-settings .connection-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.strategee-settings .connection-status.connected {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.strategee-settings .connection-status.disconnected {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+/* Responsive */
+@media (max-width: 782px) {
+    .strategee-settings .strategee-card {
+        padding: 20px;
+    }
+
+    .strategee-settings input[type="text"],
+    .strategee-settings input[type="url"],
+    .strategee-settings input[type="password"] {
+        max-width: 100%;
+    }
 }
