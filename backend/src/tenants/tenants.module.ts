@@ -6,6 +6,7 @@ import { TenantsService } from './tenants.service';
 import { TenantsController } from './tenants.controller';
 import { ChannelConfigsService } from './channel-configs.service';
 import { ChannelConfigsController } from './channel-configs.controller';
+import { ConversionEvent } from '../conversions/conversion-event.entity';
 import { InviteAgentController } from './invite-agent.controller';
 import { UserTenant } from '../users/user-tenant.entity';
 import { User } from '../users/user.entity';
@@ -16,7 +17,7 @@ import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Tenant, ChannelConfig, UserTenant, User, CustomField]),
+    TypeOrmModule.forFeature([Tenant, ChannelConfig, UserTenant, User, CustomField, ConversionEvent]),
     BillingModule,
     MailModule,
     AuthModule,

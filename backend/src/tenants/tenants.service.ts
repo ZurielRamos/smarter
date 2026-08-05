@@ -6,6 +6,7 @@ import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { UserTenant } from '../users/user-tenant.entity';
 import { CustomField } from '../records/custom-field.entity';
+import { ConversionEvent } from '../conversions/conversion-event.entity';
 
 const SYSTEM_FIELDS = [
   // Identificación
@@ -48,6 +49,8 @@ export class TenantsService {
     private readonly userTenantRepo: Repository<UserTenant>,
     @InjectRepository(CustomField)
     private readonly customFieldRepo: Repository<CustomField>,
+    @InjectRepository(ConversionEvent)
+    private readonly conversionEventRepo: Repository<ConversionEvent>,
   ) {}
 
   async findAll(): Promise<Tenant[]> {
@@ -89,6 +92,22 @@ export class TenantsService {
       }),
     );
     await this.customFieldRepo.save(systemFields);
+
+    // Seed default conversion event mappings
+    const defaultConversionEvents = [
+      { triggerType: 'purchase', triggerValue: 'purchase', name: 'Compra', metaEventName: 'Purchase', tiktokEventName: 'CompletePayment', includeValue: true },
+      { triggerType: 'appointment', triggerValue: 'appointment', name: 'Cita agendada', metaEventName: 'Schedule', tiktokEventName: 'Contact', includeValue: false },
+      { triggerType: 'qualified', triggerValue: 'qualified', name: 'Lead calificado', metaEventName: 'Lead', tiktokEventName: 'SubmitForm', includeValue: false },
+      { triggerType: 'registration', triggerValue: 'registration', name: 'Registro', metaEventName: 'CompleteRegistration', tiktokEventName: 'CompleteRegistration', includeValue: false },
+      { triggerType: 'subscription', triggerValue: 'subscription', name: 'Suscripción', metaEventName: 'Subscribe', tiktokEventName: 'Subscribe', includeValue: true },
+    ].map((evt) => this.conversionEventRepo.create({
+      tenantId: saved.id,
+      ...evt,
+      platforms: [],
+      currency: 'COP',
+      isActive: true,
+    }));
+    await this.conversionEventRepo.save(defaultConversionEvents);
 
     return saved;
   }
