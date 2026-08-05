@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, IsNull, MoreThan } from 'typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { AdEvent, ATTRIBUTION_WINDOWS } from './ad-event.entity';
 import { ConversionEvent } from './conversion-event.entity';
 import { AdPlatform } from './ad-platform.entity';
@@ -426,8 +427,17 @@ export class ConversionsService {
   }
 
   // ============================
-  // MAINTENANCE
+  // MAINTENANCE (runs daily at 3am)
   // ============================
+
+  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  async handleDailyCleanup() {
+    const expired = await this.expireOldEvents();
+    const orphaned = await this.markOrphanEvents();
+    if (expired > 0 || orphaned > 0) {
+      this.logger.log(`[Cron] Cleanup: ${expired} expired, ${orphaned} orphaned ad events`);
+    }
+  }
 
   /**
    * Mark expired ad events. Run via cron daily.
