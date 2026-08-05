@@ -16,11 +16,7 @@ interface AdPlatform {
 }
 
 const PLATFORMS = [
-  { value: "meta", label: "Meta (Facebook/Instagram)", desc: "Conversions API (CAPI)", fields: [
-    { key: "pixelId", label: "Pixel ID", placeholder: "123456789012345", help: "Se encuentra en Meta Events Manager → Data Sources → tu Pixel" },
-    { key: "accessToken", label: "Access Token", placeholder: "EAAx...", type: "password", help: "System User Token con permisos ads_management" },
-    { key: "testEventCode", label: "Test Event Code (opcional)", placeholder: "TEST12345", help: "Para verificar eventos en modo test antes de ir a producción" },
-  ]},
+  { value: "meta", label: "Meta (Facebook/Instagram)", desc: "Conversions API (OAuth)", fields: []},
   { value: "google", label: "Google Ads", desc: "Conversions API (OAuth)", fields: []},
   { value: "tiktok", label: "TikTok Ads", desc: "Events API", fields: [
     { key: "pixelCode", label: "Pixel Code", placeholder: "CXXXXXXXXXXXXXX", help: "TikTok Ads Manager → Assets → Events → Web Events → tu pixel" },
@@ -47,13 +43,17 @@ export function AdPlatformsCard() {
   const [credentials, setCredentials] = useState<Record<string, string>>({});
   const [googleAccounts, setGoogleAccounts] = useState<string[]>([]);
   const [googlePlatformId, setGooglePlatformId] = useState<string | null>(null);
+  const [metaPixels, setMetaPixels] = useState<Array<{ id: string; name: string }>>([]);
+  const [metaPlatformId, setMetaPlatformId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!tenantId) return;
     api.get("/conversions/platforms", { params: { tenantId } }).then(({ data }) => setPlatforms(data)).catch(() => {});
 
-    // Check if returning from Google OAuth with account selection needed
+    // Check if returning from OAuth with selection needed
     const params = new URLSearchParams(window.location.search);
+
+    // Google account selection
     const selectAccount = params.get("google_select_account");
     const accounts = params.get("accounts");
     if (selectAccount && accounts) {
@@ -62,16 +62,41 @@ export function AdPlatformsCard() {
     }
     if (params.get("google_connected")) {
       toast.success("Google Ads conectado correctamente");
-      // Clean URL
       window.history.replaceState({}, "", window.location.pathname);
     }
+
+    // Meta pixel selection
+    const selectPixel = params.get("meta_select_pixel");
+    const pixels = params.get("pixels");
+    if (selectPixel && pixels) {
+      setMetaPlatformId(selectPixel);
+      setMetaPixels(decodeURIComponent(pixels).split(",").map((p) => {
+        const [id, name] = p.split(":");
+        return { id, name: decodeURIComponent(name || id) };
+      }));
+    }
+    if (params.get("meta_connected")) {
+      toast.success("Meta Ads conectado correctamente");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    // Errors
+    const googleError = params.get("google_error");
+    const metaError = params.get("meta_error");
+    if (googleError) { toast.error(`Error Google: ${googleError}`); window.history.replaceState({}, "", window.location.pathname); }
+    if (metaError) { toast.error(`Error Meta: ${metaError}`); window.history.replaceState({}, "", window.location.pathname); }
   }, [tenantId]);
 
   const handleAddPlatform = async () => {
-    // For Google, redirect to OAuth flow
+    // For Google and Meta, redirect to OAuth flow
     if (selectedPlatform === "google") {
       const apiBase = import.meta.env.VITE_API_URL || "/api";
       window.location.href = `${apiBase}/conversions/google/auth?tenantId=${tenantId}`;
+      return;
+    }
+    if (selectedPlatform === "meta") {
+      const apiBase = import.meta.env.VITE_API_URL || "/api";
+      window.location.href = `${apiBase}/conversions/meta/auth?tenantId=${tenantId}`;
       return;
     }
 
@@ -97,10 +122,21 @@ export function AdPlatformsCard() {
       toast.success("Google Ads conectado correctamente");
       setGoogleAccounts([]);
       setGooglePlatformId(null);
-      // Reload platforms
       api.get("/conversions/platforms", { params: { tenantId } }).then(({ data }) => setPlatforms(data)).catch(() => {});
       window.history.replaceState({}, "", window.location.pathname);
     } catch { toast.error("Error al seleccionar cuenta"); }
+  };
+
+  const handleSelectMetaPixel = async (pixelId: string) => {
+    if (!metaPlatformId) return;
+    try {
+      await api.get("/conversions/meta/select-pixel", { params: { platformId: metaPlatformId, pixelId } });
+      toast.success("Meta Ads conectado correctamente");
+      setMetaPixels([]);
+      setMetaPlatformId(null);
+      api.get("/conversions/platforms", { params: { tenantId } }).then(({ data }) => setPlatforms(data)).catch(() => {});
+      window.history.replaceState({}, "", window.location.pathname);
+    } catch { toast.error("Error al seleccionar pixel"); }
   };
 
   const connectedPlatformNames = platforms.map((p) => p.platform);
@@ -137,6 +173,29 @@ export function AdPlatformsCard() {
                   <div>
                     <p className="text-sm font-medium text-gray-900">Cuenta {id.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')}</p>
                     <p className="text-[11px] text-gray-400">Customer ID: {id}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Meta pixel selection */}
+        {metaPixels.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <p className="text-sm font-medium text-gray-900 mb-1">Selecciona tu Pixel de Meta</p>
+            <p className="text-xs text-gray-500 mb-3">Se encontraron múltiples pixels. Selecciona el que quieres usar para reportar conversiones.</p>
+            <div className="space-y-2">
+              {metaPixels.map((pixel) => (
+                <button
+                  key={pixel.id}
+                  onClick={() => handleSelectMetaPixel(pixel.id)}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white hover:border-brand-500 hover:bg-brand-50/30 transition-all text-left"
+                >
+                  <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{pixel.name}</p>
+                    <p className="text-[11px] text-gray-400">Pixel ID: {pixel.id}</p>
                   </div>
                 </button>
               ))}
@@ -208,9 +267,11 @@ export function AdPlatformsCard() {
               </div>
 
               {/* Credential fields */}
-              {selectedPlatform === "google" ? (
+              {selectedPlatform === "google" || selectedPlatform === "meta" ? (
                 <div className="bg-gray-100 rounded-lg p-3">
-                  <p className="text-xs text-gray-600">Al hacer click en "Conectar", serás redirigido a Google para autorizar el acceso a tu cuenta de Google Ads. No necesitas ingresar credenciales manualmente.</p>
+                  <p className="text-xs text-gray-600">
+                    Al hacer click en "Conectar", serás redirigido a {selectedPlatform === "google" ? "Google" : "Facebook"} para autorizar el acceso. No necesitas ingresar credenciales manualmente.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-2.5">
