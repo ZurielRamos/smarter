@@ -69,7 +69,7 @@ function Dropdown({ value, options, onChange, placeholder = "Seleccionar...", cl
         <ChevronDown className={`h-4 w-4 text-gray-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-gray-200 shadow-lg py-1 z-50 max-h-56 overflow-y-auto">
+        <div className="absolute left-0 right-0 bottom-full mb-1 bg-white rounded-xl border border-gray-200 shadow-lg py-1 z-50 max-h-56 overflow-y-auto">
           {options.map((opt) => {
             const isSelected = opt.value === value;
             return (
