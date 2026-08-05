@@ -574,8 +574,7 @@ export class ChatsService {
       }
 
       // Check if message contains a tracking code (from pixel/link tracker)
-      // Only check if this conversation doesn't already have ad tracking linked
-      if (!msg.referral && content && !conversation.hasAdTracking) {
+      if (!msg.referral && content) {
         this.conversionsService.matchAndLinkTrackingCode(inbox.tenantId, content, conversation.recordId!).then((linked) => {
           if (linked) {
             this.conversationRepo.update(conversation.id, { hasAdTracking: true });
