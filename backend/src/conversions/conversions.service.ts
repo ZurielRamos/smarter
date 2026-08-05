@@ -378,6 +378,24 @@ export class ConversionsService {
     return this.conversionLogRepo.save(log);
   }
 
+  /**
+   * Find an AdEvent by its tracking code (stored in metadata or sessionId).
+   */
+  async findByTrackingCode(tenantId: string, code: string): Promise<AdEvent | null> {
+    return this.adEventRepo
+      .createQueryBuilder('ae')
+      .where('ae.tenant_id = :tenantId', { tenantId })
+      .andWhere("ae.session_id = :sessionId", { sessionId: `trk_${code}` })
+      .getOne();
+  }
+
+  /**
+   * Link an existing AdEvent to a record.
+   */
+  async linkEventToRecord(adEventId: string, recordId: string): Promise<void> {
+    await this.adEventRepo.update(adEventId, { recordId });
+  }
+
   // ============================
   // MAINTENANCE
   // ============================

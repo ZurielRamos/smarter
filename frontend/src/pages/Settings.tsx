@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import headerBg from "@/assets/header-background.jpg";
 import { TeamCard } from "@/components/settings/TeamCard";
 import { IntegrationsCard } from "@/components/settings/IntegrationsCard";
+import { TrackingConfigCard } from "@/components/settings/TrackingConfigCard";
 
 export function Settings() {
   const { slug } = useParams();
@@ -39,6 +40,7 @@ export function Settings() {
         <div className="max-w-3xl space-y-6">
           <GeneralCard />
           <TeamCard />
+          <TrackingConfigCard />
           <IntegrationsCard />
         </div>
       </motion.div>

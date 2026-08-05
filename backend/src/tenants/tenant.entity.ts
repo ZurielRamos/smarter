@@ -35,6 +35,17 @@ export class Tenant {
   @Column({ name: 'table_config', type: 'jsonb', nullable: true })
   tableConfig: Record<string, any> | null;
 
+  /** Tracking configuration for ad attribution */
+  @Column({ name: 'tracking_config', type: 'jsonb', nullable: true })
+  trackingConfig: {
+    /** WhatsApp number to redirect to (with country code) */
+    whatsappPhone?: string;
+    /** Message template with {{code}} placeholder. E.g. "Hola, me interesa información. Ref: {{code}}" */
+    messageTemplate?: string;
+    /** Next sequential code number */
+    nextCode?: number;
+  } | null;
+
   // === AUDITORÍA ===
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
