@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -21,11 +21,78 @@ import {
   UserPlus,
   FileText,
   PackageCheck,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/services/api";
 import { toast } from "sonner";
 import headerBg from "@/assets/header-background.jpg";
+
+/** Custom dropdown component — replaces native <select> */
+function Dropdown({ value, options, onChange, placeholder = "Seleccionar...", className = "" }: {
+  value: string;
+  options: Array<{ value: string; label: string; desc?: string; icon?: any }>;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const selected = options.find((o) => o.value === value);
+
+  return (
+    <div className={`relative ${className}`} ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white hover:border-gray-300 transition-colors text-left"
+      >
+        {selected ? (
+          <div className="flex items-center gap-2 min-w-0">
+            {selected.icon && <selected.icon className="h-3.5 w-3.5 text-gray-500 shrink-0" />}
+            <span className="text-gray-900 truncate">{selected.label}</span>
+          </div>
+        ) : (
+          <span className="text-gray-400">{placeholder}</span>
+        )}
+        <ChevronDown className={`h-4 w-4 text-gray-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-gray-200 shadow-lg py-1 z-50 max-h-56 overflow-y-auto">
+          {options.map((opt) => {
+            const isSelected = opt.value === value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors ${isSelected ? "bg-brand-50 text-brand-800" : "hover:bg-gray-50 text-gray-700"}`}
+              >
+                {opt.icon && <opt.icon className={`h-4 w-4 shrink-0 ${isSelected ? "text-brand-600" : "text-gray-400"}`} />}
+                <div className="flex-1 min-w-0">
+                  <span className={`block truncate ${isSelected ? "font-medium" : ""}`}>{opt.label}</span>
+                  {opt.desc && <span className="block text-[10px] text-gray-400 truncate">{opt.desc}</span>}
+                </div>
+                {isSelected && <Check className="h-3.5 w-3.5 text-brand-600 shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // WooCommerce events available
 const WOO_EVENTS = [
@@ -549,17 +616,18 @@ export function WooCommerceIntegration() {
                                 placeholder="{{total}} o un valor fijo"
                                 className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 bg-white"
                               />
-                              <select
+                              <Dropdown
                                 value={formConfig.conversionCurrency || "COP"}
-                                onChange={(e) => setFormConfig({ ...formConfig, conversionCurrency: e.target.value })}
-                                className="w-24 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 bg-white"
-                              >
-                                <option value="COP">COP</option>
-                                <option value="USD">USD</option>
-                                <option value="EUR">EUR</option>
-                                <option value="MXN">MXN</option>
-                                <option value="{{currency}}">Auto (moneda del pedido)</option>
-                              </select>
+                                onChange={(val) => setFormConfig({ ...formConfig, conversionCurrency: val })}
+                                options={[
+                                  { value: "COP", label: "COP" },
+                                  { value: "USD", label: "USD" },
+                                  { value: "EUR", label: "EUR" },
+                                  { value: "MXN", label: "MXN" },
+                                  { value: "{{currency}}", label: "Auto (moneda del pedido)" },
+                                ]}
+                                className="w-28"
+                              />
                             </div>
                             <p className="text-[10px] text-gray-400 mt-1">Usa {"{{total}}"} para tomar el valor automáticamente del pedido</p>
                           </div>
@@ -601,24 +669,22 @@ export function WooCommerceIntegration() {
                               <Bell className="h-3.5 w-3.5 text-blue-500" />
                               Canal de envío
                             </label>
-                            <select
+                            <Dropdown
                               value={formConfig.inboxId || ""}
-                              onChange={(e) => {
-                                const inbox = inboxes.find((i) => i.id === e.target.value);
-                                setFormConfig({ ...formConfig, inboxId: e.target.value, channel: inbox?.channel || "", templateName: "", templateMessage: "", variableMapping: {} });
+                              onChange={(val) => {
+                                const inbox = inboxes.find((i) => i.id === val);
+                                setFormConfig({ ...formConfig, inboxId: val, channel: inbox?.channel || "", templateName: "", templateMessage: "", variableMapping: {} });
                                 if (inbox?.channel === "whatsapp") {
-                                  loadTemplates(e.target.value);
+                                  loadTemplates(val);
                                 }
                               }}
-                              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 bg-white"
-                            >
-                              <option value="">Selecciona una bandeja...</option>
-                              {inboxes.map((inbox) => (
-                                <option key={inbox.id} value={inbox.id}>
-                                  {inbox.name} ({inbox.channel})
-                                </option>
-                              ))}
-                            </select>
+                              placeholder="Selecciona una bandeja..."
+                              options={inboxes.map((inbox) => ({
+                                value: inbox.id,
+                                label: `${inbox.name} (${inbox.channel})`,
+                                desc: inbox.channel,
+                              }))}
+                            />
                           </div>
 
                           {/* WhatsApp: template selector + variable mapping */}
@@ -674,19 +740,20 @@ export function WooCommerceIntegration() {
                                       <div key={varNum} className="flex items-center gap-2 p-2.5 rounded-lg bg-gray-50 border border-gray-100">
                                         <span className="text-xs font-mono text-gray-500 w-12 shrink-0">{`{{${varNum}}}`}</span>
                                         <span className="text-xs text-gray-400">→</span>
-                                        <select
+                                        <Dropdown
                                           value={(formConfig.variableMapping as any)?.[varNum] || ""}
-                                          onChange={(e) => {
-                                            const updated = { ...(formConfig.variableMapping || {}), [varNum]: e.target.value };
+                                          onChange={(val) => {
+                                            const updated = { ...(formConfig.variableMapping || {}), [varNum]: val };
                                             setFormConfig({ ...formConfig, variableMapping: updated });
                                           }}
-                                          className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 bg-white"
-                                        >
-                                          <option value="">Seleccionar variable...</option>
-                                          {(VARIABLES_BY_EVENT[formEvent] || []).map((v) => (
-                                            <option key={v.key} value={v.key}>{v.label} — {v.key}</option>
-                                          ))}
-                                        </select>
+                                          placeholder="Seleccionar variable..."
+                                          options={(VARIABLES_BY_EVENT[formEvent] || []).map((v) => ({
+                                            value: v.key,
+                                            label: v.label,
+                                            desc: v.key,
+                                          }))}
+                                          className="flex-1"
+                                        />
                                       </div>
                                     ))}
                                   </div>
