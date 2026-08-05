@@ -66,6 +66,18 @@ interface Inbox {
   channel: string;
 }
 
+interface ConversionEventConfig {
+  id: string;
+  triggerType: string;
+  triggerValue: string | null;
+  name: string;
+  platforms: string[];
+  metaEventName: string | null;
+  googleConversionAction: string | null;
+  tiktokEventName: string | null;
+  isActive: boolean;
+}
+
 export function WooCommerceIntegration() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -75,6 +87,7 @@ export function WooCommerceIntegration() {
 
   const [hooks, setHooks] = useState<WooHook[]>([]);
   const [inboxes, setInboxes] = useState<Inbox[]>([]);
+  const [conversionEvents, setConversionEvents] = useState<ConversionEventConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -94,18 +107,23 @@ export function WooCommerceIntegration() {
   async function loadData() {
     setLoading(true);
     try {
-      const [hooksRes, inboxesRes] = await Promise.all([
+      const [hooksRes, inboxesRes, convRes] = await Promise.all([
         api.get("/woo-hooks", { params: { tenantId } }),
         api.get("/chats/inboxes", { params: { tenantId } }),
+        api.get("/conversions/events", { params: { tenantId } }),
       ]);
       setHooks(hooksRes.data);
       setInboxes(inboxesRes.data);
+      setConversionEvents(convRes.data);
     } catch {
-      // If endpoint doesn't exist yet, start with empty
       setHooks([]);
       try {
-        const inboxesRes = await api.get("/chats/inboxes", { params: { tenantId } });
+        const [inboxesRes, convRes] = await Promise.all([
+          api.get("/chats/inboxes", { params: { tenantId } }),
+          api.get("/conversions/events", { params: { tenantId } }),
+        ]);
         setInboxes(inboxesRes.data);
+        setConversionEvents(convRes.data);
       } catch {}
     } finally {
       setLoading(false);
@@ -188,6 +206,12 @@ export function WooCommerceIntegration() {
 
   function getActionLabel(key: string) {
     return ACTION_TYPES.find((a) => a.key === key)?.label || key;
+  }
+
+  function getMatchingConversions(eventKey: string): ConversionEventConfig[] {
+    return conversionEvents.filter(
+      (ce) => ce.isActive && ce.triggerType === eventKey && ce.triggerValue === eventKey,
+    );
   }
 
   if (loading) {
@@ -320,12 +344,13 @@ export function WooCommerceIntegration() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {WOO_EVENTS.map((evt) => {
                       const EvtIcon = evt.icon;
+                      const matchCount = getMatchingConversions(evt.key).length;
                       return (
                         <button
                           key={evt.key}
                           type="button"
                           onClick={() => setFormEvent(evt.key)}
-                          className={`group text-left p-3.5 rounded-xl border-2 transition-all duration-200 ${
+                          className={`group text-left p-3.5 rounded-xl border-2 transition-all duration-200 relative ${
                             formEvent === evt.key
                               ? "border-purple-400 bg-purple-50 shadow-sm shadow-purple-100"
                               : "border-gray-100 hover:border-purple-200 hover:bg-purple-50/30 hover:shadow-sm"
@@ -336,7 +361,14 @@ export function WooCommerceIntegration() {
                               <EvtIcon className={`h-4 w-4 ${evt.color}`} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <span className="text-xs font-semibold text-gray-900 block">{evt.label}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-gray-900">{evt.label}</span>
+                                {matchCount > 0 && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium flex items-center gap-0.5">
+                                    <Zap className="h-2.5 w-2.5" />{matchCount}
+                                  </span>
+                                )}
+                              </div>
                               <span className="block text-[11px] text-gray-500 mt-0.5 leading-relaxed">{evt.description}</span>
                               <span className={`block text-[10px] mt-1.5 italic transition-opacity ${formEvent === evt.key ? "text-purple-600 opacity-100" : "text-gray-400 opacity-0 group-hover:opacity-100"}`}>
                                 Ej: {evt.example}
@@ -415,10 +447,50 @@ export function WooCommerceIntegration() {
                             placeholder="Ej: Compra WooCommerce"
                             className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 bg-white"
                           />
-                          <div className="mt-3 flex items-start gap-2 text-[11px] text-gray-500 bg-amber-50 border border-amber-100 rounded-lg p-2.5">
-                            <Zap className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-                            <span>Este evento se enviará automáticamente a las plataformas de ads conectadas (Meta, Google, TikTok) si tienes configurado un evento de conversión con este tipo.</span>
-                          </div>
+
+                          {/* Feedback: matching conversion events */}
+                          {formEvent && (() => {
+                            const matches = getMatchingConversions(formEvent);
+                            if (matches.length > 0) {
+                              return (
+                                <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                                  <p className="text-[11px] font-semibold text-green-800 flex items-center gap-1.5 mb-2">
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    Este evento disparará {matches.length} conversión{matches.length > 1 ? "es" : ""} configurada{matches.length > 1 ? "s" : ""}:
+                                  </p>
+                                  <div className="space-y-1.5">
+                                    {matches.map((ce) => (
+                                      <div key={ce.id} className="flex items-center gap-2 text-[11px] text-green-700">
+                                        <Zap className="h-3 w-3 text-green-500 shrink-0" />
+                                        <span className="font-medium">{ce.name}</span>
+                                        <span className="text-green-500">→</span>
+                                        <div className="flex gap-1">
+                                          {ce.platforms.map((p) => (
+                                            <span key={p} className="px-1.5 py-0.5 bg-green-100 rounded text-[9px] font-medium uppercase">{p}</span>
+                                          ))}
+                                        </div>
+                                        {ce.metaEventName && <span className="text-green-500">({ce.metaEventName})</span>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                  <p className="text-[11px] text-amber-800 flex items-start gap-1.5">
+                                    <Zap className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                                    <span>
+                                      No hay eventos de conversión configurados para <strong>"{getEventLabel(formEvent)}"</strong>.
+                                      El evento se registrará en el CRM pero no se enviará a plataformas de ads.
+                                      <br />
+                                      <span className="text-amber-600 font-medium">Configura uno en Configuración → Eventos de conversión.</span>
+                                    </span>
+                                  </p>
+                                </div>
+                              );
+                            }
+                          })()}
                         </div>
                       )}
 
