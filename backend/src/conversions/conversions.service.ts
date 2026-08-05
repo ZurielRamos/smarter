@@ -411,7 +411,7 @@ export class ConversionsService {
     const adEvent = await this.adEventRepo.findOneBy({ id: adEventId });
     if (adEvent) {
       await this.adEventRepo.manager.query(
-        'UPDATE client_records SET has_ad_tracking = true, ad_platform = $1 WHERE id = $2',
+        'UPDATE clients SET has_ad_tracking = true, ad_platform = $1 WHERE id = $2',
         [adEvent.platform, recordId],
       );
     }
