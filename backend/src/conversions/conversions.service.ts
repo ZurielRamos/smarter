@@ -429,10 +429,9 @@ export class ConversionsService {
     value?: number,
   ): Promise<ConversionLog> {
     const result = await this.googleDispatcher.send({
-      customerId: platform.credentials.customerId,
-      conversionActionId: platform.credentials.conversionActionId || convEvent.googleConversionAction || '',
-      developerToken: platform.credentials.developerToken,
-      eventName: convEvent.name,
+      measurementId: platform.credentials.measurementId,
+      apiSecret: platform.credentials.apiSecret,
+      eventName: convEvent.googleConversionAction || convEvent.name.toLowerCase().replace(/\s+/g, '_'),
       eventTime: Math.floor(Date.now() / 1000),
       gclid: adEvent.clickId || undefined,
       email: params.email,
