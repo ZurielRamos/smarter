@@ -699,34 +699,27 @@ export function WooCommerceIntegration() {
                                 ) : whatsappTemplates.length === 0 ? (
                                   <p className="text-xs text-gray-400 py-2">No hay plantillas aprobadas en esta bandeja.</p>
                                 ) : (
-                                  <div className="space-y-1.5 max-h-48 overflow-y-auto border border-gray-100 rounded-lg p-2">
-                                    {whatsappTemplates.map((tpl) => {
+                                  <Dropdown
+                                    value={formConfig.templateName || ""}
+                                    onChange={(val) => {
+                                      const tpl = whatsappTemplates.find((t) => t.name === val);
+                                      if (!tpl) return;
+                                      const bodyText = tpl.components?.find((c: any) => c.type === "BODY")?.text || "";
+                                      const matches = bodyText.match(/\{\{\d+\}\}/g) || [];
+                                      const mapping: Record<string, string> = {};
+                                      matches.forEach((m: string) => { mapping[m.replace(/[{}]/g, "")] = ""; });
+                                      setFormConfig({ ...formConfig, templateName: tpl.name, templateLanguage: tpl.language, variableMapping: mapping });
+                                    }}
+                                    placeholder="Seleccionar plantilla..."
+                                    options={whatsappTemplates.map((tpl) => {
                                       const body = tpl.components?.find((c: any) => c.type === "BODY")?.text || "";
-                                      const isSelected = formConfig.templateName === tpl.name;
-                                      return (
-                                        <button
-                                          key={`${tpl.name}-${tpl.language}`}
-                                          type="button"
-                                          onClick={() => {
-                                            const bodyText = tpl.components?.find((c: any) => c.type === "BODY")?.text || "";
-                                            const matches = bodyText.match(/\{\{\d+\}\}/g) || [];
-                                            const mapping: Record<string, string> = {};
-                                            matches.forEach((m: string) => { mapping[m.replace(/[{}]/g, "")] = ""; });
-                                            setFormConfig({ ...formConfig, templateName: tpl.name, templateLanguage: tpl.language, variableMapping: mapping });
-                                          }}
-                                          className={`w-full text-left p-2.5 rounded-lg border transition-all ${isSelected ? "border-blue-300 bg-blue-50" : "border-gray-100 hover:border-blue-200 hover:bg-blue-50/30"}`}
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-xs font-semibold text-gray-900">{tpl.name}</span>
-                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{tpl.language}</span>
-                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">{tpl.category}</span>
-                                            {isSelected && <CheckCircle2 className="h-3.5 w-3.5 text-blue-500 ml-auto" />}
-                                          </div>
-                                          <p className="text-[10px] text-gray-500 mt-1 line-clamp-2">{body}</p>
-                                        </button>
-                                      );
+                                      return {
+                                        value: tpl.name,
+                                        label: `${tpl.name} (${tpl.language}) — ${tpl.category}`,
+                                        desc: body.substring(0, 80) + (body.length > 80 ? "..." : ""),
+                                      };
                                     })}
-                                  </div>
+                                  />
                                 )}
                               </div>
 
