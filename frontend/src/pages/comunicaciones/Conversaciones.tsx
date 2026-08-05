@@ -99,8 +99,14 @@ export function Conversaciones() {
   const conversationListRef = useRef<HTMLDivElement>(null);
   const [labels, setLabels] = useState<Array<{ id: string; slug: string; label: string; description: string | null; color: string; showInSidebar: boolean }>>([]);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
-  const [selectedLabelFilters, setSelectedLabelFilters] = useState<Set<string>>(new Set());
-  const [hideCampaignMessages, setHideCampaignMessages] = useState(false);
+  const [selectedLabelFilters, setSelectedLabelFilters] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('chat_filter_labels');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+  const [hideCampaignMessages, setHideCampaignMessages] = useState(() => {
+    const saved = localStorage.getItem('chat_filter_hideCampaign');
+    return saved !== null ? saved === 'true' : true; // default: hidden (toggle off)
+  });
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; conversation: Conversation } | null>(null);
   const [msgContextMenu, setMsgContextMenu] = useState<{ x: number; y: number; message: Message } | null>(null);
@@ -133,6 +139,15 @@ export function Conversaciones() {
     if (!tenantId) return;
     loadConversations();
   }, [selectedInboxFilter, selectedLabelFilters, hideCampaignMessages]);
+
+  // Persist filters to localStorage
+  useEffect(() => {
+    localStorage.setItem('chat_filter_labels', JSON.stringify(Array.from(selectedLabelFilters)));
+  }, [selectedLabelFilters]);
+
+  useEffect(() => {
+    localStorage.setItem('chat_filter_hideCampaign', String(hideCampaignMessages));
+  }, [hideCampaignMessages]);
 
   useEffect(() => {
     if (!activeConversation) return;
