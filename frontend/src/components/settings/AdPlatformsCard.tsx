@@ -228,7 +228,12 @@ export function AdPlatformsCard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900">{config?.label || p.platform}</p>
-                    <p className="text-[11px] text-gray-400">{p.totalSent} conversiones enviadas{p.lastSentAt ? ` — Última: ${new Date(p.lastSentAt).toLocaleDateString()}` : ""}</p>
+                    <p className="text-[11px] text-gray-400">
+                      {p.platform === "meta" && p.credentials?.pixelId && `Pixel: ${p.credentials.pixelId}${p.credentials.pixelName ? ` (${p.credentials.pixelName})` : ""}`}
+                      {p.platform === "google" && p.credentials?.customerId && `Cuenta: ${p.credentials.customerId.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')}`}
+                      {p.platform === "tiktok" && p.credentials?.pixelCode && `Pixel: ${p.credentials.pixelCode}`}
+                      {" — "}{p.totalSent} conversiones enviadas{p.lastSentAt ? ` — Última: ${new Date(p.lastSentAt).toLocaleDateString()}` : ""}
+                    </p>
                   </div>
                   <button onClick={() => handleDeletePlatform(p.id)} className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
                     <Trash2 className="h-3.5 w-3.5" />
