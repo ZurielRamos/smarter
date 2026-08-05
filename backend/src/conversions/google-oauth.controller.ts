@@ -106,17 +106,22 @@ export class GoogleOAuthController {
       }
 
       // Get the customer ID(s) from Google Ads API
-      const customersResponse = await fetch(
-        'https://googleads.googleapis.com/v17/customers:listAccessibleCustomers',
-        {
-          headers: {
-            'Authorization': `Bearer ${tokens.access_token}`,
-            'developer-token': this.developerToken,
+      let customerIds: string[] = [];
+      try {
+        const customersResponse = await fetch(
+          'https://googleads.googleapis.com/v17/customers:listAccessibleCustomers',
+          {
+            headers: {
+              'Authorization': `Bearer ${tokens.access_token}`,
+              'developer-token': this.developerToken,
+            },
           },
-        },
-      );
-      const customersData = await customersResponse.json();
-      const customerIds = (customersData.resourceNames || []).map((rn: string) => rn.replace('customers/', ''));
+        );
+        const customersData = await customersResponse.json();
+        customerIds = (customersData.resourceNames || []).map((rn: string) => rn.replace('customers/', ''));
+      } catch (err) {
+        console.warn('[Google OAuth] Could not list customers:', err);
+      }
 
       // Get the tenant slug for redirect
       const tenant = await this.tenantRepo.findOneBy({ id: tenantId });
@@ -151,7 +156,9 @@ export class GoogleOAuthController {
       return res.redirect(`/${tenant.slug}/settings?google_connected=true`);
     } catch (err) {
       console.error('[Google OAuth] Error:', err);
-      return res.redirect('/settings?google_error=server_error');
+      const tenant = await this.tenantRepo.findOne({ where: { id: tenantId } });
+      const slug = tenant?.slug || '';
+      return res.redirect(`/${slug}/settings?google_error=${encodeURIComponent(String(err).substring(0, 100))}`);
     }
   }
 
