@@ -83,7 +83,13 @@ export class LinkTrackerController {
 
   // Check if there's any attribution data worth tracking
   var hasAttribution = params.fbclid || params.gclid || params.ttclid || params.li_fat_id || params.twclid || params.utm_source;
-  if (!hasAttribution) return;
+  if (!hasAttribution) {
+    // Still ping but don't track
+    var pingXhr = new XMLHttpRequest();
+    pingXhr.open("GET", API + "/ping", true);
+    pingXhr.send();
+    return;
+  }
 
   // Store params for this session
   var storedParams = JSON.parse(sessionStorage.getItem("__sg_atr") || "null");
@@ -96,27 +102,23 @@ export class LinkTrackerController {
     sessionStorage.setItem("__sg_atr", JSON.stringify(storedParams));
   }
 
-  // Create AdEvent and get tracking code
-  function getTrackingCode(callback, fallback) {
-    var cached = sessionStorage.getItem("__sg_code");
-    if (cached) return callback(cached);
+  // Tracking code (will be populated on page load)
+  var trackingCode = sessionStorage.getItem("__sg_code") || null;
 
+  // Create AdEvent eagerly on page load
+  if (!trackingCode) {
     var xhr = new XMLHttpRequest();
     xhr.open("POST", API + "/event", true);
     xhr.setRequestHeader("Content-Type", "application/json");
     xhr.onreadystatechange = function() {
-      if (xhr.readyState === 4) {
-        if (xhr.status === 201) {
-          var data = JSON.parse(xhr.responseText);
-          var code = data.code;
-          sessionStorage.setItem("__sg_code", code);
-          callback(code);
-        } else {
-          fallback();
-        }
+      if (xhr.readyState === 4 && xhr.status === 201) {
+        var data = JSON.parse(xhr.responseText);
+        trackingCode = data.code;
+        sessionStorage.setItem("__sg_code", trackingCode);
+        // Re-process links now that we have the code
+        processLinks();
       }
     };
-    xhr.onerror = function() { fallback(); };
     xhr.send(JSON.stringify({
       params: storedParams,
       landingPage: storedParams._lp,
@@ -125,40 +127,22 @@ export class LinkTrackerController {
     }));
   }
 
-  // Intercept WhatsApp links
+  // Modify WhatsApp links to include tracking code and open in new tab
   function processLinks() {
+    if (!trackingCode) return;
+    var codeText = CODE_PATTERN.replace("{{code}}", trackingCode);
     var links = document.querySelectorAll('a[href*="wa.me"], a[href*="api.whatsapp.com"]');
     links.forEach(function(link) {
       if (link.dataset.sgTracked) return;
       link.dataset.sgTracked = "1";
+      link.setAttribute("target", "_blank");
 
-      link.addEventListener("click", function(e) {
-        e.preventDefault();
-        var href = link.href;
-
-        // Open window immediately to preserve user gesture (avoids popup blocker)
-        var newWindow = window.open("about:blank", "_blank");
-
-        getTrackingCode(function(code) {
-          var codeText = CODE_PATTERN.replace("{{code}}", code);
-          var url = new URL(href);
-          var existingText = url.searchParams.get("text") || "";
-          var separator = existingText ? " " : "";
-          url.searchParams.set("text", existingText + separator + codeText);
-
-          if (newWindow) {
-            newWindow.location.href = url.toString();
-          } else {
-            window.open(url.toString(), "_blank");
-          }
-        }, function() {
-          if (newWindow) {
-            newWindow.location.href = href;
-          } else {
-            window.open(href, "_blank");
-          }
-        });
-      });
+      // Modify the href directly to include the code
+      var url = new URL(link.href);
+      var existingText = url.searchParams.get("text") || "";
+      var separator = existingText ? " " : "";
+      url.searchParams.set("text", existingText + separator + codeText);
+      link.href = url.toString();
     });
   }
 
