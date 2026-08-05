@@ -31,13 +31,10 @@ class Strategee_WooCommerce {
     }
 
     private function register_hooks() {
-        // Compra completada
+        // Compra completada — se dispara al crear la orden (thankyou page)
         if ($this->is_enabled('purchase')) {
-            add_action('woocommerce_payment_complete', [$this, 'on_purchase'], 10, 1);
-            add_action('woocommerce_order_status_completed', [$this, 'on_purchase'], 10, 1);
-            add_action('woocommerce_order_status_processing', [$this, 'on_purchase'], 10, 1);
-            add_action('woocommerce_order_status_on-hold', [$this, 'on_purchase'], 10, 1);
             add_action('woocommerce_thankyou', [$this, 'on_purchase'], 10, 1);
+            add_action('woocommerce_checkout_order_created', [$this, 'on_purchase_from_order'], 10, 1);
         }
 
         // Agregar al carrito
@@ -61,13 +58,29 @@ class Strategee_WooCommerce {
     }
 
     /**
-     * Evento: Compra completada.
+     * Evento: Compra completada (desde order ID — thankyou page).
      */
     public function on_purchase($order_id) {
-        // Evitar envío duplicado
         $order = wc_get_order($order_id);
         if (!$order) return;
+        $this->send_purchase_event($order);
+    }
 
+    /**
+     * Evento: Compra completada (desde objeto orden — checkout_order_created).
+     */
+    public function on_purchase_from_order($order) {
+        if (!$order) return;
+        $this->send_purchase_event($order);
+    }
+
+    /**
+     * Envía el evento de compra al CRM.
+     */
+    private function send_purchase_event($order) {
+        $order_id = $order->get_id();
+
+        // Evitar envío duplicado
         $already_tracked = $order->get_meta('_strategee_purchase_tracked');
         if ($already_tracked === 'yes') return;
 
