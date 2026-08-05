@@ -8,6 +8,7 @@ import { api } from "@/services/api";
 interface TrackingConfig {
   codePattern?: string;
   nextCode?: number;
+  pixelToken?: string;
 }
 
 export function TrackingConfigCard() {
@@ -97,6 +98,25 @@ export function TrackingConfigCard() {
         >
           {saving ? "Guardando..." : "Guardar"}
         </button>
+
+        {/* Pixel Token */}
+        {config.pixelToken && (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Pixel Token</label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-[11px] bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-500 font-mono truncate">
+                {config.pixelToken}
+              </code>
+              <button
+                onClick={() => copyToClipboard(config.pixelToken || "", "token")}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
+              >
+                {copied === "token" ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-gray-400" />}
+              </button>
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">Se genera automáticamente. Identifica tu pixel de forma segura.</p>
+          </div>
+        )}
 
         {/* Pixel Script */}
         <div className="border-t border-gray-100 pt-4">

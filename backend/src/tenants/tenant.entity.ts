@@ -42,6 +42,8 @@ export class Tenant {
     codePattern?: string;
     /** Next sequential code number */
     nextCode?: number;
+    /** Public token for pixel validation */
+    pixelToken?: string;
   } | null;
 
   // === AUDITORÍA ===

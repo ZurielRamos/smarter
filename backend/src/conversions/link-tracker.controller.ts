@@ -35,11 +35,22 @@ export class LinkTrackerController {
 
     const config = tenant.trackingConfig || {};
     const codePattern = config.codePattern || 'ref-{{code}}';
+    const pixelToken = config.pixelToken || '';
     const apiBase = process.env.API_BASE_URL || '';
+
+    // Generate token if not present
+    if (!config.pixelToken) {
+      const newToken = require('crypto').randomUUID();
+      await this.tenantRepo.update(tenant.id, {
+        trackingConfig: { ...config, pixelToken: newToken },
+      } as any);
+      return this.getPixelScript(slug, res); // recurse with new token
+    }
 
     const script = `
 (function() {
   var TENANT_SLUG = "${slug}";
+  var TOKEN = "${pixelToken}";
   var CODE_PATTERN = ${JSON.stringify(codePattern)};
   var API = "${apiBase}/t/" + TENANT_SLUG;
 
@@ -94,7 +105,8 @@ export class LinkTrackerController {
     xhr.send(JSON.stringify({
       params: storedParams,
       landingPage: storedParams._lp,
-      referrer: storedParams._ref
+      referrer: storedParams._ref,
+      token: TOKEN
     }));
   }
 
@@ -148,13 +160,19 @@ export class LinkTrackerController {
   @Post(':slug/event')
   async createEvent(
     @Param('slug') slug: string,
-    @Body() body: { params: Record<string, string>; landingPage?: string; referrer?: string },
+    @Body() body: { params: Record<string, string>; landingPage?: string; referrer?: string; token?: string },
     @Req() req: Request,
     @Res() res: Response,
   ) {
     const tenant = await this.tenantRepo.findOne({ where: { slug } });
     if (!tenant) {
       return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    // Validate pixel token
+    const config = tenant.trackingConfig || {};
+    if (!config.pixelToken || body.token !== config.pixelToken) {
+      return res.status(403).json({ error: 'Invalid pixel token' });
     }
 
     // Generate sequential code
