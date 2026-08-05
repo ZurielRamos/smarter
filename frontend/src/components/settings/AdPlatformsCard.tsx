@@ -21,10 +21,7 @@ const PLATFORMS = [
     { key: "accessToken", label: "Access Token", placeholder: "EAAx...", type: "password", help: "System User Token con permisos ads_management" },
     { key: "testEventCode", label: "Test Event Code (opcional)", placeholder: "TEST12345", help: "Para verificar eventos en modo test antes de ir a producción" },
   ]},
-  { value: "google", label: "Google (GA4)", desc: "Measurement Protocol", fields: [
-    { key: "measurementId", label: "Measurement ID", placeholder: "G-XXXXXXXXXX", help: "GA4 → Admin → Data Streams → tu stream → Measurement ID" },
-    { key: "apiSecret", label: "API Secret", placeholder: "xxxxxxxxxxxxxxx", type: "password", help: "GA4 → Admin → Data Streams → Measurement Protocol API Secrets" },
-  ]},
+  { value: "google", label: "Google Ads", desc: "Conversions API (OAuth)", fields: []},
   { value: "tiktok", label: "TikTok Ads", desc: "Events API", fields: [
     { key: "pixelCode", label: "Pixel Code", placeholder: "CXXXXXXXXXXXXXX", help: "TikTok Ads Manager → Assets → Events → Web Events → tu pixel" },
     { key: "accessToken", label: "Access Token", placeholder: "xxxxxxxx", type: "password", help: "TikTok for Business → Marketing API → generar token con scope 'Event' " },
@@ -55,6 +52,13 @@ export function AdPlatformsCard() {
   }, [tenantId]);
 
   const handleAddPlatform = async () => {
+    // For Google, redirect to OAuth flow
+    if (selectedPlatform === "google") {
+      const apiBase = import.meta.env.VITE_API_URL || "/api";
+      window.location.href = `${apiBase}/conversions/google/auth?tenantId=${tenantId}`;
+      return;
+    }
+
     try {
       const { data } = await api.post("/conversions/platforms", { tenantId, platform: selectedPlatform, credentials, isActive: true });
       setPlatforms((prev) => [...prev, data]);
@@ -152,21 +156,27 @@ export function AdPlatformsCard() {
               </div>
 
               {/* Credential fields */}
-              <div className="space-y-2.5">
-                {currentConfig?.fields.map((field) => (
-                  <div key={field.key}>
-                    <label className="block text-[11px] font-medium text-gray-600 mb-1">{field.label}</label>
-                    <input
-                      type={field.type || "text"}
-                      placeholder={field.placeholder}
-                      value={credentials[field.key] || ""}
-                      onChange={(e) => setCredentials({ ...credentials, [field.key]: e.target.value })}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-                    />
-                    {field.help && <p className="text-[10px] text-gray-400 mt-0.5">{field.help}</p>}
-                  </div>
-                ))}
-              </div>
+              {selectedPlatform === "google" ? (
+                <div className="bg-gray-100 rounded-lg p-3">
+                  <p className="text-xs text-gray-600">Al hacer click en "Conectar", serás redirigido a Google para autorizar el acceso a tu cuenta de Google Ads. No necesitas ingresar credenciales manualmente.</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {currentConfig?.fields.map((field) => (
+                    <div key={field.key}>
+                      <label className="block text-[11px] font-medium text-gray-600 mb-1">{field.label}</label>
+                      <input
+                        type={field.type || "text"}
+                        placeholder={field.placeholder}
+                        value={credentials[field.key] || ""}
+                        onChange={(e) => setCredentials({ ...credentials, [field.key]: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                      />
+                      {field.help && <p className="text-[10px] text-gray-400 mt-0.5">{field.help}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="flex justify-end gap-2 pt-1">
                 <button onClick={() => { setShowAddPlatform(false); setCredentials({}); }} className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>

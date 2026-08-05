@@ -428,10 +428,19 @@ export class ConversionsService {
     platform: AdPlatform,
     value?: number,
   ): Promise<ConversionLog> {
+    // Check if token needs refresh
+    let accessToken = platform.credentials.accessToken;
+    if (platform.credentials.expiresAt && new Date(platform.credentials.expiresAt) < new Date()) {
+      // Token expired, try to refresh
+      const refreshed = await this.refreshGoogleToken(platform);
+      if (refreshed) accessToken = refreshed;
+    }
+
     const result = await this.googleDispatcher.send({
-      measurementId: platform.credentials.measurementId,
-      apiSecret: platform.credentials.apiSecret,
-      eventName: convEvent.googleConversionAction || convEvent.name.toLowerCase().replace(/\s+/g, '_'),
+      accessToken,
+      developerToken: platform.credentials.developerToken,
+      customerId: platform.credentials.customerId,
+      eventName: convEvent.googleConversionAction || 'purchase',
       eventTime: Math.floor(Date.now() / 1000),
       gclid: adEvent.clickId || undefined,
       email: params.email,
@@ -464,6 +473,40 @@ export class ConversionsService {
     }
 
     return this.conversionLogRepo.save(log);
+  }
+
+  private async refreshGoogleToken(platform: AdPlatform): Promise<string | null> {
+    if (!platform.credentials?.refreshToken) return null;
+    const clientId = process.env.GOOGLE_ADS_CLIENT_ID || '';
+    const clientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET || '';
+    if (!clientId || !clientSecret) return null;
+
+    try {
+      const response = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          refresh_token: platform.credentials.refreshToken,
+          client_id: clientId,
+          client_secret: clientSecret,
+          grant_type: 'refresh_token',
+        }),
+      });
+      const tokens = await response.json();
+      if (!tokens.access_token) return null;
+
+      await this.adPlatformRepo.update(platform.id, {
+        credentials: {
+          ...platform.credentials,
+          accessToken: tokens.access_token,
+          expiresAt: new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString(),
+        },
+      } as any);
+
+      return tokens.access_token;
+    } catch {
+      return null;
+    }
   }
 
   private async dispatchToTikTok(
