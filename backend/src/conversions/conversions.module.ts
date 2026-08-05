@@ -8,6 +8,7 @@ import { ConversionLog } from './conversion-log.entity';
 import { ContactEvent } from './contact-event.entity';
 import { WooHook } from './woo-hook.entity';
 import { Tenant } from '../tenants/tenant.entity';
+import { Inbox } from '../chats/inbox.entity';
 import { User } from '../users/user.entity';
 import { ConversionsService } from './conversions.service';
 import { ContactEventsService } from './contact-events.service';
@@ -26,7 +27,7 @@ import { ConversionDispatchWorker } from './conversion-dispatch.worker';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AdEvent, ConversionEvent, AdPlatform, ConversionLog, ContactEvent, WooHook, Tenant, User]),
+    TypeOrmModule.forFeature([AdEvent, ConversionEvent, AdPlatform, ConversionLog, ContactEvent, WooHook, Inbox, Tenant, User]),
     BullModule.registerQueue({ name: 'conversion-dispatch' }),
   ],
   providers: [ConversionsService, ContactEventsService, MetaDispatcher, GoogleDispatcher, TikTokDispatcher, ConversionDispatchWorker, ApiTokenGuard],

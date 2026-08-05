@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContactEvent } from './contact-event.entity';
 import { WooHook } from './woo-hook.entity';
+import { Inbox } from '../chats/inbox.entity';
 import { ConversionsService } from './conversions.service';
 
 export interface CreateContactEventParams {
@@ -27,6 +28,8 @@ export class ContactEventsService {
     private readonly contactEventRepo: Repository<ContactEvent>,
     @InjectRepository(WooHook)
     private readonly wooHookRepo: Repository<WooHook>,
+    @InjectRepository(Inbox)
+    private readonly inboxRepo: Repository<Inbox>,
     private readonly conversionsService: ConversionsService,
   ) {}
 
@@ -136,14 +139,113 @@ export class ContactEventsService {
             break;
 
           case 'notification':
-            // Notification sending would be handled by the messaging service
-            // For now we log it — full implementation depends on the messaging queue
-            this.logger.log(`[WooHook] Notification hook triggered for record ${event.recordId} via ${hook.config.channel}`);
+            if (hook.config.inboxId && hook.config.channel === 'whatsapp' && hook.config.templateName) {
+              await this.sendWhatsAppNotification(hook, event);
+            } else {
+              this.logger.log(`[WooHook] Notification hook triggered for record ${event.recordId} via ${hook.config.channel} (non-whatsapp, skipped)`);
+            }
             break;
         }
       } catch (err) {
         this.logger.warn(`[WooHook] Error executing hook ${hook.id}:`, err);
       }
+    }
+  }
+
+  /**
+   * Send a WhatsApp template notification for a WooHook.
+   */
+  private async sendWhatsAppNotification(hook: WooHook, event: ContactEvent): Promise<void> {
+    const inbox = await this.inboxRepo.findOneBy({ id: hook.config.inboxId });
+    if (!inbox || !inbox.accessToken || !inbox.phoneNumberId) {
+      this.logger.warn(`[WooHook] Inbox ${hook.config.inboxId} not found or missing credentials`);
+      return;
+    }
+
+    // Get contact phone
+    const contact = await this.contactEventRepo.manager.query(
+      'SELECT phone, first_name, last_name, email FROM clients WHERE id = $1',
+      [event.recordId],
+    );
+    const phone = contact?.[0]?.phone;
+    if (!phone) {
+      this.logger.warn(`[WooHook] No phone for record ${event.recordId}, skipping WhatsApp`);
+      return;
+    }
+
+    // Resolve variables from event metadata
+    const metadata = event.metadata || {};
+    const variableMapping = hook.config.variableMapping || {};
+    const resolvedVars: Record<string, string> = {};
+
+    const variableValues: Record<string, string> = {
+      '{{firstName}}': contact[0]?.first_name || '',
+      '{{lastName}}': contact[0]?.last_name || '',
+      '{{email}}': contact[0]?.email || '',
+      '{{phone}}': phone,
+      '{{total}}': event.value ? String(event.value) : (metadata.total || '0'),
+      '{{currency}}': event.currency || metadata.currency || 'COP',
+      '{{orderNumber}}': metadata.order_number || metadata.orderNumber || '',
+      '{{productName}}': metadata.items?.[0]?.name || metadata.product_name || '',
+      '{{itemsCount}}': String(metadata.items_count || metadata.itemsCount || ''),
+      '{{paymentMethod}}': metadata.payment_method || metadata.paymentMethod || '',
+      '{{productSku}}': metadata.product_sku || '',
+      '{{quantity}}': String(metadata.quantity || ''),
+      '{{formName}}': metadata.form_title || metadata.formName || '',
+      '{{username}}': metadata.username || '',
+      '{{category}}': metadata.category || '',
+    };
+
+    for (const [varNum, varKey] of Object.entries(variableMapping)) {
+      resolvedVars[varNum] = variableValues[varKey] || varKey || '';
+    }
+
+    // Send via Meta Cloud API
+    const cleanPhone = phone.startsWith('+') ? phone.slice(1) : phone;
+    const components: any[] = [];
+    const bodyParams = Object.entries(resolvedVars)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([, value]) => ({ type: 'text', text: value }));
+
+    if (bodyParams.length > 0) {
+      components.push({ type: 'body', parameters: bodyParams });
+    }
+
+    const templateLanguage = hook.config.templateLanguage || 'es';
+
+    const requestBody = {
+      messaging_product: 'whatsapp',
+      to: cleanPhone,
+      type: 'template',
+      template: {
+        name: hook.config.templateName,
+        language: { code: templateLanguage },
+        components,
+      },
+    };
+
+    try {
+      const response = await fetch(
+        `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${inbox.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        },
+      );
+
+      const result = await response.json();
+
+      if (response.ok && result.messages?.[0]?.id) {
+        this.logger.log(`[WooHook] WhatsApp sent to ${cleanPhone}: messageId=${result.messages[0].id}`);
+      } else {
+        this.logger.warn(`[WooHook] WhatsApp send failed for ${cleanPhone}:`, result.error || result);
+      }
+    } catch (error) {
+      this.logger.error(`[WooHook] WhatsApp send exception for ${cleanPhone}:`, error);
     }
   }
 

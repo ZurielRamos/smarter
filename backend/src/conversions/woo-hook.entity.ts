@@ -35,10 +35,15 @@ export class WooHook {
   /** Action configuration (JSON) */
   @Column({ type: 'jsonb', default: {} })
   config: {
+    conversionType?: string;
     conversionName?: string;
+    conversionValue?: string;
+    conversionCurrency?: string;
     inboxId?: string;
     templateName?: string;
+    templateLanguage?: string;
     templateMessage?: string;
+    variableMapping?: Record<string, string>;
     channel?: string;
     tagName?: string;
   };
