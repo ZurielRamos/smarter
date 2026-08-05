@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { Crosshair, Copy, Check } from "lucide-react";
+import { Crosshair, Copy, Check, Globe, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/services/api";
@@ -9,6 +9,8 @@ interface TrackingConfig {
   codePattern?: string;
   nextCode?: number;
   pixelToken?: string;
+  lastPingAt?: string;
+  lastPingOrigin?: string;
 }
 
 export function TrackingConfigCard() {
@@ -22,6 +24,9 @@ export function TrackingConfigCard() {
   });
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [verifyUrl, setVerifyUrl] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<{ installed: boolean; error?: string; lastPingAt?: string; lastPingOrigin?: string } | null>(null);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -135,6 +140,74 @@ export function TrackingConfigCard() {
               {copied === "pixel" ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-gray-400" />}
             </button>
           </div>
+        </div>
+
+        {/* Verification */}
+        <div className="border-t border-gray-100 pt-4">
+          <p className="text-xs font-medium text-gray-700 mb-2">Verificar instalación</p>
+
+          {/* Last ping info */}
+          {config.lastPingAt && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-green-50 border border-green-100 rounded-lg">
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
+              <div className="text-[11px] text-green-700">
+                <span>Última señal: {new Date(config.lastPingAt).toLocaleString()}</span>
+                {config.lastPingOrigin && <span className="text-green-600 ml-1">({config.lastPingOrigin})</span>}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <input
+                type="url"
+                value={verifyUrl}
+                onChange={(e) => setVerifyUrl(e.target.value)}
+                placeholder="https://tusitio.com"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+              />
+            </div>
+            <button
+              onClick={async () => {
+                if (!verifyUrl) return;
+                setVerifying(true);
+                setVerifyResult(null);
+                try {
+                  const { data } = await api.post(`/t/${slug}/verify`, { url: verifyUrl });
+                  setVerifyResult(data);
+                } catch {
+                  setVerifyResult({ installed: false, error: "Error al verificar" });
+                } finally {
+                  setVerifying(false);
+                }
+              }}
+              disabled={verifying || !verifyUrl}
+              className="px-3 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors disabled:opacity-50 shrink-0"
+            >
+              {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verificar"}
+            </button>
+          </div>
+
+          {verifyResult && (
+            <div className={`mt-3 flex items-start gap-2 px-3 py-2.5 rounded-lg border ${verifyResult.installed ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100"}`}>
+              {verifyResult.installed ? (
+                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+              ) : (
+                <XCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+              )}
+              <div>
+                <p className={`text-sm font-medium ${verifyResult.installed ? "text-green-800" : "text-red-800"}`}>
+                  {verifyResult.installed ? "Pixel detectado correctamente" : "Pixel no detectado"}
+                </p>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  {verifyResult.installed
+                    ? "El script está presente en el HTML de tu sitio."
+                    : verifyResult.error || "Asegúrate de haber insertado el script antes de </body>."}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

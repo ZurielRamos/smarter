@@ -44,6 +44,10 @@ export class Tenant {
     nextCode?: number;
     /** Public token for pixel validation */
     pixelToken?: string;
+    /** Last time the pixel sent a ping */
+    lastPingAt?: string;
+    /** Origin/referer of the last ping */
+    lastPingOrigin?: string;
   } | null;
 
   // === AUDITORÍA ===

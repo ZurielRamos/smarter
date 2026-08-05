@@ -144,6 +144,11 @@ export class LinkTrackerController {
   }
   var obs = new MutationObserver(processLinks);
   obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
+
+  // Ping to confirm pixel is loaded
+  var pingXhr = new XMLHttpRequest();
+  pingXhr.open("GET", API + "/ping", true);
+  pingXhr.send();
 })();
 `;
 
@@ -195,8 +200,81 @@ export class LinkTrackerController {
   }
 
   /**
-   * Generate a sequential code for the tenant and increment the counter.
+   * Pixel verification ping. Called by the pixel on load to confirm it's running.
+   * GET /t/:slug/ping
    */
+  @Public()
+  @Get(':slug/ping')
+  async pixelPing(
+    @Param('slug') slug: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const tenant = await this.tenantRepo.findOne({ where: { slug } });
+    if (!tenant) return res.status(404).json({ ok: false });
+
+    // Update last ping timestamp
+    const config = tenant.trackingConfig || {};
+    await this.tenantRepo.update(tenant.id, {
+      trackingConfig: {
+        ...config,
+        lastPingAt: new Date().toISOString(),
+        lastPingOrigin: (req.headers['origin'] || req.headers['referer'] || '') as string,
+      },
+    } as any);
+
+    // Return 1x1 transparent pixel (for img tag fallback) or JSON
+    res.setHeader('Cache-Control', 'no-cache');
+    return res.status(200).json({ ok: true });
+  }
+
+  /**
+   * Verify if the pixel is installed on a given URL.
+   * POST /t/:slug/verify
+   */
+  @Public()
+  @Post(':slug/verify')
+  async verifyPixel(
+    @Param('slug') slug: string,
+    @Body() body: { url: string },
+    @Res() res: Response,
+  ) {
+    const tenant = await this.tenantRepo.findOne({ where: { slug } });
+    if (!tenant) return res.status(404).json({ installed: false, error: 'Tenant not found' });
+
+    const config = tenant.trackingConfig || {};
+    const pixelUrl = `/t/${slug}/pixel.js`;
+
+    try {
+      const response = await fetch(body.url, {
+        headers: { 'User-Agent': 'SmartCRM-PixelVerifier/1.0' },
+        signal: AbortSignal.timeout(10000),
+      });
+      const html = await response.text();
+
+      const hasPixelScript = html.includes(pixelUrl) || html.includes(`/t/${slug}/pixel.js`);
+      const hasAnyReference = html.includes(slug) && html.includes('pixel.js');
+
+      return res.json({
+        installed: hasPixelScript || hasAnyReference,
+        url: body.url,
+        lastPingAt: config.lastPingAt || null,
+        lastPingOrigin: config.lastPingOrigin || null,
+        details: {
+          scriptTagFound: hasPixelScript,
+          slugReferenceFound: hasAnyReference,
+          httpStatus: response.status,
+        },
+      });
+    } catch (error) {
+      return res.json({
+        installed: false,
+        url: body.url,
+        error: `No se pudo acceder al sitio: ${String(error).substring(0, 100)}`,
+        lastPingAt: config.lastPingAt || null,
+      });
+    }
+  }
   private async generateCode(tenant: Tenant): Promise<string> {
     const config = tenant.trackingConfig || {};
     const nextCode = config.nextCode || 1;
