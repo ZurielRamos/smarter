@@ -572,6 +572,10 @@ export class ChatsService {
       if (msg.referral) {
         conversation.hasAdTracking = true;
         conversation.adPlatform = 'meta';
+        // Also mark the client record
+        if (conversation.recordId) {
+          this.clientRecordRepo.update(conversation.recordId, { hasAdTracking: true, adPlatform: 'meta' } as any).catch(() => {});
+        }
       }
 
       // Check if message contains a tracking code (from pixel/link tracker)
