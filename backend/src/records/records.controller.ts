@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { RecordsService } from './records.service';
@@ -73,6 +74,26 @@ export class RecordsController {
     @Query('assignedTeamId') assignedTeamId?: string,
   ) {
     return this.recordsService.getKanbanInitial(tenantId, groupBy, +limit, assignedTo, assignedTeamId);
+  }
+
+  @Post('export')
+  async exportCsv(
+    @Body() body: {
+      tenantId: string;
+      fields: Array<{ key: string; label: string }>;
+      filters?: Array<{ field: string; operator: string; value: string }>;
+      assignedTo?: string;
+      assignedTeamId?: string;
+      separator?: string;
+      includeHeaders?: boolean;
+      dateFormat?: string;
+    },
+    @Res() res: Response,
+  ) {
+    const csv = await this.recordsService.exportCsv(body);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="contactos_${new Date().toISOString().split('T')[0]}.csv"`);
+    res.send('\uFEFF' + csv);
   }
 
   @Get('deleted')

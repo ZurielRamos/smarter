@@ -1,6 +1,6 @@
 // Force reload - v3
 import { useEffect, useState, useRef, useMemo, useCallback, useTransition, lazy, Suspense } from "react";
-import { Users, Database, Upload, Settings2, Columns, Eye, EyeOff, ListOrdered, RotateCcw, ArrowUpNarrowWide, ArrowDownNarrowWide, Filter, Plus, Loader2, ChevronDown, List, Edit3, Copy, UserX, Trash2, X, Save, LayoutGrid, TableProperties, StickyNote, UserPlus } from "lucide-react";
+import { Users, Database, Upload, Settings2, Columns, Eye, EyeOff, ListOrdered, RotateCcw, ArrowUpNarrowWide, ArrowDownNarrowWide, Filter, Plus, Loader2, ChevronDown, List, Edit3, Copy, UserX, Trash2, X, Save, LayoutGrid, TableProperties, StickyNote, UserPlus, Download } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import headerBg from "@/assets/header-background.jpg";
@@ -20,6 +20,7 @@ import axios from "axios";
 const ColumnConfigModal = lazy(() => import("./ColumnConfigModal").then((m) => ({ default: m.ColumnConfigModal })));
 const NewRecordModal = lazy(() => import("./NewRecordModal").then((m) => ({ default: m.NewRecordModal })));
 const NewListModal = lazy(() => import("./NewListModal").then((m) => ({ default: m.NewListModal })));
+const ExportModal = lazy(() => import("./ExportModal").then((m) => ({ default: m.ExportModal })));
 
 const tenantApi = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
 tenantApi.interceptors.request.use((config) => {
@@ -114,6 +115,7 @@ export function Clients() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSelectAll, setBulkSelectAll] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false); // true = all matching filter are selected
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const tableMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   // Defer heavy content to allow tab animation to complete first
@@ -665,6 +667,17 @@ export function Clients() {
                   <button
                     onClick={() => {
                       setDropdownOpen(false);
+                      setExportModalOpen(true);
+                    }}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <Download className="h-4 w-4 text-gray-500" />
+                    Exportar CSV
+                  </button>
+                  <div className="border-t border-gray-100 my-1" />
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
                       navigate(`/${slug}/clients/deleted`);
                     }}
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
@@ -1163,6 +1176,19 @@ export function Clients() {
           loadClients();
         }}
       />
+
+      {exportModalOpen && (
+        <Suspense fallback={null}>
+          <ExportModal
+            open={exportModalOpen}
+            onClose={() => setExportModalOpen(false)}
+            filters={advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined}
+            assignedTo={ownerFilter === "mine" ? user?.id : undefined}
+            assignedTeamId={ownerFilter === "myTeam" ? getUserTeamId() : undefined}
+            total={total}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

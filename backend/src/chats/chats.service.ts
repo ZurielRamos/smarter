@@ -823,6 +823,36 @@ export class ChatsService {
     });
   }
 
+  async getUnreadCount(tenantId: string, userId?: string, role?: string): Promise<{ count: number }> {
+    // Admin sees all unread for the tenant
+    if (role === 'admin' || role === 'owner' || !userId) {
+      const result = await this.conversationRepo.query(
+        `SELECT COALESCE(SUM(conv.unread_count), 0) as count
+         FROM conversations conv
+         JOIN inboxes i ON i.id = conv.inbox_id
+         WHERE i.tenant_id = $1 AND conv.unread_count > 0 AND conv.status = 'open'`,
+        [tenantId],
+      );
+      return { count: parseInt(result[0]?.count || '0') };
+    }
+
+    // Agent sees unread only from inboxes they collaborate on (directly or via team)
+    const result = await this.conversationRepo.query(
+      `SELECT COALESCE(SUM(conv.unread_count), 0) as count
+       FROM conversations conv
+       JOIN inboxes i ON i.id = conv.inbox_id
+       WHERE i.tenant_id = $1
+         AND conv.unread_count > 0
+         AND conv.status = 'open'
+         AND (
+           EXISTS (SELECT 1 FROM inbox_collaborators ic WHERE ic.inbox_id = i.id AND ic.type = 'user' AND ic.reference_id = $2)
+           OR EXISTS (SELECT 1 FROM inbox_collaborators ic JOIN team_members tm ON tm.team_id = ic.reference_id WHERE ic.inbox_id = i.id AND ic.type = 'team' AND tm.user_id = $2)
+         )`,
+      [tenantId, userId],
+    );
+    return { count: parseInt(result[0]?.count || '0') };
+  }
+
   async getConversationsPaginated(inboxId: string, opts: { limit: number; offset: number }): Promise<{ data: Conversation[]; total: number }> {
     const [data, total] = await this.conversationRepo.findAndCount({
       where: { inboxId },

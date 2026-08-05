@@ -188,6 +188,15 @@ export class ChatsController {
 
   // === CONVERSATIONS ===
 
+  @Get('unread-count')
+  getUnreadCount(
+    @Query('tenantId') tenantId: string,
+    @Query('userId') userId?: string,
+    @Query('role') role?: string,
+  ) {
+    return this.chatsService.getUnreadCount(tenantId, userId, role);
+  }
+
   @Get('conversations')
   getConversations(
     @Query('tenantId') tenantId?: string,

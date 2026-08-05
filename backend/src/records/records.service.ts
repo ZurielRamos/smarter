@@ -509,6 +509,80 @@ export class RecordsService {
     return map[sortBy] || 'created_at';
   }
 
+  async exportCsv(params: {
+    tenantId: string;
+    fields: Array<{ key: string; label: string }>;
+    filters?: Array<{ field: string; operator: string; value: string }>;
+    assignedTo?: string;
+    assignedTeamId?: string;
+    separator?: string;
+    includeHeaders?: boolean;
+    dateFormat?: string;
+  }): Promise<string> {
+    const { tenantId, fields, filters, assignedTo, assignedTeamId, separator = ',', includeHeaders = true } = params;
+
+    const qb = this.recordRepository.createQueryBuilder('client')
+      .where('client.tenant_id = :tenantId', { tenantId })
+      .andWhere('client.deleted_at IS NULL');
+
+    if (assignedTo) qb.andWhere('client.assigned_to = :assignedTo', { assignedTo });
+    if (assignedTeamId) qb.andWhere('client.assigned_team_id = :assignedTeamId', { assignedTeamId });
+
+    if (filters && filters.length > 0) {
+      filters.forEach((f, idx) => {
+        const paramKey = `fv_${idx}`;
+        const isCustom = !this.SYSTEM_COLUMNS.has(f.field);
+        const col = isCustom ? `client.custom_data ->> '${f.field}'` : `client.${this.toSnakeCase(f.field)}`;
+        switch (f.operator) {
+          case 'equals': qb.andWhere(`${col} = :${paramKey}`, { [paramKey]: f.value }); break;
+          case 'not_equals': qb.andWhere(`${col} != :${paramKey}`, { [paramKey]: f.value }); break;
+          case 'contains': qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `%${f.value.toLowerCase()}%` }); break;
+          case 'starts_with': qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `${f.value.toLowerCase()}%` }); break;
+          case 'greater_than': qb.andWhere(`${col}::numeric > :${paramKey}`, { [paramKey]: Number(f.value) }); break;
+          case 'less_than': qb.andWhere(`${col}::numeric < :${paramKey}`, { [paramKey]: Number(f.value) }); break;
+          case 'is_empty': qb.andWhere(`(${col} IS NULL OR ${col} = '')`); break;
+          case 'is_not_empty': qb.andWhere(`(${col} IS NOT NULL AND ${col} != '')`); break;
+        }
+      });
+    }
+
+    qb.orderBy('client.created_at', 'DESC');
+    const records = await qb.getMany();
+
+    const escape = (val: string) => {
+      if (val.includes(separator) || val.includes('"') || val.includes('\n')) {
+        return `"${val.replace(/"/g, '""')}"`;
+      }
+      return val;
+    };
+
+    const rows: string[] = [];
+
+    if (includeHeaders) {
+      rows.push(fields.map((f) => escape(f.label)).join(separator));
+    }
+
+    for (const record of records) {
+      const row = fields.map((f) => {
+        let value: any;
+        if (this.SYSTEM_COLUMNS.has(f.key) || ['id', 'createdAt', 'updatedAt', 'tenantId', 'deletedAt', 'assignedTo', 'assignedTeamId', 'fullName', 'avatarUrl'].includes(f.key)) {
+          value = (record as any)[f.key];
+        } else {
+          value = record.customData?.[f.key];
+        }
+
+        if (value === null || value === undefined) return '';
+        if (value instanceof Date) return value.toISOString().split('T')[0];
+        if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+        if (Array.isArray(value)) return escape(value.join(', '));
+        return escape(String(value));
+      });
+      rows.push(row.join(separator));
+    }
+
+    return rows.join('\n');
+  }
+
   async getDeleted(tenantId: string, page = 1, limit = 25, search?: string): Promise<{ data: ClientRecord[]; total: number }> {
     const qb = this.recordRepository.createQueryBuilder('client')
       .where('client.tenant_id = :tenantId', { tenantId })
