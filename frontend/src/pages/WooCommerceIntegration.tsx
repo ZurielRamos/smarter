@@ -15,6 +15,12 @@ import {
   Bell,
   Tag,
   CheckCircle2,
+  CreditCard,
+  ShoppingBag,
+  Eye,
+  UserPlus,
+  FileText,
+  PackageCheck,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/services/api";
@@ -23,12 +29,12 @@ import headerBg from "@/assets/header-background.jpg";
 
 // WooCommerce events available
 const WOO_EVENTS = [
-  { key: "purchase", label: "Compra completada", description: "Cuando un pedido se completa o se confirma el pago", icon: "🛍️", example: "Cliente pagó $50.000 por 2 productos" },
-  { key: "add_to_cart", label: "Agregar al carrito", description: "Cuando un producto se agrega al carrito", icon: "🛒", example: "Cliente agregó 'Plan Premium' al carrito" },
-  { key: "initiate_checkout", label: "Inicio de checkout", description: "Cuando el cliente inicia el proceso de pago", icon: "💳", example: "Cliente entró a la página de pago" },
-  { key: "view_content", label: "Vista de producto", description: "Cuando un cliente visita una página de producto", icon: "👀", example: "Cliente vio el producto 'Servicio Gold'" },
-  { key: "sign_up", label: "Registro de usuario", description: "Cuando un nuevo usuario se registra en la tienda", icon: "👤", example: "Nuevo usuario: juan@email.com" },
-  { key: "lead", label: "Formulario enviado", description: "Cuando se envía un formulario de contacto (CF7, WPForms)", icon: "📋", example: "Formulario 'Contacto' enviado" },
+  { key: "purchase", label: "Compra completada", description: "Cuando un pedido se completa o se confirma el pago", icon: PackageCheck, color: "text-green-600", bg: "bg-green-50", example: "Cliente pagó $50.000 por 2 productos" },
+  { key: "add_to_cart", label: "Agregar al carrito", description: "Cuando un producto se agrega al carrito", icon: ShoppingBag, color: "text-purple-600", bg: "bg-purple-50", example: "Cliente agregó 'Plan Premium' al carrito" },
+  { key: "initiate_checkout", label: "Inicio de checkout", description: "Cuando el cliente inicia el proceso de pago", icon: CreditCard, color: "text-blue-600", bg: "bg-blue-50", example: "Cliente entró a la página de pago" },
+  { key: "view_content", label: "Vista de producto", description: "Cuando un cliente visita una página de producto", icon: Eye, color: "text-sky-600", bg: "bg-sky-50", example: "Cliente vio el producto 'Servicio Gold'" },
+  { key: "sign_up", label: "Registro de usuario", description: "Cuando un nuevo usuario se registra en la tienda", icon: UserPlus, color: "text-indigo-600", bg: "bg-indigo-50", example: "Nuevo usuario: juan@email.com" },
+  { key: "lead", label: "Formulario enviado", description: "Cuando se envía un formulario de contacto (CF7, WPForms)", icon: FileText, color: "text-orange-600", bg: "bg-orange-50", example: "Formulario 'Contacto' enviado" },
 ];
 
 // Actions that can be triggered
@@ -293,8 +299,9 @@ export function WooCommerceIntegration() {
               {/* Form header */}
               <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900">
-                    {editingId ? "✏️ Editar hook" : "✨ Nuevo hook"}
+                  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    {editingId ? <Edit3 className="h-4 w-4 text-gray-500" /> : <Plus className="h-4 w-4 text-brand-600" />}
+                    {editingId ? "Editar hook" : "Nuevo hook"}
                   </h3>
                   <p className="text-[11px] text-gray-500 mt-0.5">Define qué pasa cuando ocurre un evento en tu tienda</p>
                 </div>
@@ -311,32 +318,37 @@ export function WooCommerceIntegration() {
                     <label className="text-xs font-bold text-gray-900 uppercase tracking-wide">¿Qué evento quieres capturar?</label>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {WOO_EVENTS.map((evt) => (
-                      <button
-                        key={evt.key}
-                        type="button"
-                        onClick={() => setFormEvent(evt.key)}
-                        className={`group text-left p-3.5 rounded-xl border-2 transition-all duration-200 ${
-                          formEvent === evt.key
-                            ? "border-purple-400 bg-purple-50 shadow-sm shadow-purple-100"
-                            : "border-gray-100 hover:border-purple-200 hover:bg-purple-50/30 hover:shadow-sm"
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <span className="text-lg leading-none mt-0.5">{evt.icon}</span>
-                          <div className="flex-1 min-w-0">
-                            <span className="text-xs font-semibold text-gray-900 block">{evt.label}</span>
-                            <span className="block text-[11px] text-gray-500 mt-0.5 leading-relaxed">{evt.description}</span>
-                            <span className={`block text-[10px] mt-1.5 italic transition-opacity ${formEvent === evt.key ? "text-purple-600 opacity-100" : "text-gray-400 opacity-0 group-hover:opacity-100"}`}>
-                              Ej: {evt.example}
-                            </span>
+                    {WOO_EVENTS.map((evt) => {
+                      const EvtIcon = evt.icon;
+                      return (
+                        <button
+                          key={evt.key}
+                          type="button"
+                          onClick={() => setFormEvent(evt.key)}
+                          className={`group text-left p-3.5 rounded-xl border-2 transition-all duration-200 ${
+                            formEvent === evt.key
+                              ? "border-purple-400 bg-purple-50 shadow-sm shadow-purple-100"
+                              : "border-gray-100 hover:border-purple-200 hover:bg-purple-50/30 hover:shadow-sm"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`h-8 w-8 rounded-lg ${evt.bg} flex items-center justify-center shrink-0 transition-transform group-hover:scale-110`}>
+                              <EvtIcon className={`h-4 w-4 ${evt.color}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs font-semibold text-gray-900 block">{evt.label}</span>
+                              <span className="block text-[11px] text-gray-500 mt-0.5 leading-relaxed">{evt.description}</span>
+                              <span className={`block text-[10px] mt-1.5 italic transition-opacity ${formEvent === evt.key ? "text-purple-600 opacity-100" : "text-gray-400 opacity-0 group-hover:opacity-100"}`}>
+                                Ej: {evt.example}
+                              </span>
+                            </div>
+                            {formEvent === evt.key && (
+                              <CheckCircle2 className="h-4 w-4 text-purple-500 shrink-0 mt-0.5" />
+                            )}
                           </div>
-                          {formEvent === evt.key && (
-                            <CheckCircle2 className="h-4 w-4 text-purple-500 shrink-0 mt-0.5" />
-                          )}
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -370,7 +382,7 @@ export function WooCommerceIntegration() {
                           <span className="text-xs font-bold text-gray-900 block">{act.label}</span>
                           <span className="block text-[11px] text-gray-500 mt-1 leading-relaxed">{act.description}</span>
                           <span className={`block text-[10px] mt-2 font-medium transition-opacity ${isSelected ? `${act.color} opacity-100` : "text-gray-400 opacity-0 group-hover:opacity-100"}`}>
-                            💡 {act.tip}
+                            {act.tip}
                           </span>
                           {isSelected && (
                             <CheckCircle2 className={`h-4 w-4 ${act.color} absolute top-3 right-3`} />
@@ -435,7 +447,8 @@ export function WooCommerceIntegration() {
                           </div>
                           <div>
                             <label className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-2">
-                              💬 Mensaje a enviar
+                              <Bell className="h-3.5 w-3.5 text-blue-500" />
+                              Mensaje a enviar
                             </label>
                             <textarea
                               value={formConfig.templateMessage || ""}
