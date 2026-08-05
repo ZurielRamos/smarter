@@ -91,6 +91,12 @@ export class ContactEventsService {
    * Get all events for a contact (timeline).
    */
   async getByRecord(recordId: string, limit = 50, offset = 0): Promise<{ data: ContactEvent[]; total: number }> {
+    // Validate UUID format to prevent DB errors
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(recordId)) {
+      return { data: [], total: 0 };
+    }
+
     const [data, total] = await this.contactEventRepo.findAndCount({
       where: { recordId },
       order: { createdAt: 'DESC' },

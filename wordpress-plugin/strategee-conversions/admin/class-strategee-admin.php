@@ -103,7 +103,7 @@ class Strategee_Admin {
         }
 
         $api_url = rtrim($api_url, '/');
-        $endpoint = "{$api_url}/v1/{$slug}/contact-events?recordId=test&limit=1";
+        $endpoint = "{$api_url}/v1/{$slug}/contact-events?recordId=00000000-0000-0000-0000-000000000000&limit=1";
 
         $response = wp_remote_get($endpoint, [
             'timeout' => 10,
