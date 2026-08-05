@@ -2,6 +2,7 @@ import { Controller, Post, Body, Get, Patch, UseGuards, Req, UseInterceptors, Up
 import { FileInterceptor } from '@nestjs/platform-express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import * as bcrypt from 'bcrypt';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -25,6 +26,7 @@ export class AuthController {
     private readonly userTenantRepo: Repository<UserTenant>,
   ) {}
 
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto.email, dto.password);
@@ -37,6 +39,7 @@ export class AuthController {
   }
 
   /** Solicitar recuperación de contraseña */
+  @Throttle({ short: { limit: 3, ttl: 60000 } })
   @Post('forgot-password')
   async forgotPassword(@Body() body: { email: string }) {
     const user = await this.userRepo.findOne({ where: { email: body.email } });

@@ -36,6 +36,9 @@ export class ClientRecord {
   tenant: Tenant;
 
   // === IDENTIFICACIÓN ===
+  @Column({ name: 'avatar_url', type: 'varchar', nullable: true })
+  avatarUrl: string; // URL de la foto de perfil del contacto
+
   @Column({ name: 'first_name', type: 'varchar', nullable: true })
   firstName: string;
 
@@ -74,8 +77,8 @@ export class ClientRecord {
   region: string; // departamento, estado, provincia
 
   // === ESTADO Y SEGMENTACIÓN ===
-  @Column({ type: 'varchar', default: 'active' })
-  status: string; // active, inactive, blocked
+  @Column({ type: 'varchar', default: 'lead' })
+  status: string; // lead, contactado, interesado, oportunidad, cliente, premium, fidelizado, inactivo, perdido
 
   @Column({ name: 'channel_source', type: 'varchar', nullable: true })
   channelSource: string; // whatsapp, web, import, manual
@@ -96,6 +99,9 @@ export class ClientRecord {
   // === ASIGNACIÓN ===
   @Column({ name: 'assigned_to', type: 'uuid', nullable: true })
   assignedTo: string; // user ID del agente asignado
+
+  @Column({ name: 'assigned_team_id', type: 'uuid', nullable: true })
+  assignedTeamId: string; // team ID del equipo asignado
 
   // === ACTIVIDAD ===
   @Column({ name: 'last_contact_at', type: 'timestamp', nullable: true })

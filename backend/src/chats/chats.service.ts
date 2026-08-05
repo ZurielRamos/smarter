@@ -869,6 +869,17 @@ export class ChatsService {
     return { data, total };
   }
 
+  async getConversationsByRecordId(recordId: string, opts: { limit: number; offset: number }): Promise<{ data: Conversation[]; total: number }> {
+    const [data, total] = await this.conversationRepo.findAndCount({
+      where: { recordId },
+      relations: { inbox: true, record: true },
+      order: { lastMessageAt: 'DESC' },
+      take: opts.limit,
+      skip: opts.offset,
+    });
+    return { data, total };
+  }
+
   // === MESSAGES ===
 
   async getMessages(conversationId: string, limit = 50, before?: string): Promise<Message[]> {

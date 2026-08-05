@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PendingInvites } from "./components/PendingInvites";
@@ -7,6 +8,7 @@ import { AdminLayout } from "./components/layout/AdminLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { Import } from "./pages/Import";
 import { Clients } from "./pages/Clients";
+import { ClientDetail } from "./pages/ClientDetail";
 import { ClientSchema } from "./pages/ClientSchema";
 import { Campaigns } from "./pages/Campaigns";
 import { CampaignDetail } from "./pages/CampaignDetail";
@@ -82,6 +84,7 @@ function ProtectedAdminLayout() {
 function App() {
   return (
     <BrowserRouter>
+      <Toaster position="top-right" richColors closeButton />
       <AuthProvider>
         <PendingInvites />
         <Routes>
@@ -114,6 +117,7 @@ function App() {
             <Route path="/:slug/clients/import" element={<Import />} />
             <Route path="/:slug/clients" element={<Clients />} />
             <Route path="/:slug/clients/schema" element={<ClientSchema />} />
+            <Route path="/:slug/clients/:id" element={<ClientDetail />} />
             <Route path="/:slug/campaigns" element={<Campaigns />} />
             <Route path="/:slug/campaigns/:id" element={<CampaignDetail />} />
             <Route path="/:slug/comunicaciones" element={<ComunicacionesLayout />}>

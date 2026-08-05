@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from 'sonner';
 import type { TargetField, ParseResult, MappingConfig, MappingResult, ImportJob, ImportError, ValidationPreviewResult, DeduplicatePreviewResult, ValidationRule, DeduplicateStrategy } from '../types';
 
 const api = axios.create({
@@ -14,14 +15,52 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 responses - redirect to login
+// Handle error responses - show toasts and redirect on 401
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/login';
+      return Promise.reject(error);
     }
+
+    if (error.response?.status === 429) {
+      toast.error('Demasiadas solicitudes', {
+        description: 'Has excedido el límite de peticiones. Espera un momento antes de intentarlo de nuevo.',
+      });
+      return Promise.reject(error);
+    }
+
+    if (error.response?.status === 403) {
+      toast.error('Acceso denegado', {
+        description: 'No tienes permisos para realizar esta acción.',
+      });
+      return Promise.reject(error);
+    }
+
+    if (error.response?.status >= 500) {
+      toast.error('Error del servidor', {
+        description: 'Ocurrió un error inesperado. Intenta de nuevo más tarde.',
+      });
+      return Promise.reject(error);
+    }
+
+    // 4xx errors (except 401, 403, 429) - show the server message if available
+    if (error.response?.status >= 400 && error.response?.status < 500) {
+      const message = error.response?.data?.message;
+      if (message) {
+        toast.error(typeof message === 'string' ? message : Array.isArray(message) ? message[0] : 'Error en la solicitud');
+      }
+    }
+
+    // Network errors
+    if (!error.response && error.code === 'ERR_NETWORK') {
+      toast.error('Sin conexión', {
+        description: 'No se pudo conectar con el servidor. Verifica tu conexión a internet.',
+      });
+    }
+
     return Promise.reject(error);
   },
 );
@@ -186,13 +225,29 @@ export async function deleteTemplate(id: string): Promise<void> {
 export interface ClientRecord {
   id: string;
   tenantId: string;
+  avatarUrl: string | null;
   firstName: string | null;
   lastName: string | null;
+  fullName: string | null;
+  documentType: string | null;
+  documentNumber: string | null;
   phone: string | null;
+  countryCode: string | null;
   email: string | null;
+  gender: string | null;
+  birthDate: string | null;
+  city: string | null;
+  region: string | null;
   status: string | null;
   channelSource: string | null;
+  source: string | null;
+  score: number;
+  optInWhatsapp: boolean;
+  optInEmail: boolean;
+  assignedTo: string | null;
+  assignedTeamId: string | null;
   lastContactAt: string | null;
+  lastActivityAt: string | null;
   tags: string[] | null;
   customData: Record<string, any> | null;
   createdAt: string;
@@ -204,10 +259,17 @@ export interface ClientsResponse {
   total: number;
 }
 
-export async function getClients(tenantId: string, page = 1, limit = 50, sortBy?: string, sortOrder?: string): Promise<ClientsResponse> {
+export async function getClient(id: string): Promise<ClientRecord> {
+  const { data } = await api.get<ClientRecord>(`/records/${id}`);
+  return data;
+}
+
+export async function getClients(tenantId: string, page = 1, limit = 50, sortBy?: string, sortOrder?: string, assignedTo?: string, assignedTeamId?: string): Promise<ClientsResponse> {
   const params: any = { page, limit, tenantId };
   if (sortBy) params.sortBy = sortBy;
   if (sortOrder) params.sortOrder = sortOrder;
+  if (assignedTo) params.assignedTo = assignedTo;
+  if (assignedTeamId) params.assignedTeamId = assignedTeamId;
   const { data } = await api.get<ClientsResponse>('/records', { params });
   return data;
 }
@@ -271,7 +333,7 @@ export async function createCustomField(payload: {
 
 export async function updateCustomField(
   id: string,
-  payload: Partial<Pick<CustomField, 'fieldLabel' | 'fieldType' | 'options' | 'isRequired' | 'sortOrder'>>,
+  payload: Partial<Pick<CustomField, 'fieldLabel' | 'fieldType' | 'options' | 'isRequired' | 'sortOrder' | 'fieldGroup'>>,
 ): Promise<CustomField> {
   const { data } = await api.put<CustomField>(`/custom-fields/${id}`, payload);
   return data;
@@ -333,4 +395,126 @@ export async function removeRecordsFromList(listId: string, recordIds: string[])
 
 export async function deleteRecordList(listId: string): Promise<void> {
   await api.delete(`/record-lists/${listId}`);
+}
+
+
+// === Conversations ===
+
+export interface ConversationRecord {
+  id: string;
+  inboxId: string;
+  recordId: string | null;
+  contactId: string;
+  contactName: string | null;
+  contactAvatar: string | null;
+  status: string;
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+  labelIds: string[];
+  createdAt: string;
+  updatedAt: string;
+  inbox?: { id: string; name: string; channel: string };
+}
+
+export interface ConversationsResponse {
+  data: ConversationRecord[];
+  total: number;
+}
+
+export async function getConversationsByRecord(recordId: string, limit = 20, offset = 0): Promise<ConversationsResponse> {
+  const { data } = await api.get<ConversationsResponse>('/chats/conversations', {
+    params: { recordId, limit, offset },
+  });
+  return data;
+}
+
+// === Kanban ===
+
+export async function getKanbanColumn(params: {
+  tenantId: string;
+  groupBy: string;
+  columnValue: string;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  page?: number;
+  limit?: number;
+  assignedTo?: string;
+  assignedTeamId?: string;
+}): Promise<ClientsResponse> {
+  const { data } = await api.get<ClientsResponse>('/records/kanban', { params });
+  return data;
+}
+
+export async function getKanbanCounts(tenantId: string, groupBy: string): Promise<Record<string, number>> {
+  const { data } = await api.get<Record<string, number>>('/records/kanban/counts', { params: { tenantId, groupBy } });
+  return data;
+}
+
+export interface KanbanInitialResponse {
+  counts: Record<string, number>;
+  columns: Record<string, { data: ClientRecord[]; total: number }>;
+}
+
+export async function getKanbanInitial(tenantId: string, groupBy: string, limit = 20, assignedTo?: string, assignedTeamId?: string): Promise<KanbanInitialResponse> {
+  const params: any = { tenantId, groupBy, limit };
+  if (assignedTo) params.assignedTo = assignedTo;
+  if (assignedTeamId) params.assignedTeamId = assignedTeamId;
+  const { data } = await api.get<KanbanInitialResponse>('/records/kanban/initial', { params });
+  return data;
+}
+
+
+// === Notes ===
+
+export interface NoteRecord {
+  id: string;
+  tenantId: string;
+  recordId: string;
+  content: string;
+  authorId: string | null;
+  authorName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotesResponse {
+  data: NoteRecord[];
+  total: number;
+}
+
+export async function getNotes(recordId: string, page = 1, limit = 20): Promise<NotesResponse> {
+  const { data } = await api.get<NotesResponse>('/records/notes', { params: { recordId, page, limit } });
+  return data;
+}
+
+export async function createNote(payload: { tenantId: string; recordId: string; content: string; authorId?: string; authorName?: string }): Promise<NoteRecord> {
+  const { data } = await api.post<NoteRecord>('/records/notes', payload);
+  return data;
+}
+
+export async function deleteNote(noteId: string): Promise<void> {
+  await api.delete(`/records/notes/${noteId}`);
+}
+
+
+// === Messages ===
+
+export interface MessageRecord {
+  id: string;
+  conversationId: string;
+  content: string;
+  messageType: string;
+  direction: string; // inbound | outbound
+  senderId: string | null;
+  senderName: string | null;
+  externalId: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export async function getMessages(conversationId: string, limit = 20): Promise<MessageRecord[]> {
+  const { data } = await api.get<MessageRecord[]>(`/chats/conversations/${conversationId}/messages`, { params: { limit } });
+  return data;
 }

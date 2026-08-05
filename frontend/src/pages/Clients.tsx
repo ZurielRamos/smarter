@@ -1,12 +1,15 @@
 // Force reload - v3
 import { useEffect, useState, useRef, useMemo, useCallback, useTransition, lazy, Suspense } from "react";
-import { Users, Database, Upload, Settings2, Columns, Eye, EyeOff, ListOrdered, RotateCcw, ArrowUpNarrowWide, ArrowDownNarrowWide, Filter, Plus, Loader2, ChevronDown, List, Edit3, Copy, UserX, Trash2, X, Save } from "lucide-react";
+import { Users, Database, Upload, Settings2, Columns, Eye, EyeOff, ListOrdered, RotateCcw, ArrowUpNarrowWide, ArrowDownNarrowWide, Filter, Plus, Loader2, ChevronDown, List, Edit3, Copy, UserX, Trash2, X, Save, LayoutGrid, TableProperties, StickyNote, UserPlus } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import headerBg from "@/assets/header-background.jpg";
 import { Button } from "@/components/ui/button";
 import { getClients, getCustomFields, getRecordLists, getRecordListRecords } from "@/services/api";
-import type { ClientRecord, RecordListItem } from "@/services/api";
+import type { ClientRecord, RecordListItem, CustomField } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
+import { KanbanView } from "./KanbanView";
+import { AddNoteModal } from "./AddNoteModal";
 import axios from "axios";
 
 // Lazy load the column config modal (pulls in Reorder/drag-and-drop only when needed)
@@ -103,10 +106,33 @@ export function Clients() {
   const [hoveredCol, setHoveredCol] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; client: ClientRecord } | null>(null);
   const [editingClient, setEditingClient] = useState<ClientRecord | null>(null);
+  const [noteClient, setNoteClient] = useState<ClientRecord | null>(null);
   const tableMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   // Defer heavy content to allow tab animation to complete first
   const [mounted, setMounted] = useState(false);
+  // View mode: list or kanban
+  const [viewMode, setViewMode] = useState<"list" | "kanban">(() => {
+    return (localStorage.getItem(`viewMode_${slug}`) as "list" | "kanban") || "list";
+  });
+  const [kanbanField, setKanbanField] = useState<string>(() => {
+    return localStorage.getItem(`kanbanField_${slug}`) || "status";
+  });
+  const [kanbanFieldOpen, setKanbanFieldOpen] = useState(false);
+  const [kanbanVisibleColumns, setKanbanVisibleColumns] = useState<Record<string, string[]>>(() => {
+    try {
+      const saved = localStorage.getItem(`kanbanCols_${slug}`);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  });
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [agents, setAgents] = useState<Array<{ userId: string; user: { id: string; name: string; email: string } }>>([]);
+  const [teams, setTeams] = useState<Array<{ id: string; name: string; description: string | null }>>([]);
+  const [assignMenuOpen, setAssignMenuOpen] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState<"all" | "mine" | "myTeam">(() => {
+    return (localStorage.getItem(`ownerFilter_${slug}`) as any) || "all";
+  });
   const [, startTransition] = useTransition();
 
   const visibleColumns = useMemo(
@@ -126,6 +152,7 @@ export function Clients() {
     if (!tenantId || !mounted) return;
     // Load custom fields
     getCustomFields(tenantId).then((fields) => {
+      setCustomFields(fields);
       const customCols: ColumnDef[] = fields
         .filter((f) => !f.isSystem)
         .map((f) => ({ key: `custom_${f.fieldKey}`, label: f.fieldLabel, visible: true }));
@@ -154,13 +181,17 @@ export function Clients() {
       data.forEach((i: any) => { map[i.id] = i.name; });
       setInboxMap(map);
     }).catch(() => {});
+    // Load agents for assignment
+    tenantApi.get(`/tenants/${tenantId}/members`).then(({ data }) => setAgents(data)).catch(() => {});
+    // Load teams for assignment
+    tenantApi.get(`/teams`, { params: { tenantId } }).then(({ data }) => setTeams(data)).catch(() => {});
   }, [tenantId, mounted]);
 
   // (columns saved via modal onAccept)
 
   useEffect(() => {
     if (mounted) loadClients();
-  }, [tenantId, page, limit, sortBy, sortOrder, mounted, activeList]);
+  }, [tenantId, page, limit, sortBy, sortOrder, mounted, activeList, ownerFilter]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -187,17 +218,39 @@ export function Clients() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Close context menu on click outside or scroll
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    document.addEventListener("click", close);
+    document.addEventListener("scroll", close, true);
+    return () => {
+      document.removeEventListener("click", close);
+      document.removeEventListener("scroll", close, true);
+    };
+  }, [contextMenu]);
+
+  // Get user's team ID (first team the user belongs to)
+  const getUserTeamId = (): string | undefined => {
+    // We'll match user id against team members - for now use first team
+    // In production you'd load team memberships, but teams are small enough
+    return teams.length > 0 ? teams[0].id : undefined;
+  };
+
   const loadClients = useCallback(async () => {
     if (!tenantId) return;
     setLoading(true);
     try {
+      // In kanban mode, columns load their own data independently
+      // But we still load list data so switching views works instantly
       if (activeList) {
-        // Load from list
         const res = await getRecordListRecords(activeList.id, page, limit);
         setClients(res.data);
         setTotal(res.total);
       } else {
-        const res = await getClients(tenantId, page, limit, sortBy, sortOrder);
+        const assignedTo = ownerFilter === "mine" ? user?.id : undefined;
+        const assignedTeamId = ownerFilter === "myTeam" ? getUserTeamId() : undefined;
+        const res = await getClients(tenantId, page, limit, sortBy, sortOrder, assignedTo, assignedTeamId);
         setClients(res.data);
         setTotal(res.total);
       }
@@ -206,7 +259,7 @@ export function Clients() {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, page, limit, sortBy, sortOrder, activeList]);
+  }, [tenantId, page, limit, sortBy, sortOrder, activeList, ownerFilter]);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -245,6 +298,77 @@ export function Clients() {
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  // Helper: get available select fields for kanban grouping
+  const getSelectFields = () => {
+    const systemSelects = [
+      { key: "status", label: "Estado" },
+      { key: "channelSource", label: "Canal de origen" },
+    ];
+    // Add system fields that have options defined in customFields (like gender, documentType)
+    const systemWithOptions = customFields
+      .filter((f) => f.isSystem && f.fieldType === "select" && f.options && f.options.length > 0 && !["status", "channelSource"].includes(f.fieldKey))
+      .map((f) => ({ key: f.fieldKey, label: f.fieldLabel }));
+    // Add custom (non-system) select fields
+    const customSelects = customFields
+      .filter((f) => !f.isSystem && f.fieldType === "select" && f.options && f.options.length > 0)
+      .map((f) => ({ key: `custom_${f.fieldKey}`, label: f.fieldLabel }));
+    return [...systemSelects, ...systemWithOptions, ...customSelects];
+  };
+
+  // Helper: get label for current kanban field
+  const getKanbanFieldLabel = () => {
+    const fields = getSelectFields();
+    return fields.find((f) => f.key === kanbanField)?.label || kanbanField;
+  };
+
+  // Helper: get options for current kanban field
+  const getKanbanFieldOptions = (): string[] => {
+    if (kanbanField === "status") {
+      const statusField = customFields.find((f) => f.fieldKey === "status");
+      return statusField?.options || ["lead", "contactado", "interesado", "oportunidad", "cliente", "premium", "fidelizado", "inactivo", "perdido"];
+    }
+    if (kanbanField === "channelSource") {
+      const channelField = customFields.find((f) => f.fieldKey === "channelSource");
+      return channelField?.options || ["whatsapp", "messenger", "instagram", "sms", "llamada", "email", "web", "formulario", "landing", "referido", "campaña", "import", "manual", "api"];
+    }
+    // System field with options (gender, documentType, etc.)
+    const systemField = customFields.find((f) => f.fieldKey === kanbanField && f.isSystem);
+    if (systemField?.options) return systemField.options;
+    // Custom field
+    const fieldKey = kanbanField.replace("custom_", "");
+    const field = customFields.find((f) => f.fieldKey === fieldKey);
+    return field?.options || [];
+  };
+
+  // Handler: move a client in kanban (update the field value)
+  const handleKanbanMove = async (clientId: string, newValue: string) => {
+    const fieldKey = kanbanField.startsWith("custom_") ? kanbanField.replace("custom_", "") : kanbanField;
+    const isCustom = kanbanField.startsWith("custom_");
+
+    // Optimistic update
+    setClients((prev) =>
+      prev.map((c) => {
+        if (c.id !== clientId) return c;
+        if (isCustom) {
+          return { ...c, customData: { ...(c.customData || {}), [fieldKey]: newValue } };
+        }
+        return { ...c, [fieldKey]: newValue };
+      })
+    );
+
+    try {
+      if (isCustom) {
+        const client = clients.find((c) => c.id === clientId);
+        await tenantApi.put(`/records/${clientId}`, { customData: { ...(client?.customData || {}), [fieldKey]: newValue } });
+      } else {
+        await tenantApi.put(`/records/${clientId}`, { [fieldKey]: newValue });
+      }
+      toast.success(`Contacto movido a "${newValue}"`);
+    } catch {
+      loadClients(); // Revert on error
+    }
   };
 
   const getCellValue = (client: ClientRecord, key: string) => {
@@ -308,6 +432,78 @@ export function Clients() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* View mode toggle */}
+            <div className="flex items-center rounded-lg bg-white/10 p-0.5">
+              <button
+                onClick={() => { setViewMode("list"); localStorage.setItem(`viewMode_${slug}`, "list"); }}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === "list" ? "bg-white/20 text-white" : "text-white/60 hover:text-white/80"}`}
+              >
+                <TableProperties className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => { setViewMode("kanban"); localStorage.setItem(`viewMode_${slug}`, "kanban"); }}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === "kanban" ? "bg-white/20 text-white" : "text-white/60 hover:text-white/80"}`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Owner filter */}
+            <div className="flex items-center rounded-lg bg-white/10 p-0.5">
+              <button
+                onClick={() => { setOwnerFilter("all"); localStorage.setItem(`ownerFilter_${slug}`, "all"); }}
+                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${ownerFilter === "all" ? "bg-white/20 text-white" : "text-white/60 hover:text-white/80"}`}
+              >
+                Todos
+              </button>
+              <button
+                onClick={() => { setOwnerFilter("mine"); localStorage.setItem(`ownerFilter_${slug}`, "mine"); }}
+                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${ownerFilter === "mine" ? "bg-white/20 text-white" : "text-white/60 hover:text-white/80"}`}
+              >
+                Míos
+              </button>
+              {teams.length > 0 && (
+                <button
+                  onClick={() => { setOwnerFilter("myTeam"); localStorage.setItem(`ownerFilter_${slug}`, "myTeam"); }}
+                  className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${ownerFilter === "myTeam" ? "bg-white/20 text-white" : "text-white/60 hover:text-white/80"}`}
+                >
+                  Mi equipo
+                </button>
+              )}
+            </div>
+
+            {/* Kanban field selector with column visibility */}
+            {viewMode === "kanban" && (
+              <div className="relative">
+                <button
+                  onClick={() => setKanbanFieldOpen((v) => !v)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-sm font-medium transition-colors"
+                >
+                  <span className="capitalize">{getKanbanFieldLabel()}</span>
+                  <ChevronDown className="h-3 w-3 opacity-60" />
+                </button>
+                {kanbanFieldOpen && (
+                  <KanbanFieldMenu
+                    fields={getSelectFields()}
+                    activeField={kanbanField}
+                    allOptions={getKanbanFieldOptions}
+                    visibleColumns={kanbanVisibleColumns}
+                    onSelectField={(key) => { setKanbanField(key); localStorage.setItem(`kanbanField_${slug}`, key); }}
+                    onToggleColumn={(fieldKey, option, visible) => {
+                      const allOptions = getKanbanFieldOptions();
+                      const current = kanbanVisibleColumns[fieldKey] || allOptions;
+                      const updated = visible ? [...current, option] : current.filter((o) => o !== option);
+                      if (updated.length === 0) return;
+                      const newVisibleCols = { ...kanbanVisibleColumns, [fieldKey]: updated };
+                      setKanbanVisibleColumns(newVisibleCols);
+                      localStorage.setItem(`kanbanCols_${slug}`, JSON.stringify(newVisibleCols));
+                    }}
+                    onClose={() => setKanbanFieldOpen(false)}
+                  />
+                )}
+              </div>
+            )}
+
             {/* Lists button */}
             <div className="relative" ref={listsDropdownRef}>
               <button
@@ -452,12 +648,12 @@ export function Clients() {
 
       {/* Light section - content */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden pt-4 px-0">
-        {(!mounted || loading) ? (
+        {(!mounted || (loading && viewMode === "list")) ? (
           // Loader while data is being fetched
           <div className="flex-1 min-h-0 flex flex-col items-center justify-center bg-white rounded-xl border border-gray-200 overflow-hidden">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           </div>
-        ) : total === 0 ? (
+        ) : (viewMode === "list" && total === 0) ? (
           <div className="flex-1 flex items-center justify-center bg-gray-100 px-6">
             <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-md w-full">
               <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -481,6 +677,22 @@ export function Clients() {
             </div>
           </div>
         ) : (
+          <>
+          {viewMode === "kanban" ? (
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <KanbanView
+                tenantId={tenantId}
+                groupByField={kanbanField}
+                fieldOptions={kanbanVisibleColumns[kanbanField] || getKanbanFieldOptions()}
+                fieldLabel={getKanbanFieldLabel()}
+                assignedTo={ownerFilter === "mine" ? user?.id : undefined}
+                assignedTeamId={ownerFilter === "myTeam" ? getUserTeamId() : undefined}
+                onMoveClient={handleKanbanMove}
+                onClientClick={(client) => navigate(`/${slug}/clients/${client.id}`)}
+                onContextMenu={(e, client) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, client }); }}
+              />
+            </div>
+          ) : (
           <div className="flex-1 min-h-0 flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden">
             {/* Single table with sticky header */}
             <div className="flex-1 min-h-0 overflow-auto">
@@ -638,10 +850,12 @@ export function Clients() {
               </table>
             </div>
           </div>
+          )}
+          </>
         )}
 
-        {/* Pagination - always visible */}
-        {totalPages > 0 && (
+        {/* Pagination - only in list view */}
+        {viewMode === "list" && totalPages > 0 && (
           <div className="shrink-0 flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-white rounded-b-xl">
             <p className="text-sm text-gray-500">
               {total.toLocaleString()} contactos · Página {page} de {totalPages} · {limit} por página
@@ -744,20 +958,55 @@ export function Clients() {
           className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]"
           style={{ top: contextMenu.y, left: contextMenu.x }}
         >
+          <button onClick={() => { navigate(`/${slug}/clients/${contextMenu.client.id}`); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <Eye className="h-3.5 w-3.5 text-gray-500" /> Ver detalles
+          </button>
           <button onClick={() => { setEditingClient(contextMenu.client); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
             <Edit3 className="h-3.5 w-3.5 text-gray-500" /> Editar contacto
           </button>
-          <button onClick={() => { navigator.clipboard.writeText(contextMenu.client.phone || ""); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+          <button onClick={() => { navigator.clipboard.writeText(contextMenu.client.phone || ""); setContextMenu(null); toast.success("Teléfono copiado"); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
             <Copy className="h-3.5 w-3.5 text-gray-500" /> Copiar teléfono
           </button>
-          <button onClick={() => { navigator.clipboard.writeText(contextMenu.client.email || ""); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+          <button onClick={() => { navigator.clipboard.writeText(contextMenu.client.email || ""); setContextMenu(null); toast.success("Email copiado"); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
             <Copy className="h-3.5 w-3.5 text-gray-500" /> Copiar email
           </button>
-          <div className="border-t border-gray-100 my-1" />
-          <button onClick={async () => { const c = contextMenu.client; await tenantApi.put(`/records/${c.id}`, { status: c.status === "active" ? "inactive" : "active" }); setContextMenu(null); loadClients(); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-            <UserX className="h-3.5 w-3.5 text-gray-500" /> {contextMenu.client.status === "active" ? "Desactivar" : "Activar"}
+          <button onClick={() => { setNoteClient(contextMenu.client); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <StickyNote className="h-3.5 w-3.5 text-gray-500" /> Agregar nota
           </button>
-          <button onClick={async () => { if (confirm("¿Eliminar este contacto?")) { await tenantApi.delete(`/records/${contextMenu.client.id}`); setContextMenu(null); loadClients(); } }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+          <div
+            className="relative"
+            onMouseEnter={() => setAssignMenuOpen(true)}
+            onMouseLeave={() => setAssignMenuOpen(false)}
+          >
+            <button className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              <span className="flex items-center gap-2"><UserPlus className="h-3.5 w-3.5 text-gray-500" /> Asignar agente</span>
+              <ChevronDown className="h-3 w-3 text-gray-400 -rotate-90" />
+            </button>
+            {assignMenuOpen && (
+              <AssignAgentSubmenu
+                agents={agents}
+                teams={teams}
+                currentAssignee={contextMenu.client.assignedTo}
+                currentTeam={contextMenu.client.assignedTeamId}
+                onAssign={async (agentUserId) => {
+                  await tenantApi.put(`/records/${contextMenu.client.id}`, { assignedTo: agentUserId });
+                  setClients((prev) => prev.map((c) => c.id === contextMenu.client.id ? { ...c, assignedTo: agentUserId } : c));
+                  setContextMenu(null);
+                  setAssignMenuOpen(false);
+                  toast.success(agentUserId ? "Agente asignado" : "Asignación removida");
+                }}
+                onAssignTeam={async (teamId) => {
+                  await tenantApi.put(`/records/${contextMenu.client.id}`, { assignedTeamId: teamId });
+                  setClients((prev) => prev.map((c) => c.id === contextMenu.client.id ? { ...c, assignedTeamId: teamId } : c));
+                  setContextMenu(null);
+                  setAssignMenuOpen(false);
+                  toast.success(teamId ? "Equipo asignado" : "Equipo removido");
+                }}
+              />
+            )}
+          </div>
+          <div className="border-t border-gray-100 my-1" />
+          <button onClick={async () => { if (confirm("¿Eliminar este contacto?")) { await tenantApi.delete(`/records/${contextMenu.client.id}`); setContextMenu(null); loadClients(); toast.success("Contacto eliminado"); } }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
             <Trash2 className="h-3.5 w-3.5" /> Eliminar
           </button>
         </div>
@@ -771,6 +1020,196 @@ export function Clients() {
           onSaved={() => { setEditingClient(null); loadClients(); }}
         />
       )}
+
+      {/* Add Note Modal */}
+      {noteClient && (
+        <AddNoteModal
+          client={noteClient}
+          onClose={() => setNoteClient(null)}
+          onSaved={() => { setNoteClient(null); toast.success("Nota guardada"); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// === Assign Agent Submenu ===
+function AssignAgentSubmenu({ agents, teams, currentAssignee, currentTeam, onAssign, onAssignTeam }: {
+  agents: Array<{ userId: string; user: { id: string; name: string; email: string } }>;
+  teams: Array<{ id: string; name: string; description: string | null }>;
+  currentAssignee: string | null;
+  currentTeam: string | null;
+  onAssign: (userId: string | null) => void;
+  onAssignTeam: (teamId: string | null) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const filteredAgents = agents.filter((a) =>
+    !search.trim() ||
+    a.user.name.toLowerCase().includes(search.toLowerCase()) ||
+    a.user.email.toLowerCase().includes(search.toLowerCase())
+  );
+  const filteredTeams = teams.filter((t) =>
+    !search.trim() || t.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="absolute left-full top-0 ml-1 w-60 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+      <div className="px-2.5 pb-1.5 pt-1">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar agente o equipo..."
+          className="w-full px-2.5 py-1.5 rounded-md border border-gray-200 text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
+          autoFocus
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+
+      <div className="max-h-64 overflow-auto">
+        {/* Remove assignments */}
+        {(currentAssignee || currentTeam) && (
+          <>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAssign(null); onAssignTeam(null); }}
+              className="w-full px-3 py-2 text-xs text-left text-red-500 hover:bg-red-50 transition-colors"
+            >
+              Quitar asignación
+            </button>
+            <div className="border-t border-gray-100 my-1" />
+          </>
+        )}
+
+        {/* Teams */}
+        {filteredTeams.length > 0 && (
+          <>
+            <p className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase">Equipos</p>
+            {filteredTeams.map((team) => (
+              <button
+                key={team.id}
+                onClick={(e) => { e.stopPropagation(); onAssignTeam(team.id); }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${currentTeam === team.id ? "bg-brand-50" : "hover:bg-gray-50"}`}
+              >
+                <div className="h-6 w-6 rounded-md bg-indigo-100 flex items-center justify-center text-[10px] font-semibold text-indigo-600 shrink-0">
+                  {team.name[0]?.toUpperCase() || "E"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs truncate ${currentTeam === team.id ? "font-medium text-brand-700" : "text-gray-700"}`}>{team.name}</p>
+                  {team.description && <p className="text-[10px] text-gray-400 truncate">{team.description}</p>}
+                </div>
+                {currentTeam === team.id && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-brand-100 text-brand-700 font-medium shrink-0">Actual</span>
+                )}
+              </button>
+            ))}
+            <div className="border-t border-gray-100 my-1" />
+          </>
+        )}
+
+        {/* Agents */}
+        <p className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase">Agentes</p>
+        {filteredAgents.length === 0 ? (
+          <p className="px-3 py-2 text-xs text-gray-400">Sin resultados</p>
+        ) : (
+          filteredAgents.map((agent) => (
+            <button
+              key={agent.userId}
+              onClick={(e) => { e.stopPropagation(); onAssign(agent.userId); }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${currentAssignee === agent.userId ? "bg-brand-50" : "hover:bg-gray-50"}`}
+            >
+              <div className="h-6 w-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-semibold text-gray-600 shrink-0">
+                {agent.user.name?.[0]?.toUpperCase() || "?"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-xs truncate ${currentAssignee === agent.userId ? "font-medium text-brand-700" : "text-gray-700"}`}>{agent.user.name}</p>
+                <p className="text-[10px] text-gray-400 truncate">{agent.user.email}</p>
+              </div>
+              {currentAssignee === agent.userId && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-brand-100 text-brand-700 font-medium shrink-0">Actual</span>
+              )}
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// === Kanban Field Menu with Submenu ===
+function KanbanFieldMenu({
+  fields, activeField, allOptions, visibleColumns, onSelectField, onToggleColumn, onClose,
+}: {
+  fields: { key: string; label: string }[];
+  activeField: string;
+  allOptions: () => string[];
+  visibleColumns: Record<string, string[]>;
+  onSelectField: (key: string) => void;
+  onToggleColumn: (fieldKey: string, option: string, visible: boolean) => void;
+  onClose: () => void;
+}) {
+  const [hoveredField, setHoveredField] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [onClose]);
+
+  // Get options for a specific field
+  function getOptionsForField(fieldKey: string): string[] {
+    // Temporarily set the field to get options — we reuse the parent's allOptions fn only for activeField
+    // For non-active fields we need to derive options from the fields data
+    if (fieldKey === activeField) return allOptions();
+    // For other fields, we don't have options loaded — show nothing
+    return [];
+  }
+
+  return (
+    <div ref={menuRef} className="absolute right-0 top-full mt-2 w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+      {fields.map((f) => (
+        <div
+          key={f.key}
+          className="relative"
+          onMouseEnter={() => setHoveredField(f.key)}
+          onMouseLeave={() => setHoveredField(null)}
+        >
+          <button
+            onClick={() => onSelectField(f.key)}
+            className={`w-full px-3 py-2 text-sm text-left transition-colors flex items-center justify-between ${
+              activeField === f.key ? "bg-emerald-50 text-emerald-700 font-medium" : "text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            <span>{f.label}</span>
+            {activeField === f.key && <ChevronDown className="h-3 w-3 -rotate-90" />}
+          </button>
+
+          {/* Submenu with toggles - only for active field */}
+          {hoveredField === f.key && activeField === f.key && (
+            <div className="absolute left-full top-0 ml-1 w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 max-h-64 overflow-auto">
+              <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase">Columnas</p>
+              {allOptions().map((option) => {
+                const currentVisible = visibleColumns[activeField];
+                const isVisible = !currentVisible || currentVisible.includes(option);
+                return (
+                  <label key={option} className="flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                    <span className="text-sm text-gray-700 capitalize">{option}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); onToggleColumn(activeField, option, !isVisible); }}
+                      className={`relative w-8 h-[18px] rounded-full transition-colors ${isVisible ? "bg-emerald-500" : "bg-gray-300"}`}
+                    >
+                      <span className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] rounded-full bg-white shadow transition-transform ${isVisible ? "translate-x-[14px]" : ""}`} />
+                    </button>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -788,16 +1227,16 @@ function EditContactModal({ client, onClose, onSaved }: { client: ClientRecord; 
   const [loadingFields, setLoadingFields] = useState(true);
 
   useEffect(() => {
-    const EXCLUDED_FIELDS = ["lastContactAt", "lastActivityAt"];
+    const EXCLUDED_FIELDS = ["lastContactAt", "lastActivityAt", "fullName"];
     getCustomFields(tenantId).then((allFields) => {
-      const editableFields = allFields.filter((f) => !EXCLUDED_FIELDS.includes(f.fieldKey));
+      const editableFields = allFields.filter((f) => !EXCLUDED_FIELDS.includes(f.fieldKey) && f.fieldType !== "computed");
       setFields(editableFields.sort((a, b) => a.sortOrder - b.sortOrder));
       const initial: Record<string, any> = {};
       allFields.forEach((f) => {
         if (f.isSystem) {
           const val = (client as any)[f.fieldKey];
           if (f.fieldType === "date" && val) initial[f.fieldKey] = String(val).split("T")[0];
-          else if (f.fieldType === "boolean") initial[f.fieldKey] = val || false;
+          else if (f.fieldType === "boolean") initial[f.fieldKey] = val ? "true" : "false";
           else initial[f.fieldKey] = val ?? "";
         } else {
           initial[f.fieldKey] = client.customData?.[f.fieldKey] ?? "";
@@ -818,7 +1257,7 @@ function EditContactModal({ client, onClose, onSaved }: { client: ClientRecord; 
       fields.forEach((f) => {
         const val = form[f.fieldKey];
         if (f.isSystem) {
-          if (f.fieldType === "boolean") systemFields[f.fieldKey] = !!val;
+          if (f.fieldType === "boolean") systemFields[f.fieldKey] = val === "true";
           else if (f.fieldType === "number") systemFields[f.fieldKey] = val ? Number(val) : 0;
           else systemFields[f.fieldKey] = val || null;
         } else {
@@ -838,87 +1277,147 @@ function EditContactModal({ client, onClose, onSaved }: { client: ClientRecord; 
     return map;
   }, [fields]);
 
-  const GROUP_LABELS: Record<string, string> = { identificacion: "Identificación", contacto: "Contacto", demografia: "Demografía", ubicacion: "Ubicación", segmentacion: "Segmentación", consentimiento: "Consentimiento", actividad: "Actividad", general: "General" };
-  const GROUP_ORDER = ["identificacion", "contacto", "demografia", "ubicacion", "segmentacion", "consentimiento", "actividad", "general"];
+  const KNOWN_ORDER = ["identificacion", "contacto", "demografia", "ubicacion", "segmentacion", "consentimiento", "actividad"];
+  const groupKeys = [...KNOWN_ORDER, ...Object.keys(groups).filter((g) => !KNOWN_ORDER.includes(g))].filter((g) => groups[g]?.length);
 
-  const renderField = (f: any) => {
-    const val = form[f.fieldKey] ?? "";
-    if (f.fieldType === "boolean") return (
-      <label className="flex items-center gap-2 cursor-pointer py-1">
-        <button type="button" onClick={() => set(f.fieldKey, !val)} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${val ? "bg-green-500" : "bg-gray-300"}`}>
-          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${val ? "translate-x-[18px]" : "translate-x-1"}`} />
-        </button>
-        <span className="text-sm text-gray-700">{f.fieldLabel}</span>
-      </label>
-    );
-    if (f.fieldType === "select") return (
-      <div>
-        <label className="text-[11px] text-gray-500 font-medium mb-1 block">{f.fieldLabel}</label>
-        <div className="flex gap-1.5 flex-wrap">
-          {(f.options || []).map((opt: string) => (
-            <button key={opt} type="button" onClick={() => set(f.fieldKey, opt)} className={`px-2.5 py-1 rounded text-[11px] font-medium border transition-colors ${val === opt ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>{opt}</button>
-          ))}
-        </div>
-      </div>
-    );
-    if (f.fieldType === "date") return (
-      <div>
-        <label className="text-[11px] text-gray-500 font-medium mb-1 block">{f.fieldLabel}</label>
-        <input type="date" value={val} onChange={(e) => set(f.fieldKey, e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-      </div>
-    );
-    if (f.fieldType === "number") return (
-      <div>
-        <label className="text-[11px] text-gray-500 font-medium mb-1 block">{f.fieldLabel}</label>
-        <input type="number" value={val} onChange={(e) => set(f.fieldKey, e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-      </div>
-    );
-    return (
-      <div>
-        <label className="text-[11px] text-gray-500 font-medium mb-1 block">{f.fieldLabel}</label>
-        <input type={f.fieldType === "url" ? "url" : f.fieldKey === "email" ? "email" : "text"} value={val} onChange={(e) => set(f.fieldKey, e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-      </div>
-    );
-  };
+  const fullName = [client.firstName, client.lastName].filter(Boolean).join(" ") || "Sin nombre";
 
-  if (loadingFields) return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"><div className="bg-white rounded-xl shadow-xl p-8"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div></div>;
+  if (loadingFields) return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+      <div className="bg-white rounded-xl shadow-xl p-8"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col mx-4">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-2xl rounded-2xl shadow-2xl border border-white/30 flex flex-col max-h-[85vh] overflow-hidden"
+        style={{ background: "rgba(255, 255, 255, 0.94)", backdropFilter: "blur(24px)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <div>
             <h3 className="text-base font-semibold text-gray-900">Editar contacto</h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">{client.firstName} {client.lastName} · {client.phone || client.email || ""}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{fullName} · {client.phone || client.email || ""}</p>
           </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4 text-gray-500" /></button>
+          <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+            <X className="h-4 w-4" />
+          </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {[...GROUP_ORDER, ...Object.keys(groups).filter((g) => !GROUP_ORDER.includes(g))].filter((g) => groups[g]?.length).map((groupKey) => {
-            const groupFields = groups[groupKey];
-            const booleans = groupFields.filter((f: any) => f.fieldType === "boolean");
-            const others = groupFields.filter((f: any) => f.fieldType !== "boolean");
+
+        {/* Form */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
+          {groupKeys.map((groupKey) => {
+            const groupFields = groups[groupKey] || [];
             return (
-              <section key={groupKey}>
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">{GROUP_LABELS[groupKey] || groupKey}</h4>
-                {others.length > 0 && <div className="grid grid-cols-2 gap-3">{others.map((f: any) => <div key={f.id}>{renderField(f)}</div>)}</div>}
-                {booleans.length > 0 && <div className="flex gap-6 flex-wrap mt-2">{booleans.map((f: any) => <div key={f.id}>{renderField(f)}</div>)}</div>}
-              </section>
+              <div key={groupKey}>
+                <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3 capitalize">{groupKey}</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {groupFields.map((f: any) => (
+                    <EditFieldInput key={f.id} field={f} value={form[f.fieldKey] ?? ""} onChange={(val) => set(f.fieldKey, val)} />
+                  ))}
+                </div>
+              </div>
             );
           })}
-          <section>
-            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Etiquetas</h4>
-            <input type="text" value={form._tags || ""} onChange={(e) => set("_tags", e.target.value)} placeholder="vip, nuevo, referido (separados por coma)" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-          </section>
+
+          {/* Tags */}
+          <div>
+            <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Etiquetas</h4>
+            <input
+              type="text"
+              value={form._tags || ""}
+              onChange={(e) => set("_tags", e.target.value)}
+              placeholder="vip, nuevo, referido (separados por coma)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+            />
+          </div>
+
           {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
         </div>
-        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2 shrink-0">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
-          <button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-brand-700 text-white text-sm font-medium hover:bg-brand-600 disabled:opacity-50">
-            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />} Guardar cambios
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 shrink-0">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors">
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-5 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm flex items-center gap-2"
+          >
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {saving ? "Guardando..." : "Guardar cambios"}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function EditFieldInput({ field, value, onChange }: { field: any; value: any; onChange: (val: string) => void }) {
+  const [selectOpen, setSelectOpen] = useState(false);
+  const selectRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!selectOpen) return;
+    const close = (e: MouseEvent) => { if (selectRef.current && !selectRef.current.contains(e.target as Node)) setSelectOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [selectOpen]);
+
+  if (field.fieldType === "boolean") {
+    return (
+      <div className="flex items-center justify-between py-2">
+        <label className="text-sm text-gray-700">{field.fieldLabel}</label>
+        <button
+          type="button"
+          onClick={() => onChange(value === "true" ? "false" : "true")}
+          className={`relative w-9 h-5 rounded-full transition-colors ${value === "true" ? "bg-brand-600" : "bg-gray-300"}`}
+        >
+          <span className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full bg-white shadow transition-transform ${value === "true" ? "translate-x-4" : ""}`} />
+        </button>
+      </div>
+    );
+  }
+
+  if (field.fieldType === "select" && field.options?.length) {
+    return (
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">{field.fieldLabel}</label>
+        <div className="relative" ref={selectRef}>
+          <button
+            type="button"
+            onClick={() => setSelectOpen((v) => !v)}
+            className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-left flex items-center justify-between transition-all ${selectOpen ? "ring-2 ring-brand-500 border-transparent" : "hover:border-gray-400"}`}
+          >
+            <span className={value ? "text-gray-900 capitalize" : "text-gray-400"}>{value || "Seleccionar..."}</span>
+            <svg className={`h-4 w-4 text-gray-400 transition-transform ${selectOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </button>
+          {selectOpen && (
+            <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50 max-h-48 overflow-auto">
+              <button type="button" onClick={() => { onChange(""); setSelectOpen(false); }} className="w-full px-3 py-2 text-sm text-left text-gray-400 hover:bg-gray-50 italic">Ninguno</button>
+              {field.options.map((opt: string) => (
+                <button key={opt} type="button" onClick={() => { onChange(opt); setSelectOpen(false); }} className={`w-full px-3 py-2 text-sm text-left transition-colors capitalize ${value === opt ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}>{opt}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label className="block text-xs text-gray-500 mb-1">{field.fieldLabel}</label>
+      <input
+        type={field.fieldType === "date" ? "date" : field.fieldType === "number" ? "number" : field.fieldKey === "email" ? "email" : "text"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={field.validations?.placeholder || ""}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+      />
     </div>
   );
 }

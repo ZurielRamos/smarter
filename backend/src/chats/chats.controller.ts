@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, Res, UseInterceptors, UploadedFile, UseGuards } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
@@ -192,6 +193,7 @@ export class ChatsController {
     @Query('tenantId') tenantId?: string,
     @Query('inboxId') inboxId?: string,
     @Query('inboxIds') inboxIds?: string,
+    @Query('recordId') recordId?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
@@ -200,6 +202,7 @@ export class ChatsController {
       offset: offset ? parseInt(offset, 10) : 0,
     };
 
+    if (recordId) return this.chatsService.getConversationsByRecordId(recordId, opts);
     if (inboxIds) {
       const ids = inboxIds.split(',').filter(Boolean);
       return this.chatsService.getConversationsByInboxes(ids, opts);
@@ -287,6 +290,7 @@ export class ChatsController {
 }
 
 // Separate controller for the webhook (no /api prefix needed depending on setup)
+@SkipThrottle()
 @Controller('webhooks')
 export class WebhookController {
   constructor(

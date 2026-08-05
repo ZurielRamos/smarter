@@ -47,6 +47,7 @@ export class CustomFieldsController {
     body: {
       fieldLabel?: string;
       fieldType?: string;
+      fieldGroup?: string;
       options?: string[] | null;
       isRequired?: boolean;
       isUnique?: boolean;

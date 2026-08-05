@@ -1,9 +1,8 @@
-import { useState } from "react";
-import { X, Loader2, User, Phone, Mail, Tag, Activity } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { X, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { createClient, getCustomFields } from "@/services/api";
 import type { CustomField } from "@/services/api";
-import { useEffect } from "react";
 
 interface Props {
   tenantId: string;
@@ -11,54 +10,110 @@ interface Props {
   onCreated: () => void;
 }
 
+const KNOWN_GROUP_ORDER = ["identificacion", "contacto", "demografia", "ubicacion", "segmentacion", "consentimiento", "actividad"];
+
+// System fields that map to top-level createClient payload keys
+const SYSTEM_PAYLOAD_KEYS: Record<string, string> = {
+  firstName: "firstName",
+  lastName: "lastName",
+  phone: "phone",
+  email: "email",
+  status: "status",
+  channelSource: "channelSource",
+  tags: "tags",
+  countryCode: "countryCode",
+  documentType: "documentType",
+  documentNumber: "documentNumber",
+  gender: "gender",
+  birthDate: "birthDate",
+  city: "city",
+  region: "region",
+  source: "source",
+  score: "score",
+};
+
+// Fields to skip in the form (auto-managed)
+const SKIP_FIELDS = new Set(["fullName", "lastContactAt", "lastActivityAt", "optInWhatsapp", "optInEmail", "assignedTo"]);
+
 export function NewRecordModal({ tenantId, onClose, onCreated }: Props) {
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState("active");
-  const [tags, setTags] = useState("");
-  const [customFields, setCustomFields] = useState<CustomField[]>([]);
-  const [customData, setCustomData] = useState<Record<string, string>>({});
+  const [allFields, setAllFields] = useState<CustomField[]>([]);
+  const [formData, setFormData] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getCustomFields(tenantId).then((fields) => {
-      setCustomFields(fields.filter((f) => !f.isSystem && f.fieldType !== "computed"));
-    }).catch(() => {});
+      setAllFields(fields.filter((f) => f.fieldType !== "computed" && !SKIP_FIELDS.has(f.fieldKey)));
+      // Set default values
+      const defaults: Record<string, string> = {};
+      for (const f of fields) {
+        if (f.defaultValue) defaults[f.fieldKey] = f.defaultValue;
+      }
+      if (!defaults.status) defaults.status = "lead";
+      setFormData(defaults);
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [tenantId]);
 
-  const handleSubmit = async (e?: React.FormEvent) => {
+  function setValue(key: string, value: string) {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleSubmit(e?: React.FormEvent) {
     e?.preventDefault();
-    if (!firstName && !lastName && !phone && !email) {
+    const hasData = Object.values(formData).some((v) => v.trim());
+    if (!hasData) {
       setError("Ingresa al menos un campo para crear el registro.");
       return;
     }
     setSaving(true);
     setError("");
     try {
-      const parsedCustomData: Record<string, any> = {};
-      for (const [key, val] of Object.entries(customData)) {
-        if (val.trim()) parsedCustomData[key] = val.trim();
+      const payload: any = { tenantId };
+      const customData: Record<string, any> = {};
+
+      for (const [key, val] of Object.entries(formData)) {
+        if (!val.trim()) continue;
+        if (SYSTEM_PAYLOAD_KEYS[key]) {
+          if (key === "tags") {
+            payload.tags = val.split(",").map((t) => t.trim()).filter(Boolean);
+          } else if (key === "score") {
+            payload.score = Number(val);
+          } else {
+            payload[SYSTEM_PAYLOAD_KEYS[key]] = val.trim();
+          }
+        } else {
+          customData[key] = val.trim();
+        }
       }
-      await createClient({
-        tenantId,
-        firstName: firstName.trim() || undefined,
-        lastName: lastName.trim() || undefined,
-        phone: phone.trim() || undefined,
-        email: email.trim() || undefined,
-        status,
-        tags: tags.trim() ? tags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
-        customData: Object.keys(parsedCustomData).length > 0 ? parsedCustomData : undefined,
-      });
+
+      if (Object.keys(customData).length > 0) payload.customData = customData;
+      await createClient(payload);
       onCreated();
     } catch {
       setError("Error al crear el registro. Intenta de nuevo.");
     } finally {
       setSaving(false);
     }
-  };
+  }
+
+  // Group fields
+  const grouped: Record<string, CustomField[]> = {};
+  for (const f of allFields) {
+    const g = f.fieldGroup || "general";
+    if (!grouped[g]) grouped[g] = [];
+    grouped[g].push(f);
+  }
+  const groupKeys = Object.keys(grouped).sort((a, b) => {
+    const ia = KNOWN_GROUP_ORDER.indexOf(a);
+    const ib = KNOWN_GROUP_ORDER.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    if (a === "general") return 1;
+    if (b === "general") return -1;
+    return a.localeCompare(b);
+  });
 
   return (
     <motion.div
@@ -72,162 +127,165 @@ export function NewRecordModal({ tenantId, onClose, onCreated }: Props) {
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        transition={{ duration: 0.2 }}
+        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg rounded-2xl shadow-2xl border border-white/30 p-6 max-h-[85vh] flex flex-col overflow-hidden"
-        style={{ background: 'rgba(255, 255, 255, 0.92)', backdropFilter: 'blur(20px)' }}
+        className="w-full max-w-2xl rounded-2xl shadow-2xl border border-white/30 flex flex-col max-h-[85vh] overflow-hidden"
+        style={{ background: "rgba(255, 255, 255, 0.94)", backdropFilter: "blur(24px)" }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-5 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">Nuevo registro</h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">Completa los campos para agregar un registro</p>
+            <h3 className="text-base font-semibold text-gray-900">Nuevo contacto</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Completa la información del contacto</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+          <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} autoComplete="off" className="flex-1 min-h-0 overflow-y-auto space-y-4 px-1 py-1">
-          <div className="grid grid-cols-2 gap-3">
-            <FloatingInput icon={<User size={16} />} label="Nombre" value={firstName} onChange={setFirstName} />
-            <FloatingInput icon={<User size={16} />} label="Apellido" value={lastName} onChange={setLastName} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <FloatingInput icon={<Phone size={16} />} label="Teléfono" value={phone} onChange={setPhone} />
-            <FloatingInput icon={<Mail size={16} />} label="Email" value={email} onChange={setEmail} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <div className="relative">
-                <span className="absolute left-3 top-4 text-gray-400 pointer-events-none">
-                  <Activity size={16} />
-                </span>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="w-full pl-10 pr-3 pt-5 pb-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-inset focus:ring-brand-500 focus:border-brand-500 outline-none transition-all bg-transparent appearance-none"
-                >
-                  <option value="active">Activo</option>
-                  <option value="inactive">Inactivo</option>
-                  <option value="blocked">Bloqueado</option>
-                </select>
-                <label className="absolute left-10 top-1.5 text-[10px] text-brand-600 pointer-events-none">
-                  Estado
-                </label>
-                <span className="absolute right-3 top-4 text-gray-400 pointer-events-none">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                </span>
-              </div>
+        <form onSubmit={handleSubmit} autoComplete="off" className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
             </div>
-            <FloatingInput icon={<Tag size={16} />} label="Tags (separar con comas)" value={tags} onChange={setTags} />
-          </div>
-
-          {/* Custom fields */}
-          {customFields.length > 0 && (
-            <div className="pt-3 border-t border-gray-100">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase mb-3">Campos personalizados</p>
-              <div className="grid grid-cols-2 gap-3">
-                {customFields.map((field) => (
-                  <div key={field.id}>
-                    {field.fieldType === "select" && field.options ? (
-                      <div className="relative">
-                        <select
-                          value={customData[field.fieldKey] || ""}
-                          onChange={(e) => setCustomData({ ...customData, [field.fieldKey]: e.target.value })}
-                          className="w-full px-3 pt-5 pb-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-inset focus:ring-brand-500 focus:border-brand-500 outline-none transition-all bg-transparent appearance-none"
-                        >
-                          <option value="">Seleccionar...</option>
-                          {field.options.map((opt) => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                        <label className="absolute left-3 top-1.5 text-[10px] text-brand-600 pointer-events-none">
-                          {field.fieldLabel}
-                        </label>
-                      </div>
-                    ) : (
-                      <FloatingInput
-                        label={field.fieldLabel}
-                        value={customData[field.fieldKey] || ""}
-                        onChange={(val) => setCustomData({ ...customData, [field.fieldKey]: val })}
-                        type={field.fieldType === "number" ? "number" : "text"}
-                      />
-                    )}
-                  </div>
-                ))}
+          ) : (
+            groupKeys.map((group) => (
+              <div key={group}>
+                <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3 capitalize">{group}</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {grouped[group].map((field) => (
+                    <FieldInput
+                      key={field.id}
+                      field={field}
+                      value={formData[field.fieldKey] || ""}
+                      onChange={(val) => setValue(field.fieldKey, val)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            ))
           )}
 
-          {/* Error */}
           {error && (
             <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
           )}
         </form>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-gray-100 shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors font-medium"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={() => handleSubmit()}
-            disabled={saving}
-            className="relative px-5 py-2.5 text-sm rounded-lg bg-brand-800 hover:bg-brand-700 text-white font-medium transition-all disabled:opacity-50 flex items-center gap-2 overflow-hidden shadow-lg border border-white/10"
-          >
-            <span className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/20 via-white/5 to-transparent pointer-events-none" />
-            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin relative z-10" />}
-            <span className="relative z-10">{saving ? "Guardando..." : "Crear registro"}</span>
-          </button>
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 shrink-0">
+          <p className="text-[11px] text-gray-400">Los campos marcados con * son requeridos</p>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors">
+              Cancelar
+            </button>
+            <button
+              onClick={() => handleSubmit()}
+              disabled={saving}
+              className="px-5 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm flex items-center gap-2"
+            >
+              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {saving ? "Guardando..." : "Crear contacto"}
+            </button>
+          </div>
         </div>
       </motion.div>
     </motion.div>
   );
 }
 
-/* Reusable floating label input — same style as Login */
-function FloatingInput({
-  icon,
-  label,
-  value,
-  onChange,
-  type = "text",
-}: {
-  icon?: React.ReactNode;
-  label: string;
-  value: string;
-  onChange: (val: string) => void;
-  type?: string;
-}) {
-  const hasIcon = !!icon;
+function FieldInput({ field, value, onChange }: { field: CustomField; value: string; onChange: (val: string) => void }) {
+  const isSelect = field.fieldType === "select" && field.options && field.options.length > 0;
+  const isBoolean = field.fieldType === "boolean";
+  const isDate = field.fieldType === "date";
+  const isNumber = field.fieldType === "number";
+
+  if (isSelect) {
+    return (
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">
+          {field.fieldLabel}{field.isRequired && <span className="text-red-400 ml-0.5">*</span>}
+        </label>
+        <SelectInput value={value} onChange={onChange} options={field.options!} placeholder="Seleccionar..." />
+      </div>
+    );
+  }
+
+  if (isBoolean) {
+    return (
+      <div className="flex items-center justify-between py-2">
+        <label className="text-sm text-gray-700">
+          {field.fieldLabel}{field.isRequired && <span className="text-red-400 ml-0.5">*</span>}
+        </label>
+        <button
+          type="button"
+          onClick={() => onChange(value === "true" ? "false" : "true")}
+          className={`relative w-9 h-5 rounded-full transition-colors ${value === "true" ? "bg-brand-600" : "bg-gray-300"}`}
+        >
+          <span className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full bg-white shadow transition-transform ${value === "true" ? "translate-x-4" : ""}`} />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative">
-      {hasIcon && (
-        <span className="absolute left-3 top-4 text-gray-400 pointer-events-none transition-colors">
-          {icon}
-        </span>
-      )}
+    <div>
+      <label className="block text-xs text-gray-500 mb-1">
+        {field.fieldLabel}{field.isRequired && <span className="text-red-400 ml-0.5">*</span>}
+      </label>
       <input
-        type={type}
+        type={isDate ? "date" : isNumber ? "number" : "text"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder=" "
-        autoComplete="new-password"
-        className={`peer w-full ${hasIcon ? 'pl-10' : 'pl-3'} pr-3 pt-5 pb-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-inset focus:ring-brand-500 focus:border-brand-500 outline-none transition-all bg-transparent`}
+        placeholder={field.validations?.placeholder || ""}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
       />
-      <label
-        className={`absolute ${hasIcon ? 'left-10' : 'left-3'} top-1/2 -translate-y-1/2 text-sm text-gray-500 transition-all duration-200 pointer-events-none peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-[10px] peer-focus:text-brand-600 peer-[:not(:placeholder-shown)]:top-2 peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-[10px]`}
+    </div>
+  );
+}
+
+function SelectInput({ value, onChange, options, placeholder }: { value: string; onChange: (val: string) => void; options: string[]; placeholder: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-left flex items-center justify-between transition-all ${open ? "ring-2 ring-brand-500 border-transparent" : "hover:border-gray-400"}`}
       >
-        {label}
-      </label>
+        <span className={value ? "text-gray-900" : "text-gray-400"}>{value || placeholder}</span>
+        <svg className={`h-4 w-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50 max-h-48 overflow-auto">
+          <button
+            type="button"
+            onClick={() => { onChange(""); setOpen(false); }}
+            className={`w-full px-3 py-2 text-sm text-left transition-colors ${!value ? "bg-gray-50 text-gray-400 italic" : "text-gray-400 hover:bg-gray-50"}`}
+          >
+            {placeholder}
+          </button>
+          {options.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => { onChange(opt); setOpen(false); }}
+              className={`w-full px-3 py-2 text-sm text-left transition-colors capitalize ${value === opt ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -17,6 +17,10 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
+        // Don't proxy /api-reference (it's a frontend route)
+        bypass(req) {
+          if (req.url?.startsWith('/api-reference')) return req.url;
+        },
       },
       '/uploads': {
         target: 'http://localhost:3001',

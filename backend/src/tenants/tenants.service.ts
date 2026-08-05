@@ -25,8 +25,8 @@ const SYSTEM_FIELDS = [
   { fieldKey: 'city', fieldLabel: 'Ciudad', fieldType: 'text', fieldGroup: 'ubicacion' },
   { fieldKey: 'region', fieldLabel: 'Departamento / Estado', fieldType: 'text', fieldGroup: 'ubicacion' },
   // Segmentación
-  { fieldKey: 'status', fieldLabel: 'Estado', fieldType: 'select', options: ['active', 'inactive', 'blocked'], fieldGroup: 'segmentacion' },
-  { fieldKey: 'channelSource', fieldLabel: 'Canal de origen', fieldType: 'select', options: ['whatsapp', 'web', 'import', 'manual', 'form', 'messenger', 'instagram'], fieldGroup: 'segmentacion' },
+  { fieldKey: 'status', fieldLabel: 'Estado', fieldType: 'select', options: ['lead', 'contactado', 'interesado', 'oportunidad', 'cliente', 'premium', 'fidelizado', 'inactivo', 'perdido'], fieldGroup: 'segmentacion' },
+  { fieldKey: 'channelSource', fieldLabel: 'Canal de origen', fieldType: 'select', options: ['whatsapp', 'messenger', 'instagram', 'sms', 'llamada', 'email', 'web', 'formulario', 'landing', 'referido', 'campaña', 'import', 'manual', 'api'], fieldGroup: 'segmentacion' },
   { fieldKey: 'source', fieldLabel: 'Fuente de adquisición', fieldType: 'text', fieldGroup: 'segmentacion' },
   { fieldKey: 'score', fieldLabel: 'Score', fieldType: 'number', fieldGroup: 'segmentacion' },
   // Consentimiento

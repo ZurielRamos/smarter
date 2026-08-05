@@ -91,6 +91,56 @@ function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: bool
   );
 }
 
+// === Group Autocomplete ===
+function GroupAutocomplete({ value, onChange, existingGroups }: { value: string; onChange: (v: string) => void; existingGroups: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [inputValue, setInputValue] = useState(value);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setInputValue(value); }, [value]);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const filtered = existingGroups.filter((g) =>
+    g.toLowerCase().includes(inputValue.toLowerCase())
+  );
+
+  return (
+    <div className="relative" ref={ref}>
+      <input
+        type="text"
+        value={inputValue}
+        onChange={(e) => { setInputValue(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => { setTimeout(() => onChange(inputValue.trim() || "general"), 150); }}
+        onKeyDown={(e) => { if (e.key === "Enter") { onChange(inputValue.trim() || "general"); setOpen(false); } }}
+        placeholder="Escribe o selecciona un grupo..."
+        className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50 max-h-48 overflow-auto">
+          {filtered.map((group) => (
+            <button
+              key={group}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onChange(group); setInputValue(group); setOpen(false); }}
+              className={`w-full px-4 py-2 text-sm text-left transition-colors capitalize ${value === group ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+            >
+              {group}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // === Chip Input Component with drag & drop ===
 // === Chip Input Component with drag reorder via framer-motion ===
 import { Reorder } from "framer-motion";
@@ -630,6 +680,7 @@ export function ClientSchema() {
   const [editField, setEditField] = useState<CustomField | null>(null);
   const [editForm, setEditForm] = useState({
     fieldLabel: "",
+    fieldGroup: "general",
     options: [] as string[],
     isRequired: false,
     isUnique: false,
@@ -682,6 +733,7 @@ export function ClientSchema() {
     setGenerateResult("");
     setEditForm({
       fieldLabel: field.fieldLabel,
+      fieldGroup: field.fieldGroup || "general",
       options: field.options || [],
       isRequired: field.isRequired,
       isUnique: field.isUnique ?? false,
@@ -698,6 +750,7 @@ export function ClientSchema() {
     try {
       const payload: any = {
         fieldLabel: editForm.fieldLabel.trim(),
+        fieldGroup: editForm.fieldGroup,
         isRequired: editForm.isRequired,
         isUnique: editForm.isUnique,
         isNullable: editForm.isNullable,
@@ -753,12 +806,15 @@ export function ClientSchema() {
   const renderFieldCard = (field: CustomField, isSystem: boolean) => (
     <div
       key={field.id}
-      className="flex flex-col p-4 rounded-xl bg-gray-50/80 border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all group cursor-pointer"
+      className={`flex flex-col p-4 rounded-xl border hover:shadow-sm transition-all group cursor-pointer ${isSystem ? "bg-gray-50/80 border-gray-100 hover:border-gray-200" : "bg-emerald-50/30 border-emerald-100/60 hover:border-emerald-200"}`}
       onClick={() => openEditModal(field)}
     >
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-gray-800">{field.fieldLabel}</span>
         <div className="flex items-center gap-1">
+          {!isSystem && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">Custom</span>
+          )}
           <button className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white text-gray-400 hover:text-brand-600 transition-all">
             <Settings2 className="h-3.5 w-3.5" />
           </button>
@@ -804,111 +860,69 @@ export function ClientSchema() {
     <div className="h-full flex flex-col overflow-hidden">
       {/* Hero */}
       <div className="px-8 pt-16 pb-4 shrink-0 rounded-b-2xl" style={{ backgroundImage: `url(${headerBg})`, backgroundSize: "cover", backgroundPosition: "center" }}>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(`/${slug}/clients`)}
-            className="h-8 w-8 rounded-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div>
-            <h1 className="text-xl font-bold text-white">Esquema de Contactos</h1>
-            <p className="text-brand-300 mt-0.5 text-sm">Gestiona los campos de información de tus contactos</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(`/${slug}/clients`)}
+              className="h-8 w-8 rounded-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-white">Esquema de Contactos</h1>
+              <p className="text-brand-300 mt-0.5 text-sm">Gestiona los campos de información de tus contactos</p>
+            </div>
           </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="relative flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-sm font-medium transition-all overflow-hidden bg-white/15 hover:bg-white/25 border border-white/20"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Agregar campo</span>
+          </button>
         </div>
       </div>
 
-      {/* Content */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1, ease: "easeOut" }} className="flex-1 min-h-0 overflow-auto py-6 space-y-6">
-        {/* System fields - grouped */}
+      {/* Content - All fields unified in one card */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1, ease: "easeOut" }} className="flex-1 min-h-0 overflow-auto py-6">
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Lock className="h-4 w-4 text-gray-400" />
-            <h2 className="text-base font-semibold text-gray-800">Campos del sistema</h2>
-            <span className="text-xs text-gray-400">Click para editar propiedades</span>
+          <div className="flex items-center gap-2 mb-5">
+            <h2 className="text-base font-semibold text-gray-800">Campos del esquema</h2>
+            <span className="text-xs text-gray-400">{allFields.length} campos · Click para editar</span>
           </div>
-          {(() => {
-            const GROUP_LABELS: Record<string, string> = {
-              identificacion: 'Identificación',
-              contacto: 'Contacto',
-              demografia: 'Demografía',
-              ubicacion: 'Ubicación',
-              segmentacion: 'Segmentación',
-              consentimiento: 'Consentimiento',
-              actividad: 'Actividad',
-              general: 'General',
-            };
-            const GROUP_ORDER = ['identificacion', 'contacto', 'demografia', 'ubicacion', 'segmentacion', 'consentimiento', 'actividad', 'general'];
-            const grouped: Record<string, typeof systemFields> = {};
-            for (const f of systemFields) {
-              const g = (f as any).fieldGroup || 'general';
+          {loading ? (
+            <p className="text-sm text-gray-500">Cargando...</p>
+          ) : (() => {
+            // Merge all fields, group by fieldGroup
+            const allUniqueFields = [...systemFields, ...customFields];
+            const grouped: Record<string, CustomField[]> = {};
+            for (const f of allUniqueFields) {
+              const g = (f as any).fieldGroup || "general";
               if (!grouped[g]) grouped[g] = [];
               grouped[g].push(f);
             }
-            return GROUP_ORDER.filter((g) => grouped[g]?.length).map((g) => (
-              <div key={g} className="mb-4 last:mb-0">
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">{GROUP_LABELS[g] || g}</h3>
+            // Sort groups: known ones first, then alphabetical
+            const KNOWN_ORDER = ["identificacion", "contacto", "demografia", "ubicacion", "segmentacion", "consentimiento", "actividad"];
+            const groupKeys = Object.keys(grouped).sort((a, b) => {
+              const ia = KNOWN_ORDER.indexOf(a);
+              const ib = KNOWN_ORDER.indexOf(b);
+              if (ia !== -1 && ib !== -1) return ia - ib;
+              if (ia !== -1) return -1;
+              if (ib !== -1) return 1;
+              if (a === "general") return 1;
+              if (b === "general") return -1;
+              return a.localeCompare(b);
+            });
+
+            return groupKeys.map((g) => (
+              <div key={g} className="mb-5 last:mb-0">
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2.5 px-1">{g}</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {grouped[g].map((f) => renderFieldCard(f, true))}
+                  {grouped[g].map((f) => renderFieldCard(f, f.isSystem || SYSTEM_FIELD_KEYS.includes(f.fieldKey)))}
                 </div>
               </div>
             ));
           })()}
-        </div>
-
-        {/* Custom fields - grouped */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-gray-800">Campos personalizados</h2>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="relative flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-sm font-medium transition-all overflow-hidden bg-brand-800 hover:bg-brand-700 shadow-lg border border-white/10"
-            >
-              <span className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/20 via-white/5 to-transparent pointer-events-none" />
-              <Plus className="h-4 w-4 relative" />
-              <span className="relative">Agregar campo</span>
-            </button>
-          </div>
-          {loading ? (
-            <p className="text-sm text-gray-500">Cargando...</p>
-          ) : customFields.length === 0 ? (
-            <p className="text-sm text-gray-400">No hay campos personalizados definidos aún.</p>
-          ) : (
-            (() => {
-              const GROUP_LABELS: Record<string, string> = {
-                identificacion: 'Identificación',
-                contacto: 'Contacto',
-                demografia: 'Demografía',
-                ubicacion: 'Ubicación',
-                segmentacion: 'Segmentación',
-                consentimiento: 'Consentimiento',
-                actividad: 'Actividad',
-                general: 'General',
-              };
-              const grouped: Record<string, typeof customFields> = {};
-              for (const f of customFields) {
-                const g = (f as any).fieldGroup || 'general';
-                if (!grouped[g]) grouped[g] = [];
-                grouped[g].push(f);
-              }
-              const groups = Object.keys(grouped);
-              if (groups.length === 1 && groups[0] === 'general') {
-                return (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {customFields.map((f) => renderFieldCard(f, false))}
-                  </div>
-                );
-              }
-              return groups.map((g) => (
-                <div key={g} className="mb-4 last:mb-0">
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">{GROUP_LABELS[g] || g}</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {grouped[g].map((f) => renderFieldCard(f, false))}
-                  </div>
-                </div>
-              ));
-            })()
-          )}
         </div>
       </motion.div>
 
@@ -937,6 +951,16 @@ export function ClientSchema() {
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
               />
               <p className="text-xs text-gray-400 mt-1">API: <span className="font-mono text-gray-500">{editField?.fieldKey}</span> · Tipo: <span className="text-brand-600">{FIELD_TYPES.find((t) => t.value === editField?.fieldType)?.label}</span></p>
+            </div>
+
+            {/* Group - autocomplete */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Agrupación</label>
+              <GroupAutocomplete
+                value={editForm.fieldGroup}
+                onChange={(v) => setEditForm((f) => ({ ...f, fieldGroup: v }))}
+                existingGroups={[...new Set(allFields.map((f) => f.fieldGroup).filter(Boolean))]}
+              />
             </div>
 
             {/* Options (if select) */}
