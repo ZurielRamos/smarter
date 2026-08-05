@@ -26,13 +26,19 @@
                 },
                 success: function (response) {
                     if (response.success) {
-                        $result.text('✅ ' + response.data).addClass('success');
+                        $result
+                            .html('<span class="strategee-badge strategee-badge-success">✓ ' + response.data + '</span>')
+                            .removeClass('error');
                     } else {
-                        $result.text('❌ ' + response.data).addClass('error');
+                        $result
+                            .html('<span class="strategee-badge strategee-badge-error">✕ ' + response.data + '</span>')
+                            .removeClass('success');
                     }
                 },
                 error: function () {
-                    $result.text('❌ Error de red').addClass('error');
+                    $result
+                        .html('<span class="strategee-badge strategee-badge-error">✕ Error de red</span>')
+                        .removeClass('success');
                 },
                 complete: function () {
                     $btn.prop('disabled', false).text('🧪 Probar conexión');

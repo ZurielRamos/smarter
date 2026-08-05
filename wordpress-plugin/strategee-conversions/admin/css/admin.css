@@ -163,14 +163,39 @@
     margin-left: 12px;
     font-size: 13px;
     font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
 }
 
-.strategee-settings #strategee-test-result.success {
-    color: #22c55e;
+/* Badge styles — matches Smartee app toast/alert style */
+.strategee-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    animation: strategee-fade-in 0.2s ease;
 }
 
-.strategee-settings #strategee-test-result.error {
-    color: #ef4444;
+.strategee-badge-success {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.strategee-badge-error {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+@keyframes strategee-fade-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Notices */
