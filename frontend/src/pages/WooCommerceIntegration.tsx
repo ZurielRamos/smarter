@@ -21,6 +21,7 @@ import {
   UserPlus,
   FileText,
   PackageCheck,
+  Check,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/services/api";
@@ -51,6 +52,12 @@ interface WooHook {
   enabled: boolean;
   config: {
     conversionName?: string;
+    conversionEventId?: string;
+    platforms?: string[];
+    metaEventName?: string;
+    googleConversionAction?: string;
+    tiktokEventName?: string;
+    includeValue?: boolean;
     inboxId?: string;
     templateName?: string;
     templateMessage?: string;
@@ -435,61 +442,217 @@ export function WooCommerceIntegration() {
 
                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                       {formAction === "conversion" && (
-                        <div>
-                          <label className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-2">
-                            <Zap className="h-3.5 w-3.5 text-amber-500" />
-                            Nombre de la conversión
-                          </label>
-                          <input
-                            type="text"
-                            value={formConfig.conversionName || ""}
-                            onChange={(e) => setFormConfig({ ...formConfig, conversionName: e.target.value })}
-                            placeholder="Ej: Compra WooCommerce"
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 bg-white"
-                          />
+                        <div className="space-y-4">
+                          <div>
+                            <label className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-2">
+                              <Zap className="h-3.5 w-3.5 text-amber-500" />
+                              Evento de conversión a disparar
+                            </label>
 
-                          {/* Feedback: matching conversion events */}
-                          {formEvent && (() => {
-                            const matches = getMatchingConversions(formEvent);
-                            if (matches.length > 0) {
-                              return (
-                                <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
-                                  <p className="text-[11px] font-semibold text-green-800 flex items-center gap-1.5 mb-2">
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                    Este evento disparará {matches.length} conversión{matches.length > 1 ? "es" : ""} configurada{matches.length > 1 ? "s" : ""}:
-                                  </p>
-                                  <div className="space-y-1.5">
-                                    {matches.map((ce) => (
-                                      <div key={ce.id} className="flex items-center gap-2 text-[11px] text-green-700">
-                                        <Zap className="h-3 w-3 text-green-500 shrink-0" />
-                                        <span className="font-medium">{ce.name}</span>
-                                        <span className="text-green-500">→</span>
-                                        <div className="flex gap-1">
-                                          {ce.platforms.map((p) => (
-                                            <span key={p} className="px-1.5 py-0.5 bg-green-100 rounded text-[9px] font-medium uppercase">{p}</span>
-                                          ))}
+                            {/* Existing conversion events to select from */}
+                            {conversionEvents.length > 0 && (
+                              <div className="space-y-2 mb-3">
+                                <p className="text-[11px] text-gray-500 font-medium">Selecciona un evento de conversión existente:</p>
+                                <div className="grid grid-cols-1 gap-2">
+                                  {conversionEvents.filter((ce) => ce.isActive).map((ce) => (
+                                    <button
+                                      key={ce.id}
+                                      type="button"
+                                      onClick={() => setFormConfig({ ...formConfig, conversionEventId: ce.id, conversionName: ce.name })}
+                                      className={`group text-left p-3 rounded-lg border-2 transition-all ${
+                                        formConfig.conversionEventId === ce.id
+                                          ? "border-amber-300 bg-amber-50"
+                                          : "border-gray-100 hover:border-amber-200 hover:bg-amber-50/30"
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                          <Zap className={`h-3.5 w-3.5 ${formConfig.conversionEventId === ce.id ? "text-amber-600" : "text-gray-400"}`} />
+                                          <span className="text-xs font-semibold text-gray-900">{ce.name}</span>
                                         </div>
-                                        {ce.metaEventName && <span className="text-green-500">({ce.metaEventName})</span>}
+                                        {formConfig.conversionEventId === ce.id && (
+                                          <CheckCircle2 className="h-4 w-4 text-amber-500" />
+                                        )}
                                       </div>
+                                      <div className="mt-1.5 flex flex-wrap gap-1.5 ml-5">
+                                        {ce.platforms.map((p) => (
+                                          <span key={p} className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium uppercase">{p}</span>
+                                        ))}
+                                        {ce.metaEventName && (
+                                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">Meta: {ce.metaEventName}</span>
+                                        )}
+                                        {ce.googleConversionAction && (
+                                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium">Google: {ce.googleConversionAction}</span>
+                                        )}
+                                        {ce.tiktokEventName && (
+                                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-white font-medium">TikTok: {ce.tiktokEventName}</span>
+                                        )}
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Option to create a new one */}
+                            <div className="border-t border-gray-200 pt-3">
+                              <button
+                                type="button"
+                                onClick={() => setFormConfig({ ...formConfig, conversionEventId: "__new__", conversionName: "" })}
+                                className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                                  formConfig.conversionEventId === "__new__"
+                                    ? "border-amber-300 bg-amber-50"
+                                    : "border-dashed border-gray-200 hover:border-amber-200 hover:bg-amber-50/20"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Plus className={`h-3.5 w-3.5 ${formConfig.conversionEventId === "__new__" ? "text-amber-600" : "text-gray-400"}`} />
+                                  <span className="text-xs font-semibold text-gray-700">Crear nuevo evento de conversión</span>
+                                </div>
+                                <p className="text-[10px] text-gray-500 mt-0.5 ml-5">Se creará automáticamente al guardar este hook</p>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* New conversion event form */}
+                          {formConfig.conversionEventId === "__new__" && (
+                            <div className="bg-white border border-amber-200 rounded-lg p-4 space-y-3">
+                              <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wide">Nuevo evento de conversión</p>
+
+                              <div>
+                                <label className="text-[11px] font-medium text-gray-700">Nombre</label>
+                                <input
+                                  type="text"
+                                  value={formConfig.conversionName || ""}
+                                  onChange={(e) => setFormConfig({ ...formConfig, conversionName: e.target.value })}
+                                  placeholder="Ej: Compra WooCommerce"
+                                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 bg-white"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-[11px] font-medium text-gray-700">Plataformas de ads</label>
+                                <div className="flex flex-wrap gap-2 mt-1.5">
+                                  {["meta", "google", "tiktok"].map((platform) => {
+                                    const selected = (formConfig.platforms || []).includes(platform);
+                                    return (
+                                      <button
+                                        key={platform}
+                                        type="button"
+                                        onClick={() => {
+                                          const current = formConfig.platforms || [];
+                                          const updated = selected
+                                            ? current.filter((p: string) => p !== platform)
+                                            : [...current, platform];
+                                          setFormConfig({ ...formConfig, platforms: updated });
+                                        }}
+                                        className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-all ${
+                                          selected
+                                            ? "border-amber-300 bg-amber-100 text-amber-800"
+                                            : "border-gray-200 text-gray-600 hover:border-amber-200"
+                                        }`}
+                                      >
+                                        {selected && <Check className="h-3 w-3 inline mr-1" />}
+                                        {platform === "meta" ? "Meta (Facebook)" : platform === "google" ? "Google Ads" : "TikTok Ads"}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {(formConfig.platforms || []).includes("meta") && (
+                                <div>
+                                  <label className="text-[11px] font-medium text-gray-700">Evento Meta CAPI</label>
+                                  <select
+                                    value={formConfig.metaEventName || ""}
+                                    onChange={(e) => setFormConfig({ ...formConfig, metaEventName: e.target.value })}
+                                    className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 bg-white"
+                                  >
+                                    <option value="">Seleccionar...</option>
+                                    <option value="Purchase">Purchase</option>
+                                    <option value="Lead">Lead</option>
+                                    <option value="CompleteRegistration">CompleteRegistration</option>
+                                    <option value="Schedule">Schedule</option>
+                                    <option value="Subscribe">Subscribe</option>
+                                    <option value="AddToCart">AddToCart</option>
+                                    <option value="InitiateCheckout">InitiateCheckout</option>
+                                    <option value="ViewContent">ViewContent</option>
+                                    <option value="Contact">Contact</option>
+                                  </select>
+                                </div>
+                              )}
+
+                              {(formConfig.platforms || []).includes("google") && (
+                                <div>
+                                  <label className="text-[11px] font-medium text-gray-700">Google Conversion Action</label>
+                                  <input
+                                    type="text"
+                                    value={formConfig.googleConversionAction || ""}
+                                    onChange={(e) => setFormConfig({ ...formConfig, googleConversionAction: e.target.value })}
+                                    placeholder="Ej: purchase, generate_lead"
+                                    className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 bg-white"
+                                  />
+                                </div>
+                              )}
+
+                              {(formConfig.platforms || []).includes("tiktok") && (
+                                <div>
+                                  <label className="text-[11px] font-medium text-gray-700">Evento TikTok</label>
+                                  <select
+                                    value={formConfig.tiktokEventName || ""}
+                                    onChange={(e) => setFormConfig({ ...formConfig, tiktokEventName: e.target.value })}
+                                    className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 bg-white"
+                                  >
+                                    <option value="">Seleccionar...</option>
+                                    <option value="CompletePayment">CompletePayment</option>
+                                    <option value="SubmitForm">SubmitForm</option>
+                                    <option value="Contact">Contact</option>
+                                    <option value="CompleteRegistration">CompleteRegistration</option>
+                                    <option value="Subscribe">Subscribe</option>
+                                    <option value="AddToCart">AddToCart</option>
+                                    <option value="InitiateCheckout">InitiateCheckout</option>
+                                    <option value="ViewContent">ViewContent</option>
+                                  </select>
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-3">
+                                <label className="flex items-center gap-2 text-[11px] font-medium text-gray-700 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={formConfig.includeValue || false}
+                                    onChange={(e) => setFormConfig({ ...formConfig, includeValue: e.target.checked })}
+                                    className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                                  />
+                                  Incluir valor monetario
+                                </label>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Summary when existing event is selected */}
+                          {formConfig.conversionEventId && formConfig.conversionEventId !== "__new__" && (() => {
+                            const selected = conversionEvents.find((ce) => ce.id === formConfig.conversionEventId);
+                            if (!selected) return null;
+                            return (
+                              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                <p className="text-[11px] font-semibold text-green-800 flex items-center gap-1.5">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  Cuando ocurra "{getEventLabel(formEvent)}" se disparará:
+                                </p>
+                                <div className="mt-2 ml-5 text-[11px] text-green-700 space-y-1">
+                                  <p><span className="font-medium">{selected.name}</span></p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {selected.platforms.map((p) => (
+                                      <span key={p} className="px-1.5 py-0.5 rounded bg-green-100 text-[9px] font-medium uppercase">{p}</span>
                                     ))}
                                   </div>
+                                  {selected.metaEventName && <p>Meta CAPI → <span className="font-medium">{selected.metaEventName}</span></p>}
+                                  {selected.googleConversionAction && <p>Google Ads → <span className="font-medium">{selected.googleConversionAction}</span></p>}
+                                  {selected.tiktokEventName && <p>TikTok → <span className="font-medium">{selected.tiktokEventName}</span></p>}
                                 </div>
-                              );
-                            } else {
-                              return (
-                                <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                                  <p className="text-[11px] text-amber-800 flex items-start gap-1.5">
-                                    <Zap className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-                                    <span>
-                                      No hay eventos de conversión configurados para <strong>"{getEventLabel(formEvent)}"</strong>.
-                                      El evento se registrará en el CRM pero no se enviará a plataformas de ads.
-                                      <br />
-                                      <span className="text-amber-600 font-medium">Configura uno en Configuración → Eventos de conversión.</span>
-                                    </span>
-                                  </p>
-                                </div>
-                              );
-                            }
+                              </div>
+                            );
                           })()}
                         </div>
                       )}
