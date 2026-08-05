@@ -6,8 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { api } from "@/services/api";
 
 interface TrackingConfig {
-  whatsappPhone?: string;
-  messageTemplate?: string;
+  codePattern?: string;
   nextCode?: number;
 }
 
@@ -18,8 +17,7 @@ export function TrackingConfigCard() {
   const tenantId = tenantRole?.tenantId;
 
   const [config, setConfig] = useState<TrackingConfig>({
-    whatsappPhone: "",
-    messageTemplate: "Hola, me interesa información. Ref: {{code}}",
+    codePattern: "ref-{{code}}",
   });
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -53,8 +51,9 @@ export function TrackingConfigCard() {
   };
 
   const baseUrl = window.location.origin;
-  const linkTrackerUrl = `${baseUrl}/api/t/${slug}/wa`;
   const pixelScript = `<script src="${baseUrl}/api/t/${slug}/pixel.js"></script>`;
+  const previewCode = `${slug?.substring(0, 2).toUpperCase()}00001`;
+  const previewResult = (config.codePattern || "ref-{{code}}").replace("{{code}}", previewCode);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -64,35 +63,30 @@ export function TrackingConfigCard() {
       </div>
 
       <div className="p-5 space-y-5">
-        {/* WhatsApp Phone */}
+        {/* Explanation */}
+        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+          <p className="text-xs text-blue-700">
+            Instala el pixel en tu sitio web. Cuando un visitante llega desde un anuncio (Google, Meta, TikTok) y hace click en un enlace de WhatsApp, el pixel agrega automáticamente un código de seguimiento al mensaje para poder atribuir la conversión.
+          </p>
+        </div>
+
+        {/* Code Pattern */}
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1.5">
-            Número de WhatsApp (con código de país)
+            Estructura del código en el mensaje
           </label>
           <input
             type="text"
-            value={config.whatsappPhone || ""}
-            onChange={(e) => setConfig({ ...config, whatsappPhone: e.target.value })}
-            placeholder="573001234567"
+            value={config.codePattern || ""}
+            onChange={(e) => setConfig({ ...config, codePattern: e.target.value })}
+            placeholder="ref-{{code}}"
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
           />
-          <p className="text-[11px] text-gray-400 mt-1">Se usará como destino en los links de tracking</p>
-        </div>
-
-        {/* Message Template */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1.5">
-            Plantilla del mensaje
-          </label>
-          <textarea
-            value={config.messageTemplate || ""}
-            onChange={(e) => setConfig({ ...config, messageTemplate: e.target.value })}
-            placeholder="Hola, me interesa información. Ref: {{code}}"
-            rows={3}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"
-          />
-          <p className="text-[11px] text-gray-400 mt-1">
-            Usa <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">{"{{code}}"}</code> donde quieras insertar el código de seguimiento
+          <p className="text-[11px] text-gray-400 mt-1.5">
+            Usa <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">{"{{code}}"}</code> donde irá el código único. Se agregará al final del texto del enlace de WhatsApp.
+          </p>
+          <p className="text-[11px] text-gray-500 mt-1">
+            Vista previa: <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">{previewResult}</span>
           </p>
         </div>
 
@@ -101,43 +95,25 @@ export function TrackingConfigCard() {
           disabled={saving}
           className="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors disabled:opacity-50"
         >
-          {saving ? "Guardando..." : "Guardar configuración"}
+          {saving ? "Guardando..." : "Guardar"}
         </button>
 
-        {/* Generated URLs */}
-        <div className="border-t border-gray-100 pt-4 space-y-3">
-          <p className="text-xs font-medium text-gray-700">URLs de tracking</p>
-
-          {/* Link Tracker */}
-          <div>
-            <p className="text-[11px] text-gray-500 mb-1">Link tracker (usar como URL de destino en ads)</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-[11px] bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-600 truncate">
-                {linkTrackerUrl}
-              </code>
-              <button
-                onClick={() => copyToClipboard(linkTrackerUrl, "link")}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
-              >
-                {copied === "link" ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-gray-400" />}
-              </button>
-            </div>
-          </div>
-
-          {/* Pixel */}
-          <div>
-            <p className="text-[11px] text-gray-500 mb-1">Pixel (insertar en tu sitio web antes de {"</body>"})</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-[11px] bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-600 truncate">
-                {pixelScript}
-              </code>
-              <button
-                onClick={() => copyToClipboard(pixelScript, "pixel")}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
-              >
-                {copied === "pixel" ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-gray-400" />}
-              </button>
-            </div>
+        {/* Pixel Script */}
+        <div className="border-t border-gray-100 pt-4">
+          <p className="text-xs font-medium text-gray-700 mb-2">Pixel de tracking</p>
+          <p className="text-[11px] text-gray-500 mb-2">
+            Inserta este script en tu sitio web, antes del cierre de {"</body>"}. El pixel detectará automáticamente los enlaces de WhatsApp y agregará el código de seguimiento.
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-[11px] bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-gray-600 break-all">
+              {pixelScript}
+            </code>
+            <button
+              onClick={() => copyToClipboard(pixelScript, "pixel")}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors shrink-0"
+            >
+              {copied === "pixel" ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-gray-400" />}
+            </button>
           </div>
         </div>
       </div>

@@ -573,7 +573,7 @@ export class ChatsService {
         conversation.hasAdTracking = true;
       }
 
-      // Check if message contains a tracking code (from link tracker)
+      // Check if message contains a tracking code (from pixel/link tracker)
       const trackingCodeMatch = (content || '').match(/\b([A-Z]{2}\d{5})\b/);
       if (trackingCodeMatch && !msg.referral) {
         const code = trackingCodeMatch[1];

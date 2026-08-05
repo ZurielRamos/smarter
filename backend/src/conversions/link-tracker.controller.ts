@@ -1,96 +1,26 @@
-import { Controller, Get, Param, Query, Req, Res } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Req, Res } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { Request, Response } from 'express';
 import { Public } from '../auth/public.decorator';
 import { Tenant } from '../tenants/tenant.entity';
 import { ConversionsService } from './conversions.service';
-import { AdEvent } from './ad-event.entity';
 
 @Controller('t')
 export class LinkTrackerController {
   constructor(
     @InjectRepository(Tenant)
     private readonly tenantRepo: Repository<Tenant>,
-    @InjectRepository(AdEvent)
-    private readonly adEventRepo: Repository<AdEvent>,
     private readonly conversionsService: ConversionsService,
   ) {}
 
   /**
-   * Link tracker redirect endpoint.
-   * URL: GET /t/:tenantSlug/wa?gclid=xxx&utm_source=google&...
-   * 
-   * 1. Finds the tenant by slug
-   * 2. Creates an AdEvent with a sequential code
-   * 3. Redirects to WhatsApp with the configured message + code
-   */
-  @Public()
-  @Get(':slug/wa')
-  async trackAndRedirect(
-    @Param('slug') slug: string,
-    @Query() query: Record<string, string>,
-    @Req() req: Request,
-    @Res() res: Response,
-  ) {
-    const tenant = await this.tenantRepo.findOne({ where: { slug } });
-    if (!tenant) {
-      return res.status(404).send('Not found');
-    }
-
-    const config = tenant.trackingConfig || {};
-    const whatsappPhone = query.phone || config.whatsappPhone;
-    if (!whatsappPhone) {
-      return res.status(400).send('No WhatsApp phone configured');
-    }
-
-    // Generate sequential code for this tenant
-    const code = await this.generateCode(tenant);
-
-    // Create AdEvent with the code
-    const adEvent = await this.conversionsService.trackFromUrlParams(
-      tenant.id,
-      query,
-      {
-        ipAddress: (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip,
-        userAgent: req.headers['user-agent'],
-        referrer: (req.headers['referer'] || req.headers['referrer'] || '') as string,
-        landingPage: req.originalUrl,
-        sessionId: `trk_${code}`,
-      },
-    );
-
-    // If no ad event was created (no attribution params), create a minimal one
-    if (!adEvent) {
-      await this.conversionsService.trackEvent({
-        tenantId: tenant.id,
-        sessionId: `trk_${code}`,
-        platform: 'direct',
-        metadata: { trackingCode: code, source: 'link_tracker' },
-      });
-    } else {
-      // Update the ad event with the tracking code
-      await this.adEventRepo.update(adEvent.id, {
-        sessionId: `trk_${code}`,
-        metadata: { ...(adEvent.metadata || {}), trackingCode: code },
-      } as any);
-    }
-
-    // Build WhatsApp redirect URL
-    const messageTemplate = config.messageTemplate || 'Hola, me interesa información. Ref: {{code}}';
-    const message = messageTemplate.replace(/\{\{code\}\}/g, code);
-    const cleanPhone = whatsappPhone.replace(/[^0-9]/g, '');
-    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-
-    return res.redirect(302, waUrl);
-  }
-
-  /**
-   * Pixel script endpoint.
-   * Returns a JavaScript snippet that captures URL params and sends them
-   * to the tracking endpoint, appending the ref code to WhatsApp links.
-   * 
-   * Usage: <script src="https://crm.strategee.us/t/:slug/pixel.js"></script>
+   * Pixel endpoint: returns a JavaScript snippet that:
+   * 1. Reads URL params (gclid, fbclid, ttclid, UTMs)
+   * 2. When user clicks a WhatsApp link, calls our API to create an AdEvent
+   * 3. Appends the tracking code (camuflado) to the WhatsApp message text
+   *
+   * Usage: <script src="https://crm.strategee.us/api/t/:slug/pixel.js"></script>
    */
   @Public()
   @Get(':slug/pixel.js')
@@ -104,60 +34,104 @@ export class LinkTrackerController {
     }
 
     const config = tenant.trackingConfig || {};
-    const messageTemplate = config.messageTemplate || 'Hola, me interesa información. Ref: {{code}}';
+    const codePattern = config.codePattern || 'ref-{{code}}';
     const apiBase = process.env.API_BASE_URL || '';
 
     const script = `
 (function() {
-  var TENANT_ID = "${tenant.id}";
-  var SLUG = "${slug}";
-  var MSG_TEMPLATE = ${JSON.stringify(messageTemplate)};
-  var API = "${apiBase}/t/" + SLUG;
+  var TENANT_SLUG = "${slug}";
+  var CODE_PATTERN = ${JSON.stringify(codePattern)};
+  var API = "${apiBase}/t/" + TENANT_SLUG;
 
   // Read URL params
   var params = {};
-  var search = window.location.search.substring(1);
-  search.split("&").forEach(function(p) {
+  window.location.search.substring(1).split("&").forEach(function(p) {
     var kv = p.split("=");
     if (kv[0]) params[kv[0]] = decodeURIComponent(kv[1] || "");
   });
 
-  // Read cookies
+  // Read Meta cookies
   function getCookie(name) {
-    var match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
-    return match ? match[2] : null;
+    var m = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+    return m ? m[2] : "";
   }
-  params._fbc = getCookie("_fbc") || params.fbclid ? "fb.1." + Date.now() + "." + params.fbclid : "";
-  params._fbp = getCookie("_fbp") || "";
 
-  // Store in sessionStorage for form submissions
-  sessionStorage.setItem("__sg_params", JSON.stringify(params));
+  var fbc = getCookie("_fbc");
+  var fbp = getCookie("_fbp");
+  if (!fbc && params.fbclid) fbc = "fb.1." + Date.now() + "." + params.fbclid;
 
-  // Check if there are attribution params worth tracking
-  var hasAttribution = params.fbclid || params.gclid || params.ttclid || params.li_fat_id || params.utm_source;
+  // Check if there's any attribution data worth tracking
+  var hasAttribution = params.fbclid || params.gclid || params.ttclid || params.li_fat_id || params.twclid || params.utm_source;
   if (!hasAttribution) return;
 
-  // Intercept WhatsApp links and append tracking
-  function processWaLinks() {
-    var links = document.querySelectorAll('a[href*="wa.me"], a[href*="whatsapp.com"]');
+  // Store params for this session
+  var storedParams = JSON.parse(sessionStorage.getItem("__sg_atr") || "null");
+  if (!storedParams) {
+    storedParams = params;
+    storedParams._fbc = fbc;
+    storedParams._fbp = fbp;
+    storedParams._lp = window.location.href;
+    storedParams._ref = document.referrer;
+    sessionStorage.setItem("__sg_atr", JSON.stringify(storedParams));
+  }
+
+  // Create AdEvent and get tracking code
+  function getTrackingCode(callback) {
+    var cached = sessionStorage.getItem("__sg_code");
+    if (cached) return callback(cached);
+
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", API + "/event", true);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4 && xhr.status === 201) {
+        var data = JSON.parse(xhr.responseText);
+        var code = data.code;
+        sessionStorage.setItem("__sg_code", code);
+        callback(code);
+      }
+    };
+    xhr.send(JSON.stringify({
+      params: storedParams,
+      landingPage: storedParams._lp,
+      referrer: storedParams._ref
+    }));
+  }
+
+  // Intercept WhatsApp links
+  function processLinks() {
+    var links = document.querySelectorAll('a[href*="wa.me"], a[href*="api.whatsapp.com"]');
     links.forEach(function(link) {
-      if (link.dataset.sgProcessed) return;
-      link.dataset.sgProcessed = "1";
+      if (link.dataset.sgTracked) return;
+      link.dataset.sgTracked = "1";
+
       link.addEventListener("click", function(e) {
         e.preventDefault();
-        // Redirect through link tracker
-        var trackUrl = API + "/wa?" + new URLSearchParams(params).toString();
-        var phone = link.href.match(/wa\\.me\\/(\\d+)/);
-        if (phone) trackUrl += "&phone=" + phone[1];
-        window.location.href = trackUrl;
+        var href = link.href;
+
+        getTrackingCode(function(code) {
+          var codeText = CODE_PATTERN.replace("{{code}}", code);
+
+          // Parse existing text param and append code
+          var url = new URL(href);
+          var existingText = url.searchParams.get("text") || "";
+          var separator = existingText ? " " : "";
+          url.searchParams.set("text", existingText + separator + codeText);
+
+          window.location.href = url.toString();
+        });
       });
     });
   }
 
-  // Process on load and on DOM changes
-  processWaLinks();
-  var observer = new MutationObserver(processWaLinks);
-  observer.observe(document.body, { childList: true, subtree: true });
+  // Process on load and watch for dynamic links
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", processLinks);
+  } else {
+    processLinks();
+  }
+  var obs = new MutationObserver(processLinks);
+  obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
 })();
 `;
 
@@ -167,18 +141,54 @@ export class LinkTrackerController {
   }
 
   /**
+   * Called by the pixel to create an AdEvent and return a tracking code.
+   * POST /t/:slug/event
+   */
+  @Public()
+  @Post(':slug/event')
+  async createEvent(
+    @Param('slug') slug: string,
+    @Body() body: { params: Record<string, string>; landingPage?: string; referrer?: string },
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const tenant = await this.tenantRepo.findOne({ where: { slug } });
+    if (!tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    // Generate sequential code
+    const code = await this.generateCode(tenant);
+
+    // Create the AdEvent
+    await this.conversionsService.trackFromUrlParams(
+      tenant.id,
+      body.params,
+      {
+        ipAddress: (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || undefined,
+        userAgent: req.headers['user-agent'],
+        referrer: body.referrer,
+        landingPage: body.landingPage,
+        sessionId: `trk_${code}`,
+      },
+    );
+
+    return res.status(201).json({ code });
+  }
+
+  /**
    * Generate a sequential code for the tenant and increment the counter.
    */
   private async generateCode(tenant: Tenant): Promise<string> {
     const config = tenant.trackingConfig || {};
     const nextCode = config.nextCode || 1;
 
-    // Update the counter atomically
+    // Increment atomically
     await this.tenantRepo.update(tenant.id, {
       trackingConfig: { ...config, nextCode: nextCode + 1 },
     } as any);
 
-    // Format: tenant prefix (first 2 chars) + padded number
+    // Format: 2 letter prefix (tenant slug) + 5 digit padded number
     const prefix = tenant.slug.substring(0, 2).toUpperCase();
     return `${prefix}${String(nextCode).padStart(5, '0')}`;
   }

@@ -38,10 +38,8 @@ export class Tenant {
   /** Tracking configuration for ad attribution */
   @Column({ name: 'tracking_config', type: 'jsonb', nullable: true })
   trackingConfig: {
-    /** WhatsApp number to redirect to (with country code) */
-    whatsappPhone?: string;
-    /** Message template with {{code}} placeholder. E.g. "Hola, me interesa información. Ref: {{code}}" */
-    messageTemplate?: string;
+    /** Pattern for the tracking code appended to WhatsApp messages. Use {{code}} as placeholder. E.g. "ref-{{code}}", "ticket: {{code}}" */
+    codePattern?: string;
     /** Next sequential code number */
     nextCode?: number;
   } | null;
