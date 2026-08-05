@@ -6,6 +6,7 @@ import { WooHook } from './woo-hook.entity';
 import { Inbox } from '../chats/inbox.entity';
 import { Conversation } from '../chats/conversation.entity';
 import { Message } from '../chats/message.entity';
+import { Activity } from '../records/activity.entity';
 import { ConversionsService } from './conversions.service';
 
 export interface CreateContactEventParams {
@@ -36,6 +37,8 @@ export class ContactEventsService {
     private readonly conversationRepo: Repository<Conversation>,
     @InjectRepository(Message)
     private readonly messageRepo: Repository<Message>,
+    @InjectRepository(Activity)
+    private readonly activityRepo: Repository<Activity>,
     private readonly conversionsService: ConversionsService,
   ) {}
 
@@ -58,6 +61,26 @@ export class ContactEventsService {
     });
 
     const saved = await this.contactEventRepo.save(event);
+
+    // Log activity in the contact timeline
+    if (params.recordId) {
+      this.activityRepo.save(this.activityRepo.create({
+        tenantId: params.tenantId,
+        recordId: params.recordId,
+        type: 'conversion_event',
+        description: `Evento de conversión: ${params.name}`,
+        metadata: {
+          eventType: params.type,
+          value: params.value,
+          currency: params.currency,
+          source: params.source,
+        },
+        actorName: params.source === 'api' ? 'Smartee Control (WordPress)' : params.actorName || null,
+        actorId: params.actorId || null,
+      })).catch((err) => {
+        this.logger.warn(`[ContactEvent] Failed to log activity:`, err);
+      });
+    }
 
     // Try to dispatch conversion to ad platforms
     this.dispatchIfConfigured(saved).catch((err) => {
