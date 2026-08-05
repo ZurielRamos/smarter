@@ -129,6 +129,29 @@ export class GoogleOAuthController {
         return res.redirect('/settings?google_error=tenant_not_found');
       }
 
+      // If multiple customer IDs, redirect to frontend for selection
+      if (customerIds.length > 1) {
+        // Store tokens temporarily with all customer IDs, mark as pending selection
+        const tempPlatform = await this.conversionsService.createAdPlatform({
+          tenantId,
+          platform: 'google',
+          name: 'Google Ads (pendiente)',
+          credentials: {
+            accessToken: tokens.access_token,
+            refreshToken: tokens.refresh_token,
+            developerToken: this.developerToken,
+            customerIds,
+            customerId: '',
+            expiresAt: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null,
+            pendingSelection: true,
+          },
+          isActive: false,
+        });
+        return res.redirect(`/${tenant.slug}/settings?google_select_account=${tempPlatform.id}&accounts=${customerIds.join(',')}`);
+      }
+
+      // Single account or no accounts — save directly
+
       // Save or update the platform connection
       let existing = await this.adPlatformRepo.findOne({ where: { tenantId, platform: 'google' } });
       const credentials = {
@@ -160,6 +183,50 @@ export class GoogleOAuthController {
       const slug = tenant?.slug || '';
       return res.redirect(`/${slug}/settings?google_error=${encodeURIComponent(String(err).substring(0, 100))}`);
     }
+  }
+
+  /**
+   * Step 3 (optional): User selects which Google Ads account to use.
+   * Called from frontend when multiple accounts are available.
+   */
+  @Public()
+  @Get('select-account')
+  async selectAccount(
+    @Query('platformId') platformId: string,
+    @Query('customerId') customerId: string,
+    @Res() res: Response,
+  ) {
+    if (!platformId || !customerId) {
+      return res.status(400).json({ error: 'Missing platformId or customerId' });
+    }
+
+    const platform = await this.adPlatformRepo.findOneBy({ id: platformId });
+    if (!platform) {
+      return res.status(404).json({ error: 'Platform not found' });
+    }
+
+    // Update with selected customer ID and activate
+    await this.adPlatformRepo.update(platformId, {
+      name: 'Google Ads',
+      credentials: {
+        ...platform.credentials,
+        customerId,
+        pendingSelection: false,
+      },
+      isActive: true,
+    } as any);
+
+    // Activate in conversion events
+    const events = await this.adPlatformRepo.manager.find('ConversionEvent' as any, { where: { tenantId: platform.tenantId } }) as any[];
+    for (const evt of events) {
+      const platforms = evt.platforms || [];
+      if (!platforms.includes('google')) {
+        platforms.push('google');
+        await this.adPlatformRepo.manager.update('ConversionEvent' as any, evt.id, { platforms });
+      }
+    }
+
+    return res.json({ success: true, customerId });
   }
 
   /**
