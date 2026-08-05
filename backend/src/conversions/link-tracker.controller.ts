@@ -104,6 +104,21 @@ export class LinkTrackerController {
 
   // Tracking code (will be populated on page load)
   var trackingCode = sessionStorage.getItem("__sg_code") || null;
+  var cachedLanding = sessionStorage.getItem("__sg_lp") || "";
+
+  // If landing page changed (new ad click), reset cached code
+  if (cachedLanding && cachedLanding !== window.location.href) {
+    trackingCode = null;
+    sessionStorage.removeItem("__sg_code");
+    sessionStorage.removeItem("__sg_atr");
+    storedParams = params;
+    storedParams._fbc = fbc;
+    storedParams._fbp = fbp;
+    storedParams._lp = window.location.href;
+    storedParams._ref = document.referrer;
+    sessionStorage.setItem("__sg_atr", JSON.stringify(storedParams));
+  }
+  sessionStorage.setItem("__sg_lp", window.location.href);
 
   // Create AdEvent eagerly on page load
   if (!trackingCode) {
