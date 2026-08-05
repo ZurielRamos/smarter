@@ -36,7 +36,6 @@ export class LinkTrackerController {
     const config = tenant.trackingConfig || {};
     const codePattern = config.codePattern || 'ref-{{code}}';
     const pixelToken = config.pixelToken || '';
-    const apiBase = process.env.API_BASE_URL || '';
 
     // Generate token if not present
     if (!config.pixelToken) {
@@ -52,7 +51,18 @@ export class LinkTrackerController {
   var TENANT_SLUG = "${slug}";
   var TOKEN = "${pixelToken}";
   var CODE_PATTERN = ${JSON.stringify(codePattern)};
-  var API = "${apiBase}/t/" + TENANT_SLUG;
+
+  // Derive API base from the script's own URL
+  var scripts = document.getElementsByTagName("script");
+  var apiBase = "";
+  for (var i = 0; i < scripts.length; i++) {
+    var src = scripts[i].src || "";
+    if (src.indexOf("/t/" + TENANT_SLUG + "/pixel.js") !== -1) {
+      apiBase = src.substring(0, src.indexOf("/t/" + TENANT_SLUG));
+      break;
+    }
+  }
+  var API = apiBase + "/t/" + TENANT_SLUG;
 
   // Read URL params
   var params = {};
