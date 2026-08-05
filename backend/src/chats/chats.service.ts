@@ -575,11 +575,10 @@ export class ChatsService {
 
       // Check if message contains a tracking code (from pixel/link tracker)
       if (!msg.referral && content) {
-        this.conversionsService.matchAndLinkTrackingCode(inbox.tenantId, content, conversation.recordId!).then((linked) => {
-          if (linked) {
-            this.conversationRepo.update(conversation.id, { hasAdTracking: true });
-          }
-        }).catch(() => {});
+        const linked = await this.conversionsService.matchAndLinkTrackingCode(inbox.tenantId, content, conversation.recordId!).catch(() => false);
+        if (linked) {
+          conversation.hasAdTracking = true;
+        }
       }
 
       await this.conversationRepo.save(conversation);
