@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContactEvent } from './contact-event.entity';
+import { WooHook } from './woo-hook.entity';
 import { ConversionsService } from './conversions.service';
 
 export interface CreateContactEventParams {
@@ -24,6 +25,8 @@ export class ContactEventsService {
   constructor(
     @InjectRepository(ContactEvent)
     private readonly contactEventRepo: Repository<ContactEvent>,
+    @InjectRepository(WooHook)
+    private readonly wooHookRepo: Repository<WooHook>,
     private readonly conversionsService: ConversionsService,
   ) {}
 
@@ -51,6 +54,13 @@ export class ContactEventsService {
     this.dispatchIfConfigured(saved).catch((err) => {
       this.logger.warn(`[ContactEvent] Failed to dispatch conversion for event ${saved.id}:`, err);
     });
+
+    // Execute WooCommerce hooks if event came from woocommerce/api
+    if (params.source === 'api' || params.metadata?.source === 'woocommerce') {
+      this.executeWooHooks(saved).catch((err) => {
+        this.logger.warn(`[ContactEvent] Failed to execute woo hooks for event ${saved.id}:`, err);
+      });
+    }
 
     return saved;
   }
@@ -84,6 +94,56 @@ export class ContactEventsService {
         dispatchedAt: new Date(),
       });
       this.logger.log(`[ContactEvent] Dispatched ${logs.length} conversion(s) for event ${event.id}`);
+    }
+  }
+
+  /**
+   * Execute WooCommerce hooks configured for this event type.
+   * Handles: tag assignment and logging (notifications handled separately).
+   */
+  private async executeWooHooks(event: ContactEvent): Promise<void> {
+    const hooks = await this.wooHookRepo.find({
+      where: { tenantId: event.tenantId, event: event.type, enabled: true },
+    });
+
+    if (hooks.length === 0) return;
+
+    for (const hook of hooks) {
+      try {
+        switch (hook.actionType) {
+          case 'tag':
+            if (hook.config.tagName && event.recordId) {
+              // Add tag to contact
+              const existingTags = await this.contactEventRepo.manager.query(
+                'SELECT tags FROM clients WHERE id = $1',
+                [event.recordId],
+              );
+              const currentTags: string[] = existingTags?.[0]?.tags || [];
+              if (!currentTags.includes(hook.config.tagName)) {
+                await this.contactEventRepo.manager.query(
+                  'UPDATE clients SET tags = tags || $1::jsonb, updated_at = now() WHERE id = $2',
+                  [JSON.stringify([hook.config.tagName]), event.recordId],
+                );
+                this.logger.log(`[WooHook] Added tag "${hook.config.tagName}" to record ${event.recordId}`);
+              }
+            }
+            break;
+
+          case 'conversion':
+            // The conversion dispatch already happens via dispatchIfConfigured
+            // This hook type is informational — we log it
+            this.logger.log(`[WooHook] Conversion hook matched: ${hook.config.conversionName || event.type}`);
+            break;
+
+          case 'notification':
+            // Notification sending would be handled by the messaging service
+            // For now we log it — full implementation depends on the messaging queue
+            this.logger.log(`[WooHook] Notification hook triggered for record ${event.recordId} via ${hook.config.channel}`);
+            break;
+        }
+      } catch (err) {
+        this.logger.warn(`[WooHook] Error executing hook ${hook.id}:`, err);
+      }
     }
   }
 

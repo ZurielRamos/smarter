@@ -17,6 +17,7 @@ import { Settings } from "./pages/Settings";
 import { Profile } from "./pages/Profile";
 import { Integraciones } from "./pages/Integraciones";
 import { Webhooks } from "./pages/Webhooks";
+import { WooCommerceIntegration } from "./pages/WooCommerceIntegration";
 import { ApiReference } from "./pages/ApiReference";
 import { ComunicacionesLayout } from "./pages/comunicaciones/ComunicacionesLayout";
 import { Conversaciones } from "./pages/comunicaciones/Conversaciones";
@@ -146,6 +147,7 @@ function App() {
             <Route path="/:slug/profile" element={<Profile />} />
             <Route path="/:slug/integraciones" element={<Integraciones />} />
             <Route path="/:slug/integraciones/webhooks" element={<Webhooks />} />
+            <Route path="/:slug/integraciones/woocommerce" element={<WooCommerceIntegration />} />
           </Route>
         </Routes>
       </AuthProvider>
