@@ -37,7 +37,63 @@ const WOO_EVENTS = [
   { key: "lead", label: "Formulario enviado", description: "Cuando se envía un formulario de contacto (CF7, WPForms)", icon: FileText, color: "text-orange-600", bg: "bg-orange-50", example: "Formulario 'Contacto' enviado" },
 ];
 
-// Actions that can be triggered
+// Variables available per WooCommerce event
+const VARIABLES_BY_EVENT: Record<string, Array<{ key: string; label: string; desc: string }>> = {
+  purchase: [
+    { key: "{{firstName}}", label: "Nombre", desc: "Nombre del cliente" },
+    { key: "{{lastName}}", label: "Apellido", desc: "Apellido del cliente" },
+    { key: "{{email}}", label: "Email", desc: "Email de facturación" },
+    { key: "{{phone}}", label: "Teléfono", desc: "Teléfono de facturación" },
+    { key: "{{total}}", label: "Total", desc: "Monto total del pedido" },
+    { key: "{{currency}}", label: "Moneda", desc: "Moneda del pedido" },
+    { key: "{{orderNumber}}", label: "# Pedido", desc: "Número de orden" },
+    { key: "{{productName}}", label: "Producto", desc: "Nombre del producto principal" },
+    { key: "{{itemsCount}}", label: "Cantidad", desc: "Número de items" },
+    { key: "{{paymentMethod}}", label: "Método pago", desc: "Método de pago usado" },
+  ],
+  add_to_cart: [
+    { key: "{{firstName}}", label: "Nombre", desc: "Nombre del cliente" },
+    { key: "{{lastName}}", label: "Apellido", desc: "Apellido del cliente" },
+    { key: "{{email}}", label: "Email", desc: "Email del cliente" },
+    { key: "{{phone}}", label: "Teléfono", desc: "Teléfono del cliente" },
+    { key: "{{productName}}", label: "Producto", desc: "Nombre del producto agregado" },
+    { key: "{{productSku}}", label: "SKU", desc: "SKU del producto" },
+    { key: "{{quantity}}", label: "Cantidad", desc: "Cantidad agregada" },
+    { key: "{{value}}", label: "Valor", desc: "Precio × cantidad" },
+    { key: "{{currency}}", label: "Moneda", desc: "Moneda de la tienda" },
+  ],
+  initiate_checkout: [
+    { key: "{{firstName}}", label: "Nombre", desc: "Nombre del cliente" },
+    { key: "{{lastName}}", label: "Apellido", desc: "Apellido del cliente" },
+    { key: "{{email}}", label: "Email", desc: "Email del cliente" },
+    { key: "{{phone}}", label: "Teléfono", desc: "Teléfono del cliente" },
+    { key: "{{total}}", label: "Total", desc: "Total del carrito" },
+    { key: "{{currency}}", label: "Moneda", desc: "Moneda de la tienda" },
+    { key: "{{itemsCount}}", label: "Items", desc: "Cantidad de productos en el carrito" },
+  ],
+  view_content: [
+    { key: "{{email}}", label: "Email", desc: "Email del cliente" },
+    { key: "{{phone}}", label: "Teléfono", desc: "Teléfono del cliente" },
+    { key: "{{productName}}", label: "Producto", desc: "Nombre del producto visto" },
+    { key: "{{productSku}}", label: "SKU", desc: "SKU del producto" },
+    { key: "{{value}}", label: "Precio", desc: "Precio del producto" },
+    { key: "{{currency}}", label: "Moneda", desc: "Moneda de la tienda" },
+    { key: "{{category}}", label: "Categoría", desc: "Categoría del producto" },
+  ],
+  sign_up: [
+    { key: "{{firstName}}", label: "Nombre", desc: "Nombre del usuario" },
+    { key: "{{lastName}}", label: "Apellido", desc: "Apellido del usuario" },
+    { key: "{{email}}", label: "Email", desc: "Email de registro" },
+    { key: "{{username}}", label: "Usuario", desc: "Nombre de usuario" },
+  ],
+  lead: [
+    { key: "{{firstName}}", label: "Nombre", desc: "Nombre del contacto" },
+    { key: "{{lastName}}", label: "Apellido", desc: "Apellido del contacto" },
+    { key: "{{email}}", label: "Email", desc: "Email del formulario" },
+    { key: "{{phone}}", label: "Teléfono", desc: "Teléfono del formulario" },
+    { key: "{{formName}}", label: "Formulario", desc: "Nombre del formulario enviado" },
+  ],
+};
 const ACTION_TYPES = [
   { key: "conversion", label: "Evento de conversión", description: "Registrar como conversión y despachar a Meta, Google Ads, TikTok", icon: Zap, color: "text-amber-600", bg: "bg-amber-50", borderActive: "border-amber-300 bg-amber-50", tip: "Ideal para medir ROI de campañas publicitarias" },
   { key: "notification", label: "Enviar notificación", description: "Enviar mensaje automático por WhatsApp, SMS o email", icon: Bell, color: "text-blue-600", bg: "bg-blue-50", borderActive: "border-blue-300 bg-blue-50", tip: "Confirma pedidos o da la bienvenida a nuevos clientes" },
@@ -497,18 +553,7 @@ export function WooCommerceIntegration() {
                             <label className="text-[11px] font-medium text-gray-700 mb-2 block">Variables disponibles de WooCommerce</label>
                             <p className="text-[10px] text-gray-400 mb-2">Arrastra o haz clic para copiar e insertar en los campos</p>
                             <div className="flex flex-wrap gap-1.5">
-                              {[
-                                { key: "{{firstName}}", label: "Nombre", desc: "Nombre del cliente" },
-                                { key: "{{lastName}}", label: "Apellido", desc: "Apellido del cliente" },
-                                { key: "{{email}}", label: "Email", desc: "Email de facturación" },
-                                { key: "{{phone}}", label: "Teléfono", desc: "Teléfono de facturación" },
-                                { key: "{{total}}", label: "Total", desc: "Monto total del pedido" },
-                                { key: "{{currency}}", label: "Moneda", desc: "Moneda del pedido" },
-                                { key: "{{orderNumber}}", label: "# Pedido", desc: "Número de orden" },
-                                { key: "{{productName}}", label: "Producto", desc: "Nombre del producto principal" },
-                                { key: "{{itemsCount}}", label: "Cantidad", desc: "Número de items" },
-                                { key: "{{paymentMethod}}", label: "Método pago", desc: "Método de pago usado" },
-                              ].map((v) => (
+                              {(VARIABLES_BY_EVENT[formEvent] || []).map((v) => (
                                 <span
                                   key={v.key}
                                   draggable
@@ -571,15 +616,16 @@ export function WooCommerceIntegration() {
                               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 resize-none bg-white"
                             />
                             <div className="mt-2 flex flex-wrap gap-1.5">
-                              {["{{firstName}}", "{{lastName}}", "{{email}}", "{{phone}}", "{{orderNumber}}", "{{total}}", "{{currency}}", "{{productName}}"].map((v) => (
+                              {(VARIABLES_BY_EVENT[formEvent] || []).map((v) => (
                                 <span
-                                  key={v}
+                                  key={v.key}
                                   draggable
-                                  onDragStart={(e) => e.dataTransfer.setData("text/plain", v)}
-                                  onClick={() => navigator.clipboard.writeText(v).then(() => toast.success(`${v} copiado`))}
+                                  onDragStart={(e) => e.dataTransfer.setData("text/plain", v.key)}
+                                  onClick={() => navigator.clipboard.writeText(v.key).then(() => toast.success(`${v.key} copiado`))}
+                                  title={v.desc}
                                   className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium cursor-grab active:cursor-grabbing hover:bg-blue-200 transition-colors select-none"
                                 >
-                                  {v}
+                                  {v.key}
                                 </span>
                               ))}
                             </div>
