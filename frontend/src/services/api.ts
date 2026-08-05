@@ -251,7 +251,9 @@ export interface ClientRecord {
   tags: string[] | null;
   customData: Record<string, any> | null;
   hasAdTracking?: boolean;
-  adPlatform?: string | null;
+  adFirstPlatform?: string | null;
+  adLastPlatform?: string | null;
+  adTouchpoints?: number;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;

@@ -125,8 +125,17 @@ export class ClientRecord {
   @Column({ name: 'has_ad_tracking', type: 'boolean', default: false })
   hasAdTracking: boolean;
 
-  @Column({ name: 'ad_platform', type: 'varchar', length: 20, nullable: true })
-  adPlatform: string | null;
+  /** First ad platform that brought this contact */
+  @Column({ name: 'ad_first_platform', type: 'varchar', length: 20, nullable: true })
+  adFirstPlatform: string | null;
+
+  /** Last (most recent) ad platform */
+  @Column({ name: 'ad_last_platform', type: 'varchar', length: 20, nullable: true })
+  adLastPlatform: string | null;
+
+  /** Number of ad touchpoints for this contact */
+  @Column({ name: 'ad_touchpoints', type: 'integer', default: 0 })
+  adTouchpoints: number;
 
   // === AUDITORÍA ===
   @CreateDateColumn({ name: 'created_at' })

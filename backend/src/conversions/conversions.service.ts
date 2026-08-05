@@ -407,11 +407,16 @@ export class ConversionsService {
    */
   async linkEventToRecord(adEventId: string, recordId: string): Promise<void> {
     await this.adEventRepo.update(adEventId, { recordId });
-    // Also mark the record itself
     const adEvent = await this.adEventRepo.findOneBy({ id: adEventId });
     if (adEvent) {
+      // Update record: set first platform only if not set, always update last platform and increment counter
       await this.adEventRepo.manager.query(
-        'UPDATE clients SET has_ad_tracking = true, ad_platform = $1 WHERE id = $2',
+        `UPDATE clients SET
+          has_ad_tracking = true,
+          ad_first_platform = COALESCE(ad_first_platform, $1),
+          ad_last_platform = $1,
+          ad_touchpoints = COALESCE(ad_touchpoints, 0) + 1
+        WHERE id = $2`,
         [adEvent.platform, recordId],
       );
     }

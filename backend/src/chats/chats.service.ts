@@ -574,7 +574,15 @@ export class ChatsService {
         conversation.adPlatform = 'meta';
         // Also mark the client record
         if (conversation.recordId) {
-          this.clientRecordRepo.update(conversation.recordId, { hasAdTracking: true, adPlatform: 'meta' } as any).catch(() => {});
+          this.clientRecordRepo.query(
+            `UPDATE clients SET
+              has_ad_tracking = true,
+              ad_first_platform = COALESCE(ad_first_platform, 'meta'),
+              ad_last_platform = 'meta',
+              ad_touchpoints = COALESCE(ad_touchpoints, 0) + 1
+            WHERE id = $1`,
+            [conversation.recordId],
+          ).catch(() => {});
         }
       }
 
