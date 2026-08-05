@@ -1,12 +1,14 @@
 import { Controller, Get, Post, Param, Body, Req, Res } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { Public } from '../auth/public.decorator';
 import { Tenant } from '../tenants/tenant.entity';
 import { ConversionsService } from './conversions.service';
 
 @Controller('t')
+@SkipThrottle()
 export class LinkTrackerController {
   constructor(
     @InjectRepository(Tenant)
@@ -190,6 +192,8 @@ export class LinkTrackerController {
    * POST /t/:slug/event
    */
   @Public()
+  @SkipThrottle({ default: false })
+  @Throttle({ short: { limit: 10, ttl: 60000 }, medium: { limit: 30, ttl: 300000 } })
   @Post(':slug/event')
   async createEvent(
     @Param('slug') slug: string,
