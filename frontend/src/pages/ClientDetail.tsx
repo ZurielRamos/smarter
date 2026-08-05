@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, Tag, MessageSquare, Camera, MoreHorizontal, StickyNote, Plus, Trash2, User, ArrowRightLeft, UserPlus, Send, Pencil, Clock } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, Calendar, Tag, MessageSquare, Camera, MoreHorizontal, StickyNote, Plus, Trash2, User, ArrowRightLeft, UserPlus, Send, Pencil, Clock, ShoppingCart, CalendarCheck, Presentation, Star, FileText, Zap } from "lucide-react";
 import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/components/ChannelIcons";
-import { getClient, getConversationsByRecord, getNotes, deleteNote, getActivities } from "@/services/api";
-import type { ClientRecord, ConversationRecord, NoteRecord, ActivityRecord } from "@/services/api";
+import { getClient, getConversationsByRecord, getNotes, deleteNote, getActivities, getContactEvents, createContactEvent, deleteContactEvent } from "@/services/api";
+import type { ClientRecord, ConversationRecord, NoteRecord, ActivityRecord, ContactEventRecord } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { AddNoteModal } from "./AddNoteModal";
 import { ConversationPreviewModal } from "./ConversationPreviewModal";
@@ -47,6 +47,7 @@ export function ClientDetail() {
   const { slug, id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const tenantId = user?.tenantRoles.find((tr) => tr.tenant.slug === slug)?.tenantId || "";
   const [client, setClient] = useState<ClientRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [conversations, setConversations] = useState<ConversationRecord[]>([]);
@@ -57,6 +58,10 @@ export function ClientDetail() {
   const [previewConversation, setPreviewConversation] = useState<ConversationRecord | null>(null);
   const [activities, setActivities] = useState<ActivityRecord[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [contactEvents, setContactEvents] = useState<ContactEventRecord[]>([]);
+  const [contactEventsLoading, setContactEventsLoading] = useState(false);
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [eventForm, setEventForm] = useState({ type: 'purchase', name: '', value: '', currency: 'COP' });
 
   useEffect(() => {
     if (!id) return;
@@ -92,6 +97,34 @@ export function ClientDetail() {
     setActivitiesLoading(true);
     getActivities(id).then((res) => setActivities(res.data)).catch(() => setActivities([])).finally(() => setActivitiesLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    setContactEventsLoading(true);
+    getContactEvents(id).then((res) => setContactEvents(res.data)).catch(() => setContactEvents([])).finally(() => setContactEventsLoading(false));
+  }, [id]);
+
+  const handleCreateEvent = async () => {
+    if (!id || !tenantId || !eventForm.name) return;
+    try {
+      await createContactEvent({
+        tenantId,
+        recordId: id,
+        type: eventForm.type,
+        name: eventForm.name,
+        value: eventForm.value ? parseFloat(eventForm.value) : undefined,
+        currency: eventForm.currency,
+        actorId: user?.id,
+        actorName: user?.name,
+      });
+      toast.success("Evento registrado");
+      setShowEventForm(false);
+      setEventForm({ type: 'purchase', name: '', value: '', currency: 'COP' });
+      getContactEvents(id).then((res) => setContactEvents(res.data)).catch(() => {});
+    } catch {
+      toast.error("Error al registrar evento");
+    }
+  };
 
   if (!client && !loading) return null;
 
@@ -280,6 +313,126 @@ export function ClientDetail() {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </div>
+
+              {/* Contact Events */}
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-amber-500" />
+                    Eventos de conversión
+                  </h3>
+                  <button
+                    onClick={() => setShowEventForm((v) => !v)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Registrar
+                  </button>
+                </div>
+
+                {/* Event form */}
+                {showEventForm && (
+                  <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={eventForm.type}
+                        onChange={(e) => setEventForm({ ...eventForm, type: e.target.value, name: e.target.selectedOptions[0]?.dataset.label || eventForm.name })}
+                        className="px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                      >
+                        <option value="purchase" data-label="Compra">🛒 Compra</option>
+                        <option value="appointment" data-label="Cita agendada">📅 Cita agendada</option>
+                        <option value="demo" data-label="Demo realizada">🎥 Demo</option>
+                        <option value="qualified" data-label="Lead calificado">⭐ Calificado</option>
+                        <option value="proposal" data-label="Propuesta enviada">📄 Propuesta</option>
+                        <option value="registration" data-label="Registro">📝 Registro</option>
+                        <option value="subscription" data-label="Suscripción">🔄 Suscripción</option>
+                        <option value="custom" data-label="">✨ Personalizado</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={eventForm.name}
+                        onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })}
+                        placeholder="Nombre del evento"
+                        className="px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        value={eventForm.value}
+                        onChange={(e) => setEventForm({ ...eventForm, value: e.target.value })}
+                        placeholder="Valor (opcional)"
+                        className="px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                      />
+                      <select
+                        value={eventForm.currency}
+                        onChange={(e) => setEventForm({ ...eventForm, currency: e.target.value })}
+                        className="px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                      >
+                        <option value="COP">COP</option>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="MXN">MXN</option>
+                      </select>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => setShowEventForm(false)} className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                      <button onClick={handleCreateEvent} disabled={!eventForm.name} className="px-3 py-1.5 text-xs font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg disabled:opacity-50">Registrar</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Events list */}
+                {contactEventsLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-500" />
+                  </div>
+                ) : contactEvents.length === 0 ? (
+                  <div className="text-center py-6">
+                    <Zap className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-xs text-gray-400">Sin eventos registrados</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {contactEvents.map((evt) => (
+                      <div key={evt.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 group">
+                        <div className="h-8 w-8 rounded-full bg-amber-50 flex items-center justify-center text-sm shrink-0">
+                          {evt.type === 'purchase' && '🛒'}
+                          {evt.type === 'appointment' && '📅'}
+                          {evt.type === 'demo' && '🎥'}
+                          {evt.type === 'qualified' && '⭐'}
+                          {evt.type === 'proposal' && '📄'}
+                          {evt.type === 'registration' && '📝'}
+                          {evt.type === 'subscription' && '🔄'}
+                          {evt.type === 'custom' && '✨'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{evt.name}</p>
+                          <p className="text-[11px] text-gray-400">
+                            {new Date(evt.createdAt).toLocaleDateString()} — {evt.actorName || 'Sistema'}
+                            {evt.dispatched && <span className="ml-1.5 text-green-600">✓ Reportado</span>}
+                          </p>
+                        </div>
+                        {evt.value && (
+                          <span className="text-sm font-semibold text-gray-700">
+                            {Number(evt.value).toLocaleString()} {evt.currency}
+                          </span>
+                        )}
+                        <button
+                          onClick={async () => {
+                            await deleteContactEvent(evt.id);
+                            setContactEvents((prev) => prev.filter((e) => e.id !== evt.id));
+                            toast.success("Evento eliminado");
+                          }}
+                          className="p-1 rounded text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

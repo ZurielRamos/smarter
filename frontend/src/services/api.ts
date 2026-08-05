@@ -562,3 +562,47 @@ export async function getActivities(recordId: string, page = 1, limit = 30): Pro
   const { data } = await api.get<ActivitiesResponse>('/records/activities', { params: { recordId, page, limit } });
   return data;
 }
+
+
+// === Contact Events ===
+
+export interface ContactEventRecord {
+  id: string;
+  tenantId: string;
+  recordId: string;
+  type: string;
+  name: string;
+  value: number | null;
+  currency: string;
+  metadata: Record<string, any> | null;
+  source: string;
+  actorId: string | null;
+  actorName: string | null;
+  dispatched: boolean;
+  dispatchedAt: string | null;
+  createdAt: string;
+}
+
+export async function getContactEvents(recordId: string, limit = 50, offset = 0): Promise<{ data: ContactEventRecord[]; total: number }> {
+  const { data } = await api.get<{ data: ContactEventRecord[]; total: number }>('/contact-events', { params: { recordId, limit, offset } });
+  return data;
+}
+
+export async function createContactEvent(payload: {
+  tenantId: string;
+  recordId: string;
+  type: string;
+  name: string;
+  value?: number;
+  currency?: string;
+  metadata?: Record<string, any>;
+  actorId?: string;
+  actorName?: string;
+}): Promise<ContactEventRecord> {
+  const { data } = await api.post<ContactEventRecord>('/contact-events', payload);
+  return data;
+}
+
+export async function deleteContactEvent(id: string): Promise<void> {
+  await api.delete(`/contact-events/${id}`);
+}
