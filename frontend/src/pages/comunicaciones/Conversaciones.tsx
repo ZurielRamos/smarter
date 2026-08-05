@@ -31,6 +31,7 @@ interface Conversation {
   lastMessage: string | null;
   lastMessageAt: string | null;
   lastMessageSource?: string | null;
+  hasAdTracking?: boolean;
   unreadCount: number;
   labelIds?: string[];
   inbox?: {
@@ -804,7 +805,7 @@ export function Conversaciones() {
                   onContextMenu={(e) => handleContextMenu(e, conv)}
                   className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b border-gray-50 transition-colors ${activeConversation?.id === conv.id ? "bg-brand-50" : "hover:bg-gray-50"}`}
                 >
-                  <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 shrink-0">
+                  <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-gray-600 shrink-0 ${conv.hasAdTracking ? "ring-2 ring-blue-500 ring-offset-1 bg-gradient-to-br from-blue-50 to-indigo-100" : "bg-gray-200"}`}>
                     {getDisplayName(conv).charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">

@@ -65,6 +65,10 @@ export class Conversation {
   @Column({ name: 'label_ids', type: 'jsonb', nullable: true, default: [] })
   labelIds: string[];
 
+  /** Whether this conversation's contact has active ad tracking events */
+  @Column({ name: 'has_ad_tracking', type: 'boolean', default: false })
+  hasAdTracking: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

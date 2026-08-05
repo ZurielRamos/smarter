@@ -13,6 +13,7 @@ import { MediaStorageService } from '../media/media-storage.service';
 import { BillingService } from '../billing/billing.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ConversionsService } from '../conversions/conversions.service';
 
 @Injectable()
 export class ChatsService {
@@ -35,6 +36,7 @@ export class ChatsService {
     private readonly billingService: BillingService,
     private readonly webhooksService: WebhooksService,
     private readonly notificationsService: NotificationsService,
+    private readonly conversionsService: ConversionsService,
   ) {}
 
   // === INBOXES ===
@@ -567,6 +569,38 @@ export class ChatsService {
       }
 
       await this.conversationRepo.save(conversation);
+
+      // Capture ad attribution if message comes from a Meta ad (click-to-WhatsApp)
+      if (msg.referral) {
+        const referral = msg.referral;
+        // Mark conversation as having ad tracking
+        conversation.hasAdTracking = true;
+        await this.conversationRepo.save(conversation);
+
+        this.conversionsService.trackEvent({
+          tenantId: inbox.tenantId,
+          recordId: conversation.recordId || undefined,
+          platform: 'meta',
+          clickId: referral.ctwa_clid || undefined,
+          clickIdType: referral.ctwa_clid ? 'fbclid' : undefined,
+          utmSource: 'meta',
+          utmMedium: 'paid',
+          utmCampaign: referral.headline || referral.source_id || undefined,
+          metadata: {
+            sourceType: referral.source_type,
+            sourceId: referral.source_id,
+            sourceUrl: referral.source_url,
+            headline: referral.headline,
+            body: referral.body,
+            mediaType: referral.media_type,
+            mediaUrl: referral.image_url || referral.video_url,
+            ctwaClid: referral.ctwa_clid,
+            conversationId: conversation.id,
+            inboxId: inbox.id,
+            phone: contactPhone,
+          },
+        }).catch((err) => console.warn('[Webhook] Failed to track ad event:', err));
+      }
 
       // Emit real-time events
       this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
