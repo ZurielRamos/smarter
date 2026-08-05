@@ -456,10 +456,12 @@ export function WooCommerceIntegration() {
                               type="text"
                               value={formConfig.conversionName || ""}
                               onChange={(e) => setFormConfig({ ...formConfig, conversionName: e.target.value })}
-                              placeholder="Ej: Compra Plan Premium, Demo producto, Cita presencial..."
+                              onDrop={(e) => { e.preventDefault(); const v = e.dataTransfer.getData("text/plain"); setFormConfig({ ...formConfig, conversionName: (formConfig.conversionName || "") + v }); }}
+                              onDragOver={(e) => e.preventDefault()}
+                              placeholder="Ej: Compra {{productName}} por {{total}}"
                               className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 bg-white"
                             />
-                            <p className="text-[10px] text-gray-400 mt-1">Describe brevemente qué pasó con este contacto</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Puedes usar variables de WooCommerce arrastrándolas al campo</p>
                           </div>
 
                           {/* Value */}
@@ -467,10 +469,12 @@ export function WooCommerceIntegration() {
                             <label className="text-[11px] font-medium text-gray-700">Valor monetario <span className="text-gray-400 font-normal">(opcional)</span></label>
                             <div className="flex gap-2 mt-1">
                               <input
-                                type="number"
+                                type="text"
                                 value={formConfig.conversionValue || ""}
                                 onChange={(e) => setFormConfig({ ...formConfig, conversionValue: e.target.value })}
-                                placeholder="0"
+                                onDrop={(e) => { e.preventDefault(); const v = e.dataTransfer.getData("text/plain"); setFormConfig({ ...formConfig, conversionValue: (formConfig.conversionValue || "") + v }); }}
+                                onDragOver={(e) => e.preventDefault()}
+                                placeholder="{{total}} o un valor fijo"
                                 className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 bg-white"
                               />
                               <select
@@ -482,9 +486,41 @@ export function WooCommerceIntegration() {
                                 <option value="USD">USD</option>
                                 <option value="EUR">EUR</option>
                                 <option value="MXN">MXN</option>
+                                <option value="{{currency}}">Auto (moneda del pedido)</option>
                               </select>
                             </div>
-                            <p className="text-[10px] text-gray-400 mt-1">Si este evento tiene un valor de venta, se reportará a las plataformas de ads</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Usa {"{{total}}"} para tomar el valor automáticamente del pedido</p>
+                          </div>
+
+                          {/* Available variables */}
+                          <div>
+                            <label className="text-[11px] font-medium text-gray-700 mb-2 block">Variables disponibles de WooCommerce</label>
+                            <p className="text-[10px] text-gray-400 mb-2">Arrastra o haz clic para copiar e insertar en los campos</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {[
+                                { key: "{{firstName}}", label: "Nombre", desc: "Nombre del cliente" },
+                                { key: "{{lastName}}", label: "Apellido", desc: "Apellido del cliente" },
+                                { key: "{{email}}", label: "Email", desc: "Email de facturación" },
+                                { key: "{{phone}}", label: "Teléfono", desc: "Teléfono de facturación" },
+                                { key: "{{total}}", label: "Total", desc: "Monto total del pedido" },
+                                { key: "{{currency}}", label: "Moneda", desc: "Moneda del pedido" },
+                                { key: "{{orderNumber}}", label: "# Pedido", desc: "Número de orden" },
+                                { key: "{{productName}}", label: "Producto", desc: "Nombre del producto principal" },
+                                { key: "{{itemsCount}}", label: "Cantidad", desc: "Número de items" },
+                                { key: "{{paymentMethod}}", label: "Método pago", desc: "Método de pago usado" },
+                              ].map((v) => (
+                                <span
+                                  key={v.key}
+                                  draggable
+                                  onDragStart={(e) => e.dataTransfer.setData("text/plain", v.key)}
+                                  onClick={() => navigator.clipboard.writeText(v.key).then(() => toast.success(`${v.key} copiado`))}
+                                  title={v.desc}
+                                  className="text-[10px] px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 font-medium cursor-grab active:cursor-grabbing hover:bg-amber-100 hover:border-amber-300 transition-colors select-none"
+                                >
+                                  {v.label} <span className="text-amber-500 font-mono">{v.key}</span>
+                                </span>
+                              ))}
+                            </div>
                           </div>
 
                           {/* Info */}
@@ -528,13 +564,21 @@ export function WooCommerceIntegration() {
                             <textarea
                               value={formConfig.templateMessage || ""}
                               onChange={(e) => setFormConfig({ ...formConfig, templateMessage: e.target.value })}
+                              onDrop={(e) => { e.preventDefault(); const v = e.dataTransfer.getData("text/plain"); setFormConfig({ ...formConfig, templateMessage: (formConfig.templateMessage || "") + v }); }}
+                              onDragOver={(e) => e.preventDefault()}
                               rows={3}
                               placeholder="Hola {{firstName}}, tu pedido #{{orderNumber}} ha sido confirmado. Total: {{total}} {{currency}}"
                               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 resize-none bg-white"
                             />
                             <div className="mt-2 flex flex-wrap gap-1.5">
-                              {["{{firstName}}", "{{lastName}}", "{{orderNumber}}", "{{total}}", "{{currency}}"].map((v) => (
-                                <span key={v} className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium cursor-default hover:bg-blue-200 transition-colors">
+                              {["{{firstName}}", "{{lastName}}", "{{email}}", "{{phone}}", "{{orderNumber}}", "{{total}}", "{{currency}}", "{{productName}}"].map((v) => (
+                                <span
+                                  key={v}
+                                  draggable
+                                  onDragStart={(e) => e.dataTransfer.setData("text/plain", v)}
+                                  onClick={() => navigator.clipboard.writeText(v).then(() => toast.success(`${v} copiado`))}
+                                  className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium cursor-grab active:cursor-grabbing hover:bg-blue-200 transition-colors select-none"
+                                >
                                   {v}
                                 </span>
                               ))}
