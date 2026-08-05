@@ -112,7 +112,9 @@ interface WooHook {
     conversionCurrency?: string;
     inboxId?: string;
     templateName?: string;
+    templateLanguage?: string;
     templateMessage?: string;
+    variableMapping?: Record<string, string>;
     channel?: string;
     tagName?: string;
   };
@@ -138,6 +140,8 @@ export function WooCommerceIntegration() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [whatsappTemplates, setWhatsappTemplates] = useState<any[]>([]);
+  const [loadingTpl, setLoadingTpl] = useState(false);
 
   // Form state
   const [formEvent, setFormEvent] = useState("");
@@ -167,6 +171,18 @@ export function WooCommerceIntegration() {
       } catch {}
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadTemplates(inboxId: string) {
+    setLoadingTpl(true);
+    try {
+      const { data } = await api.get("/campaigns/whatsapp/templates", { params: { inboxId } });
+      setWhatsappTemplates(data);
+    } catch {
+      setWhatsappTemplates([]);
+    } finally {
+      setLoadingTpl(false);
     }
   }
 
@@ -589,7 +605,10 @@ export function WooCommerceIntegration() {
                               value={formConfig.inboxId || ""}
                               onChange={(e) => {
                                 const inbox = inboxes.find((i) => i.id === e.target.value);
-                                setFormConfig({ ...formConfig, inboxId: e.target.value, channel: inbox?.channel || "" });
+                                setFormConfig({ ...formConfig, inboxId: e.target.value, channel: inbox?.channel || "", templateName: "", templateMessage: "", variableMapping: {} });
+                                if (inbox?.channel === "whatsapp") {
+                                  loadTemplates(e.target.value);
+                                }
                               }}
                               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 bg-white"
                             >
@@ -601,35 +620,130 @@ export function WooCommerceIntegration() {
                               ))}
                             </select>
                           </div>
-                          <div>
-                            <label className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-2">
-                              <Bell className="h-3.5 w-3.5 text-blue-500" />
-                              Mensaje a enviar
-                            </label>
-                            <textarea
-                              value={formConfig.templateMessage || ""}
-                              onChange={(e) => setFormConfig({ ...formConfig, templateMessage: e.target.value })}
-                              onDrop={(e) => { e.preventDefault(); const v = e.dataTransfer.getData("text/plain"); setFormConfig({ ...formConfig, templateMessage: (formConfig.templateMessage || "") + v }); }}
-                              onDragOver={(e) => e.preventDefault()}
-                              rows={3}
-                              placeholder="Hola {{firstName}}, tu pedido #{{orderNumber}} ha sido confirmado. Total: {{total}} {{currency}}"
-                              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 resize-none bg-white"
-                            />
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                              {(VARIABLES_BY_EVENT[formEvent] || []).map((v) => (
-                                <span
-                                  key={v.key}
-                                  draggable
-                                  onDragStart={(e) => e.dataTransfer.setData("text/plain", v.key)}
-                                  onClick={() => navigator.clipboard.writeText(v.key).then(() => toast.success(`${v.key} copiado`))}
-                                  title={v.desc}
-                                  className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium cursor-grab active:cursor-grabbing hover:bg-blue-200 transition-colors select-none"
-                                >
-                                  {v.key}
-                                </span>
-                              ))}
+
+                          {/* WhatsApp: template selector + variable mapping */}
+                          {formConfig.channel === "whatsapp" && formConfig.inboxId && (
+                            <div className="space-y-3">
+                              <div>
+                                <label className="text-xs font-medium text-gray-700 mb-2 block">Plantilla aprobada</label>
+                                {loadingTpl ? (
+                                  <div className="flex items-center gap-2 text-xs text-gray-400 py-3">
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Cargando plantillas...
+                                  </div>
+                                ) : whatsappTemplates.length === 0 ? (
+                                  <p className="text-xs text-gray-400 py-2">No hay plantillas aprobadas en esta bandeja.</p>
+                                ) : (
+                                  <div className="space-y-1.5 max-h-48 overflow-y-auto border border-gray-100 rounded-lg p-2">
+                                    {whatsappTemplates.map((tpl) => {
+                                      const body = tpl.components?.find((c: any) => c.type === "BODY")?.text || "";
+                                      const isSelected = formConfig.templateName === tpl.name;
+                                      return (
+                                        <button
+                                          key={`${tpl.name}-${tpl.language}`}
+                                          type="button"
+                                          onClick={() => {
+                                            const bodyText = tpl.components?.find((c: any) => c.type === "BODY")?.text || "";
+                                            const matches = bodyText.match(/\{\{\d+\}\}/g) || [];
+                                            const mapping: Record<string, string> = {};
+                                            matches.forEach((m: string) => { mapping[m.replace(/[{}]/g, "")] = ""; });
+                                            setFormConfig({ ...formConfig, templateName: tpl.name, templateLanguage: tpl.language, variableMapping: mapping });
+                                          }}
+                                          className={`w-full text-left p-2.5 rounded-lg border transition-all ${isSelected ? "border-blue-300 bg-blue-50" : "border-gray-100 hover:border-blue-200 hover:bg-blue-50/30"}`}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs font-semibold text-gray-900">{tpl.name}</span>
+                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{tpl.language}</span>
+                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">{tpl.category}</span>
+                                            {isSelected && <CheckCircle2 className="h-3.5 w-3.5 text-blue-500 ml-auto" />}
+                                          </div>
+                                          <p className="text-[10px] text-gray-500 mt-1 line-clamp-2">{body}</p>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Variable mapping */}
+                              {formConfig.templateName && formConfig.variableMapping && Object.keys(formConfig.variableMapping).length > 0 && (
+                                <div>
+                                  <label className="text-xs font-medium text-gray-700 mb-1 block">Mapeo de variables</label>
+                                  <p className="text-[10px] text-gray-400 mb-2">Asigna datos de WooCommerce a cada variable de la plantilla</p>
+                                  <div className="space-y-2">
+                                    {Object.keys(formConfig.variableMapping).sort((a, b) => Number(a) - Number(b)).map((varNum) => (
+                                      <div key={varNum} className="flex items-center gap-2 p-2.5 rounded-lg bg-gray-50 border border-gray-100">
+                                        <span className="text-xs font-mono text-gray-500 w-12 shrink-0">{`{{${varNum}}}`}</span>
+                                        <span className="text-xs text-gray-400">→</span>
+                                        <select
+                                          value={(formConfig.variableMapping as any)?.[varNum] || ""}
+                                          onChange={(e) => {
+                                            const updated = { ...(formConfig.variableMapping || {}), [varNum]: e.target.value };
+                                            setFormConfig({ ...formConfig, variableMapping: updated });
+                                          }}
+                                          className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 bg-white"
+                                        >
+                                          <option value="">Seleccionar variable...</option>
+                                          {(VARIABLES_BY_EVENT[formEvent] || []).map((v) => (
+                                            <option key={v.key} value={v.key}>{v.label} — {v.key}</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  {/* Preview */}
+                                  {(() => {
+                                    const tpl = whatsappTemplates.find((t) => t.name === formConfig.templateName);
+                                    const bodyText = tpl?.components?.find((c: any) => c.type === "BODY")?.text || "";
+                                    let preview = bodyText;
+                                    Object.entries(formConfig.variableMapping || {}).forEach(([num, val]) => {
+                                      const varLabel = (VARIABLES_BY_EVENT[formEvent] || []).find((v) => v.key === val)?.label || val || `{{${num}}}`;
+                                      preview = preview.replace(`{{${num}}}`, `[${varLabel}]`);
+                                    });
+                                    return (
+                                      <div className="mt-3 rounded-lg border border-green-200 bg-green-50/50 p-3">
+                                        <p className="text-[10px] font-semibold text-green-800 uppercase tracking-wide mb-1">Vista previa</p>
+                                        <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{preview}</p>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              )}
                             </div>
-                          </div>
+                          )}
+
+                          {/* SMS / other channels: free text message */}
+                          {formConfig.channel && formConfig.channel !== "whatsapp" && (
+                            <div>
+                              <label className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-2">
+                                <Bell className="h-3.5 w-3.5 text-blue-500" />
+                                Mensaje a enviar
+                              </label>
+                              <textarea
+                                value={formConfig.templateMessage || ""}
+                                onChange={(e) => setFormConfig({ ...formConfig, templateMessage: e.target.value })}
+                                onDrop={(e) => { e.preventDefault(); const v = e.dataTransfer.getData("text/plain"); setFormConfig({ ...formConfig, templateMessage: (formConfig.templateMessage || "") + v }); }}
+                                onDragOver={(e) => e.preventDefault()}
+                                rows={3}
+                                placeholder="Hola {{firstName}}, tu pedido #{{orderNumber}} ha sido confirmado."
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 resize-none bg-white"
+                              />
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {(VARIABLES_BY_EVENT[formEvent] || []).map((v) => (
+                                  <span
+                                    key={v.key}
+                                    draggable
+                                    onDragStart={(e) => e.dataTransfer.setData("text/plain", v.key)}
+                                    onClick={() => navigator.clipboard.writeText(v.key).then(() => toast.success(`${v.key} copiado`))}
+                                    title={v.desc}
+                                    className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium cursor-grab active:cursor-grabbing hover:bg-blue-200 transition-colors select-none"
+                                  >
+                                    {v.key}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 
