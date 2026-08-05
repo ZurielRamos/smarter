@@ -1,13 +1,13 @@
 <?php
 /**
- * Plugin Name: Strategee Conversions
+ * Plugin Name: Smartee Control
  * Plugin URI: https://strategee.us
- * Description: Envía eventos de conversión de WooCommerce y formularios a la API de Strategee para tracking de campañas.
+ * Description: Conecta tu WooCommerce y formularios con Smartee CRM. Rastrea compras, leads y conversiones automáticamente.
  * Version: 1.0.0
  * Author: Strategee
  * Author URI: https://strategee.us
  * License: GPL v2 or later
- * Text Domain: strategee-conversions
+ * Text Domain: smartee-control
  * Requires at least: 5.8
  * Requires PHP: 7.4
  * WC requires at least: 6.0

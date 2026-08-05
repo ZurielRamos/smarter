@@ -19,12 +19,14 @@ class Strategee_Admin {
     }
 
     public function add_menu() {
-        add_options_page(
-            'Strategee Conversions',
-            'Strategee Conversions',
+        add_menu_page(
+            'Smartee Control',
+            'Smartee Control',
             'manage_options',
-            'strategee-conversions',
-            [$this, 'render_page']
+            'smartee-control',
+            [$this, 'render_page'],
+            STGEE_CONV_PLUGIN_URL . 'admin/img/icon.png',
+            56 // Position: after WooCommerce
         );
     }
 
@@ -60,7 +62,7 @@ class Strategee_Admin {
     }
 
     public function enqueue_assets($hook) {
-        if ($hook !== 'settings_page_strategee-conversions') return;
+        if ($hook !== 'toplevel_page_smartee-control') return;
 
         wp_enqueue_style(
             'strategee-admin',

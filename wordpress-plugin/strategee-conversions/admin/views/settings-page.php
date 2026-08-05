@@ -2,8 +2,8 @@
 if (!defined('ABSPATH')) exit;
 ?>
 <div class="wrap strategee-settings">
-    <h1>Strategee Conversions</h1>
-    <p class="description">Conecta tu tienda WooCommerce y formularios con la API de conversiones de Strategee.</p>
+    <h1>Smartee Control</h1>
+    <p class="description">Conecta tu tienda WooCommerce y formularios con Smartee CRM para rastreo de conversiones.</p>
 
     <form method="post" action="options.php">
         <?php settings_fields('strategee_conv_group'); ?>
