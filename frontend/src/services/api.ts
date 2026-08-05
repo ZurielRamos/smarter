@@ -250,6 +250,8 @@ export interface ClientRecord {
   lastActivityAt: string | null;
   tags: string[] | null;
   customData: Record<string, any> | null;
+  hasAdTracking?: boolean;
+  adPlatform?: string | null;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;

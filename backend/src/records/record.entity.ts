@@ -121,6 +121,13 @@ export class ClientRecord {
   @Column({ name: 'custom_data', type: 'jsonb', nullable: true })
   customData: Record<string, any>;
 
+  // === AD TRACKING ===
+  @Column({ name: 'has_ad_tracking', type: 'boolean', default: false })
+  hasAdTracking: boolean;
+
+  @Column({ name: 'ad_platform', type: 'varchar', length: 20, nullable: true })
+  adPlatform: string | null;
+
   // === AUDITORÍA ===
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
