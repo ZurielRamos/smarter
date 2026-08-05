@@ -25,7 +25,7 @@ class Strategee_Admin {
             'manage_options',
             'smartee-control',
             [$this, 'render_page'],
-            STGEE_CONV_PLUGIN_URL . 'admin/img/icon.png',
+            STGEE_CONV_PLUGIN_URL . 'admin/img/icon-20.png',
             56 // Position: after WooCommerce
         );
     }
