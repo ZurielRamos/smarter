@@ -408,9 +408,8 @@ export class ConversionsService {
       'SELECT tracking_config FROM tenants WHERE id = $1', [tenantId],
     );
     const trackingConfig = tenant?.[0]?.tracking_config;
-    if (!trackingConfig?.codePattern) return false;
+    const pattern: string = trackingConfig?.codePattern || 'ref-{{code}}';
 
-    const pattern: string = trackingConfig.codePattern;
     // Convert pattern like "ref-{{code}}" to regex like "ref-(\d+)"
     const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(escaped.replace('\\{\\{code\\}\\}', '(\\d+)'));
