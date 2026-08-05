@@ -887,7 +887,7 @@ export class ChatsService {
     return { count: parseInt(result[0]?.count || '0') };
   }
 
-  async getConversationsPaginated(inboxId: string, opts: { limit: number; offset: number; labelId?: string; hideCampaign?: boolean }): Promise<{ data: Conversation[]; total: number }> {
+  async getConversationsPaginated(inboxId: string, opts: { limit: number; offset: number; labelIds?: string[]; hideCampaign?: boolean }): Promise<{ data: Conversation[]; total: number }> {
     const qb = this.conversationRepo.createQueryBuilder('conv')
       .leftJoinAndSelect('conv.inbox', 'inbox')
       .leftJoinAndSelect('conv.record', 'record')
@@ -896,8 +896,12 @@ export class ChatsService {
       .take(opts.limit)
       .skip(opts.offset);
 
-    if (opts.labelId) {
-      qb.andWhere('conv.label_ids @> :labelArr', { labelArr: JSON.stringify([opts.labelId]) });
+    if (opts.labelIds && opts.labelIds.length > 0) {
+      // Conversation must have at least one of the selected labels
+      const conditions = opts.labelIds.map((_, i) => `conv.label_ids @> :lbl${i}`).join(' OR ');
+      const params: Record<string, string> = {};
+      opts.labelIds.forEach((id, i) => { params[`lbl${i}`] = JSON.stringify([id]); });
+      qb.andWhere(`(${conditions})`, params);
     }
 
     if (opts.hideCampaign) {
@@ -918,7 +922,7 @@ export class ChatsService {
     });
   }
 
-  async getConversationsByTenantPaginated(tenantId: string, opts: { limit: number; offset: number; labelId?: string; hideCampaign?: boolean }): Promise<{ data: Conversation[]; total: number }> {
+  async getConversationsByTenantPaginated(tenantId: string, opts: { limit: number; offset: number; labelIds?: string[]; hideCampaign?: boolean }): Promise<{ data: Conversation[]; total: number }> {
     const inboxes = await this.inboxRepo.find({ where: { tenantId } });
     if (inboxes.length === 0) return { data: [], total: 0 };
     const inboxIds = inboxes.map((i) => i.id);
@@ -931,8 +935,11 @@ export class ChatsService {
       .take(opts.limit)
       .skip(opts.offset);
 
-    if (opts.labelId) {
-      qb.andWhere('conv.label_ids @> :labelArr', { labelArr: JSON.stringify([opts.labelId]) });
+    if (opts.labelIds && opts.labelIds.length > 0) {
+      const conditions = opts.labelIds.map((_, i) => `conv.label_ids @> :lbl${i}`).join(' OR ');
+      const params: Record<string, string> = {};
+      opts.labelIds.forEach((id, i) => { params[`lbl${i}`] = JSON.stringify([id]); });
+      qb.andWhere(`(${conditions})`, params);
     }
 
     if (opts.hideCampaign) {
@@ -943,7 +950,7 @@ export class ChatsService {
     return { data, total };
   }
 
-  async getConversationsByInboxes(inboxIds: string[], opts: { limit: number; offset: number; labelId?: string; hideCampaign?: boolean }): Promise<{ data: Conversation[]; total: number }> {
+  async getConversationsByInboxes(inboxIds: string[], opts: { limit: number; offset: number; labelIds?: string[]; hideCampaign?: boolean }): Promise<{ data: Conversation[]; total: number }> {
     if (inboxIds.length === 0) return { data: [], total: 0 };
 
     const qb = this.conversationRepo.createQueryBuilder('conv')
@@ -954,8 +961,11 @@ export class ChatsService {
       .take(opts.limit)
       .skip(opts.offset);
 
-    if (opts.labelId) {
-      qb.andWhere('conv.label_ids @> :labelArr', { labelArr: JSON.stringify([opts.labelId]) });
+    if (opts.labelIds && opts.labelIds.length > 0) {
+      const conditions = opts.labelIds.map((_, i) => `conv.label_ids @> :lbl${i}`).join(' OR ');
+      const params: Record<string, string> = {};
+      opts.labelIds.forEach((id, i) => { params[`lbl${i}`] = JSON.stringify([id]); });
+      qb.andWhere(`(${conditions})`, params);
     }
 
     if (opts.hideCampaign) {

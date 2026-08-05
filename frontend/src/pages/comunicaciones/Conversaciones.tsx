@@ -99,7 +99,7 @@ export function Conversaciones() {
   const conversationListRef = useRef<HTMLDivElement>(null);
   const [labels, setLabels] = useState<Array<{ id: string; slug: string; label: string; description: string | null; color: string; showInSidebar: boolean }>>([]);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
-  const [selectedLabelFilter, setSelectedLabelFilter] = useState<string | null>(null);
+  const [selectedLabelFilters, setSelectedLabelFilters] = useState<Set<string>>(new Set());
   const [hideCampaignMessages, setHideCampaignMessages] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; conversation: Conversation } | null>(null);
@@ -132,7 +132,7 @@ export function Conversaciones() {
   useEffect(() => {
     if (!tenantId) return;
     loadConversations();
-  }, [selectedInboxFilter, selectedLabelFilter, hideCampaignMessages]);
+  }, [selectedInboxFilter, selectedLabelFilters, hideCampaignMessages]);
 
   useEffect(() => {
     if (!activeConversation) return;
@@ -312,8 +312,8 @@ export function Conversaciones() {
     } else {
       params.tenantId = tenantId;
     }
-    if (selectedLabelFilter) {
-      params.labelId = selectedLabelFilter;
+    if (selectedLabelFilters.size > 0) {
+      params.labelIds = Array.from(selectedLabelFilters).join(',');
     }
     if (hideCampaignMessages) {
       params.hideCampaign = 'true';
@@ -690,61 +690,64 @@ export function Conversaciones() {
                 <div className="relative" ref={filterDropdownRef}>
                   <button
                     onClick={() => setFilterDropdownOpen((v) => !v)}
-                    className={`p-1.5 rounded-lg transition-colors ${selectedLabelFilter || hideCampaignMessages ? "text-brand-600 bg-brand-50" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
+                    className={`p-1.5 rounded-lg transition-colors ${selectedLabelFilters.size > 0 || hideCampaignMessages ? "text-brand-600 bg-brand-50" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
                     title="Filtrar"
                   >
                     <Filter className="h-4 w-4" />
                   </button>
                   {filterDropdownOpen && (
-                    <div className="absolute top-full right-0 mt-1.5 w-60 bg-white rounded-xl shadow-xl border border-gray-200/80 py-1.5 z-50">
+                    <div className="absolute top-full right-0 mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-gray-200/80 py-2 z-50">
                       {/* Campaign toggle */}
-                      <div className="px-3 py-2">
-                        <label className="flex items-center gap-2.5 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={!hideCampaignMessages}
-                            onChange={(e) => setHideCampaignMessages(!e.target.checked)}
-                            className="h-3.5 w-3.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                          />
-                          <span className="text-sm text-gray-700">Mensajes de campaña</span>
-                        </label>
+                      <div className="px-3 py-2 flex items-center justify-between">
+                        <span className="text-sm text-gray-700">Mensajes de campaña</span>
+                        <button
+                          onClick={() => setHideCampaignMessages((v) => !v)}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${!hideCampaignMessages ? "bg-brand-600" : "bg-gray-200"}`}
+                        >
+                          <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${!hideCampaignMessages ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
+                        </button>
                       </div>
 
                       {/* Labels */}
                       {labels.length > 0 && (
-                        <>
-                          <div className="border-t border-gray-100 mt-1 pt-1">
-                            <p className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Etiquetas</p>
-                            <button
-                              onClick={() => { setSelectedLabelFilter(null); setFilterDropdownOpen(false); }}
-                              className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-sm transition-colors ${!selectedLabelFilter ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
-                            >
-                              <span className="flex-1 text-left">Todas</span>
-                              {!selectedLabelFilter && <span className="text-brand-500 text-xs">✓</span>}
-                            </button>
-                            {labels.map((lbl) => {
-                              const isActive = selectedLabelFilter === lbl.id;
-                              return (
-                                <button
-                                  key={lbl.id}
-                                  onClick={() => { setSelectedLabelFilter(isActive ? null : lbl.id); setFilterDropdownOpen(false); }}
-                                  className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-sm transition-colors ${isActive ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
-                                >
-                                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.color }} />
-                                  <span className="flex-1 text-left truncate">{lbl.label}</span>
-                                  {isActive && <span className="text-brand-500 text-xs">✓</span>}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </>
+                        <div className="border-t border-gray-100 mt-1 pt-1">
+                          <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Etiquetas</p>
+                          <button
+                            onClick={() => setSelectedLabelFilters(new Set())}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${selectedLabelFilters.size === 0 ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                          >
+                            <span className="flex-1 text-left">Todas</span>
+                            {selectedLabelFilters.size === 0 && <span className="text-brand-500 text-xs">✓</span>}
+                          </button>
+                          {labels.map((lbl) => {
+                            const isSelected = selectedLabelFilters.has(lbl.id);
+                            return (
+                              <button
+                                key={lbl.id}
+                                onClick={() => {
+                                  setSelectedLabelFilters((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(lbl.id)) next.delete(lbl.id);
+                                    else next.add(lbl.id);
+                                    return next;
+                                  });
+                                }}
+                                className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${isSelected ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                              >
+                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.color }} />
+                                <span className="flex-1 text-left truncate">{lbl.label}</span>
+                                {isSelected && <span className="text-brand-500 text-xs">✓</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
                       )}
 
                       {/* Clear all */}
-                      {(selectedLabelFilter || hideCampaignMessages) && (
-                        <div className="border-t border-gray-100 mt-1 pt-1">
+                      {(selectedLabelFilters.size > 0 || hideCampaignMessages) && (
+                        <div className="border-t border-gray-100 mt-1.5 pt-1.5">
                           <button
-                            onClick={() => { setSelectedLabelFilter(null); setHideCampaignMessages(false); setFilterDropdownOpen(false); }}
+                            onClick={() => { setSelectedLabelFilters(new Set()); setHideCampaignMessages(false); }}
                             className="w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
                           >
                             Limpiar filtros

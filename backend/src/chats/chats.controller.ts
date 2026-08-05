@@ -195,6 +195,7 @@ export class ChatsController {
     @Query('inboxIds') inboxIds?: string,
     @Query('recordId') recordId?: string,
     @Query('labelId') labelId?: string,
+    @Query('labelIds') labelIds?: string,
     @Query('hideCampaign') hideCampaign?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
@@ -202,7 +203,7 @@ export class ChatsController {
     const opts = {
       limit: limit ? parseInt(limit, 10) : 15,
       offset: offset ? parseInt(offset, 10) : 0,
-      labelId: labelId || undefined,
+      labelIds: labelIds ? labelIds.split(',').filter(Boolean) : (labelId ? [labelId] : []),
       hideCampaign: hideCampaign === 'true',
     };
 
