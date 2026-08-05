@@ -35,6 +35,9 @@ class Strategee_WooCommerce {
         if ($this->is_enabled('purchase')) {
             add_action('woocommerce_payment_complete', [$this, 'on_purchase'], 10, 1);
             add_action('woocommerce_order_status_completed', [$this, 'on_purchase'], 10, 1);
+            add_action('woocommerce_order_status_processing', [$this, 'on_purchase'], 10, 1);
+            add_action('woocommerce_order_status_on-hold', [$this, 'on_purchase'], 10, 1);
+            add_action('woocommerce_thankyou', [$this, 'on_purchase'], 10, 1);
         }
 
         // Agregar al carrito
