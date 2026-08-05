@@ -113,7 +113,19 @@ export class ConversionsService {
       clickId = params.twclid;
       clickIdType = 'twclid';
     } else if (params.utm_source) {
-      platform = 'organic';
+      // Classify by utm_source if no click ID
+      const src = params.utm_source.toLowerCase();
+      if (src === 'google' || src === 'google_ads' || src === 'googleads') {
+        platform = 'google';
+      } else if (src === 'facebook' || src === 'fb' || src === 'instagram' || src === 'ig' || src === 'meta') {
+        platform = 'meta';
+      } else if (src === 'tiktok' || src === 'tt') {
+        platform = 'tiktok';
+      } else if (src === 'linkedin' || src === 'li') {
+        platform = 'linkedin';
+      } else {
+        platform = 'organic';
+      }
     }
 
     // Don't track direct visits with no attribution data
