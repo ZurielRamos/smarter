@@ -16,6 +16,7 @@ import { SmsService } from './sms.service';
 import { CallService } from './call.service';
 import { ConfigService } from '@nestjs/config';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface CampaignSendJobData {
   sendId: string;
@@ -53,6 +54,7 @@ export class CampaignSendWorker extends WorkerHost {
     private readonly callService: CallService,
     private readonly configService: ConfigService,
     private readonly webhooksService: WebhooksService,
+    private readonly notificationsService: NotificationsService,
   ) {
     super();
   }
@@ -349,6 +351,23 @@ export class CampaignSendWorker extends WorkerHost {
         totalFailed,
       }).catch(() => {});
 
+      // Notify campaign creator about completion
+      if (campaign.tenantId) {
+        this.notificationsService.getTenantAdminUserIds(campaign.tenantId).then((adminIds) => {
+          for (const uid of adminIds) {
+            this.notificationsService.notify({
+              tenantId: campaign.tenantId,
+              userId: uid,
+              type: 'campaign_completed',
+              title: `Campaña "${campaign.name}" completada`,
+              body: `${totalSent} enviados, ${totalFailed} fallidos de ${totalRecipients} destinatarios`,
+              link: `/${campaign.tenantId}/comunicaciones/campaigns/${campaign.id}`,
+              metadata: { campaignId: campaign.id, sendId, totalSent, totalFailed, totalRecipients },
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+      }
+
       // Settle credit reservation: charge only successful sends, release the rest
       if (totalSent >= 0 && campaign.tenantId) {
         try {
@@ -614,6 +633,7 @@ export class CampaignSendWorker extends WorkerHost {
           mediaUrl: templateMeta,
           externalId: log.providerMessageId || undefined,
           status: 'sent',
+          source: 'campaign',
         });
       }
 

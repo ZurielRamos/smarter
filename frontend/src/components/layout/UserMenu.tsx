@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { User, LogOut, Settings2, Puzzle } from "lucide-react";
+import { User, LogOut, Settings2, Coins } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { api } from "@/services/api";
+import { PresenceIndicator } from "@/components/ui/PresenceIndicator";
+import { usePresence } from "@/hooks/usePresence";
 
 export function UserMenu() {
   const [open, setOpen] = useState(false);
+  const [credits, setCredits] = useState<number | null>(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { slug } = useParams();
@@ -14,6 +18,10 @@ export function UserMenu() {
 
   const isOnTenant = !!slug && !location.pathname.startsWith("/admin");
   const isAdmin = user?.isSuperAdmin;
+  const currentRole = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
+  const tenantId = currentRole?.tenantId;
+  const { getStatus } = usePresence();
+  const myStatus = user?.id ? getStatus(user.id) : "offline";
 
   const initials = user?.name
     ?.split(" ")
@@ -40,21 +48,37 @@ export function UserMenu() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
+  // Fetch credits balance
+  useEffect(() => {
+    if (!tenantId) return;
+    api
+      .get(`/tenants/${tenantId}/billing/balance`)
+      .then(({ data }) => setCredits(data.available))
+      .catch(() => setCredits(null));
+  }, [tenantId]);
+
   return (
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setOpen(!open)}
-        className="h-9 w-9 rounded-full bg-accent-500 flex items-center justify-center text-xs font-bold text-white hover:ring-2 hover:ring-accent-300 transition-all cursor-pointer overflow-hidden"
+        className="relative h-9 w-9 rounded-full bg-accent-500 flex items-center justify-center text-xs font-bold text-white hover:ring-2 hover:ring-accent-300 transition-all cursor-pointer overflow-visible"
       >
-        {user?.avatarPath ? (
-          <img
-            src={user.avatarPath.startsWith("http") ? user.avatarPath : `/${user.avatarPath}`}
-            alt={user.name}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          initials
-        )}
+        <span className="h-full w-full rounded-full overflow-hidden flex items-center justify-center">
+          {user?.avatarPath ? (
+            <img
+              src={user.avatarPath.startsWith("http") ? user.avatarPath : `/${user.avatarPath}`}
+              alt={user.name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            initials
+          )}
+        </span>
+        <PresenceIndicator
+          status={myStatus}
+          size="md"
+          className="absolute -bottom-0.5 -right-0.5"
+        />
       </button>
 
       <AnimatePresence>
@@ -75,7 +99,6 @@ export function UserMenu() {
                 {user?.email}
               </p>
               {isOnTenant && (() => {
-                const currentRole = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
                 if (!currentRole) return null;
                 return (
                   <span className={`inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium ${
@@ -86,6 +109,15 @@ export function UserMenu() {
                 );
               })()}
             </div>
+
+            {/* Credits */}
+            {isOnTenant && credits !== null && (
+              <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
+                <Coins className="h-4 w-4 text-amber-500" />
+                <span className="text-sm font-medium text-gray-700">{credits.toLocaleString()}</span>
+                <span className="text-xs text-gray-400">créditos</span>
+              </div>
+            )}
 
             {/* Options */}
             <div className="py-1">
@@ -109,18 +141,6 @@ export function UserMenu() {
                 >
                   <Settings2 className="h-4 w-4 text-gray-400" />
                   Configurar cuenta
-                </button>
-              )}
-              {isOnTenant && isAdmin && (
-                <button
-                  onClick={() => {
-                    setOpen(false);
-                    navigate(`/${slug}/integraciones`);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <Puzzle className="h-4 w-4 text-gray-400" />
-                  Integraciones
                 </button>
               )}
               <button

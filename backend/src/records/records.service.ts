@@ -5,6 +5,7 @@ import { ClientRecord } from './record.entity';
 import { Note } from './note.entity';
 import { Activity } from './activity.entity';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -18,6 +19,7 @@ export class RecordsService {
     @InjectRepository(Activity)
     private readonly activityRepository: Repository<Activity>,
     private readonly webhooksService: WebhooksService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // System field keys that are actual columns in the entity
@@ -64,6 +66,18 @@ export class RecordsService {
       // Log activity for assignment changes
       if (data.assignedTo !== undefined && before && before.assignedTo !== data.assignedTo) {
         this.logActivity({ tenantId: updated.tenantId, recordId: id, type: 'assigned', description: data.assignedTo ? 'Agente asignado' : 'Asignación removida', metadata: { assignedTo: data.assignedTo } }).catch(() => {});
+        // Notify the newly assigned agent
+        if (data.assignedTo) {
+          const contactName = updated.firstName || updated.lastName ? `${updated.firstName || ''} ${updated.lastName || ''}`.trim() : (updated.phone || 'Contacto');
+          this.notificationsService.notify({
+            tenantId: updated.tenantId,
+            userId: data.assignedTo,
+            type: 'contact_assigned',
+            title: `Te asignaron a ${contactName}`,
+            link: `/${updated.tenantId}/clients/${id}`,
+            metadata: { recordId: id },
+          }).catch(() => {});
+        }
       }
       if (data.assignedTeamId !== undefined && before && before.assignedTeamId !== data.assignedTeamId) {
         this.logActivity({ tenantId: updated.tenantId, recordId: id, type: 'assigned', description: data.assignedTeamId ? 'Equipo asignado' : 'Equipo removido', metadata: { assignedTeamId: data.assignedTeamId } }).catch(() => {});
@@ -820,6 +834,21 @@ export class RecordsService {
     const saved = await this.noteRepository.save(note);
     // Log activity
     this.logActivity({ tenantId: data.tenantId, recordId: data.recordId, type: 'note_created', description: 'Nota creada', actorId: data.authorId, actorName: data.authorName }).catch(() => {});
+    // Notify the assigned agent (if different from the author)
+    this.recordRepository.findOne({ where: { id: data.recordId } }).then((record) => {
+      if (record?.assignedTo && record.assignedTo !== data.authorId) {
+        const contactName = record.firstName || record.lastName ? `${record.firstName || ''} ${record.lastName || ''}`.trim() : (record.phone || 'Contacto');
+        this.notificationsService.notify({
+          tenantId: data.tenantId,
+          userId: record.assignedTo,
+          type: 'note_created',
+          title: `${data.authorName || 'Alguien'} dejó una nota en ${contactName}`,
+          body: data.content.substring(0, 120),
+          link: `/${data.tenantId}/clients/${data.recordId}`,
+          metadata: { recordId: data.recordId, noteId: saved.id },
+        }).catch(() => {});
+      }
+    }).catch(() => {});
     return saved;
   }
 

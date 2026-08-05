@@ -2,10 +2,10 @@ import { useParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Settings as SettingsIcon } from "lucide-react";
 import { GeneralCard } from "@/components/settings/GeneralCard";
-import { ChannelConfigCard } from "@/components/settings/ChannelConfigCard";
 import { motion } from "framer-motion";
 import headerBg from "@/assets/header-background.jpg";
 import { TeamCard } from "@/components/settings/TeamCard";
+import { IntegrationsCard } from "@/components/settings/IntegrationsCard";
 
 export function Settings() {
   const { slug } = useParams();
@@ -38,8 +38,8 @@ export function Settings() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1, ease: 'easeOut' }} className="flex-1 min-h-0 overflow-auto py-6">
         <div className="max-w-3xl space-y-6">
           <GeneralCard />
-          <ChannelConfigCard />
           <TeamCard />
+          <IntegrationsCard />
         </div>
       </motion.div>
     </div>

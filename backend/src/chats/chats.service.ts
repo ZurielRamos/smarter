@@ -12,6 +12,7 @@ import { ChatsGateway } from './chats.gateway';
 import { MediaStorageService } from '../media/media-storage.service';
 import { BillingService } from '../billing/billing.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ChatsService {
@@ -33,6 +34,7 @@ export class ChatsService {
     private readonly configService: ConfigService,
     private readonly billingService: BillingService,
     private readonly webhooksService: WebhooksService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // === INBOXES ===
@@ -569,6 +571,37 @@ export class ChatsService {
       this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
       this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
+      // Notify inbox collaborators about the new inbound message
+      this.notificationsService.getInboxCollaboratorUserIds(inbox.id).then(async (userIds) => {
+        // Resolve contact name from record
+        let contactLabel = conversation.contactName || contactPhone || 'Contacto';
+        if (conversation.recordId) {
+          const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+          if (record) {
+            contactLabel = record.fullName || record.firstName || conversation.contactName || contactPhone || 'Contacto';
+          }
+        }
+        for (const uid of userIds) {
+          // Only create notification if user doesn't already have an unread one for this conversation
+          this.notificationsService.findUnreadByConversation(uid, conversation.id).then((existing) => {
+            if (!existing) {
+              this.notificationsService.notify({
+                tenantId: inbox.tenantId,
+                userId: uid,
+                type: 'message_received',
+                title: `Nuevo mensaje de ${contactLabel}`,
+                body: (content || `[${messageType}]`).substring(0, 120),
+                link: `/${inbox.tenantId}/comunicaciones/conversaciones/${conversation.id}`,
+                metadata: { conversationId: conversation.id, inboxId: inbox.id, messageType },
+              }).catch(() => {});
+            } else {
+              // Update existing notification body with latest message
+              this.notificationsService.updateBody(existing.id, (content || `[${messageType}]`).substring(0, 120)).catch(() => {});
+            }
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+
       // Dispatch webhooks with full context
       const contactRecord = conversation.recordId ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } }) : null;
       this.webhooksService.dispatch(inbox.tenantId, 'message_created', {
@@ -853,14 +886,29 @@ export class ChatsService {
     return { count: parseInt(result[0]?.count || '0') };
   }
 
-  async getConversationsPaginated(inboxId: string, opts: { limit: number; offset: number }): Promise<{ data: Conversation[]; total: number }> {
-    const [data, total] = await this.conversationRepo.findAndCount({
-      where: { inboxId },
-      relations: { inbox: true, record: true },
-      order: { lastMessageAt: 'DESC' },
-      take: opts.limit,
-      skip: opts.offset,
-    });
+  async getConversationsPaginated(inboxId: string, opts: { limit: number; offset: number; labelId?: string; hideCampaign?: boolean }): Promise<{ data: Conversation[]; total: number }> {
+    const qb = this.conversationRepo.createQueryBuilder('conv')
+      .leftJoinAndSelect('conv.inbox', 'inbox')
+      .leftJoinAndSelect('conv.record', 'record')
+      .where('conv.inbox_id = :inboxId', { inboxId })
+      .orderBy('conv.last_message_at', 'DESC')
+      .take(opts.limit)
+      .skip(opts.offset);
+
+    if (opts.labelId) {
+      qb.andWhere('conv.label_ids @> :labelArr', { labelArr: JSON.stringify([opts.labelId]) });
+    }
+
+    if (opts.hideCampaign) {
+      qb.andWhere(`NOT EXISTS (
+        SELECT 1 FROM messages m
+        WHERE m.conversation_id = conv.id
+        AND m.source = 'campaign'
+        AND m.created_at = (SELECT MAX(m2.created_at) FROM messages m2 WHERE m2.conversation_id = conv.id)
+      )`);
+    }
+
+    const [data, total] = await qb.getManyAndCount();
     return { data, total };
   }
 
@@ -874,28 +922,61 @@ export class ChatsService {
     });
   }
 
-  async getConversationsByTenantPaginated(tenantId: string, opts: { limit: number; offset: number }): Promise<{ data: Conversation[]; total: number }> {
+  async getConversationsByTenantPaginated(tenantId: string, opts: { limit: number; offset: number; labelId?: string; hideCampaign?: boolean }): Promise<{ data: Conversation[]; total: number }> {
     const inboxes = await this.inboxRepo.find({ where: { tenantId } });
     if (inboxes.length === 0) return { data: [], total: 0 };
-    const [data, total] = await this.conversationRepo.findAndCount({
-      where: inboxes.map((i) => ({ inboxId: i.id })),
-      relations: { inbox: true, record: true },
-      order: { lastMessageAt: 'DESC' },
-      take: opts.limit,
-      skip: opts.offset,
-    });
+    const inboxIds = inboxes.map((i) => i.id);
+
+    const qb = this.conversationRepo.createQueryBuilder('conv')
+      .leftJoinAndSelect('conv.inbox', 'inbox')
+      .leftJoinAndSelect('conv.record', 'record')
+      .where('conv.inbox_id IN (:...inboxIds)', { inboxIds })
+      .orderBy('conv.last_message_at', 'DESC')
+      .take(opts.limit)
+      .skip(opts.offset);
+
+    if (opts.labelId) {
+      qb.andWhere('conv.label_ids @> :labelArr', { labelArr: JSON.stringify([opts.labelId]) });
+    }
+
+    if (opts.hideCampaign) {
+      qb.andWhere(`NOT EXISTS (
+        SELECT 1 FROM messages m
+        WHERE m.conversation_id = conv.id
+        AND m.source = 'campaign'
+        AND m.created_at = (SELECT MAX(m2.created_at) FROM messages m2 WHERE m2.conversation_id = conv.id)
+      )`);
+    }
+
+    const [data, total] = await qb.getManyAndCount();
     return { data, total };
   }
 
-  async getConversationsByInboxes(inboxIds: string[], opts: { limit: number; offset: number }): Promise<{ data: Conversation[]; total: number }> {
+  async getConversationsByInboxes(inboxIds: string[], opts: { limit: number; offset: number; labelId?: string; hideCampaign?: boolean }): Promise<{ data: Conversation[]; total: number }> {
     if (inboxIds.length === 0) return { data: [], total: 0 };
-    const [data, total] = await this.conversationRepo.findAndCount({
-      where: inboxIds.map((id) => ({ inboxId: id })),
-      relations: { inbox: true, record: true },
-      order: { lastMessageAt: 'DESC' },
-      take: opts.limit,
-      skip: opts.offset,
-    });
+
+    const qb = this.conversationRepo.createQueryBuilder('conv')
+      .leftJoinAndSelect('conv.inbox', 'inbox')
+      .leftJoinAndSelect('conv.record', 'record')
+      .where('conv.inbox_id IN (:...inboxIds)', { inboxIds })
+      .orderBy('conv.last_message_at', 'DESC')
+      .take(opts.limit)
+      .skip(opts.offset);
+
+    if (opts.labelId) {
+      qb.andWhere('conv.label_ids @> :labelArr', { labelArr: JSON.stringify([opts.labelId]) });
+    }
+
+    if (opts.hideCampaign) {
+      qb.andWhere(`NOT EXISTS (
+        SELECT 1 FROM messages m
+        WHERE m.conversation_id = conv.id
+        AND m.source = 'campaign'
+        AND m.created_at = (SELECT MAX(m2.created_at) FROM messages m2 WHERE m2.conversation_id = conv.id)
+      )`);
+    }
+
+    const [data, total] = await qb.getManyAndCount();
     return { data, total };
   }
 

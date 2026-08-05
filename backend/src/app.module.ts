@@ -19,6 +19,7 @@ import { BillingModule } from './billing/billing.module';
 import { ProvidersModule } from './providers/providers.module';
 import { TeamsModule } from './teams/teams.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     ProvidersModule,
     TeamsModule,
     WebhooksModule,
+    NotificationsModule,
   ],
   providers: [
     {

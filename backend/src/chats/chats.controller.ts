@@ -188,27 +188,22 @@ export class ChatsController {
 
   // === CONVERSATIONS ===
 
-  @Get('unread-count')
-  getUnreadCount(
-    @Query('tenantId') tenantId: string,
-    @Query('userId') userId?: string,
-    @Query('role') role?: string,
-  ) {
-    return this.chatsService.getUnreadCount(tenantId, userId, role);
-  }
-
   @Get('conversations')
   getConversations(
     @Query('tenantId') tenantId?: string,
     @Query('inboxId') inboxId?: string,
     @Query('inboxIds') inboxIds?: string,
     @Query('recordId') recordId?: string,
+    @Query('labelId') labelId?: string,
+    @Query('hideCampaign') hideCampaign?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
     const opts = {
       limit: limit ? parseInt(limit, 10) : 15,
       offset: offset ? parseInt(offset, 10) : 0,
+      labelId: labelId || undefined,
+      hideCampaign: hideCampaign === 'true',
     };
 
     if (recordId) return this.chatsService.getConversationsByRecordId(recordId, opts);

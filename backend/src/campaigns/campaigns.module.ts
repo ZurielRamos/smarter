@@ -24,6 +24,7 @@ import { SmsService } from './sms.service';
 import { BillingModule } from '../billing/billing.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { UsersModule } from '../users/users.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { UsersModule } from '../users/users.module';
     BillingModule,
     WebhooksModule,
     UsersModule,
+    NotificationsModule,
   ],
   providers: [CampaignsService, WhatsAppService, CallService, SmsService, CampaignsGateway, CampaignSendWorker, CampaignSchedulerService],
   controllers: [CampaignsController, ApiCampaignsController],

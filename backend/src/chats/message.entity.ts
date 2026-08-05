@@ -61,6 +61,10 @@ export class Message {
   @Column({ type: 'varchar', length: 20, default: 'sent' })
   status: string;
 
+  // Origin of the message: manual | campaign | automation | api
+  @Column({ type: 'varchar', length: 20, nullable: true, default: null })
+  source: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

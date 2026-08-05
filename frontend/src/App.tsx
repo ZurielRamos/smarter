@@ -85,7 +85,7 @@ function ProtectedAdminLayout() {
 function App() {
   return (
     <BrowserRouter>
-      <Toaster position="top-right" richColors closeButton />
+      <Toaster position="bottom-right" richColors closeButton />
       <AuthProvider>
         <PendingInvites />
         <Routes>
