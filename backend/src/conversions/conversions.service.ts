@@ -400,9 +400,9 @@ export class ConversionsService {
   /**
    * Parse a message for a tracking code based on the tenant's configured pattern,
    * then link the AdEvent to the record if found.
-   * Returns true if a link was made.
+   * Returns the platform name if linked, or null if not.
    */
-  async matchAndLinkTrackingCode(tenantId: string, messageContent: string, recordId: string): Promise<boolean> {
+  async matchAndLinkTrackingCode(tenantId: string, messageContent: string, recordId: string): Promise<string | null> {
     // Get tenant config to know the code pattern
     const tenant = await this.adEventRepo.manager.query(
       'SELECT tracking_config FROM tenants WHERE id = $1', [tenantId],
@@ -415,14 +415,14 @@ export class ConversionsService {
     const regex = new RegExp(escaped.replace('\\{\\{code\\}\\}', '(\\d+)'));
 
     const match = messageContent.match(regex);
-    if (!match || !match[1]) return false;
+    if (!match || !match[1]) return null;
 
     const code = match[1];
     const adEvent = await this.findByTrackingCode(tenantId, code);
-    if (!adEvent || adEvent.recordId) return false;
+    if (!adEvent || adEvent.recordId) return null;
 
     await this.linkEventToRecord(adEvent.id, recordId);
-    return true;
+    return adEvent.platform;
   }
 
   // ============================

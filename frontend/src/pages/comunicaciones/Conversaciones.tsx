@@ -32,6 +32,7 @@ interface Conversation {
   lastMessageAt: string | null;
   lastMessageSource?: string | null;
   hasAdTracking?: boolean;
+  adPlatform?: string | null;
   unreadCount: number;
   labelIds?: string[];
   inbox?: {
@@ -805,8 +806,17 @@ export function Conversaciones() {
                   onContextMenu={(e) => handleContextMenu(e, conv)}
                   className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b border-gray-50 transition-colors ${activeConversation?.id === conv.id ? "bg-brand-50" : "hover:bg-gray-50"}`}
                 >
-                  <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-gray-600 shrink-0 ${conv.hasAdTracking ? "ring-2 ring-blue-500 ring-offset-1 bg-gradient-to-br from-blue-50 to-indigo-100" : "bg-gray-200"}`}>
+                  <div className={`relative h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-gray-600 shrink-0 ${conv.hasAdTracking ? "ring-2 ring-blue-500 ring-offset-1 bg-gradient-to-br from-blue-50 to-indigo-100" : "bg-gray-200"}`}>
                     {getDisplayName(conv).charAt(0).toUpperCase()}
+                    {conv.hasAdTracking && conv.adPlatform && (
+                      <span className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
+                        {conv.adPlatform === 'meta' && <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Facebook_Logo_%282019%29.png/1024px-Facebook_Logo_%282019%29.png" className="h-2.5 w-2.5 object-contain" alt="Meta" />}
+                        {conv.adPlatform === 'google' && <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1024px-Google_%22G%22_logo.svg.png" className="h-2.5 w-2.5 object-contain" alt="Google" />}
+                        {conv.adPlatform === 'tiktok' && <span className="text-[8px]">🎵</span>}
+                        {conv.adPlatform === 'linkedin' && <span className="text-[8px] font-bold text-blue-700">in</span>}
+                        {conv.adPlatform === 'organic' && <span className="text-[8px]">🌐</span>}
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     {/* Channel name */}
@@ -893,8 +903,17 @@ export function Conversaciones() {
             <>
               <div className="h-14 px-6 flex items-center border-b border-gray-200 bg-white shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-gray-600 ${activeConversation.hasAdTracking ? "ring-2 ring-blue-500 ring-offset-1 bg-gradient-to-br from-blue-50 to-indigo-100" : "bg-gray-200"}`}>
+                  <div className={`relative h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-gray-600 ${activeConversation.hasAdTracking ? "ring-2 ring-blue-500 ring-offset-1 bg-gradient-to-br from-blue-50 to-indigo-100" : "bg-gray-200"}`}>
                     {getDisplayName(activeConversation).charAt(0).toUpperCase()}
+                    {activeConversation.hasAdTracking && activeConversation.adPlatform && (
+                      <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
+                        {activeConversation.adPlatform === 'meta' && <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Facebook_Logo_%282019%29.png/1024px-Facebook_Logo_%282019%29.png" className="h-2 w-2 object-contain" alt="Meta" />}
+                        {activeConversation.adPlatform === 'google' && <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1024px-Google_%22G%22_logo.svg.png" className="h-2 w-2 object-contain" alt="Google" />}
+                        {activeConversation.adPlatform === 'tiktok' && <span className="text-[7px]">🎵</span>}
+                        {activeConversation.adPlatform === 'linkedin' && <span className="text-[7px] font-bold text-blue-700">in</span>}
+                        {activeConversation.adPlatform === 'organic' && <span className="text-[7px]">🌐</span>}
+                      </span>
+                    )}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-900">{getDisplayName(activeConversation)}</p>

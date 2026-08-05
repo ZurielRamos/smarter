@@ -571,13 +571,15 @@ export class ChatsService {
       // Mark ad tracking if from Meta ad
       if (msg.referral) {
         conversation.hasAdTracking = true;
+        conversation.adPlatform = 'meta';
       }
 
       // Check if message contains a tracking code (from pixel/link tracker)
       if (!msg.referral && content) {
-        const linked = await this.conversionsService.matchAndLinkTrackingCode(inbox.tenantId, content, conversation.recordId!).catch(() => false);
-        if (linked) {
+        const platform = await this.conversionsService.matchAndLinkTrackingCode(inbox.tenantId, content, conversation.recordId!).catch(() => null);
+        if (platform) {
           conversation.hasAdTracking = true;
+          conversation.adPlatform = platform;
         }
       }
 

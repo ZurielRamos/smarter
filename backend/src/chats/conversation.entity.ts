@@ -69,6 +69,10 @@ export class Conversation {
   @Column({ name: 'has_ad_tracking', type: 'boolean', default: false })
   hasAdTracking: boolean;
 
+  /** Ad platform of the linked tracking event: meta | google | tiktok | linkedin | organic */
+  @Column({ name: 'ad_platform', type: 'varchar', length: 20, nullable: true })
+  adPlatform: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
