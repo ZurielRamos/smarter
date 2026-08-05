@@ -23,19 +23,19 @@ import headerBg from "@/assets/header-background.jpg";
 
 // WooCommerce events available
 const WOO_EVENTS = [
-  { key: "purchase", label: "Compra completada", description: "Cuando un pedido se completa o se confirma el pago" },
-  { key: "add_to_cart", label: "Agregar al carrito", description: "Cuando un producto se agrega al carrito" },
-  { key: "initiate_checkout", label: "Inicio de checkout", description: "Cuando el cliente inicia el proceso de pago" },
-  { key: "view_content", label: "Vista de producto", description: "Cuando un cliente visita una página de producto" },
-  { key: "sign_up", label: "Registro de usuario", description: "Cuando un nuevo usuario se registra en la tienda" },
-  { key: "lead", label: "Formulario enviado", description: "Cuando se envía un formulario de contacto (CF7, WPForms)" },
+  { key: "purchase", label: "Compra completada", description: "Cuando un pedido se completa o se confirma el pago", icon: "🛍️", example: "Cliente pagó $50.000 por 2 productos" },
+  { key: "add_to_cart", label: "Agregar al carrito", description: "Cuando un producto se agrega al carrito", icon: "🛒", example: "Cliente agregó 'Plan Premium' al carrito" },
+  { key: "initiate_checkout", label: "Inicio de checkout", description: "Cuando el cliente inicia el proceso de pago", icon: "💳", example: "Cliente entró a la página de pago" },
+  { key: "view_content", label: "Vista de producto", description: "Cuando un cliente visita una página de producto", icon: "👀", example: "Cliente vio el producto 'Servicio Gold'" },
+  { key: "sign_up", label: "Registro de usuario", description: "Cuando un nuevo usuario se registra en la tienda", icon: "👤", example: "Nuevo usuario: juan@email.com" },
+  { key: "lead", label: "Formulario enviado", description: "Cuando se envía un formulario de contacto (CF7, WPForms)", icon: "📋", example: "Formulario 'Contacto' enviado" },
 ];
 
 // Actions that can be triggered
 const ACTION_TYPES = [
-  { key: "conversion", label: "Evento de conversión", description: "Registrar como conversión y despachar a plataformas de ads", icon: Zap },
-  { key: "notification", label: "Enviar notificación", description: "Enviar un mensaje por WhatsApp, SMS o email al contacto", icon: Bell },
-  { key: "tag", label: "Agregar etiqueta", description: "Agregar una etiqueta al contacto en el CRM", icon: Tag },
+  { key: "conversion", label: "Evento de conversión", description: "Registrar como conversión y despachar a Meta, Google Ads, TikTok", icon: Zap, color: "text-amber-600", bg: "bg-amber-50", borderActive: "border-amber-300 bg-amber-50", tip: "Ideal para medir ROI de campañas publicitarias" },
+  { key: "notification", label: "Enviar notificación", description: "Enviar mensaje automático por WhatsApp, SMS o email", icon: Bell, color: "text-blue-600", bg: "bg-blue-50", borderActive: "border-blue-300 bg-blue-50", tip: "Confirma pedidos o da la bienvenida a nuevos clientes" },
+  { key: "tag", label: "Agregar etiqueta", description: "Clasificar al contacto con una etiqueta en el CRM", icon: Tag, color: "text-green-600", bg: "bg-green-50", borderActive: "border-green-300 bg-green-50", tip: "Segmenta contactos para futuras campañas" },
 ];
 
 interface WooHook {
@@ -289,144 +289,209 @@ export function WooCommerceIntegration() {
 
           {/* Create/Edit Form */}
           {showForm && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">
-                  {editingId ? "Editar hook" : "Nuevo hook"}
-                </h3>
-                <button onClick={() => setShowForm(false)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+              {/* Form header */}
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">
+                    {editingId ? "✏️ Editar hook" : "✨ Nuevo hook"}
+                  </h3>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Define qué pasa cuando ocurre un evento en tu tienda</p>
+                </div>
+                <button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-400 transition-colors">
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
-              {/* Event selection */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-2">Evento de WooCommerce</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {WOO_EVENTS.map((evt) => (
-                    <button
-                      key={evt.key}
-                      type="button"
-                      onClick={() => setFormEvent(evt.key)}
-                      className={`text-left p-3 rounded-lg border transition-colors ${
-                        formEvent === evt.key
-                          ? "border-purple-300 bg-purple-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      <span className="text-xs font-semibold text-gray-900">{evt.label}</span>
-                      <span className="block text-[11px] text-gray-500 mt-0.5">{evt.description}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Action selection */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-2">Acción a ejecutar</label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {ACTION_TYPES.map((act) => {
-                    const Icon = act.icon;
-                    return (
+              <div className="p-6 space-y-6">
+                {/* Step 1: Event selection */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="flex items-center justify-center h-5 w-5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold">1</span>
+                    <label className="text-xs font-bold text-gray-900 uppercase tracking-wide">¿Qué evento quieres capturar?</label>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {WOO_EVENTS.map((evt) => (
                       <button
-                        key={act.key}
+                        key={evt.key}
                         type="button"
-                        onClick={() => {
-                          setFormAction(act.key);
-                          setFormConfig({});
-                        }}
-                        className={`text-left p-3 rounded-lg border transition-colors ${
-                          formAction === act.key
-                            ? "border-blue-300 bg-blue-50"
-                            : "border-gray-200 hover:border-gray-300"
+                        onClick={() => setFormEvent(evt.key)}
+                        className={`group text-left p-3.5 rounded-xl border-2 transition-all duration-200 ${
+                          formEvent === evt.key
+                            ? "border-purple-400 bg-purple-50 shadow-sm shadow-purple-100"
+                            : "border-gray-100 hover:border-purple-200 hover:bg-purple-50/30 hover:shadow-sm"
                         }`}
                       >
-                        <Icon className={`h-4 w-4 mb-1 ${formAction === act.key ? "text-blue-600" : "text-gray-400"}`} />
-                        <span className="text-xs font-semibold text-gray-900">{act.label}</span>
-                        <span className="block text-[11px] text-gray-500 mt-0.5">{act.description}</span>
+                        <div className="flex items-start gap-3">
+                          <span className="text-lg leading-none mt-0.5">{evt.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs font-semibold text-gray-900 block">{evt.label}</span>
+                            <span className="block text-[11px] text-gray-500 mt-0.5 leading-relaxed">{evt.description}</span>
+                            <span className={`block text-[10px] mt-1.5 italic transition-opacity ${formEvent === evt.key ? "text-purple-600 opacity-100" : "text-gray-400 opacity-0 group-hover:opacity-100"}`}>
+                              Ej: {evt.example}
+                            </span>
+                          </div>
+                          {formEvent === evt.key && (
+                            <CheckCircle2 className="h-4 w-4 text-purple-500 shrink-0 mt-0.5" />
+                          )}
+                        </div>
                       </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Config by action type */}
-              {formAction === "conversion" && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Nombre de la conversión</label>
-                  <input
-                    type="text"
-                    value={formConfig.conversionName || ""}
-                    onChange={(e) => setFormConfig({ ...formConfig, conversionName: e.target.value })}
-                    placeholder="Ej: Compra WooCommerce"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400"
-                  />
-                  <p className="text-[11px] text-gray-400 mt-1">Se mapeará al tipo de evento de conversión configurado en tu cuenta.</p>
-                </div>
-              )}
-
-              {formAction === "notification" && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Canal de envío</label>
-                    <select
-                      value={formConfig.inboxId || ""}
-                      onChange={(e) => {
-                        const inbox = inboxes.find((i) => i.id === e.target.value);
-                        setFormConfig({ ...formConfig, inboxId: e.target.value, channel: inbox?.channel || "" });
-                      }}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400"
-                    >
-                      <option value="">Selecciona una bandeja...</option>
-                      {inboxes.map((inbox) => (
-                        <option key={inbox.id} value={inbox.id}>
-                          {inbox.name} ({inbox.channel})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Mensaje / Template</label>
-                    <textarea
-                      value={formConfig.templateMessage || ""}
-                      onChange={(e) => setFormConfig({ ...formConfig, templateMessage: e.target.value })}
-                      rows={3}
-                      placeholder="Hola {{firstName}}, tu pedido #{{orderNumber}} ha sido confirmado."
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400 resize-none"
-                    />
-                    <p className="text-[11px] text-gray-400 mt-1">
-                      Variables disponibles: {"{{firstName}}"}, {"{{lastName}}"}, {"{{orderNumber}}"}, {"{{total}}"}, {"{{currency}}"}
-                    </p>
+                    ))}
                   </div>
                 </div>
-              )}
 
-              {formAction === "tag" && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Nombre de la etiqueta</label>
-                  <input
-                    type="text"
-                    value={formConfig.tagName || ""}
-                    onChange={(e) => setFormConfig({ ...formConfig, tagName: e.target.value })}
-                    placeholder="Ej: cliente-woocommerce"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400"
-                  />
+                {/* Step 2: Action selection */}
+                <div className={`transition-opacity duration-300 ${formEvent ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">2</span>
+                    <label className="text-xs font-bold text-gray-900 uppercase tracking-wide">¿Qué acción ejecutar?</label>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {ACTION_TYPES.map((act) => {
+                      const Icon = act.icon;
+                      const isSelected = formAction === act.key;
+                      return (
+                        <button
+                          key={act.key}
+                          type="button"
+                          onClick={() => {
+                            setFormAction(act.key);
+                            setFormConfig({});
+                          }}
+                          className={`group text-left p-4 rounded-xl border-2 transition-all duration-200 ${
+                            isSelected
+                              ? `${act.borderActive} shadow-sm`
+                              : "border-gray-100 hover:border-gray-200 hover:shadow-sm"
+                          }`}
+                        >
+                          <div className={`h-9 w-9 rounded-lg ${act.bg} flex items-center justify-center mb-2.5 transition-transform group-hover:scale-110`}>
+                            <Icon className={`h-4.5 w-4.5 ${act.color}`} />
+                          </div>
+                          <span className="text-xs font-bold text-gray-900 block">{act.label}</span>
+                          <span className="block text-[11px] text-gray-500 mt-1 leading-relaxed">{act.description}</span>
+                          <span className={`block text-[10px] mt-2 font-medium transition-opacity ${isSelected ? `${act.color} opacity-100` : "text-gray-400 opacity-0 group-hover:opacity-100"}`}>
+                            💡 {act.tip}
+                          </span>
+                          {isSelected && (
+                            <CheckCircle2 className={`h-4 w-4 ${act.color} absolute top-3 right-3`} />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              )}
 
-              {/* Save */}
-              <div className="flex justify-end gap-2 pt-2">
-                <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors">
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving || !formEvent || !formAction}
-                  className="flex items-center gap-2 bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  {editingId ? "Actualizar" : "Crear hook"}
-                </button>
+                {/* Step 3: Config */}
+                {formAction && (
+                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="flex items-center justify-center h-5 w-5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold">3</span>
+                      <label className="text-xs font-bold text-gray-900 uppercase tracking-wide">Configuración</label>
+                    </div>
+
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                      {formAction === "conversion" && (
+                        <div>
+                          <label className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-2">
+                            <Zap className="h-3.5 w-3.5 text-amber-500" />
+                            Nombre de la conversión
+                          </label>
+                          <input
+                            type="text"
+                            value={formConfig.conversionName || ""}
+                            onChange={(e) => setFormConfig({ ...formConfig, conversionName: e.target.value })}
+                            placeholder="Ej: Compra WooCommerce"
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 bg-white"
+                          />
+                          <div className="mt-3 flex items-start gap-2 text-[11px] text-gray-500 bg-amber-50 border border-amber-100 rounded-lg p-2.5">
+                            <Zap className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                            <span>Este evento se enviará automáticamente a las plataformas de ads conectadas (Meta, Google, TikTok) si tienes configurado un evento de conversión con este tipo.</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {formAction === "notification" && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-2">
+                              <Bell className="h-3.5 w-3.5 text-blue-500" />
+                              Canal de envío
+                            </label>
+                            <select
+                              value={formConfig.inboxId || ""}
+                              onChange={(e) => {
+                                const inbox = inboxes.find((i) => i.id === e.target.value);
+                                setFormConfig({ ...formConfig, inboxId: e.target.value, channel: inbox?.channel || "" });
+                              }}
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 bg-white"
+                            >
+                              <option value="">Selecciona una bandeja...</option>
+                              {inboxes.map((inbox) => (
+                                <option key={inbox.id} value={inbox.id}>
+                                  {inbox.name} ({inbox.channel})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-2">
+                              💬 Mensaje a enviar
+                            </label>
+                            <textarea
+                              value={formConfig.templateMessage || ""}
+                              onChange={(e) => setFormConfig({ ...formConfig, templateMessage: e.target.value })}
+                              rows={3}
+                              placeholder="Hola {{firstName}}, tu pedido #{{orderNumber}} ha sido confirmado. Total: {{total}} {{currency}}"
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 resize-none bg-white"
+                            />
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {["{{firstName}}", "{{lastName}}", "{{orderNumber}}", "{{total}}", "{{currency}}"].map((v) => (
+                                <span key={v} className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium cursor-default hover:bg-blue-200 transition-colors">
+                                  {v}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {formAction === "tag" && (
+                        <div>
+                          <label className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-2">
+                            <Tag className="h-3.5 w-3.5 text-green-500" />
+                            Nombre de la etiqueta
+                          </label>
+                          <input
+                            type="text"
+                            value={formConfig.tagName || ""}
+                            onChange={(e) => setFormConfig({ ...formConfig, tagName: e.target.value })}
+                            placeholder="Ej: cliente-woocommerce"
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-200 focus:border-green-400 bg-white"
+                          />
+                          <div className="mt-3 flex items-start gap-2 text-[11px] text-gray-500 bg-green-50 border border-green-100 rounded-lg p-2.5">
+                            <Tag className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />
+                            <span>La etiqueta se agregará al contacto en el CRM. Úsala para segmentar en campañas futuras.</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Save */}
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                  <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors">
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={saving || !formEvent || !formAction}
+                    className="flex items-center gap-2 bg-brand-800 text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-brand-700 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm hover:shadow"
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    {editingId ? "Actualizar hook" : "Crear hook"}
+                  </button>
+                </div>
               </div>
             </div>
           )}
