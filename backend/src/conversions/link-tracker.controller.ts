@@ -113,6 +113,13 @@ export class LinkTrackerController {
   if (currentClickId && cachedClickId !== currentClickId) {
     trackingCode = null;
     sessionStorage.removeItem("__sg_code");
+    // Also refresh stored params with current URL data
+    storedParams = params;
+    storedParams._fbc = fbc;
+    storedParams._fbp = fbp;
+    storedParams._lp = window.location.href;
+    storedParams._ref = document.referrer;
+    sessionStorage.setItem("__sg_atr", JSON.stringify(storedParams));
   }
   sessionStorage.setItem("__sg_cid", currentClickId);
 
