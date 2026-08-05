@@ -553,6 +553,7 @@ export class ChatsService {
       // Update conversation
       conversation.lastMessage = content || `[${messageType}]`;
       conversation.lastMessageAt = new Date();
+      conversation.lastMessageSource = null;
       conversation.unreadCount = (conversation.unreadCount || 0) + 1;
       if (contactName && !conversation.contactName) conversation.contactName = contactName;
 
@@ -900,12 +901,7 @@ export class ChatsService {
     }
 
     if (opts.hideCampaign) {
-      qb.andWhere(`NOT EXISTS (
-        SELECT 1 FROM messages m
-        WHERE m.conversation_id = conv.id
-        AND m.source = 'campaign'
-        AND m.created_at = (SELECT MAX(m2.created_at) FROM messages m2 WHERE m2.conversation_id = conv.id)
-      )`);
+      qb.andWhere("(conv.last_message_source != :campaignSource OR conv.last_message_source IS NULL)", { campaignSource: "campaign" });
     }
 
     const [data, total] = await qb.getManyAndCount();
@@ -940,12 +936,7 @@ export class ChatsService {
     }
 
     if (opts.hideCampaign) {
-      qb.andWhere(`NOT EXISTS (
-        SELECT 1 FROM messages m
-        WHERE m.conversation_id = conv.id
-        AND m.source = 'campaign'
-        AND m.created_at = (SELECT MAX(m2.created_at) FROM messages m2 WHERE m2.conversation_id = conv.id)
-      )`);
+      qb.andWhere("(conv.last_message_source != :campaignSource OR conv.last_message_source IS NULL)", { campaignSource: "campaign" });
     }
 
     const [data, total] = await qb.getManyAndCount();
@@ -968,12 +959,7 @@ export class ChatsService {
     }
 
     if (opts.hideCampaign) {
-      qb.andWhere(`NOT EXISTS (
-        SELECT 1 FROM messages m
-        WHERE m.conversation_id = conv.id
-        AND m.source = 'campaign'
-        AND m.created_at = (SELECT MAX(m2.created_at) FROM messages m2 WHERE m2.conversation_id = conv.id)
-      )`);
+      qb.andWhere("(conv.last_message_source != :campaignSource OR conv.last_message_source IS NULL)", { campaignSource: "campaign" });
     }
 
     const [data, total] = await qb.getManyAndCount();

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MessageSquare, Send, Wifi, WifiOff, MessageCircle, Phone, Camera, Mail, Settings2, Inbox, CheckCheck, BellOff, Archive, Trash2, UserCircle, Reply, Copy, X, Smile, Paperclip, Mic, StickyNote, Image, FileText, Filter, ArrowUpDown } from "lucide-react";
+import { MessageSquare, Send, Wifi, WifiOff, MessageCircle, Phone, Camera, Mail, Settings2, Inbox, CheckCheck, BellOff, Archive, Trash2, UserCircle, Reply, Copy, X, Smile, Paperclip, Mic, StickyNote, Image, FileText, Filter, ArrowUpDown, Megaphone } from "lucide-react";
 import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/components/ChannelIcons";
 import { TemplateSelector, TemplateConfigModal } from "@/components/TemplateModal";
 import { useAuth } from "@/context/AuthContext";
@@ -30,6 +30,7 @@ interface Conversation {
   contactName: string | null;
   lastMessage: string | null;
   lastMessageAt: string | null;
+  lastMessageSource?: string | null;
   unreadCount: number;
   labelIds?: string[];
   inbox?: {
@@ -797,6 +798,12 @@ export function Conversaciones() {
                         {conv.inbox.channel === "instagram" && <InstagramIcon className="h-2.5 w-2.5 text-pink-500" />}
                         {conv.inbox.channel === "form" && <FormIcon className="h-2.5 w-2.5 text-purple-500" />}
                         {conv.inbox.name}
+                        {conv.lastMessageSource === "campaign" && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full bg-emerald-50 text-emerald-600 text-[9px] font-medium ml-1">
+                            <Megaphone className="h-2.5 w-2.5" />
+                            Campaña
+                          </span>
+                        )}
                       </p>
                     )}
                     <div className="flex items-center justify-between">

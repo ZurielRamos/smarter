@@ -54,6 +54,10 @@ export class Conversation {
   @Column({ name: 'last_message_at', type: 'timestamptz', nullable: true })
   lastMessageAt: Date | null;
 
+  // Source of the last message: null | 'campaign' | 'manual' | 'api'
+  @Column({ name: 'last_message_source', type: 'varchar', length: 20, nullable: true, default: null })
+  lastMessageSource: string | null;
+
   @Column({ name: 'unread_count', type: 'integer', default: 0 })
   unreadCount: number;
 

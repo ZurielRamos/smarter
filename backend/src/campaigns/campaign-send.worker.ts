@@ -569,6 +569,7 @@ export class CampaignSendWorker extends WorkerHost {
             status: 'open',
             lastMessage: lastMessageText,
             lastMessageAt: now,
+            lastMessageSource: 'campaign',
             unreadCount: 0,
           });
         }
@@ -648,7 +649,7 @@ export class CampaignSendWorker extends WorkerHost {
         await this.conversationRepo
           .createQueryBuilder()
           .update(Conversation)
-          .set({ lastMessage: lastMessageText, lastMessageAt: now })
+          .set({ lastMessage: lastMessageText, lastMessageAt: now, lastMessageSource: 'campaign' })
           .where('inbox_id = :inboxId AND contact_id IN (:...phones)', { inboxId: inbox.id, phones: existingPhones })
           .execute();
       }
