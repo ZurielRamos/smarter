@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bullmq';
 import { AdEvent } from './ad-event.entity';
 import { ConversionEvent } from './conversion-event.entity';
 import { AdPlatform } from './ad-platform.entity';
@@ -17,10 +18,14 @@ import { MetaOAuthController } from './meta-oauth.controller';
 import { MetaDispatcher } from './dispatchers/meta.dispatcher';
 import { GoogleDispatcher } from './dispatchers/google.dispatcher';
 import { TikTokDispatcher } from './dispatchers/tiktok.dispatcher';
+import { ConversionDispatchWorker } from './conversion-dispatch.worker';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AdEvent, ConversionEvent, AdPlatform, ConversionLog, ContactEvent, Tenant])],
-  providers: [ConversionsService, ContactEventsService, MetaDispatcher, GoogleDispatcher, TikTokDispatcher],
+  imports: [
+    TypeOrmModule.forFeature([AdEvent, ConversionEvent, AdPlatform, ConversionLog, ContactEvent, Tenant]),
+    BullModule.registerQueue({ name: 'conversion-dispatch' }),
+  ],
+  providers: [ConversionsService, ContactEventsService, MetaDispatcher, GoogleDispatcher, TikTokDispatcher, ConversionDispatchWorker],
   controllers: [ConversionsController, ContactEventsController, ApiContactEventsController, LinkTrackerController, GoogleOAuthController, MetaOAuthController],
   exports: [ConversionsService, ContactEventsService],
 })

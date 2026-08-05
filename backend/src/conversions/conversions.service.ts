@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, IsNull, MoreThan } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { AdEvent, ATTRIBUTION_WINDOWS } from './ad-event.entity';
 import { ConversionEvent } from './conversion-event.entity';
 import { AdPlatform } from './ad-platform.entity';
@@ -9,6 +11,7 @@ import { ConversionLog } from './conversion-log.entity';
 import { MetaDispatcher } from './dispatchers/meta.dispatcher';
 import { GoogleDispatcher } from './dispatchers/google.dispatcher';
 import { TikTokDispatcher } from './dispatchers/tiktok.dispatcher';
+import type { ConversionDispatchJobData } from './conversion-dispatch.worker';
 
 export interface TrackEventParams {
   tenantId: string;
@@ -47,6 +50,8 @@ export class ConversionsService {
     private readonly metaDispatcher: MetaDispatcher,
     private readonly googleDispatcher: GoogleDispatcher,
     private readonly tiktokDispatcher: TikTokDispatcher,
+    @InjectQueue('conversion-dispatch')
+    private readonly dispatchQueue: Queue<ConversionDispatchJobData>,
   ) {}
 
   // ============================
@@ -307,7 +312,7 @@ export class ConversionsService {
 
     if (platforms.length === 0) return logs;
 
-    // 4. For each conversion event, dispatch to relevant platforms
+    // 4. For each conversion event, queue dispatch jobs
     for (const convEvent of conversionEvents) {
       for (const platformName of convEvent.platforms) {
         const platformConfig = platforms.find((p) => p.platform === platformName);
@@ -317,54 +322,29 @@ export class ConversionsService {
         const matchingAdEvent = adEvents.find((ae) => ae.platform === platformName);
         if (!matchingAdEvent) continue;
 
-        const convValue = params.value ?? convEvent.defaultValue ?? undefined;
-
-        // Dispatch based on platform
-        let log: ConversionLog;
-        try {
-          if (platformName === 'meta') {
-            log = await this.dispatchToMeta(params, convEvent, matchingAdEvent, platformConfig, convValue);
-          } else if (platformName === 'google') {
-            log = await this.dispatchToGoogle(params, convEvent, matchingAdEvent, platformConfig, convValue);
-          } else if (platformName === 'tiktok') {
-            log = await this.dispatchToTikTok(params, convEvent, matchingAdEvent, platformConfig, convValue);
-          } else {
-            log = this.conversionLogRepo.create({
-              tenantId: params.tenantId,
-              recordId: params.recordId,
-              adEventId: matchingAdEvent.id,
-              conversionEventId: convEvent.id,
-              adPlatformId: platformConfig.id,
-              platform: platformName,
-              eventName: convEvent.name,
-              status: 'skipped',
-              errorMessage: `Dispatcher for ${platformName} not available`,
-              value: convValue || null,
-              currency: convEvent.currency,
-            });
-            log = await this.conversionLogRepo.save(log);
-          }
-        } catch (error) {
-          log = this.conversionLogRepo.create({
+        // Queue the dispatch job with retry
+        await this.dispatchQueue.add(
+          `dispatch-${platformName}`,
+          {
             tenantId: params.tenantId,
             recordId: params.recordId,
-            adEventId: matchingAdEvent.id,
             conversionEventId: convEvent.id,
+            adEventId: matchingAdEvent.id,
             adPlatformId: platformConfig.id,
             platform: platformName,
-            eventName: convEvent.name,
-            status: 'failed',
-            errorMessage: String(error).substring(0, 500),
-            value: convValue || null,
-            currency: convEvent.currency,
-          });
-          log = await this.conversionLogRepo.save(log);
-        }
+            email: params.email,
+            phone: params.phone,
+            value: params.value ?? (convEvent.defaultValue ? Number(convEvent.defaultValue) : undefined),
+          },
+          {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 5000 }, // 5s, 10s, 20s
+            removeOnComplete: 100,
+            removeOnFail: 500,
+          },
+        );
 
-        logs.push(log);
-
-        // Mark ad event as converted
-        await this.adEventRepo.update(matchingAdEvent.id, { status: 'converted', convertedAt: new Date() });
+        this.logger.log(`[Dispatch] Queued conversion to ${platformName} for record ${params.recordId}`);
       }
     }
 
