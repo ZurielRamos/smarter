@@ -197,7 +197,7 @@ export function AdPlatformsCard() {
                 const activeNames = connectedPlatformNames
                   .map((p) => {
                     if (p === "meta") return `Meta: ${evt.meta}`;
-                    if (p === "google") return `GA4: ${evt.google}`;
+                    if (p === "google") return `Google Ads: ${evt.google}`;
                     if (p === "tiktok") return `TikTok: ${evt.tiktok}`;
                     return null;
                   })
