@@ -6,6 +6,7 @@ import { Note } from './note.entity';
 import { Activity } from './activity.entity';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ConversionsService } from '../conversions/conversions.service';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -20,6 +21,7 @@ export class RecordsService {
     private readonly activityRepository: Repository<Activity>,
     private readonly webhooksService: WebhooksService,
     private readonly notificationsService: NotificationsService,
+    private readonly conversionsService: ConversionsService,
   ) {}
 
   // System field keys that are actual columns in the entity
@@ -62,6 +64,15 @@ export class RecordsService {
       // Log activity for status changes
       if (data.status && before && before.status !== data.status) {
         this.logActivity({ tenantId: updated.tenantId, recordId: id, type: 'status_changed', description: `Estado cambiado de ${before.status} a ${data.status}`, metadata: { from: before.status, to: data.status } }).catch(() => {});
+        // Dispatch conversion event to ad platforms
+        this.conversionsService.dispatchConversion({
+          tenantId: updated.tenantId,
+          recordId: id,
+          triggerType: 'status_changed',
+          triggerValue: data.status,
+          email: updated.email || undefined,
+          phone: updated.phone || undefined,
+        }).catch(() => {});
       }
       // Log activity for assignment changes
       if (data.assignedTo !== undefined && before && before.assignedTo !== data.assignedTo) {

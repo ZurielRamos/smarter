@@ -16,9 +16,10 @@ import { RecordListsController } from './record-lists.controller';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ConversionsModule } from '../conversions/conversions.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ClientRecord, CustomField, RecordList, Note, Activity, Tenant]), WebhooksModule, UsersModule, NotificationsModule],
+  imports: [TypeOrmModule.forFeature([ClientRecord, CustomField, RecordList, Note, Activity, Tenant]), WebhooksModule, UsersModule, NotificationsModule, ConversionsModule],
   providers: [RecordsService, CustomFieldsService, RecordListsService],
   controllers: [RecordsController, ApiRecordsController, CustomFieldsController, RecordListsController],
   exports: [RecordsService, CustomFieldsService, RecordListsService],
