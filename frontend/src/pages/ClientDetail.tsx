@@ -325,65 +325,13 @@ export function ClientDetail() {
                     Eventos de conversión
                   </h3>
                   <button
-                    onClick={() => setShowEventForm((v) => !v)}
+                    onClick={() => setShowEventForm(true)}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Registrar
                   </button>
                 </div>
-
-                {/* Event form */}
-                {showEventForm && (
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <select
-                        value={eventForm.type}
-                        onChange={(e) => setEventForm({ ...eventForm, type: e.target.value, name: e.target.selectedOptions[0]?.dataset.label || eventForm.name })}
-                        className="px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30"
-                      >
-                        <option value="purchase" data-label="Compra">🛒 Compra</option>
-                        <option value="appointment" data-label="Cita agendada">📅 Cita agendada</option>
-                        <option value="demo" data-label="Demo realizada">🎥 Demo</option>
-                        <option value="qualified" data-label="Lead calificado">⭐ Calificado</option>
-                        <option value="proposal" data-label="Propuesta enviada">📄 Propuesta</option>
-                        <option value="registration" data-label="Registro">📝 Registro</option>
-                        <option value="subscription" data-label="Suscripción">🔄 Suscripción</option>
-                        <option value="custom" data-label="">✨ Personalizado</option>
-                      </select>
-                      <input
-                        type="text"
-                        value={eventForm.name}
-                        onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })}
-                        placeholder="Nombre del evento"
-                        className="px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="number"
-                        value={eventForm.value}
-                        onChange={(e) => setEventForm({ ...eventForm, value: e.target.value })}
-                        placeholder="Valor (opcional)"
-                        className="px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30"
-                      />
-                      <select
-                        value={eventForm.currency}
-                        onChange={(e) => setEventForm({ ...eventForm, currency: e.target.value })}
-                        className="px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30"
-                      >
-                        <option value="COP">COP</option>
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="MXN">MXN</option>
-                      </select>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => setShowEventForm(false)} className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-                      <button onClick={handleCreateEvent} disabled={!eventForm.name} className="px-3 py-1.5 text-xs font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg disabled:opacity-50">Registrar</button>
-                    </div>
-                  </div>
-                )}
 
                 {/* Events list */}
                 {contactEventsLoading ? (
@@ -394,6 +342,7 @@ export function ClientDetail() {
                   <div className="text-center py-6">
                     <Zap className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                     <p className="text-xs text-gray-400">Sin eventos registrados</p>
+                    <p className="text-[11px] text-gray-300 mt-1">Registra hitos como compras, citas o demos</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -413,7 +362,7 @@ export function ClientDetail() {
                           <p className="text-sm font-medium text-gray-900 truncate">{evt.name}</p>
                           <p className="text-[11px] text-gray-400">
                             {new Date(evt.createdAt).toLocaleDateString()} — {evt.actorName || 'Sistema'}
-                            {evt.dispatched && <span className="ml-1.5 text-green-600">✓ Reportado</span>}
+                            {evt.dispatched && <span className="ml-1.5 text-green-600">✓ Reportado a ads</span>}
                           </p>
                         </div>
                         {evt.value && (
@@ -538,6 +487,121 @@ export function ClientDetail() {
           onClose={() => setPreviewConversation(null)}
           onGoToConversation={() => { navigate(`/${slug}/comunicaciones/conversaciones/${previewConversation.id}`); }}
         />
+      )}
+
+      {/* Event Registration Modal */}
+      {showEventForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowEventForm(false)}>
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-amber-50 to-orange-50">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                  <Zap className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900">Registrar evento de conversión</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Este evento queda en el historial del contacto y puede notificarse a plataformas de ads</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-5">
+              {/* Event Type Selection */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">¿Qué ocurrió?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: 'purchase', emoji: '🛒', label: 'Compra', desc: 'Venta cerrada' },
+                    { value: 'appointment', emoji: '📅', label: 'Cita', desc: 'Reunión agendada' },
+                    { value: 'demo', emoji: '🎥', label: 'Demo', desc: 'Demostración realizada' },
+                    { value: 'qualified', emoji: '⭐', label: 'Calificado', desc: 'Lead cualificado' },
+                    { value: 'proposal', emoji: '📄', label: 'Propuesta', desc: 'Cotización enviada' },
+                    { value: 'registration', emoji: '📝', label: 'Registro', desc: 'Se registró/inscribió' },
+                    { value: 'subscription', emoji: '🔄', label: 'Suscripción', desc: 'Plan activado' },
+                    { value: 'custom', emoji: '✨', label: 'Otro', desc: 'Evento personalizado' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setEventForm({ ...eventForm, type: opt.value, name: eventForm.name || opt.label })}
+                      className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all ${eventForm.type === opt.value ? "border-amber-400 bg-amber-50 shadow-sm" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}
+                    >
+                      <span className="text-lg">{opt.emoji}</span>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{opt.label}</p>
+                        <p className="text-[10px] text-gray-400">{opt.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Event Name */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Nombre del evento</label>
+                <input
+                  type="text"
+                  value={eventForm.name}
+                  onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })}
+                  placeholder="Ej: Compra Plan Premium, Demo producto, Cita presencial..."
+                  className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
+                />
+                <p className="text-[11px] text-gray-400 mt-1">Describe brevemente qué pasó con este contacto</p>
+              </div>
+
+              {/* Value */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Valor monetario <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={eventForm.value}
+                    onChange={(e) => setEventForm({ ...eventForm, value: e.target.value })}
+                    placeholder="0"
+                    className="flex-1 px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
+                  />
+                  <select
+                    value={eventForm.currency}
+                    onChange={(e) => setEventForm({ ...eventForm, currency: e.target.value })}
+                    className="w-24 px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
+                  >
+                    <option value="COP">COP</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="MXN">MXN</option>
+                  </select>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">Si este evento tiene un valor de venta, se reportará a las plataformas de ads</p>
+              </div>
+
+              {/* Info box */}
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-blue-50 border border-blue-100">
+                <svg className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <p className="text-[11px] text-blue-700 leading-relaxed">
+                  Si este contacto llegó desde un anuncio (Google, Meta, TikTok), este evento se reportará automáticamente a la plataforma de ads como una conversión.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowEventForm(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateEvent}
+                disabled={!eventForm.name}
+                className="px-5 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors disabled:opacity-50 shadow-sm"
+              >
+                Registrar evento
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
