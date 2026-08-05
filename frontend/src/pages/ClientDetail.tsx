@@ -659,6 +659,7 @@ function TimelineItem({ activity }: { activity: ActivityRecord }) {
     contact_updated: { icon: Pencil, bg: "bg-gray-100", color: "text-gray-500" },
     tag_added: { icon: Tag, bg: "bg-purple-100", color: "text-purple-600" },
     tag_removed: { icon: Tag, bg: "bg-red-100", color: "text-red-600" },
+    conversion_event: { icon: Zap, bg: "bg-amber-100", color: "text-amber-600" },
   };
   const config = iconMap[activity.type] || { icon: Clock, bg: "bg-gray-100", color: "text-gray-500" };
   const Icon = config.icon;
