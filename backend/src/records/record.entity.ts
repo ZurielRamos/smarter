@@ -110,6 +110,10 @@ export class ClientRecord {
   @Column({ name: 'last_activity_at', type: 'timestamp', nullable: true })
   lastActivityAt: Date;
 
+  // === SOFT DELETE ===
+  @Column({ name: 'deleted_at', type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
+
   // === ETIQUETAS Y DATOS CUSTOM ===
   @Column({ type: 'jsonb', nullable: true })
   tags: string[];

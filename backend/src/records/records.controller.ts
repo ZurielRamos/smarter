@@ -22,8 +22,10 @@ export class RecordsController {
     @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
     @Query('assignedTo') assignedTo?: string,
     @Query('assignedTeamId') assignedTeamId?: string,
+    @Query('filters') filters?: string,
   ) {
-    return this.recordsService.findAll(+page, +limit, tenantId, sortBy, sortOrder, assignedTo, assignedTeamId);
+    const parsedFilters = filters ? JSON.parse(filters) : undefined;
+    return this.recordsService.findAll(+page, +limit, tenantId, sortBy, sortOrder, assignedTo, assignedTeamId, parsedFilters);
   }
 
   @Get('stats')
@@ -73,6 +75,25 @@ export class RecordsController {
     return this.recordsService.getKanbanInitial(tenantId, groupBy, +limit, assignedTo, assignedTeamId);
   }
 
+  @Get('deleted')
+  getDeleted(
+    @Query('tenantId') tenantId: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '25',
+    @Query('search') search?: string,
+  ) {
+    return this.recordsService.getDeleted(tenantId, +page, +limit, search);
+  }
+
+  @Get('search')
+  globalSearch(
+    @Query('tenantId') tenantId: string,
+    @Query('q') query: string,
+    @Query('limit') limit = '10',
+  ) {
+    return this.recordsService.globalSearch(tenantId, query, +limit);
+  }
+
   @Get('distinct-values')
   getDistinctValues(@Query('field') field: string) {
     return this.recordsService.getDistinctValues(field);
@@ -91,6 +112,46 @@ export class RecordsController {
   @Delete('notes/:noteId')
   deleteNote(@Param('noteId') noteId: string) {
     return this.recordsService.deleteNote(noteId);
+  }
+
+  @Put('bulk')
+  bulkUpdate(@Body() body: { ids?: string[]; filters?: Array<{ field: string; operator: string; value: string }>; tenantId?: string; assignedTo?: string; assignedTeamId?: string; updates: Partial<{ status: string; assignedTo: string | null; assignedTeamId: string | null; tags: string[] }>; actorId?: string; actorName?: string }) {
+    if (body.ids && body.ids.length > 0) {
+      return this.recordsService.bulkUpdate(body.ids, body.updates, body.actorId, body.actorName);
+    }
+    // Filter-based bulk update
+    return this.recordsService.bulkUpdateByFilter(body.tenantId!, body.updates, body.filters, body.assignedTo, body.assignedTeamId, body.actorId, body.actorName);
+  }
+
+  @Delete('bulk')
+  bulkDelete(@Body() body: { ids?: string[]; filters?: Array<{ field: string; operator: string; value: string }>; tenantId?: string; assignedTo?: string; assignedTeamId?: string }) {
+    if (body.ids && body.ids.length > 0) {
+      return this.recordsService.bulkDelete(body.ids);
+    }
+    return this.recordsService.bulkDeleteByFilter(body.tenantId!, body.filters, body.assignedTo, body.assignedTeamId);
+  }
+
+  @Post('bulk/delete-preview')
+  deletePreview(@Body() body: { ids?: string[]; filters?: Array<{ field: string; operator: string; value: string }>; tenantId?: string; assignedTo?: string; assignedTeamId?: string }) {
+    if (body.ids && body.ids.length > 0) {
+      return this.recordsService.getDeletePreview(body.ids);
+    }
+    return this.recordsService.getDeletePreviewByFilter(body.tenantId!, body.filters, body.assignedTo, body.assignedTeamId);
+  }
+
+  @Post('bulk/restore')
+  restoreDeleted(@Body() body: { ids: string[] }) {
+    return this.recordsService.restoreDeleted(body.ids);
+  }
+
+  @Delete('bulk/permanent')
+  permanentDelete(@Body() body: { ids: string[] }) {
+    return this.recordsService.permanentDelete(body.ids);
+  }
+
+  @Get('activities')
+  getActivities(@Query('recordId') recordId: string, @Query('page') page = '1', @Query('limit') limit = '30') {
+    return this.recordsService.getActivities(recordId, +page, +limit);
   }
 
   @Get(':id')

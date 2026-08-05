@@ -9,6 +9,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Import } from "./pages/Import";
 import { Clients } from "./pages/Clients";
 import { ClientDetail } from "./pages/ClientDetail";
+import { DeletedContacts } from "./pages/DeletedContacts";
 import { ClientSchema } from "./pages/ClientSchema";
 import { Campaigns } from "./pages/Campaigns";
 import { CampaignDetail } from "./pages/CampaignDetail";
@@ -117,6 +118,7 @@ function App() {
             <Route path="/:slug/clients/import" element={<Import />} />
             <Route path="/:slug/clients" element={<Clients />} />
             <Route path="/:slug/clients/schema" element={<ClientSchema />} />
+            <Route path="/:slug/clients/deleted" element={<DeletedContacts />} />
             <Route path="/:slug/clients/:id" element={<ClientDetail />} />
             <Route path="/:slug/campaigns" element={<Campaigns />} />
             <Route path="/:slug/campaigns/:id" element={<CampaignDetail />} />

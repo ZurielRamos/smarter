@@ -4,6 +4,7 @@ import { ClientRecord } from './record.entity';
 import { CustomField } from './custom-field.entity';
 import { RecordList } from './record-list.entity';
 import { Note } from './note.entity';
+import { Activity } from './activity.entity';
 import { Tenant } from '../tenants/tenant.entity';
 import { RecordsService } from './records.service';
 import { RecordsController } from './records.controller';
@@ -16,7 +17,7 @@ import { WebhooksModule } from '../webhooks/webhooks.module';
 import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ClientRecord, CustomField, RecordList, Note, Tenant]), WebhooksModule, UsersModule],
+  imports: [TypeOrmModule.forFeature([ClientRecord, CustomField, RecordList, Note, Activity, Tenant]), WebhooksModule, UsersModule],
   providers: [RecordsService, CustomFieldsService, RecordListsService],
   controllers: [RecordsController, ApiRecordsController, CustomFieldsController, RecordListsController],
   exports: [RecordsService, CustomFieldsService, RecordListsService],

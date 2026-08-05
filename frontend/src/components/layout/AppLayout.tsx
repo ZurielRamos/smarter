@@ -1,8 +1,23 @@
+import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { Header } from "./Header";
+import { SearchModal } from "@/components/SearchModal";
 import whiteBg from "@/assets/white-background.jpg";
 
 export function AppLayout() {
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   return (
     <div
       className="h-screen flex flex-col overflow-hidden p-4"
@@ -21,6 +36,7 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

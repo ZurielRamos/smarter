@@ -250,6 +250,7 @@ export interface ClientRecord {
   lastActivityAt: string | null;
   tags: string[] | null;
   customData: Record<string, any> | null;
+  deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -264,12 +265,13 @@ export async function getClient(id: string): Promise<ClientRecord> {
   return data;
 }
 
-export async function getClients(tenantId: string, page = 1, limit = 50, sortBy?: string, sortOrder?: string, assignedTo?: string, assignedTeamId?: string): Promise<ClientsResponse> {
+export async function getClients(tenantId: string, page = 1, limit = 50, sortBy?: string, sortOrder?: string, assignedTo?: string, assignedTeamId?: string, filters?: Array<{ field: string; operator: string; value: string }>): Promise<ClientsResponse> {
   const params: any = { page, limit, tenantId };
   if (sortBy) params.sortBy = sortBy;
   if (sortOrder) params.sortOrder = sortOrder;
   if (assignedTo) params.assignedTo = assignedTo;
   if (assignedTeamId) params.assignedTeamId = assignedTeamId;
+  if (filters && filters.length > 0) params.filters = JSON.stringify(filters);
   const { data } = await api.get<ClientsResponse>('/records', { params });
   return data;
 }
@@ -516,5 +518,43 @@ export interface MessageRecord {
 
 export async function getMessages(conversationId: string, limit = 20): Promise<MessageRecord[]> {
   const { data } = await api.get<MessageRecord[]>(`/chats/conversations/${conversationId}/messages`, { params: { limit } });
+  return data;
+}
+
+
+// === Global Search ===
+
+export interface GlobalSearchResult {
+  contacts: Array<{ id: string; firstName: string | null; lastName: string | null; phone: string | null; email: string | null; status: string | null; avatarUrl: string | null }>;
+  messages: Array<{ id: string; conversationId: string; content: string; direction: string; createdAt: string; contactName: string | null; inboxName: string | null }>;
+}
+
+export async function globalSearch(tenantId: string, query: string, limit = 10): Promise<GlobalSearchResult> {
+  const { data } = await api.get<GlobalSearchResult>('/records/search', { params: { tenantId, q: query, limit } });
+  return data;
+}
+
+
+// === Activities ===
+
+export interface ActivityRecord {
+  id: string;
+  tenantId: string;
+  recordId: string;
+  type: string;
+  description: string | null;
+  metadata: Record<string, any> | null;
+  actorId: string | null;
+  actorName: string | null;
+  createdAt: string;
+}
+
+export interface ActivitiesResponse {
+  data: ActivityRecord[];
+  total: number;
+}
+
+export async function getActivities(recordId: string, page = 1, limit = 30): Promise<ActivitiesResponse> {
+  const { data } = await api.get<ActivitiesResponse>('/records/activities', { params: { recordId, page, limit } });
   return data;
 }

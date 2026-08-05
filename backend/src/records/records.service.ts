@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
 import { ClientRecord } from './record.entity';
 import { Note } from './note.entity';
+import { Activity } from './activity.entity';
 import { WebhooksService } from '../webhooks/webhooks.service';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -14,6 +15,8 @@ export class RecordsService {
     private readonly recordRepository: Repository<ClientRecord>,
     @InjectRepository(Note)
     private readonly noteRepository: Repository<Note>,
+    @InjectRepository(Activity)
+    private readonly activityRepository: Repository<Activity>,
     private readonly webhooksService: WebhooksService,
   ) {}
 
@@ -33,13 +36,14 @@ export class RecordsService {
       lastName: data.lastName || null,
       phone: data.phone || null,
       email: data.email || null,
-      status: data.status || 'active',
+      status: data.status || 'lead',
       channelSource: data.channelSource || 'manual',
       tags: data.tags || null,
       customData: data.customData || null,
     } as Partial<ClientRecord>);
     const saved = await this.recordRepository.save(record) as ClientRecord;
     this.webhooksService.dispatch(data.tenantId, 'contact_created', saved).catch(() => {});
+    this.logActivity({ tenantId: data.tenantId, recordId: saved.id, type: 'contact_created', description: 'Contacto creado' }).catch(() => {});
     return saved;
   }
 
@@ -48,10 +52,22 @@ export class RecordsService {
   }
 
   async updateRecord(id: string, data: Partial<ClientRecord>): Promise<ClientRecord> {
+    const before = await this.recordRepository.findOne({ where: { id } });
     await this.recordRepository.update(id, data as any);
     const updated = await this.recordRepository.findOne({ where: { id } }) as ClientRecord;
     if (updated?.tenantId) {
       this.webhooksService.dispatch(updated.tenantId, 'contact_updated', updated).catch(() => {});
+      // Log activity for status changes
+      if (data.status && before && before.status !== data.status) {
+        this.logActivity({ tenantId: updated.tenantId, recordId: id, type: 'status_changed', description: `Estado cambiado de ${before.status} a ${data.status}`, metadata: { from: before.status, to: data.status } }).catch(() => {});
+      }
+      // Log activity for assignment changes
+      if (data.assignedTo !== undefined && before && before.assignedTo !== data.assignedTo) {
+        this.logActivity({ tenantId: updated.tenantId, recordId: id, type: 'assigned', description: data.assignedTo ? 'Agente asignado' : 'Asignación removida', metadata: { assignedTo: data.assignedTo } }).catch(() => {});
+      }
+      if (data.assignedTeamId !== undefined && before && before.assignedTeamId !== data.assignedTeamId) {
+        this.logActivity({ tenantId: updated.tenantId, recordId: id, type: 'assigned', description: data.assignedTeamId ? 'Equipo asignado' : 'Equipo removido', metadata: { assignedTeamId: data.assignedTeamId } }).catch(() => {});
+      }
     }
     return updated;
   }
@@ -155,36 +171,65 @@ export class RecordsService {
     return { saved: savedCount };
   }
 
-  async findAll(page = 1, limit = 50, tenantId?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC', assignedTo?: string, assignedTeamId?: string): Promise<{ data: ClientRecord[]; total: number }> {
-    const where: any = {};
-    if (tenantId) where.tenantId = tenantId;
-    if (assignedTo) where.assignedTo = assignedTo;
-    if (assignedTeamId) where.assignedTeamId = assignedTeamId;
+  async findAll(page = 1, limit = 50, tenantId?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC', assignedTo?: string, assignedTeamId?: string, filters?: Array<{ field: string; operator: string; value: string }>): Promise<{ data: ClientRecord[]; total: number }> {
+    const qb = this.recordRepository.createQueryBuilder('client');
 
-    const order: any = {};
-    if (sortBy && sortOrder) {
-      // Map column keys to entity fields
-      const fieldMap: Record<string, string> = {
-        name: 'firstName',
-        email: 'email',
-        phone: 'phone',
-        status: 'status',
-        channelSource: 'channelSource',
-        lastContactAt: 'lastContactAt',
-        id: 'id',
-      };
-      const dbField = fieldMap[sortBy] || sortBy;
-      order[dbField] = sortOrder;
-    } else {
-      order.createdAt = 'DESC';
+    if (tenantId) qb.where('client.tenant_id = :tenantId', { tenantId });
+    qb.andWhere('client.deleted_at IS NULL');
+    if (assignedTo) qb.andWhere('client.assigned_to = :assignedTo', { assignedTo });
+    if (assignedTeamId) qb.andWhere('client.assigned_team_id = :assignedTeamId', { assignedTeamId });
+
+    // Advanced filters
+    if (filters && filters.length > 0) {
+      filters.forEach((f, idx) => {
+        const paramKey = `fv_${idx}`;
+        const isCustom = !this.SYSTEM_COLUMNS.has(f.field);
+        const col = isCustom ? `client.custom_data ->> '${f.field}'` : `client.${this.toSnakeCase(f.field)}`;
+
+        switch (f.operator) {
+          case 'equals':
+            qb.andWhere(`${col} = :${paramKey}`, { [paramKey]: f.value });
+            break;
+          case 'not_equals':
+            qb.andWhere(`${col} != :${paramKey}`, { [paramKey]: f.value });
+            break;
+          case 'contains':
+            qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `%${f.value.toLowerCase()}%` });
+            break;
+          case 'starts_with':
+            qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `${f.value.toLowerCase()}%` });
+            break;
+          case 'greater_than':
+            qb.andWhere(`${col}::numeric > :${paramKey}`, { [paramKey]: Number(f.value) });
+            break;
+          case 'less_than':
+            qb.andWhere(`${col}::numeric < :${paramKey}`, { [paramKey]: Number(f.value) });
+            break;
+          case 'is_empty':
+            qb.andWhere(`(${col} IS NULL OR ${col} = '')`);
+            break;
+          case 'is_not_empty':
+            qb.andWhere(`(${col} IS NOT NULL AND ${col} != '')`);
+            break;
+        }
+      });
     }
 
-    const [data, total] = await this.recordRepository.findAndCount({
-      where,
-      skip: (page - 1) * limit,
-      take: limit,
-      order,
-    });
+    // Sort
+    const fieldMap: Record<string, string> = {
+      name: 'first_name', email: 'email', phone: 'phone',
+      status: 'status', channelSource: 'channel_source',
+      lastContactAt: 'last_contact_at', id: 'id', createdAt: 'created_at',
+      score: 'score',
+    };
+    if (sortBy && sortOrder) {
+      const dbField = fieldMap[sortBy] || this.toSnakeCase(sortBy);
+      qb.orderBy(`client.${dbField}`, sortOrder);
+    } else {
+      qb.orderBy('client.created_at', 'DESC');
+    }
+
+    const [data, total] = await qb.skip((page - 1) * limit).take(limit).getManyAndCount();
     return { data, total };
   }
 
@@ -342,7 +387,8 @@ export class RecordsService {
     assignedTeamId?: string,
   ): Promise<{ data: ClientRecord[]; total: number }> {
     const qb = this.recordRepository.createQueryBuilder('client')
-      .where('client.tenant_id = :tenantId', { tenantId });
+      .where('client.tenant_id = :tenantId', { tenantId })
+      .andWhere('client.deleted_at IS NULL');
 
     // Owner filters
     if (assignedTo) qb.andWhere('client.assigned_to = :assignedTo', { assignedTo });
@@ -463,6 +509,209 @@ export class RecordsService {
     return map[sortBy] || 'created_at';
   }
 
+  async getDeleted(tenantId: string, page = 1, limit = 25, search?: string): Promise<{ data: ClientRecord[]; total: number }> {
+    const qb = this.recordRepository.createQueryBuilder('client')
+      .where('client.tenant_id = :tenantId', { tenantId })
+      .andWhere('client.deleted_at IS NOT NULL');
+
+    if (search && search.trim()) {
+      const q = `%${search.trim().toLowerCase()}%`;
+      qb.andWhere(`(LOWER(client.first_name) LIKE :q OR LOWER(client.last_name) LIKE :q OR LOWER(client.email) LIKE :q OR client.phone LIKE :q)`, { q });
+    }
+
+    qb.orderBy('client.deleted_at', 'DESC');
+
+    const [data, total] = await qb.skip((page - 1) * limit).take(limit).getManyAndCount();
+    return { data, total };
+  }
+
+  async globalSearch(tenantId: string, query: string, limit = 10): Promise<{
+    contacts: Array<{ id: string; firstName: string | null; lastName: string | null; phone: string | null; email: string | null; status: string | null; avatarUrl: string | null }>;
+    messages: Array<{ id: string; conversationId: string; content: string; direction: string; createdAt: Date; contactName: string | null; inboxName: string | null }>;
+  }> {
+    if (!query || query.trim().length < 2) return { contacts: [], messages: [] };
+
+    const q = `%${query.trim().toLowerCase()}%`;
+
+    // Search contacts
+    const contacts = await this.recordRepository.query(
+      `SELECT id, first_name as "firstName", last_name as "lastName", phone, email, status, avatar_url as "avatarUrl"
+       FROM clients
+       WHERE tenant_id = $1
+         AND (LOWER(first_name) LIKE $2 OR LOWER(last_name) LIKE $2 OR LOWER(email) LIKE $2 OR phone LIKE $2)
+       ORDER BY last_contact_at DESC NULLS LAST
+       LIMIT $3`,
+      [tenantId, q, limit],
+    );
+
+    // Search messages in conversations belonging to this tenant's inboxes
+    const messages = await this.recordRepository.query(
+      `SELECT m.id, m.conversation_id as "conversationId", m.content, m.direction, m.created_at as "createdAt",
+              conv.contact_name as "contactName", i.name as "inboxName"
+       FROM messages m
+       JOIN conversations conv ON conv.id = m.conversation_id
+       JOIN inboxes i ON i.id = conv.inbox_id
+       WHERE i.tenant_id = $1
+         AND LOWER(m.content) LIKE $2
+         AND m.message_type != 'note'
+       ORDER BY m.created_at DESC
+       LIMIT $3`,
+      [tenantId, q, limit],
+    );
+
+    return { contacts, messages };
+  }
+
+  async bulkUpdate(ids: string[], updates: Partial<{ status: string; assignedTo: string | null; assignedTeamId: string | null; tags: string[] }>, actorId?: string, actorName?: string): Promise<{ updated: number }> {
+    if (ids.length === 0) return { updated: 0 };
+
+    // Get tenant from first record for activity logging
+    const sample = await this.recordRepository.findOne({ where: { id: ids[0] } });
+    const tenantId = sample?.tenantId;
+
+    await this.recordRepository.update(ids, updates as any);
+
+    // Log activities in bulk (async, non-blocking)
+    if (tenantId) {
+      const activities: Array<{ tenantId: string; recordId: string; type: string; description: string; metadata?: Record<string, any>; actorId?: string; actorName?: string }> = [];
+
+      for (const id of ids) {
+        if (updates.status) {
+          activities.push({ tenantId, recordId: id, type: 'status_changed', description: `Estado cambiado a ${updates.status}`, metadata: { to: updates.status, bulk: true }, actorId, actorName });
+        }
+        if (updates.assignedTo !== undefined) {
+          activities.push({ tenantId, recordId: id, type: 'assigned', description: updates.assignedTo ? 'Agente asignado (lote)' : 'Asignación removida (lote)', metadata: { assignedTo: updates.assignedTo, bulk: true }, actorId, actorName });
+        }
+        if (updates.assignedTeamId !== undefined) {
+          activities.push({ tenantId, recordId: id, type: 'assigned', description: updates.assignedTeamId ? 'Equipo asignado (lote)' : 'Equipo removido (lote)', metadata: { assignedTeamId: updates.assignedTeamId, bulk: true }, actorId, actorName });
+        }
+      }
+
+      if (activities.length > 0) {
+        this.activityRepository.save(activities.map((a) => this.activityRepository.create(a))).catch(() => {});
+      }
+    }
+
+    return { updated: ids.length };
+  }
+
+  async bulkDelete(ids: string[]): Promise<{ softDeleted: number; hardDeleted: number }> {
+    if (ids.length === 0) return { softDeleted: 0, hardDeleted: 0 };
+
+    // Find which contacts have related records (conversations, notes)
+    const withRelations = await this.recordRepository.query(
+      `SELECT DISTINCT c.id FROM clients c
+       LEFT JOIN conversations conv ON conv.record_id = c.id
+       LEFT JOIN notes n ON n.record_id = c.id
+       WHERE c.id = ANY($1) AND (conv.id IS NOT NULL OR n.id IS NOT NULL)`,
+      [ids],
+    );
+    const withRelationIds = new Set(withRelations.map((r: any) => r.id));
+    const softDeleteIds = ids.filter((id) => withRelationIds.has(id));
+    const hardDeleteIds = ids.filter((id) => !withRelationIds.has(id));
+
+    if (softDeleteIds.length > 0) {
+      await this.recordRepository.update(softDeleteIds, { deletedAt: new Date() } as any);
+    }
+    if (hardDeleteIds.length > 0) {
+      await this.recordRepository.delete(hardDeleteIds);
+    }
+
+    return { softDeleted: softDeleteIds.length, hardDeleted: hardDeleteIds.length };
+  }
+
+  async bulkDeleteByFilter(tenantId: string, filters?: Array<{ field: string; operator: string; value: string }>, assignedTo?: string, assignedTeamId?: string): Promise<{ softDeleted: number; hardDeleted: number }> {
+    const qb = this.buildFilterQuery(tenantId, filters, assignedTo, assignedTeamId);
+    const records = await qb.select('client.id').getRawMany();
+    if (records.length === 0) return { softDeleted: 0, hardDeleted: 0 };
+    const ids = records.map((r: any) => r.client_id);
+    return this.bulkDelete(ids);
+  }
+
+  async getDeletePreview(ids: string[]): Promise<{ withHistory: number; withoutHistory: number; total: number }> {
+    if (ids.length === 0) return { withHistory: 0, withoutHistory: 0, total: 0 };
+    const withRelations = await this.recordRepository.query(
+      `SELECT DISTINCT c.id FROM clients c
+       LEFT JOIN conversations conv ON conv.record_id = c.id
+       LEFT JOIN notes n ON n.record_id = c.id
+       WHERE c.id = ANY($1) AND (conv.id IS NOT NULL OR n.id IS NOT NULL)`,
+      [ids],
+    );
+    const withHistory = withRelations.length;
+    return { withHistory, withoutHistory: ids.length - withHistory, total: ids.length };
+  }
+
+  async getDeletePreviewByFilter(tenantId: string, filters?: Array<{ field: string; operator: string; value: string }>, assignedTo?: string, assignedTeamId?: string): Promise<{ withHistory: number; withoutHistory: number; total: number }> {
+    const qb = this.buildFilterQuery(tenantId, filters, assignedTo, assignedTeamId);
+    const records = await qb.select('client.id').getRawMany();
+    if (records.length === 0) return { withHistory: 0, withoutHistory: 0, total: 0 };
+    return this.getDeletePreview(records.map((r: any) => r.client_id));
+  }
+
+  async restoreDeleted(ids: string[]): Promise<{ restored: number }> {
+    if (ids.length === 0) return { restored: 0 };
+    await this.recordRepository.update(ids, { deletedAt: null } as any);
+    return { restored: ids.length };
+  }
+
+  async permanentDelete(ids: string[]): Promise<{ deleted: number }> {
+    if (ids.length === 0) return { deleted: 0 };
+    await this.recordRepository.delete(ids);
+    return { deleted: ids.length };
+  }
+
+  private buildFilterQuery(tenantId: string, filters?: Array<{ field: string; operator: string; value: string }>, assignedTo?: string, assignedTeamId?: string) {
+    const qb = this.recordRepository.createQueryBuilder('client')
+      .where('client.tenant_id = :tenantId', { tenantId })
+      .andWhere('client.deleted_at IS NULL');
+
+    if (assignedTo) qb.andWhere('client.assigned_to = :assignedTo', { assignedTo });
+    if (assignedTeamId) qb.andWhere('client.assigned_team_id = :assignedTeamId', { assignedTeamId });
+
+    if (filters && filters.length > 0) {
+      filters.forEach((f, idx) => {
+        const paramKey = `fv_${idx}`;
+        const isCustom = !this.SYSTEM_COLUMNS.has(f.field);
+        const col = isCustom ? `client.custom_data ->> '${f.field}'` : `client.${this.toSnakeCase(f.field)}`;
+
+        switch (f.operator) {
+          case 'equals': qb.andWhere(`${col} = :${paramKey}`, { [paramKey]: f.value }); break;
+          case 'not_equals': qb.andWhere(`${col} != :${paramKey}`, { [paramKey]: f.value }); break;
+          case 'contains': qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `%${f.value.toLowerCase()}%` }); break;
+          case 'starts_with': qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `${f.value.toLowerCase()}%` }); break;
+          case 'greater_than': qb.andWhere(`${col}::numeric > :${paramKey}`, { [paramKey]: Number(f.value) }); break;
+          case 'less_than': qb.andWhere(`${col}::numeric < :${paramKey}`, { [paramKey]: Number(f.value) }); break;
+          case 'is_empty': qb.andWhere(`(${col} IS NULL OR ${col} = '')`); break;
+          case 'is_not_empty': qb.andWhere(`(${col} IS NOT NULL AND ${col} != '')`); break;
+        }
+      });
+    }
+    return qb;
+  }
+
+  async bulkUpdateByFilter(tenantId: string, updates: Partial<{ status: string; assignedTo: string | null; assignedTeamId: string | null; tags: string[] }>, filters?: Array<{ field: string; operator: string; value: string }>, assignedTo?: string, assignedTeamId?: string, actorId?: string, actorName?: string): Promise<{ updated: number }> {
+    const qb = this.buildFilterQuery(tenantId, filters, assignedTo, assignedTeamId);
+    const ids = await qb.select('client.id').getRawMany();
+    if (ids.length === 0) return { updated: 0 };
+    const idList = ids.map((r: any) => r.client_id);
+    return this.bulkUpdate(idList, updates, actorId, actorName);
+  }
+
+  async getActivities(recordId: string, page = 1, limit = 30): Promise<{ data: Activity[]; total: number }> {
+    const [data, total] = await this.activityRepository.findAndCount({
+      where: { recordId },
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+    return { data, total };
+  }
+
+  async logActivity(data: { tenantId: string; recordId: string; type: string; description?: string; metadata?: Record<string, any>; actorId?: string; actorName?: string }): Promise<Activity> {
+    const activity = this.activityRepository.create(data);
+    return this.activityRepository.save(activity);
+  }
+
   async getDistinctValues(field: string): Promise<string[]> {
     const columnMap: Record<string, string> = {
       status: 'status',
@@ -494,7 +743,10 @@ export class RecordsService {
 
   async createNote(data: { tenantId: string; recordId: string; content: string; authorId?: string; authorName?: string }): Promise<Note> {
     const note = this.noteRepository.create(data);
-    return this.noteRepository.save(note);
+    const saved = await this.noteRepository.save(note);
+    // Log activity
+    this.logActivity({ tenantId: data.tenantId, recordId: data.recordId, type: 'note_created', description: 'Nota creada', actorId: data.authorId, actorName: data.authorName }).catch(() => {});
+    return saved;
   }
 
   async deleteNote(noteId: string): Promise<void> {

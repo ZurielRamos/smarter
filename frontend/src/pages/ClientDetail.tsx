@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, Tag, MessageSquare, Camera, MoreHorizontal, StickyNote, Plus, Trash2, User } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, Calendar, Tag, MessageSquare, Camera, MoreHorizontal, StickyNote, Plus, Trash2, User, ArrowRightLeft, UserPlus, Send, Pencil, Clock } from "lucide-react";
 import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/components/ChannelIcons";
-import { getClient, getConversationsByRecord, getNotes, deleteNote } from "@/services/api";
-import type { ClientRecord, ConversationRecord, NoteRecord } from "@/services/api";
+import { getClient, getConversationsByRecord, getNotes, deleteNote, getActivities } from "@/services/api";
+import type { ClientRecord, ConversationRecord, NoteRecord, ActivityRecord } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { AddNoteModal } from "./AddNoteModal";
 import { ConversationPreviewModal } from "./ConversationPreviewModal";
@@ -55,6 +55,8 @@ export function ClientDetail() {
   const [notesLoading, setNotesLoading] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [previewConversation, setPreviewConversation] = useState<ConversationRecord | null>(null);
+  const [activities, setActivities] = useState<ActivityRecord[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -84,6 +86,12 @@ export function ClientDetail() {
   };
 
   useEffect(() => { loadNotes(); }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    setActivitiesLoading(true);
+    getActivities(id).then((res) => setActivities(res.data)).catch(() => setActivities([])).finally(() => setActivitiesLoading(false));
+  }, [id]);
 
   if (!client && !loading) return null;
 
@@ -275,6 +283,28 @@ export function ClientDetail() {
                   </div>
                 )}
               </div>
+
+              {/* Timeline */}
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4">Timeline</h3>
+                {activitiesLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-emerald-600" />
+                  </div>
+                ) : activities.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-4 text-center">Sin actividad registrada</p>
+                ) : (
+                  <div className="relative">
+                    {/* Vertical line */}
+                    <div className="absolute left-[11px] top-2 bottom-2 w-px bg-gray-200" />
+                    <div className="space-y-4">
+                      {activities.map((activity) => (
+                        <TimelineItem key={activity.id} activity={activity} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Right Column - Contact Info */}
@@ -393,6 +423,37 @@ function InfoRow({ label, value, badge, badgeClass }: { label: string; value: st
       ) : (
         <span className="text-sm font-medium text-gray-900 text-right max-w-[60%] truncate">{value || "—"}</span>
       )}
+    </div>
+  );
+}
+
+function TimelineItem({ activity }: { activity: ActivityRecord }) {
+  const iconMap: Record<string, { icon: React.ElementType; bg: string; color: string }> = {
+    status_changed: { icon: ArrowRightLeft, bg: "bg-blue-100", color: "text-blue-600" },
+    assigned: { icon: UserPlus, bg: "bg-indigo-100", color: "text-indigo-600" },
+    note_created: { icon: StickyNote, bg: "bg-amber-100", color: "text-amber-600" },
+    message_received: { icon: MessageSquare, bg: "bg-green-100", color: "text-green-600" },
+    message_sent: { icon: Send, bg: "bg-emerald-100", color: "text-emerald-600" },
+    contact_created: { icon: Plus, bg: "bg-gray-100", color: "text-gray-600" },
+    contact_updated: { icon: Pencil, bg: "bg-gray-100", color: "text-gray-500" },
+    tag_added: { icon: Tag, bg: "bg-purple-100", color: "text-purple-600" },
+    tag_removed: { icon: Tag, bg: "bg-red-100", color: "text-red-600" },
+  };
+  const config = iconMap[activity.type] || { icon: Clock, bg: "bg-gray-100", color: "text-gray-500" };
+  const Icon = config.icon;
+
+  return (
+    <div className="flex items-start gap-3 relative">
+      <div className={`h-[22px] w-[22px] rounded-full ${config.bg} flex items-center justify-center shrink-0 z-10`}>
+        <Icon className={`h-3 w-3 ${config.color}`} />
+      </div>
+      <div className="flex-1 min-w-0 pt-0.5">
+        <p className="text-xs text-gray-700">{activity.description || activity.type}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          {activity.actorName && <span className="text-[11px] text-gray-400">{activity.actorName}</span>}
+          <span className="text-[11px] text-gray-400">{new Date(activity.createdAt).toLocaleString("es-CO")}</span>
+        </div>
+      </div>
     </div>
   );
 }

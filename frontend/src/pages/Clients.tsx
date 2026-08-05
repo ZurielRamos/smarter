@@ -9,7 +9,11 @@ import { getClients, getCustomFields, getRecordLists, getRecordListRecords } fro
 import type { ClientRecord, RecordListItem, CustomField } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { KanbanView } from "./KanbanView";
+import { FilterPanel } from "./FilterPanel";
+import type { FilterCondition } from "./FilterPanel";
 import { AddNoteModal } from "./AddNoteModal";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
+import { BulkActionBar } from "./BulkActionBar";
 import axios from "axios";
 
 // Lazy load the column config modal (pulls in Reorder/drag-and-drop only when needed)
@@ -107,6 +111,9 @@ export function Clients() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; client: ClientRecord } | null>(null);
   const [editingClient, setEditingClient] = useState<ClientRecord | null>(null);
   const [noteClient, setNoteClient] = useState<ClientRecord | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkSelectAll, setBulkSelectAll] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false); // true = all matching filter are selected
   const tableMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   // Defer heavy content to allow tab animation to complete first
@@ -133,6 +140,8 @@ export function Clients() {
   const [ownerFilter, setOwnerFilter] = useState<"all" | "mine" | "myTeam">(() => {
     return (localStorage.getItem(`ownerFilter_${slug}`) as any) || "all";
   });
+  const [advancedFilters, setAdvancedFilters] = useState<FilterCondition[]>([]);
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [, startTransition] = useTransition();
 
   const visibleColumns = useMemo(
@@ -191,7 +200,9 @@ export function Clients() {
 
   useEffect(() => {
     if (mounted) loadClients();
-  }, [tenantId, page, limit, sortBy, sortOrder, mounted, activeList, ownerFilter]);
+  }, [tenantId, page, limit, sortBy, sortOrder, mounted, activeList, ownerFilter, advancedFilters]);
+
+  useEffect(() => { setSelectedIds(new Set()); setBulkSelectAll(false); }, [page, ownerFilter, advancedFilters, activeList]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -250,7 +261,8 @@ export function Clients() {
       } else {
         const assignedTo = ownerFilter === "mine" ? user?.id : undefined;
         const assignedTeamId = ownerFilter === "myTeam" ? getUserTeamId() : undefined;
-        const res = await getClients(tenantId, page, limit, sortBy, sortOrder, assignedTo, assignedTeamId);
+        const filterParams = advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined;
+        const res = await getClients(tenantId, page, limit, sortBy, sortOrder, assignedTo, assignedTeamId, filterParams);
         setClients(res.data);
         setTotal(res.total);
       }
@@ -259,7 +271,7 @@ export function Clients() {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, page, limit, sortBy, sortOrder, activeList, ownerFilter]);
+  }, [tenantId, page, limit, sortBy, sortOrder, activeList, ownerFilter, advancedFilters]);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -504,6 +516,17 @@ export function Clients() {
               </div>
             )}
 
+            {/* Filter button */}
+            <button
+              onClick={() => setFilterPanelOpen((v) => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                advancedFilters.length > 0 ? "bg-brand-500/20 text-white" : "bg-white/15 hover:bg-white/25 text-white"
+              }`}
+            >
+              <Filter className="h-4 w-4" />
+              {advancedFilters.length > 0 && <span className="text-xs">{advancedFilters.length}</span>}
+            </button>
+
             {/* Lists button */}
             <div className="relative" ref={listsDropdownRef}>
               <button
@@ -639,6 +662,16 @@ export function Clients() {
                     <Database className="h-4 w-4 text-gray-500" />
                     Personalizar Esquema
                   </button>
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      navigate(`/${slug}/clients/deleted`);
+                    }}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4 text-gray-500" />
+                    Eliminados
+                  </button>
                 </div>
               )}
             </div>
@@ -648,6 +681,15 @@ export function Clients() {
 
       {/* Light section - content */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden pt-4 px-0">
+        {/* Advanced Filters Panel */}
+        <FilterPanel
+          open={filterPanelOpen}
+          onClose={() => setFilterPanelOpen(false)}
+          filters={advancedFilters}
+          onChange={setAdvancedFilters}
+          fields={customFields}
+        />
+
         {(!mounted || (loading && viewMode === "list")) ? (
           // Loader while data is being fetched
           <div className="flex-1 min-h-0 flex flex-col items-center justify-center bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -699,6 +741,20 @@ export function Clients() {
               <table className="text-sm" style={{ minWidth: "100%", width: "max-content" }}>
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-3 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.size > 0 && selectedIds.size === clients.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIds(new Set(clients.map((c) => c.id)));
+                          } else {
+                            setSelectedIds(new Set());
+                          }
+                        }}
+                        className="h-3.5 w-3.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                      />
+                    </th>
                     {visibleColumns.map((col, colIndex) => col ? (
                       <th
                         key={col.key}
@@ -834,6 +890,21 @@ export function Clients() {
                       className="border-b border-gray-100 hover:bg-gray-50"
                       onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, client }); }}
                     >
+                      <td className="px-3 py-2.5 w-10" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(client.id)}
+                          onChange={() => {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(client.id)) next.delete(client.id);
+                              else next.add(client.id);
+                              return next;
+                            });
+                          }}
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                        />
+                      </td>
                       {visibleColumns.map((col) => col ? (
                         <td
                           key={col.key}
@@ -1029,6 +1100,69 @@ export function Clients() {
           onSaved={() => { setNoteClient(null); toast.success("Nota guardada"); }}
         />
       )}
+
+      {/* Bulk Action Bar */}
+      {(selectedIds.size > 0 || bulkSelectAll) && (
+        <BulkActionBar
+          count={bulkSelectAll ? total : selectedIds.size}
+          allSelected={bulkSelectAll}
+          total={total}
+          fields={customFields}
+          onClear={() => { setSelectedIds(new Set()); setBulkSelectAll(false); }}
+          onSelectAll={() => setBulkSelectAll(true)}
+          onBulkUpdate={async (updates) => {
+            const payload = bulkSelectAll
+              ? { tenantId, filters: advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined, updates, actorId: user?.id, actorName: user?.name || user?.email }
+              : { ids: [...selectedIds], updates, actorId: user?.id, actorName: user?.name || user?.email };
+            await tenantApi.put("/records/bulk", payload);
+            const fieldName = Object.keys(updates)[0] || "campo";
+            toast.success(`${fieldName} actualizado para ${bulkSelectAll ? total : selectedIds.size} contactos`);
+            setSelectedIds(new Set()); setBulkSelectAll(false);
+            loadClients();
+          }}
+          onAddTag={async (tag) => {
+            // Tags need special handling: append to existing tags
+            if (bulkSelectAll) {
+              // For filter-based, we can't easily append — just set the tag
+              const payload = { tenantId, filters: advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined, updates: { tags: [tag] } };
+              await tenantApi.put("/records/bulk", payload);
+            } else {
+              // For ID-based, append tag to each contact's existing tags
+              const promises = [...selectedIds].map((id) => {
+                const client = clients.find((c) => c.id === id);
+                const currentTags = client?.tags || [];
+                if (currentTags.includes(tag)) return Promise.resolve();
+                return tenantApi.put(`/records/${id}`, { tags: [...currentTags, tag] });
+              });
+              await Promise.all(promises);
+            }
+            toast.success(`Tag "${tag}" agregado a ${bulkSelectAll ? total : selectedIds.size} contactos`);
+            setSelectedIds(new Set()); setBulkSelectAll(false);
+            loadClients();
+          }}
+          onDelete={() => setDeleteModalOpen(true)}
+        />
+      )}
+
+      {/* Delete Confirm Modal */}
+      <DeleteConfirmModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        payload={bulkSelectAll
+          ? { tenantId, filters: advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined }
+          : { ids: [...selectedIds] }
+        }
+        onConfirm={async () => {
+          const payload = bulkSelectAll
+            ? { tenantId, filters: advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined }
+            : { ids: [...selectedIds] };
+          await tenantApi.delete("/records/bulk", { data: payload });
+          toast.success("Contactos eliminados");
+          setSelectedIds(new Set()); setBulkSelectAll(false);
+          setDeleteModalOpen(false);
+          loadClients();
+        }}
+      />
     </div>
   );
 }
