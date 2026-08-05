@@ -348,15 +348,15 @@ export function ClientDetail() {
                   <div className="space-y-2">
                     {contactEvents.map((evt) => (
                       <div key={evt.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 group">
-                        <div className="h-8 w-8 rounded-full bg-amber-50 flex items-center justify-center text-sm shrink-0">
-                          {evt.type === 'purchase' && '🛒'}
-                          {evt.type === 'appointment' && '📅'}
-                          {evt.type === 'demo' && '🎥'}
-                          {evt.type === 'qualified' && '⭐'}
-                          {evt.type === 'proposal' && '📄'}
-                          {evt.type === 'registration' && '📝'}
-                          {evt.type === 'subscription' && '🔄'}
-                          {evt.type === 'custom' && '✨'}
+                        <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                          {evt.type === 'purchase' && <ShoppingCart className="h-4 w-4 text-green-600" />}
+                          {evt.type === 'appointment' && <CalendarCheck className="h-4 w-4 text-blue-600" />}
+                          {evt.type === 'demo' && <Presentation className="h-4 w-4 text-purple-600" />}
+                          {evt.type === 'qualified' && <Star className="h-4 w-4 text-amber-600" />}
+                          {evt.type === 'proposal' && <FileText className="h-4 w-4 text-indigo-600" />}
+                          {evt.type === 'registration' && <UserPlus className="h-4 w-4 text-cyan-600" />}
+                          {evt.type === 'subscription' && <ArrowRightLeft className="h-4 w-4 text-emerald-600" />}
+                          {evt.type === 'custom' && <Zap className="h-4 w-4 text-gray-600" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">{evt.name}</p>
@@ -512,28 +512,32 @@ export function ClientDetail() {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-2">¿Qué ocurrió?</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: 'purchase', emoji: '🛒', label: 'Compra', desc: 'Venta cerrada' },
-                    { value: 'appointment', emoji: '📅', label: 'Cita', desc: 'Reunión agendada' },
-                    { value: 'demo', emoji: '🎥', label: 'Demo', desc: 'Demostración realizada' },
-                    { value: 'qualified', emoji: '⭐', label: 'Calificado', desc: 'Lead cualificado' },
-                    { value: 'proposal', emoji: '📄', label: 'Propuesta', desc: 'Cotización enviada' },
-                    { value: 'registration', emoji: '📝', label: 'Registro', desc: 'Se registró/inscribió' },
-                    { value: 'subscription', emoji: '🔄', label: 'Suscripción', desc: 'Plan activado' },
-                    { value: 'custom', emoji: '✨', label: 'Otro', desc: 'Evento personalizado' },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setEventForm({ ...eventForm, type: opt.value, name: eventForm.name || opt.label })}
-                      className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all ${eventForm.type === opt.value ? "border-amber-400 bg-amber-50 shadow-sm" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}
-                    >
-                      <span className="text-lg">{opt.emoji}</span>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{opt.label}</p>
-                        <p className="text-[10px] text-gray-400">{opt.desc}</p>
-                      </div>
-                    </button>
-                  ))}
+                  {([
+                    { value: 'purchase', label: 'Compra', desc: 'Venta cerrada', icon: ShoppingCart, color: 'text-green-600' },
+                    { value: 'appointment', label: 'Cita', desc: 'Reunión agendada', icon: CalendarCheck, color: 'text-blue-600' },
+                    { value: 'demo', label: 'Demo', desc: 'Demostración realizada', icon: Presentation, color: 'text-purple-600' },
+                    { value: 'qualified', label: 'Calificado', desc: 'Lead cualificado', icon: Star, color: 'text-amber-600' },
+                    { value: 'proposal', label: 'Propuesta', desc: 'Cotización enviada', icon: FileText, color: 'text-indigo-600' },
+                    { value: 'registration', label: 'Registro', desc: 'Se registró', icon: UserPlus, color: 'text-cyan-600' },
+                    { value: 'subscription', label: 'Suscripción', desc: 'Plan activado', icon: ArrowRightLeft, color: 'text-emerald-600' },
+                    { value: 'custom', label: 'Otro', desc: 'Evento personalizado', icon: Zap, color: 'text-gray-600' },
+                  ] as const).map((opt) => {
+                    const Icon = opt.icon;
+                    const isSelected = eventForm.type === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => setEventForm({ ...eventForm, type: opt.value, name: eventForm.name || opt.label })}
+                        className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all ${isSelected ? "border-brand-500 bg-brand-50/50 ring-1 ring-brand-500/20" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}
+                      >
+                        <Icon className={`h-4 w-4 shrink-0 ${isSelected ? opt.color : "text-gray-400"}`} />
+                        <div>
+                          <p className={`text-sm font-medium ${isSelected ? "text-gray-900" : "text-gray-700"}`}>{opt.label}</p>
+                          <p className="text-[10px] text-gray-400">{opt.desc}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
