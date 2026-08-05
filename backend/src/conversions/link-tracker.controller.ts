@@ -136,19 +136,27 @@ export class LinkTrackerController {
         e.preventDefault();
         var href = link.href;
 
+        // Open window immediately to preserve user gesture (avoids popup blocker)
+        var newWindow = window.open("about:blank", "_blank");
+
         getTrackingCode(function(code) {
           var codeText = CODE_PATTERN.replace("{{code}}", code);
-
-          // Parse existing text param and append code
           var url = new URL(href);
           var existingText = url.searchParams.get("text") || "";
           var separator = existingText ? " " : "";
           url.searchParams.set("text", existingText + separator + codeText);
 
-          window.open(url.toString(), "_blank");
+          if (newWindow) {
+            newWindow.location.href = url.toString();
+          } else {
+            window.open(url.toString(), "_blank");
+          }
         }, function() {
-          // Fallback: open link without tracking code
-          window.open(href, "_blank");
+          if (newWindow) {
+            newWindow.location.href = href;
+          } else {
+            window.open(href, "_blank");
+          }
         });
       });
     });
