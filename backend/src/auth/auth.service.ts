@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -9,6 +10,7 @@ import { User } from '../users/user.entity';
 export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
   ) {}
@@ -89,6 +91,105 @@ export class AuthService {
         email: user.email,
         isSuperAdmin: user.isSuperAdmin,
         needsPasswordSetup: user.needsPasswordSetup,
+        tenantRoles: activeRoles.map((tr) => ({
+          tenantId: tr.tenantId,
+          role: tr.role,
+          tenant: {
+            id: tr.tenant.id,
+            name: tr.tenant.name,
+            slug: tr.tenant.slug,
+            iconPath: tr.tenant.iconPath,
+          },
+        })),
+        pendingInvites: pendingInvites.map((tr) => ({
+          tenantId: tr.tenantId,
+          role: tr.role,
+          tenant: {
+            id: tr.tenant.id,
+            name: tr.tenant.name,
+            slug: tr.tenant.slug,
+            iconPath: tr.tenant.iconPath,
+          },
+        })),
+      },
+      redirectTo,
+    };
+  }
+
+  /** Login or register with Google OAuth token */
+  async loginWithGoogle(credential: string) {
+    // The credential can be either an ID token or an access token
+    let email: string;
+    let name: string;
+    let picture: string | undefined;
+
+    // Try to fetch user info from Google using it as an access token
+    try {
+      const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${credential}` },
+      });
+      if (!response.ok) throw new Error('Invalid token');
+      const googleUser = await response.json();
+      email = googleUser.email;
+      name = googleUser.name;
+      picture = googleUser.picture;
+      if (!googleUser.email_verified) {
+        throw new UnauthorizedException('El email de Google no está verificado');
+      }
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+      throw new UnauthorizedException('Token de Google inválido');
+    }
+
+    // Find or create user
+    let user = await this.userRepo.findOne({
+      where: { email },
+      relations: { tenantRoles: { tenant: true } },
+    });
+
+    if (!user) {
+      // User doesn't exist — reject (only existing users can login with Google)
+      throw new UnauthorizedException('No existe una cuenta con este correo. Contacta al administrador.');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Usuario desactivado');
+    }
+
+    // Update avatar if user doesn't have one
+    if (!user.avatarPath && picture) {
+      user.avatarPath = picture;
+      await this.userRepo.save(user);
+    }
+
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      isSuperAdmin: user.isSuperAdmin,
+    };
+
+    const token = this.jwtService.sign(payload);
+
+    const activeRoles = user.tenantRoles?.filter((tr) => tr.status === 'active') || [];
+    const pendingInvites = user.tenantRoles?.filter((tr) => tr.status === 'pending') || [];
+
+    let redirectTo = '/';
+    if (user.isSuperAdmin) {
+      redirectTo = '/admin';
+    } else if (activeRoles.length > 0) {
+      redirectTo = `/${activeRoles[0].tenant.slug}`;
+    } else if (pendingInvites.length > 0) {
+      redirectTo = '/pending';
+    }
+
+    return {
+      access_token: token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isSuperAdmin: user.isSuperAdmin,
+        needsPasswordSetup: false,
         tenantRoles: activeRoles.map((tr) => ({
           tenantId: tr.tenantId,
           role: tr.role,

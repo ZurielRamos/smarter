@@ -32,6 +32,12 @@ export class AuthController {
     return this.authService.login(dto.email, dto.password);
   }
 
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
+  @Post('google')
+  loginWithGoogle(@Body() body: { credential: string }) {
+    return this.authService.loginWithGoogle(body.credential);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('me')
   getProfile(@Req() req: any) {

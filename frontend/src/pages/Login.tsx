@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import logoCompleto from '../assets/icon.svg';
 import heroBg from '../assets/hero.png';
@@ -19,8 +20,28 @@ export function Login() {
   const [redirectTo, setRedirectTo] = useState('');
   const [ripples, setRipples] = useState<{ x: number; y: number; id: number }[]>([]);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setError('');
+      setIsSubmitting(true);
+      try {
+        // Exchange access_token for id_token via Google's userinfo or use credential flow
+        const dest = await loginWithGoogle(tokenResponse.access_token);
+        setRedirectTo(dest);
+        setIsExiting(true);
+      } catch (err: any) {
+        const message = err?.response?.data?.message || 'Error al iniciar sesión con Google';
+        setError(message);
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    onError: () => setError('Error al conectar con Google'),
+    flow: 'implicit',
+  });
 
   function handleRipple(e: React.MouseEvent<HTMLButtonElement>) {
     const button = buttonRef.current;
@@ -285,6 +306,7 @@ export function Login() {
             {/* Google button */}
             <button
               type="button"
+              onClick={() => googleLogin()}
               className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24">

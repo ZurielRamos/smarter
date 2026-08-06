@@ -40,6 +40,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<string>;
+  loginWithGoogle: (credential: string) => Promise<string>;
   logout: () => void;
   acceptInvite: (tenantId: string) => Promise<void>;
   declineInvite: (tenantId: string) => void;
@@ -122,6 +123,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.redirectTo;
   }
 
+  async function loginWithGoogle(credential: string): Promise<string> {
+    const { data } = await axios.post(`${API_BASE}/auth/google`, { credential });
+
+    localStorage.setItem('token', data.access_token);
+    setToken(data.access_token);
+    setUser(data.user);
+
+    return data.redirectTo;
+  }
+
   function logout() {
     localStorage.removeItem('token');
     setToken(null);
@@ -164,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         isLoading,
         login,
+        loginWithGoogle,
         logout,
         acceptInvite,
         declineInvite,
