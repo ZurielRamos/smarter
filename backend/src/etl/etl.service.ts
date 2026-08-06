@@ -98,20 +98,19 @@ export class EtlService {
     await this.jobRepo.save(job);
   }
 
-  /** Get the active (parsing or awaiting_mapping) job for a tenant */
+  /** Get the active (parsing or awaiting_mapping) job for a tenant — only recent (last 6 hours) */
   async getActiveJob(tenantId: string): Promise<ImportJob | null> {
-    return this.jobRepo.findOne({
-      where: [
-        { tenantId, status: 'parsing' as any },
-        { tenantId, status: 'awaiting_mapping' as any },
-        { tenantId, status: 'pending' as any },
-        { tenantId, status: 'transforming' as any },
-        { tenantId, status: 'validating' as any },
-        { tenantId, status: 'deduplicating' as any },
-        { tenantId, status: 'loading' as any },
-      ],
-      order: { createdAt: 'DESC' },
-    });
+    const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const job = await this.jobRepo
+      .createQueryBuilder('job')
+      .where('job.tenant_id = :tenantId', { tenantId })
+      .andWhere('job.status IN (:...statuses)', {
+        statuses: ['parsing', 'awaiting_mapping', 'pending', 'transforming', 'validating', 'deduplicating', 'loading'],
+      })
+      .andWhere('job.created_at > :since', { since: sixHoursAgo })
+      .orderBy('job.created_at', 'DESC')
+      .getOne();
+    return job || null;
   }
 
   /** Mark a parse job as failed */
