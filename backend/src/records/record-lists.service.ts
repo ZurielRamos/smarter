@@ -216,12 +216,14 @@ export class RecordListsService {
         }
         return `(${col} IS NOT NULL AND ${col} != '')`;
       case 'greater_than':
+        if (!value || value.trim() === '') return null;
         params[paramKey] = value;
         if (isTimestamp) {
           return `${col} > :${paramKey}`;
         }
         return `(${col})::numeric > :${paramKey}`;
       case 'less_than':
+        if (!value || value.trim() === '') return null;
         params[paramKey] = value;
         if (isTimestamp) {
           return `${col} < :${paramKey}`;

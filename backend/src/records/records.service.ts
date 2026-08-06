@@ -526,6 +526,7 @@ export class RecordsService {
           qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `${f.value.toLowerCase()}%` });
           break;
         case 'greater_than':
+          if (!f.value || f.value.trim() === '') break;
           if (isTimestamp) {
             qb.andWhere(`${col} > :${paramKey}`, { [paramKey]: f.value });
           } else {
@@ -533,6 +534,7 @@ export class RecordsService {
           }
           break;
         case 'less_than':
+          if (!f.value || f.value.trim() === '') break;
           if (isTimestamp) {
             qb.andWhere(`${col} < :${paramKey}`, { [paramKey]: f.value });
           } else {

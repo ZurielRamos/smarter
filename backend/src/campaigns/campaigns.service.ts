@@ -234,6 +234,11 @@ export class CampaignsService {
         const paramKey = `p_${i}_${j}`;
         const col = this.fieldToColumn(cond.field);
 
+        // Skip comparison operators with empty values
+        if (['greater_than', 'less_than', 'greater_or_equal', 'less_or_equal'].includes(cond.operator) && (!cond.value || String(cond.value).trim() === '')) {
+          continue;
+        }
+
         const sqlCond = this.buildConditionSql(col, cond.operator, paramKey, cond.field);
         if (sqlCond) {
           groupConditions.push(sqlCond);
