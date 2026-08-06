@@ -679,27 +679,10 @@ export function Conversaciones() {
                       </div>
                       <span className="flex-1 text-left">{inbox.name}</span>
                       {inbox.status === "connected" ? <span className="h-2 w-2 rounded-full bg-green-400" /> : <span className="h-2 w-2 rounded-full bg-gray-300" />}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setChannelDropdownOpen(false); navigate(`/${slug}/inboxes/${inbox.id}/settings`); }}
-                        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
-                      >
-                        <Settings2 className="h-3.5 w-3.5" />
-                      </button>
                       {isSelected && <span className="text-brand-500">✓</span>}
                     </button>
                     );
                   })}
-                  <div className="border-t border-gray-100 mt-1.5 pt-1.5">
-                    <button
-                      onClick={() => { setChannelDropdownOpen(false); navigate(`/${slug}/inboxes/new`); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-brand-600 hover:bg-brand-50 transition-colors font-medium"
-                    >
-                      <div className="h-7 w-7 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
-                        <span className="text-brand-500 text-lg leading-none">+</span>
-                      </div>
-                      Nuevo canal
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
