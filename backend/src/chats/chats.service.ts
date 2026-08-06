@@ -1393,6 +1393,10 @@ export class ChatsService {
     conversation.lastMessageAt = new Date();
     await this.conversationRepo.save(conversation);
 
+    // Emit real-time events
+    this.chatsGateway.emitNewMessage(inbox.tenantId, conversationId, saved);
+    this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
+
     return saved;
   }
 
