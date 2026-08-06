@@ -27,7 +27,7 @@ export class FileStoreService implements OnModuleDestroy {
   private cleanupInterval: ReturnType<typeof setInterval>;
 
   constructor(private readonly config: ConfigService) {
-    this.cacheDir = config.get<string>('ETL_CACHE_DIR', '/tmp/etl-cache');
+    this.cacheDir = config.get<string>('ETL_CACHE_DIR', './etl-cache');
     mkdirSync(this.cacheDir, { recursive: true });
 
     // Restore metadata from disk on startup (survives server restarts)

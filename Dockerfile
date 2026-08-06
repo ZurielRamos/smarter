@@ -27,8 +27,8 @@ COPY --from=backend-build /app/backend/dist ./dist
 # Copy frontend build to the location expected by main.ts (../frontend/dist relative to backend dist)
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
-# Create uploads directory
-RUN mkdir -p uploads
+# Create uploads and etl-cache directories
+RUN mkdir -p uploads etl-cache
 
 EXPOSE 3000
 

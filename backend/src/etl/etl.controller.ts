@@ -74,11 +74,11 @@ export class EtlController {
 
   @Post('import')
   async createImport(@Body() body: CreateImportDto) {
-    // For small files (< 5000 rows), execute synchronously
+    // For small files (< 50000 rows), execute synchronously
     // For larger files, queue for async processing with progress tracking
     const rowCount = this.etlService.getFileRowCount(body.fileId);
 
-    if (rowCount <= 5000) {
+    if (rowCount <= 50000) {
       return this.etlService.executeSynchronous({
         tenantId: body.tenantId,
         fileId: body.fileId,
