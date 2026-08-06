@@ -719,7 +719,11 @@ export class ChatsService {
       record = await this.clientRecordRepo.save(record);
       console.log(`[Chat] Created new record for phone ${phone} in tenant ${tenantId}`);
     } else {
-      // Update last contact
+      // Restore if soft-deleted
+      if (record.deletedAt) {
+        record.deletedAt = null;
+        record.status = 'active';
+      }
       record.lastContactAt = new Date();
       await this.clientRecordRepo.save(record);
     }
