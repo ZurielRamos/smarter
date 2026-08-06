@@ -222,6 +222,7 @@ export class CampaignsService {
     if (tenantId) {
       qb.where('client.tenant_id = :tenantId', { tenantId });
     }
+    qb.andWhere('client.deleted_at IS NULL');
 
     for (let i = 0; i < segments.length; i++) {
       const group = segments[i];
@@ -233,7 +234,7 @@ export class CampaignsService {
         const paramKey = `p_${i}_${j}`;
         const col = this.fieldToColumn(cond.field);
 
-        const sqlCond = this.buildConditionSql(col, cond.operator, paramKey);
+        const sqlCond = this.buildConditionSql(col, cond.operator, paramKey, cond.field);
         if (sqlCond) {
           groupConditions.push(sqlCond);
           params[paramKey] = cond.value;
@@ -253,7 +254,10 @@ export class CampaignsService {
     return qb;
   }
 
-  private buildConditionSql(col: string, operator: string, paramKey: string): string | null {
+  private buildConditionSql(col: string, operator: string, paramKey: string, field?: string): string | null {
+    const TIMESTAMP_FIELDS = new Set(['lastContactAt', 'lastActivityAt', 'birthDate', 'createdAt', 'updatedAt', 'fechaRegistro', 'fechaUltimaSesion']);
+    const isTimestamp = field ? TIMESTAMP_FIELDS.has(field) : false;
+
     switch (operator) {
       case 'equals':
         return `${col} = :${paramKey}`;
@@ -279,9 +283,11 @@ export class CampaignsService {
         return `${col} = false`;
       case 'is_null':
       case 'is_empty':
+        if (isTimestamp) return `${col} IS NULL`;
         return `(${col} IS NULL OR ${col} = '')`;
       case 'is_not_null':
       case 'is_not_empty':
+        if (isTimestamp) return `${col} IS NOT NULL`;
         return `(${col} IS NOT NULL AND ${col} != '')`;
       case 'in_list':
         return `${col} IN (:...${paramKey})`;
@@ -292,15 +298,31 @@ export class CampaignsService {
 
   private fieldToColumn(field: string): string {
     const map: Record<string, string> = {
-      // New field names
+      // System fields
       firstName: 'client.first_name',
       lastName: 'client.last_name',
+      fullName: 'client.full_name',
       phone: 'client.phone',
       email: 'client.email',
+      documentType: 'client.document_type',
+      documentNumber: 'client.document_number',
+      gender: 'client.gender',
+      birthDate: 'client.birth_date',
+      city: 'client.city',
+      region: 'client.region',
       status: 'client.status',
       channelSource: 'client.channel_source',
+      source: 'client.source',
+      score: 'client.score',
       tags: 'client.tags',
-      // Legacy field names
+      optInWhatsapp: 'client.opt_in_whatsapp',
+      optInEmail: 'client.opt_in_email',
+      assignedTo: 'client.assigned_to',
+      lastContactAt: 'client.last_contact_at',
+      lastActivityAt: 'client.last_activity_at',
+      createdAt: 'client.created_at',
+      updatedAt: 'client.updated_at',
+      // Legacy field names (SuperGiros)
       idCliente: 'client.id',
       nombreCompleto: "client.first_name || ' ' || client.last_name",
       telefono: 'client.phone',
