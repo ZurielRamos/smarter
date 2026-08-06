@@ -1,6 +1,6 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { writeFileSync, readFileSync, existsSync, unlinkSync, mkdirSync } from 'fs';
+import { writeFileSync, readFileSync, existsSync, unlinkSync, mkdirSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -30,6 +30,9 @@ export class FileStoreService implements OnModuleDestroy {
     this.cacheDir = config.get<string>('ETL_CACHE_DIR', '/tmp/etl-cache');
     mkdirSync(this.cacheDir, { recursive: true });
 
+    // Restore metadata from disk on startup (survives server restarts)
+    this.restoreFromDisk();
+
     // Cleanup expired files every 5 minutes
     this.cleanupInterval = setInterval(() => this.cleanup(), 5 * 60 * 1000);
   }
@@ -44,19 +47,25 @@ export class FileStoreService implements OnModuleDestroy {
   store(data: Record<string, string>[], meta: Omit<StoredFile, 'totalRows'>): string {
     const fileId = uuidv4();
     const filePath = this.getFilePath(fileId);
+    const metaPath = this.getMetaPath(fileId);
 
     // Write as newline-delimited JSON for streaming reads
     const lines = data.map((row) => JSON.stringify(row));
     writeFileSync(filePath, lines.join('\n'), 'utf-8');
 
-    // TTL: 30 min for large files, 60 min for small
-    const ttlMs = data.length > 50000 ? 30 * 60 * 1000 : 60 * 60 * 1000;
+    // TTL: 3 hours for large files, 2 hours for small
+    const ttlMs = data.length > 50000 ? 3 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000;
 
-    this.metadata.set(fileId, {
+    const entry = {
       ...meta,
       totalRows: data.length,
       expiresAt: Date.now() + ttlMs,
-    });
+    };
+
+    this.metadata.set(fileId, entry);
+
+    // Persist metadata to disk so it survives restarts
+    writeFileSync(metaPath, JSON.stringify(entry), 'utf-8');
 
     return fileId;
   }
@@ -147,13 +156,62 @@ export class FileStoreService implements OnModuleDestroy {
   delete(fileId: string): void {
     this.metadata.delete(fileId);
     const filePath = this.getFilePath(fileId);
+    const metaPath = this.getMetaPath(fileId);
     try {
       if (existsSync(filePath)) unlinkSync(filePath);
+      if (existsSync(metaPath)) unlinkSync(metaPath);
     } catch { /* ignore */ }
   }
 
   private getFilePath(fileId: string): string {
     return join(this.cacheDir, `${fileId}.ndjson`);
+  }
+
+  private getMetaPath(fileId: string): string {
+    return join(this.cacheDir, `${fileId}.meta.json`);
+  }
+
+  /**
+   * Restores metadata from disk on startup so files survive server restarts.
+   */
+  private restoreFromDisk(): void {
+    try {
+      const files = readdirSync(this.cacheDir);
+      const metaFiles = files.filter((f) => f.endsWith('.meta.json'));
+
+      for (const metaFile of metaFiles) {
+        const fileId = metaFile.replace('.meta.json', '');
+        const dataPath = this.getFilePath(fileId);
+        const metaPath = join(this.cacheDir, metaFile);
+
+        // Only restore if the data file also exists
+        if (!existsSync(dataPath)) {
+          try { unlinkSync(metaPath); } catch { /* ignore */ }
+          continue;
+        }
+
+        try {
+          const raw = readFileSync(metaPath, 'utf-8');
+          const entry = JSON.parse(raw);
+
+          // Skip if already expired
+          if (Date.now() > entry.expiresAt) {
+            try { unlinkSync(dataPath); } catch { /* ignore */ }
+            try { unlinkSync(metaPath); } catch { /* ignore */ }
+            continue;
+          }
+
+          this.metadata.set(fileId, entry);
+        } catch {
+          // Corrupted meta file, clean up
+          try { unlinkSync(metaPath); } catch { /* ignore */ }
+        }
+      }
+
+      if (this.metadata.size > 0) {
+        console.log(`[FileStore] Restored ${this.metadata.size} cached file(s) from disk`);
+      }
+    } catch { /* ignore - directory might be empty */ }
   }
 
   private cleanup(): void {
