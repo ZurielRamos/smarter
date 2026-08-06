@@ -501,6 +501,22 @@ export class ChatsService {
         case 'text':
           content = msg.text?.body || '';
           break;
+        case 'button':
+          // User tapped a quick reply button from a template
+          content = msg.button?.text || '[button]';
+          messageType = 'text';
+          break;
+        case 'interactive':
+          // User tapped an interactive button or list item
+          if (msg.interactive?.type === 'button_reply') {
+            content = msg.interactive.button_reply?.title || '[interactive]';
+          } else if (msg.interactive?.type === 'list_reply') {
+            content = msg.interactive.list_reply?.title || '[interactive]';
+          } else {
+            content = msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || '[interactive]';
+          }
+          messageType = 'text';
+          break;
         case 'image':
         case 'video':
         case 'audio':
