@@ -17,6 +17,53 @@ api.interceptors.request.use((config) => {
 
 type EditField = "name" | "avatar" | "password" | null;
 
+const NOTIFICATION_TYPES = [
+  { key: "message_received", label: "Mensajes nuevos", description: "Cuando un contacto envía un mensaje" },
+  { key: "campaign_completed", label: "Campaña finalizada", description: "Cuando una campaña termina de enviarse" },
+  { key: "contact_assigned", label: "Contacto asignado", description: "Cuando te asignan un contacto" },
+  { key: "note_created", label: "Notas en contactos", description: "Cuando agregan una nota a un contacto tuyo" },
+];
+
+function NotificationPreferences() {
+  const { user, refreshUser } = useAuth();
+  const [localPrefs, setLocalPrefs] = useState<Record<string, boolean>>(() => {
+    return user?.notificationPreferences || {};
+  });
+
+  const isEnabled = (key: string) => localPrefs[key] !== false;
+
+  const toggle = async (key: string) => {
+    const newValue = !isEnabled(key);
+    setLocalPrefs((prev) => ({ ...prev, [key]: newValue }));
+    try {
+      await api.patch("/auth/notification-preferences", { preferences: { [key]: newValue } });
+      refreshUser();
+    } catch {
+      // Revert on error
+      setLocalPrefs((prev) => ({ ...prev, [key]: !newValue }));
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {NOTIFICATION_TYPES.map((item) => (
+        <div key={item.key} className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm font-medium text-gray-700">{item.label}</p>
+            <p className="text-xs text-gray-400">{item.description}</p>
+          </div>
+          <button
+            onClick={() => toggle(item.key)}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${isEnabled(item.key) ? "bg-brand-600" : "bg-gray-200"}`}
+          >
+            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${isEnabled(item.key) ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function Profile() {
   const { slug } = useParams();
   const { user, refreshUser } = useAuth();
@@ -309,37 +356,7 @@ export function Profile() {
               Elige qué notificaciones quieres recibir
             </p>
 
-            <div className="space-y-3">
-              {[
-                { key: "message_received", label: "Mensajes nuevos", description: "Cuando un contacto envía un mensaje" },
-                { key: "campaign_completed", label: "Campaña finalizada", description: "Cuando una campaña termina de enviarse" },
-                { key: "contact_assigned", label: "Contacto asignado", description: "Cuando te asignan un contacto" },
-                { key: "note_created", label: "Notas en contactos", description: "Cuando agregan una nota a un contacto tuyo" },
-              ].map((item) => {
-                const prefs = user?.notificationPreferences || {};
-                const enabled = prefs[item.key] !== false; // default true
-                return (
-                  <div key={item.key} className="flex items-center justify-between py-2">
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">{item.label}</p>
-                      <p className="text-xs text-gray-400">{item.description}</p>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        const newPrefs = { ...prefs, [item.key]: !enabled };
-                        try {
-                          await api.patch("/auth/notification-preferences", { preferences: { [item.key]: !enabled } });
-                          await refreshUser();
-                        } catch {}
-                      }}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${enabled ? "bg-brand-600" : "bg-gray-200"}`}
-                    >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${enabled ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+            <NotificationPreferences />
           </div>
 
           {/* API Token card */}
