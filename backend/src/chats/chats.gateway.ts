@@ -23,6 +23,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleConnection(client: Socket) {
     const tenantId = client.handshake.query.tenantId as string;
+    console.log(`[WS] Client ${client.id} connecting, tenantId: ${tenantId}, origin: ${client.handshake.headers.origin}`);
     if (tenantId) {
       client.join(`tenant:${tenantId}`);
       console.log(`[WS] Client ${client.id} joined tenant:${tenantId}`);
