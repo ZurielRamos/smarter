@@ -47,6 +47,8 @@ async function bootstrap() {
       (req.url.startsWith('/api') && !req.url.startsWith('/api-reference')) ||
       req.url.startsWith('/uploads') ||
       req.url.startsWith('/webhooks') ||
+      req.url.startsWith('/ws') ||
+      req.url.startsWith('/socket.io') ||
       req.url.match(/\.\w+$/)
     ) {
       return next();
