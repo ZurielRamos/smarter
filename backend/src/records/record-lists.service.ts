@@ -160,6 +160,7 @@ export class RecordListsService {
       countryCode: 'r.country_code',
       email: 'r.email',
       gender: 'r.gender',
+      birthDate: 'r.birth_date',
       city: 'r.city',
       region: 'r.region',
       status: 'r.status',
@@ -167,16 +168,32 @@ export class RecordListsService {
       source: 'r.source',
       score: 'r.score',
       tags: 'r.tags',
+      optInWhatsapp: 'r.opt_in_whatsapp',
+      optInEmail: 'r.opt_in_email',
+      assignedTo: 'r.assigned_to',
+      lastContactAt: 'r.last_contact_at',
+      lastActivityAt: 'r.last_activity_at',
+      createdAt: 'r.created_at',
+      updatedAt: 'r.updated_at',
     };
+
+    const TIMESTAMP_FIELDS = new Set(['lastContactAt', 'lastActivityAt', 'birthDate', 'createdAt', 'updatedAt']);
 
     const isSystem = field in SYSTEM_MAP;
     const col = isSystem ? SYSTEM_MAP[field] : `r.custom_data ->> '${field}'`;
+    const isTimestamp = TIMESTAMP_FIELDS.has(field);
 
     switch (operator) {
       case 'equals':
+        if (!value || value.trim() === '') {
+          return `${col} IS NULL`;
+        }
         params[paramKey] = value;
         return `${col} = :${paramKey}`;
       case 'not_equals':
+        if (!value || value.trim() === '') {
+          return `${col} IS NOT NULL`;
+        }
         params[paramKey] = value;
         return `${col} != :${paramKey}`;
       case 'contains':
@@ -189,14 +206,26 @@ export class RecordListsService {
         params[paramKey] = `%${value}`;
         return `${col} ILIKE :${paramKey}`;
       case 'is_empty':
+        if (isTimestamp) {
+          return `${col} IS NULL`;
+        }
         return `(${col} IS NULL OR ${col} = '')`;
       case 'is_not_empty':
+        if (isTimestamp) {
+          return `${col} IS NOT NULL`;
+        }
         return `(${col} IS NOT NULL AND ${col} != '')`;
       case 'greater_than':
         params[paramKey] = value;
+        if (isTimestamp) {
+          return `${col} > :${paramKey}`;
+        }
         return `(${col})::numeric > :${paramKey}`;
       case 'less_than':
         params[paramKey] = value;
+        if (isTimestamp) {
+          return `${col} < :${paramKey}`;
+        }
         return `(${col})::numeric < :${paramKey}`;
       case 'in_list':
         params[paramKey] = value.split(',').map((v) => v.trim());
@@ -209,7 +238,8 @@ export class RecordListsService {
   // === Preview: count records matching filters ===
   async previewCount(tenantId: string, filters: { groups: { logic: 'and' | 'or'; conditions: { field: string; operator: string; value: string }[] }[]; groupLogic: 'and' | 'or' }): Promise<{ count: number }> {
     const qb = this.recordRepo.createQueryBuilder('r')
-      .where('r.tenant_id = :tenantId', { tenantId });
+      .where('r.tenant_id = :tenantId', { tenantId })
+      .andWhere('r.deleted_at IS NULL');
 
     if (filters.groups && filters.groups.length > 0) {
       const groupClauses: string[] = [];
