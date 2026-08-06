@@ -497,13 +497,19 @@ export class ChatsService {
       let mediaUrl: string | null = null;
       let mediaMimeType: string | null = null;
 
+      // Log non-text messages for debugging
+      if (messageType !== 'text') {
+        console.log(`[Webhook] Message type: ${messageType}, payload:`, JSON.stringify(msg).substring(0, 500));
+      }
+
       switch (messageType) {
         case 'text':
           content = msg.text?.body || '';
           break;
         case 'button':
           // User tapped a quick reply button from a template
-          content = msg.button?.text || '[button]';
+          // Meta sends: msg.button.text or msg.button.payload
+          content = msg.button?.text || msg.button?.payload || msg.text?.body || '[button]';
           messageType = 'text';
           break;
         case 'interactive':
