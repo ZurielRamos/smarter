@@ -759,18 +759,21 @@ export class ChatsService {
     });
 
     if (!conversation) {
-      // Try to get sender name
+      // Try to get sender name and profile picture
       let contactName = senderId;
+      let contactAvatar: string | null = null;
       try {
-        const res = await fetch(`https://graph.facebook.com/v21.0/${senderId}?fields=name&access_token=${inbox.accessToken}`);
+        const res = await fetch(`https://graph.facebook.com/v21.0/${senderId}?fields=name,profile_pic&access_token=${inbox.accessToken}`);
         const data = await res.json();
         if (data.name) contactName = data.name;
+        if (data.profile_pic) contactAvatar = data.profile_pic;
       } catch {}
 
       conversation = this.conversationRepo.create({
         inboxId: inbox.id,
         contactId: senderId,
         contactName,
+        contactAvatar,
         status: 'open',
       });
       conversation = await this.conversationRepo.save(conversation);
@@ -825,6 +828,7 @@ export class ChatsService {
           tenantId: inbox.tenantId,
           firstName: nameParts[0] || null,
           lastName: nameParts.slice(1).join(' ') || null,
+          avatarUrl: conversation.contactAvatar || null,
           status: 'active',
           channelSource: inbox.id,
           lastContactAt: new Date(),
@@ -833,6 +837,9 @@ export class ChatsService {
         record = await this.clientRecordRepo.save(record);
       } else {
         record.lastContactAt = new Date();
+        if (!record.avatarUrl && conversation.contactAvatar) {
+          record.avatarUrl = conversation.contactAvatar;
+        }
         await this.clientRecordRepo.save(record);
       }
       conversation.recordId = record.id;
@@ -868,18 +875,21 @@ export class ChatsService {
     });
 
     if (!conversation) {
-      // Try to get sender name via Instagram API
+      // Try to get sender name and profile picture via Instagram API
       let contactName = senderId;
+      let contactAvatar: string | null = null;
       try {
-        const res = await fetch(`https://graph.instagram.com/v21.0/${senderId}?fields=username,name&access_token=${inbox.accessToken}`);
+        const res = await fetch(`https://graph.instagram.com/v21.0/${senderId}?fields=username,name,profile_picture_url&access_token=${inbox.accessToken}`);
         const data = await res.json();
         contactName = data.username ? `@${data.username}` : data.name || senderId;
+        if (data.profile_picture_url) contactAvatar = data.profile_picture_url;
       } catch {}
 
       conversation = this.conversationRepo.create({
         inboxId: inbox.id,
         contactId: senderId,
         contactName,
+        contactAvatar,
         status: 'open',
       });
       conversation = await this.conversationRepo.save(conversation);
