@@ -99,12 +99,22 @@ const SYSTEM_FIELDS: FieldOption[] = [
   { value: "lastName", label: "Apellido", type: "text" },
   { value: "phone", label: "Teléfono", type: "text" },
   { value: "email", label: "Email", type: "text" },
-  { value: "status", label: "Estado", type: "select", options: ["active", "inactive", "blocked"] },
+  { value: "documentType", label: "Tipo documento", type: "select", options: ["CC", "CE", "NIT", "TI", "pasaporte", "RUT"] },
+  { value: "documentNumber", label: "Nº documento", type: "text" },
+  { value: "gender", label: "Género", type: "select", options: ["male", "female", "other", "prefer_not_to_say"] },
+  { value: "birthDate", label: "Fecha nacimiento", type: "date" },
+  { value: "status", label: "Estado", type: "select", options: ["lead", "contactado", "interesado", "oportunidad", "cliente", "premium", "fidelizado", "inactivo", "perdido"] },
   { value: "channelSource", label: "Canal", type: "select", options: ["whatsapp", "web", "import", "manual"] },
+  { value: "source", label: "Fuente", type: "text" },
   { value: "tags", label: "Tags", type: "list" },
   { value: "city", label: "Ciudad", type: "text" },
   { value: "region", label: "Región", type: "text" },
   { value: "score", label: "Puntaje", type: "number" },
+  { value: "optInWhatsapp", label: "Opt-in WhatsApp", type: "boolean" },
+  { value: "optInEmail", label: "Opt-in Email", type: "boolean" },
+  { value: "lastContactAt", label: "Último contacto", type: "date" },
+  { value: "lastActivityAt", label: "Última actividad", type: "date" },
+  { value: "createdAt", label: "Fecha de creación", type: "date" },
 ];
 
 export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) {
