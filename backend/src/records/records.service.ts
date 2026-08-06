@@ -206,38 +206,7 @@ export class RecordsService {
 
     // Advanced filters
     if (filters && filters.length > 0) {
-      filters.forEach((f, idx) => {
-        const paramKey = `fv_${idx}`;
-        const isCustom = !this.SYSTEM_COLUMNS.has(f.field);
-        const col = isCustom ? `client.custom_data ->> '${f.field}'` : `client.${this.toSnakeCase(f.field)}`;
-
-        switch (f.operator) {
-          case 'equals':
-            qb.andWhere(`${col} = :${paramKey}`, { [paramKey]: f.value });
-            break;
-          case 'not_equals':
-            qb.andWhere(`${col} != :${paramKey}`, { [paramKey]: f.value });
-            break;
-          case 'contains':
-            qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `%${f.value.toLowerCase()}%` });
-            break;
-          case 'starts_with':
-            qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `${f.value.toLowerCase()}%` });
-            break;
-          case 'greater_than':
-            qb.andWhere(`${col}::numeric > :${paramKey}`, { [paramKey]: Number(f.value) });
-            break;
-          case 'less_than':
-            qb.andWhere(`${col}::numeric < :${paramKey}`, { [paramKey]: Number(f.value) });
-            break;
-          case 'is_empty':
-            qb.andWhere(`(${col} IS NULL OR ${col} = '')`);
-            break;
-          case 'is_not_empty':
-            qb.andWhere(`(${col} IS NOT NULL AND ${col} != '')`);
-            break;
-        }
-      });
+      this.applyFilters(qb, filters);
     }
 
     // Sort
@@ -526,6 +495,68 @@ export class RecordsService {
     return map[field] || field;
   }
 
+  private readonly TIMESTAMP_FIELDS = new Set(['lastContactAt', 'lastActivityAt', 'birthDate', 'createdAt', 'updatedAt']);
+
+  private applyFilters(qb: any, filters: Array<{ field: string; operator: string; value: string }>): void {
+    filters.forEach((f, idx) => {
+      const paramKey = `fv_${idx}`;
+      const isCustom = !this.SYSTEM_COLUMNS.has(f.field);
+      const col = isCustom ? `client.custom_data ->> '${f.field}'` : `client.${this.toSnakeCase(f.field)}`;
+      const isTimestamp = this.TIMESTAMP_FIELDS.has(f.field);
+
+      switch (f.operator) {
+        case 'equals':
+          if (!f.value || f.value.trim() === '') {
+            qb.andWhere(`${col} IS NULL`);
+          } else {
+            qb.andWhere(`${col} = :${paramKey}`, { [paramKey]: f.value });
+          }
+          break;
+        case 'not_equals':
+          if (!f.value || f.value.trim() === '') {
+            qb.andWhere(`${col} IS NOT NULL`);
+          } else {
+            qb.andWhere(`${col} != :${paramKey}`, { [paramKey]: f.value });
+          }
+          break;
+        case 'contains':
+          qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `%${f.value.toLowerCase()}%` });
+          break;
+        case 'starts_with':
+          qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `${f.value.toLowerCase()}%` });
+          break;
+        case 'greater_than':
+          if (isTimestamp) {
+            qb.andWhere(`${col} > :${paramKey}`, { [paramKey]: f.value });
+          } else {
+            qb.andWhere(`${col}::numeric > :${paramKey}`, { [paramKey]: Number(f.value) });
+          }
+          break;
+        case 'less_than':
+          if (isTimestamp) {
+            qb.andWhere(`${col} < :${paramKey}`, { [paramKey]: f.value });
+          } else {
+            qb.andWhere(`${col}::numeric < :${paramKey}`, { [paramKey]: Number(f.value) });
+          }
+          break;
+        case 'is_empty':
+          if (isTimestamp) {
+            qb.andWhere(`${col} IS NULL`);
+          } else {
+            qb.andWhere(`(${col} IS NULL OR ${col} = '')`);
+          }
+          break;
+        case 'is_not_empty':
+          if (isTimestamp) {
+            qb.andWhere(`${col} IS NOT NULL`);
+          } else {
+            qb.andWhere(`(${col} IS NOT NULL AND ${col} != '')`);
+          }
+          break;
+      }
+    });
+  }
+
   private getOrderField(sortBy: string): string {
     const map: Record<string, string> = {
       name: 'first_name', score: 'score',
@@ -554,21 +585,7 @@ export class RecordsService {
     if (assignedTeamId) qb.andWhere('client.assigned_team_id = :assignedTeamId', { assignedTeamId });
 
     if (filters && filters.length > 0) {
-      filters.forEach((f, idx) => {
-        const paramKey = `fv_${idx}`;
-        const isCustom = !this.SYSTEM_COLUMNS.has(f.field);
-        const col = isCustom ? `client.custom_data ->> '${f.field}'` : `client.${this.toSnakeCase(f.field)}`;
-        switch (f.operator) {
-          case 'equals': qb.andWhere(`${col} = :${paramKey}`, { [paramKey]: f.value }); break;
-          case 'not_equals': qb.andWhere(`${col} != :${paramKey}`, { [paramKey]: f.value }); break;
-          case 'contains': qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `%${f.value.toLowerCase()}%` }); break;
-          case 'starts_with': qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `${f.value.toLowerCase()}%` }); break;
-          case 'greater_than': qb.andWhere(`${col}::numeric > :${paramKey}`, { [paramKey]: Number(f.value) }); break;
-          case 'less_than': qb.andWhere(`${col}::numeric < :${paramKey}`, { [paramKey]: Number(f.value) }); break;
-          case 'is_empty': qb.andWhere(`(${col} IS NULL OR ${col} = '')`); break;
-          case 'is_not_empty': qb.andWhere(`(${col} IS NOT NULL AND ${col} != '')`); break;
-        }
-      });
+      this.applyFilters(qb, filters);
     }
 
     qb.orderBy('client.created_at', 'DESC');
@@ -768,22 +785,7 @@ export class RecordsService {
     if (assignedTeamId) qb.andWhere('client.assigned_team_id = :assignedTeamId', { assignedTeamId });
 
     if (filters && filters.length > 0) {
-      filters.forEach((f, idx) => {
-        const paramKey = `fv_${idx}`;
-        const isCustom = !this.SYSTEM_COLUMNS.has(f.field);
-        const col = isCustom ? `client.custom_data ->> '${f.field}'` : `client.${this.toSnakeCase(f.field)}`;
-
-        switch (f.operator) {
-          case 'equals': qb.andWhere(`${col} = :${paramKey}`, { [paramKey]: f.value }); break;
-          case 'not_equals': qb.andWhere(`${col} != :${paramKey}`, { [paramKey]: f.value }); break;
-          case 'contains': qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `%${f.value.toLowerCase()}%` }); break;
-          case 'starts_with': qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `${f.value.toLowerCase()}%` }); break;
-          case 'greater_than': qb.andWhere(`${col}::numeric > :${paramKey}`, { [paramKey]: Number(f.value) }); break;
-          case 'less_than': qb.andWhere(`${col}::numeric < :${paramKey}`, { [paramKey]: Number(f.value) }); break;
-          case 'is_empty': qb.andWhere(`(${col} IS NULL OR ${col} = '')`); break;
-          case 'is_not_empty': qb.andWhere(`(${col} IS NOT NULL AND ${col} != '')`); break;
-        }
-      });
+      this.applyFilters(qb, filters);
     }
     return qb;
   }
