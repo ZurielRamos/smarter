@@ -30,13 +30,17 @@ export class NotificationsService {
    * Respects user notification preferences.
    */
   async notify(params: NotifyParams): Promise<Notification | null> {
-    // Check user notification preferences
-    const user = await this.userRepo.findOne({
-      where: { id: params.userId },
-      select: { id: true, notificationPreferences: true },
-    });
-    if (user?.notificationPreferences?.[params.type] === false) {
-      return null; // User has disabled this notification type
+    // Check user notification preferences (fail-safe: if check fails, still notify)
+    try {
+      const user = await this.userRepo.findOne({
+        where: { id: params.userId },
+        select: { id: true, notificationPreferences: true },
+      });
+      if (user?.notificationPreferences?.[params.type] === false) {
+        return null; // User has disabled this notification type
+      }
+    } catch {
+      // Column may not exist yet — proceed with notification
     }
 
     const notification = this.notificationRepo.create({
