@@ -49,6 +49,7 @@ export function FileUploader({ onFileSelected, isLoading }: FileUploaderProps) {
             <Upload className="h-10 w-10" />
           </div>
           <p className="text-lg text-gray-600">Procesando archivo...</p>
+          <p className="text-sm text-gray-400">Esto puede tomar unos minutos para archivos grandes</p>
         </div>
       ) : isDragActive ? (
         <div className="flex flex-col items-center gap-3">
