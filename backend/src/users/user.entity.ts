@@ -41,6 +41,10 @@ export class User {
   @Column({ name: 'api_token', type: 'varchar', unique: true, nullable: true })
   apiToken: string;
 
+  /** Notification preferences: which notification types are enabled */
+  @Column({ name: 'notification_preferences', type: 'jsonb', nullable: true })
+  notificationPreferences: Record<string, boolean> | null;
+
   @OneToMany(() => UserTenant, (ut) => ut.user, { eager: true })
   tenantRoles: UserTenant[];
 

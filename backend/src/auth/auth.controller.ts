@@ -150,6 +150,25 @@ export class AuthController {
     };
   }
 
+  /** Actualizar preferencias de notificación */
+  @UseGuards(JwtAuthGuard)
+  @Patch('notification-preferences')
+  async updateNotificationPreferences(
+    @Req() req: any,
+    @Body() body: { preferences: Record<string, boolean> },
+  ) {
+    const user = await this.userRepo.findOne({ where: { id: req.user.id } });
+    if (!user) return { error: 'Usuario no encontrado' };
+
+    user.notificationPreferences = {
+      ...(user.notificationPreferences || {}),
+      ...body.preferences,
+    };
+    await this.userRepo.save(user);
+
+    return { notificationPreferences: user.notificationPreferences };
+  }
+
   /** Regenerar el token de API del usuario autenticado */
   @UseGuards(JwtAuthGuard)
   @Post('regenerate-api-token')

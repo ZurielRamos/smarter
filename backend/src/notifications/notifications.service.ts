@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Notification } from './notification.entity';
 import { NotificationsGateway } from './notifications.gateway';
+import { User } from '../users/user.entity';
 
 export interface NotifyParams {
   tenantId: string;
@@ -19,13 +20,25 @@ export class NotificationsService {
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepo: Repository<Notification>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly gateway: NotificationsGateway,
   ) {}
 
   /**
    * Create a notification, persist it, and emit via WebSocket.
+   * Respects user notification preferences.
    */
-  async notify(params: NotifyParams): Promise<Notification> {
+  async notify(params: NotifyParams): Promise<Notification | null> {
+    // Check user notification preferences
+    const user = await this.userRepo.findOne({
+      where: { id: params.userId },
+      select: { id: true, notificationPreferences: true },
+    });
+    if (user?.notificationPreferences?.[params.type] === false) {
+      return null; // User has disabled this notification type
+    }
+
     const notification = this.notificationRepo.create({
       tenantId: params.tenantId,
       userId: params.userId,

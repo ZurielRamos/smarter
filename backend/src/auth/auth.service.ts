@@ -141,6 +141,7 @@ export class AuthService {
       needsPasswordSetup: user.needsPasswordSetup,
       avatarPath: user.avatarPath ?? null,
       apiToken: user.apiToken ?? null,
+      notificationPreferences: user.notificationPreferences ?? null,
       tenantRoles: activeRoles.map((tr) => ({
         tenantId: tr.tenantId,
         role: tr.role,

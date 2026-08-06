@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { User, Pencil, X, Upload, Loader2, Eye, EyeOff, Lock, Mail, Key, Copy, Check, RefreshCw, AlertTriangle } from "lucide-react";
+import { User, Pencil, X, Upload, Loader2, Eye, EyeOff, Lock, Mail, Key, Copy, Check, RefreshCw, AlertTriangle, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ImageCropper } from "@/components/ImageCropper";
 import { useAuth } from "@/context/AuthContext";
@@ -299,6 +299,46 @@ export function Profile() {
               >
                 Cambiar
               </Button>
+            </div>
+          </div>
+
+          {/* API Token card */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">Notificaciones</h2>
+            <p className="text-sm text-gray-500 mb-5">
+              Elige qué notificaciones quieres recibir
+            </p>
+
+            <div className="space-y-3">
+              {[
+                { key: "message_received", label: "Mensajes nuevos", description: "Cuando un contacto envía un mensaje" },
+                { key: "campaign_completed", label: "Campaña finalizada", description: "Cuando una campaña termina de enviarse" },
+                { key: "contact_assigned", label: "Contacto asignado", description: "Cuando te asignan un contacto" },
+                { key: "note_created", label: "Notas en contactos", description: "Cuando agregan una nota a un contacto tuyo" },
+              ].map((item) => {
+                const prefs = user?.notificationPreferences || {};
+                const enabled = prefs[item.key] !== false; // default true
+                return (
+                  <div key={item.key} className="flex items-center justify-between py-2">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">{item.label}</p>
+                      <p className="text-xs text-gray-400">{item.description}</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const newPrefs = { ...prefs, [item.key]: !enabled };
+                        try {
+                          await api.patch("/auth/notification-preferences", { preferences: { [item.key]: !enabled } });
+                          await refreshUser();
+                        } catch {}
+                      }}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${enabled ? "bg-brand-600" : "bg-gray-200"}`}
+                    >
+                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${enabled ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
