@@ -319,8 +319,9 @@ export function Conversaciones() {
   };
 
   const loadConversations = (reset = true) => {
+    if (loadingConversations && !reset) return; // Prevent duplicate requests
+    setLoadingConversations(true);
     if (reset) {
-      setLoadingConversations(true);
       setConversations([]);
     }
     const params: Record<string, string> = { limit: '15', offset: reset ? '0' : String(conversations.length) };
