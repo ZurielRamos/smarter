@@ -53,8 +53,8 @@ export function ComunicacionesLayout() {
       ),
       label: "Etiquetas",
     },
-    { key: "campanas", path: "campanas", icon: <Megaphone className="h-4.5 w-4.5" />, label: "Campañas" },
     { key: "canales", path: "canales", icon: <Radio className="h-4.5 w-4.5" />, label: "Canales" },
+    { key: "campanas", path: "campanas", icon: <Megaphone className="h-4.5 w-4.5" />, label: "Campañas" },
   ];
 
   return (
