@@ -415,7 +415,7 @@ export function Import() {
                   </div>
                   <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-center">
                     <p className="text-2xl font-bold text-green-600">{validationResult.valid}</p>
-                    <p className="text-xs text-green-600 mt-1">Válidas</p>
+                    <p className="text-xs text-green-600 mt-1">Válidas (muestra de {validationResult.sampleSize || 100})</p>
                   </div>
                   <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-center">
                     <p className="text-2xl font-bold text-red-600">{validationResult.invalid}</p>
