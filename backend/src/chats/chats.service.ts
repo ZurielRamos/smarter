@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -1682,7 +1682,11 @@ export class ChatsService {
         performedBy,
       );
     } catch (err) {
-      throw new Error(`No se pudo enviar la plantilla: ${err.message}`);
+      throw new BadRequestException(
+        err.message?.includes('insuficientes')
+          ? 'Créditos insuficientes para enviar esta plantilla. Recarga tu saldo para continuar.'
+          : `No se pudo enviar la plantilla: ${err.message}`,
+      );
     }
 
     // Send template via WhatsApp Cloud API
