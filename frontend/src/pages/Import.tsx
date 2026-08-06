@@ -16,6 +16,7 @@ import {
   deduplicatePreview,
   executeImport,
   getImportJob,
+  getImportHistory,
 } from "@/services/api";
 import type {
   TargetField,
@@ -95,6 +96,35 @@ export function Import() {
       }
     }
     loadFields();
+  }, [tenantId]);
+
+  // Check for active import jobs on mount
+  const [activeJob, setActiveJob] = useState<ImportJob | null>(null);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    getImportHistory(tenantId, 1, 5).then(({ data: jobs }) => {
+      const running = jobs.find((j) => ['pending', 'transforming', 'validating', 'deduplicating', 'loading'].includes(j.status));
+      if (running) {
+        setActiveJob(running);
+        setStep("processing");
+        setImportJob(running);
+        // Start polling progress
+        pollRef.current = setInterval(async () => {
+          try {
+            const updated = await getImportJob(running.id);
+            setActiveJob(updated);
+            setImportJob(updated);
+            if (['completed', 'completed_with_errors', 'failed', 'cancelled'].includes(updated.status)) {
+              if (pollRef.current) clearInterval(pollRef.current);
+              if (updated.status === 'completed' || updated.status === 'completed_with_errors') {
+                setStep("success");
+              }
+            }
+          } catch {}
+        }, 2000);
+      }
+    }).catch(() => {});
   }, [tenantId]);
 
   // Cleanup polling on unmount
