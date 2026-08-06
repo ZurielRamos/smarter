@@ -9,7 +9,7 @@ import { Server, Socket } from 'socket.io';
 
 @WebSocketGateway({
   cors: {
-    origin: ['http://localhost:5173', 'http://localhost:4173', 'https://crm.strategee.us'],
+    origin: true,
     credentials: true,
   },
   namespace: '/ws',

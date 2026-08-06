@@ -25,3 +25,6 @@ npm-debug.log*
 # Uploads (generated at runtime)
 backend/uploads/
 *.backup
+
+# Mobile app (separate repository)
+mobile/
