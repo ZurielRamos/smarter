@@ -40,6 +40,23 @@ export class EtlController {
     return this.etlService.parseFile(file);
   }
 
+  /** Async parse: upload file, queue parsing, return job immediately */
+  @Post('parse-async')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+    }),
+  )
+  parseFileAsync(@UploadedFile() file: Express.Multer.File, @Body() body: { tenantId?: string }) {
+    return this.etlService.parseFileAsync(file, body.tenantId);
+  }
+
+  /** Get the current pending/parsing job for a tenant (for resuming) */
+  @Get('active-job')
+  getActiveJob(@Query('tenantId') tenantId: string) {
+    return this.etlService.getActiveJob(tenantId);
+  }
+
   // ===========================
   // PREVIEWS
   // ===========================

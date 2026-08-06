@@ -13,6 +13,7 @@ import { Tenant } from '../../tenants/tenant.entity';
 export type ImportJobStatus =
   | 'pending'
   | 'parsing'
+  | 'awaiting_mapping'
   | 'validating'
   | 'transforming'
   | 'deduplicating'
@@ -74,6 +75,16 @@ export class ImportJob {
 
   @Column({ name: 'file_type', type: 'varchar', length: 10 })
   fileType: string; // csv, xlsx, xls
+
+  // === Parsed data reference (for async parse flow) ===
+  @Column({ name: 'file_id', type: 'varchar', nullable: true })
+  fileId: string | null;
+
+  @Column({ name: 'parsed_headers', type: 'jsonb', nullable: true })
+  parsedHeaders: string[] | null;
+
+  @Column({ name: 'parsed_preview', type: 'jsonb', nullable: true })
+  parsedPreview: Record<string, string>[] | null;
 
   // === Configuración del mapeo ===
   @Column({ type: 'jsonb', nullable: true })

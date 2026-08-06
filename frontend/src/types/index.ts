@@ -62,6 +62,7 @@ export interface MappingResult {
 export type ImportJobStatus =
   | 'pending'
   | 'parsing'
+  | 'awaiting_mapping'
   | 'validating'
   | 'transforming'
   | 'deduplicating'
@@ -89,6 +90,9 @@ export interface ImportJob {
   fileName: string;
   fileSize: number;
   fileType: string;
+  fileId: string | null;
+  parsedHeaders: string[] | null;
+  parsedPreview: Record<string, string>[] | null;
   mapping: Record<string, string[]> | null;
   transforms: Record<string, any> | null;
   deduplicateConfig: {

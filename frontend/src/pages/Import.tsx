@@ -10,6 +10,8 @@ import { useAuth } from "@/context/AuthContext";
 import {
   getTargetFields,
   uploadFile,
+  uploadFileAsync,
+  getActiveImportJob,
   getTemplateByStructure,
   getCustomFields,
   validatePreview,
@@ -103,16 +105,58 @@ export function Import() {
 
   useEffect(() => {
     if (!tenantId) return;
-    getImportHistory(tenantId, 1, 5).then(({ data: jobs }) => {
-      const running = jobs.find((j) => ['pending', 'transforming', 'validating', 'deduplicating', 'loading'].includes(j.status));
-      if (running) {
-        setActiveJob(running);
+    getActiveImportJob(tenantId).then((job) => {
+      if (!job) return;
+
+      if (job.status === 'awaiting_mapping') {
+        // Job parsed, ready for mapping — restore state
+        setActiveJob(job);
+        setImportJob(job);
+        if (job.parsedHeaders && job.parsedPreview) {
+          setParseResult({
+            headers: job.parsedHeaders,
+            preview: job.parsedPreview,
+            totalRows: job.totalRows,
+            fileId: job.fileId || '',
+          });
+          setStep("preview");
+        }
+      } else if (job.status === 'parsing') {
+        // Still parsing — show progress and poll
+        setActiveJob(job);
+        setImportJob(job);
         setStep("processing");
-        setImportJob(running);
-        // Start polling progress
         pollRef.current = setInterval(async () => {
           try {
-            const updated = await getImportJob(running.id);
+            const updated = await getImportJob(job.id);
+            setActiveJob(updated);
+            setImportJob(updated);
+            if (updated.status === 'awaiting_mapping') {
+              if (pollRef.current) clearInterval(pollRef.current);
+              if (updated.parsedHeaders && updated.parsedPreview) {
+                setParseResult({
+                  headers: updated.parsedHeaders,
+                  preview: updated.parsedPreview,
+                  totalRows: updated.totalRows,
+                  fileId: updated.fileId || '',
+                });
+                setStep("preview");
+              }
+            } else if (['failed', 'cancelled'].includes(updated.status)) {
+              if (pollRef.current) clearInterval(pollRef.current);
+              setError(updated.errorMessage || 'Error al procesar el archivo');
+              setStep("upload");
+            }
+          } catch {}
+        }, 2000);
+      } else if (['pending', 'transforming', 'validating', 'deduplicating', 'loading'].includes(job.status)) {
+        // Import in progress
+        setActiveJob(job);
+        setImportJob(job);
+        setStep("processing");
+        pollRef.current = setInterval(async () => {
+          try {
+            const updated = await getImportJob(job.id);
             setActiveJob(updated);
             setImportJob(updated);
             if (['completed', 'completed_with_errors', 'failed', 'cancelled'].includes(updated.status)) {
@@ -138,9 +182,42 @@ export function Import() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await uploadFile(file);
-      setParseResult(result);
-      setStep("preview");
+      // For files > 5MB, use async parse (queued in background)
+      if (file.size > 5 * 1024 * 1024 && tenantId) {
+        const job = await uploadFileAsync(file, tenantId);
+        setActiveJob(job);
+        setImportJob(job);
+        setStep("processing");
+        // Poll for completion
+        pollRef.current = setInterval(async () => {
+          try {
+            const updated = await getImportJob(job.id);
+            setActiveJob(updated);
+            setImportJob(updated);
+            if (updated.status === 'awaiting_mapping') {
+              if (pollRef.current) clearInterval(pollRef.current);
+              if (updated.parsedHeaders && updated.parsedPreview) {
+                setParseResult({
+                  headers: updated.parsedHeaders,
+                  preview: updated.parsedPreview,
+                  totalRows: updated.totalRows,
+                  fileId: updated.fileId || '',
+                });
+                setStep("preview");
+              }
+            } else if (['failed', 'cancelled'].includes(updated.status)) {
+              if (pollRef.current) clearInterval(pollRef.current);
+              setError(updated.errorMessage || 'Error al procesar el archivo');
+              setStep("upload");
+            }
+          } catch {}
+        }, 2000);
+      } else {
+        // Small files: parse synchronously (fast)
+        const result = await uploadFile(file);
+        setParseResult(result);
+        setStep("preview");
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Error al procesar el archivo";
       setError(message);

@@ -95,6 +95,21 @@ export async function uploadFile(file: File): Promise<ParseResult> {
   return data;
 }
 
+export async function uploadFileAsync(file: File, tenantId: string): Promise<ImportJob> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('tenantId', tenantId);
+  const { data } = await api.post<ImportJob>('/etl/parse-async', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
+export async function getActiveImportJob(tenantId: string): Promise<ImportJob | null> {
+  const { data } = await api.get<ImportJob | null>('/etl/active-job', { params: { tenantId } });
+  return data;
+}
+
 export async function validatePreview(params: {
   fileId: string;
   tenantId: string;

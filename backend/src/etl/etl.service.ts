@@ -55,6 +55,76 @@ export class EtlService {
     };
   }
 
+  /** Async parse: saves raw file to disk, creates a job, and queues parsing */
+  async parseFileAsync(file: Express.Multer.File, tenantId?: string): Promise<ImportJob> {
+    const fileType = file.originalname.split('.').pop()?.toLowerCase() || 'csv';
+
+    // Create job in 'parsing' state
+    const job = this.jobRepo.create({
+      tenantId: tenantId || '',
+      status: 'parsing' as any,
+      currentPhase: 'parsing',
+      progress: 0,
+      fileName: file.originalname,
+      fileSize: file.size,
+      fileType,
+      totalRows: 0,
+    });
+    const savedJob = await this.jobRepo.save(job);
+
+    // Queue the parse work
+    await this.etlQueue.add('parse-file', {
+      jobId: savedJob.id,
+      buffer: file.buffer.toString('base64'),
+      originalname: file.originalname,
+      size: file.size,
+    }, { attempts: 1, removeOnComplete: true, removeOnFail: false });
+
+    return savedJob;
+  }
+
+  /** Called by worker after parsing is done */
+  async completeParseJob(jobId: string, fileId: string, headers: string[], totalRows: number, preview: Record<string, string>[]): Promise<void> {
+    const job = await this.jobRepo.findOneBy({ id: jobId });
+    if (!job) return;
+
+    job.status = 'awaiting_mapping' as any;
+    job.currentPhase = null;
+    job.progress = 100;
+    job.fileId = fileId;
+    job.parsedHeaders = headers;
+    job.parsedPreview = preview;
+    job.totalRows = totalRows;
+    await this.jobRepo.save(job);
+  }
+
+  /** Get the active (parsing or awaiting_mapping) job for a tenant */
+  async getActiveJob(tenantId: string): Promise<ImportJob | null> {
+    return this.jobRepo.findOne({
+      where: [
+        { tenantId, status: 'parsing' as any },
+        { tenantId, status: 'awaiting_mapping' as any },
+        { tenantId, status: 'pending' as any },
+        { tenantId, status: 'transforming' as any },
+        { tenantId, status: 'validating' as any },
+        { tenantId, status: 'deduplicating' as any },
+        { tenantId, status: 'loading' as any },
+      ],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /** Mark a parse job as failed */
+  async failParseJob(jobId: string, message: string): Promise<void> {
+    const job = await this.jobRepo.findOneBy({ id: jobId });
+    if (!job) return;
+    job.status = 'failed';
+    job.errorMessage = message;
+    job.completedAt = new Date();
+    job.currentPhase = null;
+    await this.jobRepo.save(job);
+  }
+
   getTargetFields() {
     return this.transformProcessor.getTargetFields();
   }
