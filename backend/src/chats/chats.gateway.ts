@@ -13,6 +13,9 @@ import { Server, Socket } from 'socket.io';
     credentials: true,
   },
   namespace: '/ws',
+  pingInterval: 10000,
+  pingTimeout: 5000,
+  transports: ['websocket', 'polling'],
 })
 export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()

@@ -14,6 +14,9 @@ import { PresenceService } from './presence.service';
     credentials: true,
   },
   namespace: '/ws/notifications',
+  pingInterval: 10000,
+  pingTimeout: 5000,
+  transports: ['websocket', 'polling'],
 })
 export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
