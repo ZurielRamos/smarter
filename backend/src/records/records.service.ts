@@ -716,53 +716,112 @@ export class RecordsService {
   async bulkDelete(ids: string[]): Promise<{ softDeleted: number; hardDeleted: number }> {
     if (ids.length === 0) return { softDeleted: 0, hardDeleted: 0 };
 
-    // Find which contacts have related records (conversations, notes)
-    const withRelations = await this.recordRepository.query(
-      `SELECT DISTINCT c.id FROM clients c
-       LEFT JOIN conversations conv ON conv.record_id = c.id
-       LEFT JOIN notes n ON n.record_id = c.id
-       WHERE c.id = ANY($1) AND (conv.id IS NOT NULL OR n.id IS NOT NULL)`,
-      [ids],
-    );
-    const withRelationIds = new Set(withRelations.map((r: any) => r.id));
-    const softDeleteIds = ids.filter((id) => withRelationIds.has(id));
-    const hardDeleteIds = ids.filter((id) => !withRelationIds.has(id));
+    // For large batches, process in chunks to avoid memory/query limits
+    const CHUNK_SIZE = 5000;
+    let totalSoftDeleted = 0;
+    let totalHardDeleted = 0;
 
-    if (softDeleteIds.length > 0) {
-      await this.recordRepository.update(softDeleteIds, { deletedAt: new Date() } as any);
-    }
-    if (hardDeleteIds.length > 0) {
-      await this.recordRepository.delete(hardDeleteIds);
+    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+      const chunk = ids.slice(i, i + CHUNK_SIZE);
+
+      // Find which contacts have related records (conversations, notes)
+      const withRelations = await this.recordRepository.query(
+        `SELECT DISTINCT c.id FROM clients c
+         LEFT JOIN conversations conv ON conv.record_id = c.id
+         LEFT JOIN notes n ON n.record_id = c.id
+         WHERE c.id = ANY($1) AND (conv.id IS NOT NULL OR n.id IS NOT NULL)`,
+        [chunk],
+      );
+      const withRelationIds = new Set(withRelations.map((r: any) => r.id));
+      const softDeleteIds = chunk.filter((id) => withRelationIds.has(id));
+      const hardDeleteIds = chunk.filter((id) => !withRelationIds.has(id));
+
+      if (softDeleteIds.length > 0) {
+        await this.recordRepository.update(softDeleteIds, { deletedAt: new Date() } as any);
+      }
+      if (hardDeleteIds.length > 0) {
+        await this.recordRepository.delete(hardDeleteIds);
+      }
+
+      totalSoftDeleted += softDeleteIds.length;
+      totalHardDeleted += hardDeleteIds.length;
     }
 
-    return { softDeleted: softDeleteIds.length, hardDeleted: hardDeleteIds.length };
+    return { softDeleted: totalSoftDeleted, hardDeleted: totalHardDeleted };
   }
 
   async bulkDeleteByFilter(tenantId: string, filters?: Array<{ field: string; operator: string; value: string }>, assignedTo?: string, assignedTeamId?: string): Promise<{ softDeleted: number; hardDeleted: number }> {
     const qb = this.buildFilterQuery(tenantId, filters, assignedTo, assignedTeamId);
-    const records = await qb.select('client.id').getRawMany();
-    if (records.length === 0) return { softDeleted: 0, hardDeleted: 0 };
-    const ids = records.map((r: any) => r.client_id);
-    return this.bulkDelete(ids);
+
+    // For large datasets, use streaming approach: get count first, then delete in batches
+    const total = await qb.getCount();
+    if (total === 0) return { softDeleted: 0, hardDeleted: 0 };
+
+    // If small enough, use the ID-based approach
+    if (total <= 10000) {
+      const records = await qb.select('client.id').getRawMany();
+      const ids = records.map((r: any) => r.client_id);
+      return this.bulkDelete(ids);
+    }
+
+    // For large datasets, do direct SQL delete in batches using a subquery
+    let softDeleted = 0;
+    let hardDeleted = 0;
+    const BATCH = 5000;
+
+    while (true) {
+      // Get a batch of IDs
+      const batch = await qb.select('client.id').limit(BATCH).getRawMany();
+      if (batch.length === 0) break;
+
+      const ids = batch.map((r: any) => r.client_id);
+      const result = await this.bulkDelete(ids);
+      softDeleted += result.softDeleted;
+      hardDeleted += result.hardDeleted;
+    }
+
+    return { softDeleted, hardDeleted };
   }
 
   async getDeletePreview(ids: string[]): Promise<{ withHistory: number; withoutHistory: number; total: number }> {
     if (ids.length === 0) return { withHistory: 0, withoutHistory: 0, total: 0 };
+
+    // For large sets, sample to avoid timeout
+    const sampleIds = ids.length > 10000 ? ids.slice(0, 1000) : ids;
     const withRelations = await this.recordRepository.query(
       `SELECT DISTINCT c.id FROM clients c
        LEFT JOIN conversations conv ON conv.record_id = c.id
        LEFT JOIN notes n ON n.record_id = c.id
        WHERE c.id = ANY($1) AND (conv.id IS NOT NULL OR n.id IS NOT NULL)`,
-      [ids],
+      [sampleIds],
     );
+
+    if (ids.length > 10000) {
+      // Extrapolate from sample
+      const rate = sampleIds.length > 0 ? withRelations.length / sampleIds.length : 0;
+      const estimatedWithHistory = Math.round(rate * ids.length);
+      return { withHistory: estimatedWithHistory, withoutHistory: ids.length - estimatedWithHistory, total: ids.length };
+    }
+
     const withHistory = withRelations.length;
     return { withHistory, withoutHistory: ids.length - withHistory, total: ids.length };
   }
 
   async getDeletePreviewByFilter(tenantId: string, filters?: Array<{ field: string; operator: string; value: string }>, assignedTo?: string, assignedTeamId?: string): Promise<{ withHistory: number; withoutHistory: number; total: number }> {
     const qb = this.buildFilterQuery(tenantId, filters, assignedTo, assignedTeamId);
+    const total = await qb.getCount();
+    if (total === 0) return { withHistory: 0, withoutHistory: 0, total: 0 };
+
+    // For large sets, sample
+    if (total > 10000) {
+      const sample = await qb.select('client.id').limit(1000).getRawMany();
+      const sampleIds = sample.map((r: any) => r.client_id);
+      const preview = await this.getDeletePreview(sampleIds);
+      const rate = sampleIds.length > 0 ? preview.withHistory / sampleIds.length : 0;
+      return { withHistory: Math.round(rate * total), withoutHistory: total - Math.round(rate * total), total };
+    }
+
     const records = await qb.select('client.id').getRawMany();
-    if (records.length === 0) return { withHistory: 0, withoutHistory: 0, total: 0 };
     return this.getDeletePreview(records.map((r: any) => r.client_id));
   }
 
