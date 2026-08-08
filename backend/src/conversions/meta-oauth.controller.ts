@@ -16,7 +16,7 @@ import { ConversionsService } from './conversions.service';
  * - META_APP_SECRET
  * 
  * New env var needed:
- * - META_ADS_REDIRECT_URI (e.g. https://crm.strategee.us/api/conversions/meta/callback)
+ * - META_ADS_REDIRECT_URI (e.g. https://smarter.strategee.us/api/conversions/meta/callback)
  */
 @Controller('conversions/meta')
 export class MetaOAuthController {

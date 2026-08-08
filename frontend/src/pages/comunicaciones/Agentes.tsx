@@ -322,7 +322,7 @@ export function Agentes() {
                   className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
                 <p className="text-[10px] text-gray-400 mt-1">
-                  Si ya tiene cuenta en Smartee, se le dará acceso automáticamente. Si no, se le creará una cuenta nueva.
+                  Si ya tiene cuenta en Smarter, se le dará acceso automáticamente. Si no, se le creará una cuenta nueva.
                 </p>
               </div>
               <div>

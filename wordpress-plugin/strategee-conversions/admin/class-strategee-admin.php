@@ -20,10 +20,10 @@ class Strategee_Admin {
 
     public function add_menu() {
         add_menu_page(
-            'Smartee Control',
-            'Smartee Control',
+            'Smarter Control',
+            'Smarter Control',
             'manage_options',
-            'smartee-control',
+            'smarter-control',
             [$this, 'render_page'],
             STGEE_CONV_PLUGIN_URL . 'admin/img/icon-20.png',
             56 // Position: after WooCommerce
@@ -62,7 +62,7 @@ class Strategee_Admin {
     }
 
     public function enqueue_assets($hook) {
-        if ($hook !== 'toplevel_page_smartee-control') return;
+        if ($hook !== 'toplevel_page_smarter-control') return;
 
         wp_enqueue_style(
             'strategee-admin',

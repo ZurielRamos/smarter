@@ -1,13 +1,13 @@
 <?php
 /**
- * Plugin Name: Smartee Control
+ * Plugin Name: Smarter Control
  * Plugin URI: https://strategee.us
- * Description: Conecta tu WooCommerce y formularios con Smartee CRM. Rastrea compras, leads y conversiones automáticamente.
+ * Description: Conecta tu WooCommerce y formularios con Smarter CRM. Rastrea compras, leads y conversiones automáticamente.
  * Version: 1.0.0
  * Author: Strategee
  * Author URI: https://strategee.us
  * License: GPL v2 or later
- * Text Domain: smartee-control
+ * Text Domain: smarter-control
  * Requires at least: 5.8
  * Requires PHP: 7.4
  * WC requires at least: 6.0

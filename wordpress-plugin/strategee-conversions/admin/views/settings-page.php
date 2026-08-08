@@ -2,8 +2,8 @@
 if (!defined('ABSPATH')) exit;
 ?>
 <div class="wrap strategee-settings">
-    <h1>Smartee Control</h1>
-    <p class="description">Conecta tu tienda WooCommerce y formularios con Smartee CRM para rastreo de conversiones.</p>
+    <h1>Smarter Control</h1>
+    <p class="description">Conecta tu tienda WooCommerce y formularios con Smarter CRM para rastreo de conversiones.</p>
 
     <form method="post" action="options.php">
         <?php settings_fields('strategee_conv_group'); ?>
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) exit;
                     <td>
                         <input type="url" id="api_url" name="strategee_conv_settings[api_url]"
                                value="<?php echo esc_attr($settings['api_url'] ?? ''); ?>"
-                               placeholder="https://crm.strategee.us/api" />
+                               placeholder="https://smarter.strategee.us/api" />
                         <p class="description">URL base de la API de Strategee (sin slash final).</p>
                     </td>
                 </tr>

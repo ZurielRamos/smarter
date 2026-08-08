@@ -47,7 +47,7 @@ const FEATURES = [
   {
     icon: Globe,
     title: "API abierta",
-    description: "Integra Smartee con tus sistemas existentes mediante nuestra API REST documentada.",
+    description: "Integra Smarter con tus sistemas existentes mediante nuestra API REST documentada.",
   },
 ];
 
@@ -60,13 +60,13 @@ const STATS = [
 
 const TESTIMONIALS = [
   {
-    quote: "Smartee nos permitió centralizar toda la comunicación con nuestros clientes. La eficiencia de nuestro equipo aumentó un 40% en el primer trimestre.",
+    quote: "Smarter nos permitió centralizar toda la comunicación con nuestros clientes. La eficiencia de nuestro equipo aumentó un 40% en el primer trimestre.",
     name: "Carlos Mendoza",
     role: "Director de Operaciones",
     company: "SuperGiros",
   },
   {
-    quote: "La API es robusta y bien documentada. Integramos Smartee con nuestro ERP en menos de una semana.",
+    quote: "La API es robusta y bien documentada. Integramos Smarter con nuestro ERP en menos de una semana.",
     name: "Andrea López",
     role: "CTO",
     company: "Grupo Financiero del Valle",
@@ -116,7 +116,7 @@ export function Landing() {
       <nav className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="Smartee" className="h-6" />
+            <img src={logo} alt="Smarter" className="h-6" />
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm text-gray-600">
             <a href="#features" className="hover:text-gray-900 transition-colors">Funcionalidades</a>
@@ -270,7 +270,7 @@ export function Landing() {
               Soluciones para cada necesidad
             </h2>
             <p className="text-gray-600 mt-4">
-              Desde notificaciones transaccionales hasta campañas de marketing, Smartee se adapta a tu operación.
+              Desde notificaciones transaccionales hasta campañas de marketing, Smarter se adapta a tu operación.
             </p>
           </motion.div>
 
@@ -315,7 +315,7 @@ export function Landing() {
           >
             <p className="text-sm font-medium text-brand-600 mb-3">Testimonios</p>
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
-              Empresas que confían en Smartee
+              Empresas que confían en Smarter
             </h2>
           </motion.div>
 
@@ -453,7 +453,7 @@ export function Landing() {
               ¿Listo para transformar tu comunicación?
             </h2>
             <p className="text-gray-600 mt-4 text-lg">
-              Agenda una demo personalizada y descubre cómo Smartee puede impulsar tu operación.
+              Agenda una demo personalizada y descubre cómo Smarter puede impulsar tu operación.
             </p>
             <div className="flex items-center justify-center gap-4 mt-8">
               <button
@@ -472,7 +472,7 @@ export function Landing() {
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div>
-              <img src={logo} alt="Smartee" className="h-5 mb-4" />
+              <img src={logo} alt="Smarter" className="h-5 mb-4" />
               <p className="text-xs text-gray-500 leading-relaxed">
                 Plataforma de comunicación empresarial para equipos que necesitan escalar.
               </p>
@@ -502,7 +502,7 @@ export function Landing() {
             </div>
           </div>
           <div className="mt-10 pt-6 border-t border-gray-200 flex items-center justify-between">
-            <p className="text-xs text-gray-400">© 2026 Smartee. Todos los derechos reservados.</p>
+            <p className="text-xs text-gray-400">© 2026 Smarter. Todos los derechos reservados.</p>
             <div className="flex items-center gap-2">
               <HeadphonesIcon className="h-4 w-4 text-gray-400" />
               <span className="text-xs text-gray-500">soporte@strategee.us</span>

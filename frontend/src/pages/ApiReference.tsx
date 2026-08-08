@@ -65,7 +65,7 @@ const SIDEBAR: SidebarSection[] = [
               { name: "sortOrder", type: "ASC|DESC", description: "Dirección del orden (default: DESC por createdAt)" },
             ],
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/records?page=1&limit=25&sortBy=createdAt&sortOrder=DESC",
+  "https://smarter.strategee.us/api/v1/supergiros/records?page=1&limit=25&sortBy=createdAt&sortOrder=DESC",
   {
     method: "GET",
     headers: {
@@ -122,7 +122,7 @@ const data = await response.json();`,
               { name: "id", type: "uuid", required: true, description: "ID único del contacto" },
             ],
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/records/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "https://smarter.strategee.us/api/v1/supergiros/records/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   {
     method: "GET",
     headers: {
@@ -196,7 +196,7 @@ const contact = await response.json();`,
   }
 }`,
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/records",
+  "https://smarter.strategee.us/api/v1/supergiros/records",
   {
     method: "POST",
     headers: {
@@ -268,7 +268,7 @@ const newContact = await response.json();`,
   }
 }`,
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/records/f7e8d9c0-b1a2-3456-7890-abcdef123456",
+  "https://smarter.strategee.us/api/v1/supergiros/records/f7e8d9c0-b1a2-3456-7890-abcdef123456",
   {
     method: "PUT",
     headers: {
@@ -314,7 +314,7 @@ const updated = await response.json();`,
               { name: "id", type: "uuid", required: true, description: "ID único del contacto a eliminar" },
             ],
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/records/f7e8d9c0-b1a2-3456-7890-abcdef123456",
+  "https://smarter.strategee.us/api/v1/supergiros/records/f7e8d9c0-b1a2-3456-7890-abcdef123456",
   {
     method: "DELETE",
     headers: {
@@ -344,7 +344,7 @@ const result = await response.json();`,
               { name: "offset", type: "integer", description: "Desplazamiento para paginación (default: 0)" },
             ],
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/conversations?limit=15&offset=0",
+  "https://smarter.strategee.us/api/v1/supergiros/conversations?limit=15&offset=0",
   {
     method: "GET",
     headers: {
@@ -410,7 +410,7 @@ const data = await response.json();`,
               { name: "id", type: "uuid", required: true, description: "ID de la conversación" },
             ],
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-a5b6-7890-cdef-1234567890ab",
+  "https://smarter.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-a5b6-7890-cdef-1234567890ab",
   {
     method: "GET",
     headers: {
@@ -470,7 +470,7 @@ const conversation = await response.json();`,
 }`,
             bodyDescription: "action puede ser 'add' para agregar o 'remove' para quitar la etiqueta.",
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-a5b6-7890-cdef-1234567890ab/labels",
+  "https://smarter.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-a5b6-7890-cdef-1234567890ab/labels",
   {
     method: "POST",
     headers: {
@@ -516,7 +516,7 @@ const result = await response.json();`,
               { name: "id", type: "uuid", required: true, description: "ID de la conversación" },
             ],
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-a5b6-7890-cdef-1234567890ab/read",
+  "https://smarter.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-a5b6-7890-cdef-1234567890ab/read",
   {
     method: "POST",
     headers: {
@@ -540,7 +540,7 @@ const result = await response.json();`,
               { name: "id", type: "uuid", required: true, description: "ID de la conversación" },
             ],
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-a5b6-7890-cdef-1234567890ab",
+  "https://smarter.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-a5b6-7890-cdef-1234567890ab",
   {
     method: "DELETE",
     headers: {
@@ -570,7 +570,7 @@ const result = await response.json();`,
               { name: "before", type: "uuid", description: "ID del mensaje más antiguo para cargar mensajes anteriores (cursor)" },
             ],
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-uuid/messages?limit=50",
+  "https://smarter.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-uuid/messages?limit=50",
   {
     method: "GET",
     headers: {
@@ -630,7 +630,7 @@ const data = await response.json();`,
               { name: "id", type: "uuid", required: true, description: "ID del mensaje" },
             ],
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-uuid/messages/m1a2b3c4-uuid",
+  "https://smarter.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-uuid/messages/m1a2b3c4-uuid",
   {
     method: "GET",
     headers: {
@@ -675,7 +675,7 @@ const message = await response.json();`,
 }`,
             bodyDescription: "messageType es opcional (default: 'text'). replyToExternalId es opcional para responder a un mensaje específico.",
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-uuid/messages",
+  "https://smarter.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-uuid/messages",
   {
     method: "POST",
     headers: {
@@ -714,7 +714,7 @@ const message = await response.json();`,
   "content": "Cliente VIP, dar prioridad en la atención"
 }`,
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-uuid/messages/note",
+  "https://smarter.strategee.us/api/v1/supergiros/conversations/c1d2e3f4-uuid/messages/note",
   {
     method: "POST",
     headers: {
@@ -750,7 +750,7 @@ const note = await response.json();`,
             path: "/api/v1/{cuenta}/inboxes",
             description: "Lista todas las bandejas (canales) configuradas en la cuenta. Incluye nombre, tipo de canal y estado de conexión.",
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/inboxes",
+  "https://smarter.strategee.us/api/v1/supergiros/inboxes",
   {
     method: "GET",
     headers: {
@@ -793,7 +793,7 @@ const data = await response.json();`,
               { name: "id", type: "uuid", required: true, description: "ID de la bandeja" },
             ],
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/inboxes/i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
+  "https://smarter.strategee.us/api/v1/supergiros/inboxes/i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
   {
     method: "GET",
     headers: {
@@ -831,7 +831,7 @@ const inbox = await response.json();`,
             path: "/api/v1/{cuenta}/campaigns",
             description: "Lista todas las campañas de la cuenta con su estado, canal y estadísticas básicas.",
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/campaigns",
+  "https://smarter.strategee.us/api/v1/supergiros/campaigns",
   {
     method: "GET",
     headers: {
@@ -884,7 +884,7 @@ const data = await response.json();`,
               { name: "id", type: "uuid", required: true, description: "ID de la campaña" },
             ],
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/campaigns/p1q2r3s4-t5u6-7890-abcd-ef1234567890",
+  "https://smarter.strategee.us/api/v1/supergiros/campaigns/p1q2r3s4-t5u6-7890-abcd-ef1234567890",
   {
     method: "GET",
     headers: {
@@ -935,7 +935,7 @@ const campaign = await response.json();`,
               { name: "id", type: "uuid", required: true, description: "ID de la campaña" },
             ],
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/campaigns/p1q2r3s4-t5u6-7890-abcd-ef1234567890/sends",
+  "https://smarter.strategee.us/api/v1/supergiros/campaigns/p1q2r3s4-t5u6-7890-abcd-ef1234567890/sends",
   {
     method: "GET",
     headers: {
@@ -971,7 +971,7 @@ const sends = await response.json();`,
               { name: "id", type: "uuid", required: true, description: "ID de la campaña a ejecutar" },
             ],
             curl: `const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/campaigns/p1q2r3s4-t5u6-7890-abcd-ef1234567890/send",
+  "https://smarter.strategee.us/api/v1/supergiros/campaigns/p1q2r3s4-t5u6-7890-abcd-ef1234567890/send",
   {
     method: "POST",
     headers: {
@@ -1007,8 +1007,8 @@ const result = await response.json();`,
       },
       {
         id: "conversions", label: "Conversiones", endpoints: [
-          { id: "create-event", method: "POST", label: "Crear evento de conversión", path: "/api/v1/{cuenta}/contact-events", description: "Registra un evento de conversión para un contacto. Si el contacto tiene atribución de ads activa, se notifica automáticamente a las plataformas conectadas (Meta, Google Ads, TikTok). Si no se envía recordId, busca el contacto por teléfono, email o documento. Si no existe, lo crea.", body: `{\n  "type": "purchase",\n  "name": "Compra Plan Premium",\n  "value": 500000,\n  "currency": "COP",\n  "phone": "573001234567",\n  "firstName": "Juan",\n  "lastName": "Pérez",\n  "email": "juan@email.com"\n}`, params: [{ name: "type", type: "string", required: true, description: "Tipo: purchase, appointment, demo, qualified, proposal, registration, subscription, custom" }, { name: "name", type: "string", required: true, description: "Nombre descriptivo del evento" }, { name: "recordId", type: "uuid", required: false, description: "ID del contacto (opcional si se envían datos de contacto)" }, { name: "phone", type: "string", required: false, description: "Teléfono para buscar/crear contacto" }, { name: "email", type: "string", required: false, description: "Email para buscar/crear contacto" }, { name: "firstName", type: "string", required: false, description: "Nombre del contacto (para crear si no existe)" }, { name: "lastName", type: "string", required: false, description: "Apellido del contacto" }, { name: "documentNumber", type: "string", required: false, description: "Número de documento para buscar contacto" }, { name: "value", type: "number", required: false, description: "Valor monetario (se reporta a ads si está configurado)" }, { name: "currency", type: "string", required: false, description: "Moneda: COP, USD, EUR, MXN. Default: COP" }], curl: `const response = await fetch(\n  "https://crm.strategee.us/api/v1/supergiros/contact-events",\n  {\n    method: "POST",\n    headers: {\n      "x-api-token": "tu_token_de_api"\n    },\n    body: JSON.stringify({\n      type: "purchase",\n      name: "Compra Plan Premium",\n      value: 500000,\n      currency: "COP",\n      phone: "573001234567",\n      firstName: "Juan",\n      lastName: "Pérez"\n    })\n  }\n);\n\nconst event = await response.json();`, response: `{\n  "id": "uuid",\n  "tenantId": "uuid",\n  "recordId": "uuid",\n  "type": "purchase",\n  "name": "Compra Plan Premium",\n  "value": 500000,\n  "currency": "COP",\n  "source": "api",\n  "dispatched": true,\n  "dispatchedAt": "2026-08-05T18:30:00.000Z",\n  "createdAt": "2026-08-05T18:30:00.000Z"\n}` },
-          { id: "list-events", method: "GET", label: "Listar eventos de un contacto", path: "/api/v1/{cuenta}/contact-events", description: "Obtiene el historial de eventos de conversión de un contacto.", params: [{ name: "recordId", type: "uuid", required: true, description: "ID del contacto" }, { name: "limit", type: "number", required: false, description: "Máximo de resultados (default 50)" }, { name: "offset", type: "number", required: false, description: "Offset para paginación" }], curl: `const response = await fetch(\n  "https://crm.strategee.us/api/v1/supergiros/contact-events?recordId=a1b2c3d4-e5f6-7890-abcd-ef1234567890",\n  {\n    method: "GET",\n    headers: {\n      "x-api-token": "tu_token_de_api"\n    }\n  }\n);\n\nconst { data, total } = await response.json();`, response: `{\n  "data": [\n    {\n      "id": "uuid",\n      "type": "purchase",\n      "name": "Compra Plan Premium",\n      "value": 500000,\n      "currency": "COP",\n      "source": "api",\n      "dispatched": true,\n      "createdAt": "2026-08-05T18:30:00.000Z"\n    }\n  ],\n  "total": 1\n}` },
+          { id: "create-event", method: "POST", label: "Crear evento de conversión", path: "/api/v1/{cuenta}/contact-events", description: "Registra un evento de conversión para un contacto. Si el contacto tiene atribución de ads activa, se notifica automáticamente a las plataformas conectadas (Meta, Google Ads, TikTok). Si no se envía recordId, busca el contacto por teléfono, email o documento. Si no existe, lo crea.", body: `{\n  "type": "purchase",\n  "name": "Compra Plan Premium",\n  "value": 500000,\n  "currency": "COP",\n  "phone": "573001234567",\n  "firstName": "Juan",\n  "lastName": "Pérez",\n  "email": "juan@email.com"\n}`, params: [{ name: "type", type: "string", required: true, description: "Tipo: purchase, appointment, demo, qualified, proposal, registration, subscription, custom" }, { name: "name", type: "string", required: true, description: "Nombre descriptivo del evento" }, { name: "recordId", type: "uuid", required: false, description: "ID del contacto (opcional si se envían datos de contacto)" }, { name: "phone", type: "string", required: false, description: "Teléfono para buscar/crear contacto" }, { name: "email", type: "string", required: false, description: "Email para buscar/crear contacto" }, { name: "firstName", type: "string", required: false, description: "Nombre del contacto (para crear si no existe)" }, { name: "lastName", type: "string", required: false, description: "Apellido del contacto" }, { name: "documentNumber", type: "string", required: false, description: "Número de documento para buscar contacto" }, { name: "value", type: "number", required: false, description: "Valor monetario (se reporta a ads si está configurado)" }, { name: "currency", type: "string", required: false, description: "Moneda: COP, USD, EUR, MXN. Default: COP" }], curl: `const response = await fetch(\n  "https://smarter.strategee.us/api/v1/supergiros/contact-events",\n  {\n    method: "POST",\n    headers: {\n      "x-api-token": "tu_token_de_api"\n    },\n    body: JSON.stringify({\n      type: "purchase",\n      name: "Compra Plan Premium",\n      value: 500000,\n      currency: "COP",\n      phone: "573001234567",\n      firstName: "Juan",\n      lastName: "Pérez"\n    })\n  }\n);\n\nconst event = await response.json();`, response: `{\n  "id": "uuid",\n  "tenantId": "uuid",\n  "recordId": "uuid",\n  "type": "purchase",\n  "name": "Compra Plan Premium",\n  "value": 500000,\n  "currency": "COP",\n  "source": "api",\n  "dispatched": true,\n  "dispatchedAt": "2026-08-05T18:30:00.000Z",\n  "createdAt": "2026-08-05T18:30:00.000Z"\n}` },
+          { id: "list-events", method: "GET", label: "Listar eventos de un contacto", path: "/api/v1/{cuenta}/contact-events", description: "Obtiene el historial de eventos de conversión de un contacto.", params: [{ name: "recordId", type: "uuid", required: true, description: "ID del contacto" }, { name: "limit", type: "number", required: false, description: "Máximo de resultados (default 50)" }, { name: "offset", type: "number", required: false, description: "Offset para paginación" }], curl: `const response = await fetch(\n  "https://smarter.strategee.us/api/v1/supergiros/contact-events?recordId=a1b2c3d4-e5f6-7890-abcd-ef1234567890",\n  {\n    method: "GET",\n    headers: {\n      "x-api-token": "tu_token_de_api"\n    }\n  }\n);\n\nconst { data, total } = await response.json();`, response: `{\n  "data": [\n    {\n      "id": "uuid",\n      "type": "purchase",\n      "name": "Compra Plan Premium",\n      "value": 500000,\n      "currency": "COP",\n      "source": "api",\n      "dispatched": true,\n      "createdAt": "2026-08-05T18:30:00.000Z"\n    }\n  ],\n  "total": 1\n}` },
         ],
       },
     ],
@@ -1119,7 +1119,7 @@ export function ApiReference() {
       <aside className="w-64 border-r border-gray-200 flex flex-col shrink-0 bg-gray-50/50">
         <div className="px-4 py-3.5 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="Smartee" className="h-5" />
+            <img src={logo} alt="Smarter" className="h-5" />
             <span className="text-xs font-bold text-gray-700">API Reference</span>
           </div>
         </div>
@@ -1160,12 +1160,12 @@ export function ApiReference() {
             <div>
               <p className="text-xs text-brand-600 font-medium mb-1">Primeros pasos</p>
               <h1 className="text-2xl font-bold text-gray-900">Introducción a la API</h1>
-              <p className="text-sm text-gray-600 mt-3 leading-relaxed">La API de Smartee te permite interactuar programáticamente con contactos, conversaciones, mensajes, campañas y más. Usa una arquitectura REST con respuestas JSON.</p>
+              <p className="text-sm text-gray-600 mt-3 leading-relaxed">La API de Smarter te permite interactuar programáticamente con contactos, conversaciones, mensajes, campañas y más. Usa una arquitectura REST con respuestas JSON.</p>
             </div>
 
             <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
               <h3 className="text-sm font-semibold text-gray-900 mb-2">Base URL</h3>
-              <CodeBlock code="https://crm.strategee.us/api" />
+              <CodeBlock code="https://smarter.strategee.us/api" />
             </div>
 
             <div>
@@ -1234,7 +1234,7 @@ export function ApiReference() {
                 <div>
                   <p className="text-xs font-medium text-gray-700 mb-2">Opción 1: Header <code className="bg-gray-100 px-1.5 py-0.5 rounded">x-api-token</code> (recomendado)</p>
                   <CodeBlock code={`const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/records",
+  "https://smarter.strategee.us/api/v1/supergiros/records",
   {
     headers: {
       "x-api-token": "a1b2c3d4e5f6...tu_token_aqui"
@@ -1246,7 +1246,7 @@ export function ApiReference() {
                 <div>
                   <p className="text-xs font-medium text-gray-700 mb-2">Opción 2: Header <code className="bg-gray-100 px-1.5 py-0.5 rounded">Authorization: Bearer</code></p>
                   <CodeBlock code={`const response = await fetch(
-  "https://crm.strategee.us/api/v1/supergiros/records",
+  "https://smarter.strategee.us/api/v1/supergiros/records",
   {
     headers: {
       "Authorization": "Bearer a1b2c3d4e5f6...tu_token_aqui"

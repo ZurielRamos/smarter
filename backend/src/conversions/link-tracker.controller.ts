@@ -22,7 +22,7 @@ export class LinkTrackerController {
    * 2. When user clicks a WhatsApp link, calls our API to create an AdEvent
    * 3. Appends the tracking code (camuflado) to the WhatsApp message text
    *
-   * Usage: <script src="https://crm.strategee.us/api/t/:slug/pixel.js"></script>
+   * Usage: <script src="https://smarter.strategee.us/api/t/:slug/pixel.js"></script>
    */
   @Public()
   @Get(':slug/pixel.js')

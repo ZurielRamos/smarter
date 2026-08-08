@@ -17,7 +17,7 @@ export interface SendProgressPayload {
 
 @WebSocketGateway({
   cors: {
-    origin: ['http://localhost:5173', 'http://localhost:4173', 'https://crm.strategee.us'],
+    origin: ['http://localhost:5173', 'http://localhost:4173', 'https://smarter.strategee.us'],
     credentials: true,
   },
   namespace: '/ws/campaigns',

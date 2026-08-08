@@ -28,7 +28,7 @@ export function ForgotPassword() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
           {/* Logo */}
           <div className="text-center mb-6">
-            <img src={logoCompleto} alt="Smartee" className="h-10 mx-auto mb-4" />
+            <img src={logoCompleto} alt="Smarter" className="h-10 mx-auto mb-4" />
           </div>
 
           {sent ? (

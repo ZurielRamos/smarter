@@ -15,7 +15,7 @@ import { ConversionsService } from './conversions.service';
  * - GOOGLE_ADS_CLIENT_ID: OAuth2 client ID from Google Cloud Console
  * - GOOGLE_ADS_CLIENT_SECRET: OAuth2 client secret
  * - GOOGLE_ADS_DEVELOPER_TOKEN: Developer token from Google Ads MCC
- * - GOOGLE_ADS_REDIRECT_URI: Callback URL (e.g. https://crm.strategee.us/api/conversions/google/callback)
+ * - GOOGLE_ADS_REDIRECT_URI: Callback URL (e.g. https://smarter.strategee.us/api/conversions/google/callback)
  */
 @Controller('conversions/google')
 export class GoogleOAuthController {

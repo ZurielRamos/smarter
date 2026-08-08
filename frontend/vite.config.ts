@@ -12,7 +12,7 @@ export default defineConfig({
     },
   },
   server: {
-    allowedHosts: ['crm.strategee.us'],
+    allowedHosts: ['smarter.strategee.us'],
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

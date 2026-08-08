@@ -368,10 +368,10 @@ export function WooCommerceIntegration() {
           {/* Plugin instructions */}
           <div className="bg-purple-50 border border-purple-100 rounded-xl p-5">
             <h3 className="text-sm font-semibold text-purple-900 flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" /> Plugin Smartee Control
+              <CheckCircle2 className="h-4 w-4" /> Plugin Smarter Control
             </h3>
             <p className="text-xs text-purple-700 mt-1">
-              Instala el plugin <strong>Smartee Control</strong> en tu WordPress para enviar eventos automáticamente.
+              Instala el plugin <strong>Smarter Control</strong> en tu WordPress para enviar eventos automáticamente.
               Configura aquí qué acciones disparar cuando ocurra cada evento.
             </p>
           </div>

@@ -75,7 +75,7 @@ export class ContactEventsService {
           currency: params.currency,
           source: params.source,
         },
-        actorName: params.source === 'api' ? 'Smartee Control (WordPress)' : params.actorName || null,
+        actorName: params.source === 'api' ? 'Smarter Control (WordPress)' : params.actorName || null,
         actorId: params.actorId || null,
       })).catch((err) => {
         this.logger.warn(`[ContactEvent] Failed to log activity:`, err);

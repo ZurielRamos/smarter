@@ -118,11 +118,11 @@ export function Login() {
           <div className="mb-8">
             <img
               src={logoCompleto}
-              alt="Smartee"
+              alt="Smarter"
               className="h-14 mb-4"
             />
             <h1 className="text-2xl font-bold text-gray-900">
-              Bienvenido a Smartee
+              Bienvenido a Smarter
             </h1>
           </div>
 
@@ -321,7 +321,7 @@ export function Login() {
 
           {/* Footer */}
           <p className="mt-8 text-center text-xs text-gray-400">
-            © 2026 Smartee · Reach further, connect smartee
+            © 2026 Smarter · Reach further, connect smarter
           </p>
         </motion.div>
       </div>

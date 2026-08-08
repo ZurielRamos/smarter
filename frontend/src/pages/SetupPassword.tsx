@@ -20,7 +20,7 @@ export function SetupPassword() {
   const title = isReset ? "Cambiar contraseña" : "Establece tu contraseña";
   const subtitle = isReset
     ? "Ingresa tu nueva contraseña"
-    : "Completa tu registro configurando una contraseña segura para acceder a Smartee";
+    : "Completa tu registro configurando una contraseña segura para acceder a Smarter";
   const buttonText = isReset ? "Cambiar contraseña" : "Crear mi cuenta";
 
   const passwordsMatch = password === confirmPassword && password.length > 0;
@@ -67,7 +67,7 @@ export function SetupPassword() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
           {/* Logo */}
           <div className="text-center mb-6">
-            <img src={logoCompleto} alt="Smartee" className="h-10 mx-auto mb-4" />
+            <img src={logoCompleto} alt="Smarter" className="h-10 mx-auto mb-4" />
             <h1 className="text-xl font-bold text-gray-900">{title}</h1>
             <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
           </div>
