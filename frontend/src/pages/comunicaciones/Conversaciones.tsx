@@ -73,7 +73,7 @@ export function Conversaciones() {
   const { user } = useAuth();
   const tenantRole = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
   const tenantId = tenantRole?.tenantId || "";
-  const { joinConversation, leaveConversation, on } = useSocket(tenantId || undefined);
+  const { joinConversation, leaveConversation, on, connected } = useSocket(tenantId || undefined);
 
   const [inboxes, setInboxes] = useState<Inbox[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
