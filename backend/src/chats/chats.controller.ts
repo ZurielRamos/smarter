@@ -101,6 +101,24 @@ export class ChatsController {
     return this.chatsService.manualConnect(id, body);
   }
 
+  // Configure SMTP for email inbox
+  @Put('inboxes/:id/smtp')
+  async configureSmtp(
+    @Param('id') id: string,
+    @Body() body: { host: string; port: number; secure: boolean; user: string; pass: string; fromName: string; fromEmail: string; defaultSubject?: string },
+  ) {
+    return this.chatsService.configureSmtp(id, body);
+  }
+
+  // Test SMTP connection
+  @Post('inboxes/:id/smtp/test')
+  async testSmtp(
+    @Param('id') id: string,
+    @Body() body: { host: string; port: number; secure: boolean; user: string; pass: string; fromName: string; fromEmail: string },
+  ) {
+    return this.chatsService.testSmtp(body);
+  }
+
   // Get WhatsApp config ID for frontend
   @Public()
   @Get('whatsapp/config')

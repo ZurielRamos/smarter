@@ -109,6 +109,9 @@ export class Campaign {
   @Column({ name: 'call_audio_code', type: 'varchar', nullable: true })
   callAudioCode: string; // ID of uploaded audio in Onurix
 
+  @Column({ name: 'email_subject', type: 'varchar', nullable: true })
+  emailSubject: string; // Subject line for email campaigns
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

@@ -21,6 +21,7 @@ import { CampaignSchedulerService } from './campaign-scheduler.service';
 import { WhatsAppService } from './whatsapp.service';
 import { CallService } from './call.service';
 import { SmsService } from './sms.service';
+import { EmailService } from './email.service';
 import { BillingModule } from '../billing/billing.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { UsersModule } from '../users/users.module';
@@ -35,7 +36,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     UsersModule,
     NotificationsModule,
   ],
-  providers: [CampaignsService, WhatsAppService, CallService, SmsService, CampaignsGateway, CampaignSendWorker, CampaignSchedulerService],
+  providers: [CampaignsService, WhatsAppService, CallService, SmsService, EmailService, CampaignsGateway, CampaignSendWorker, CampaignSchedulerService],
   controllers: [CampaignsController, ApiCampaignsController],
   exports: [CampaignsGateway],
 })

@@ -14,6 +14,7 @@ import { CampaignsGateway } from './campaigns.gateway';
 import { BillingService } from '../billing/billing.service';
 import { SmsService } from './sms.service';
 import { CallService } from './call.service';
+import { EmailService } from './email.service';
 import { ConfigService } from '@nestjs/config';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -52,6 +53,7 @@ export class CampaignSendWorker extends WorkerHost {
     private readonly billingService: BillingService,
     private readonly smsService: SmsService,
     private readonly callService: CallService,
+    private readonly emailService: EmailService,
     private readonly configService: ConfigService,
     private readonly webhooksService: WebhooksService,
     private readonly notificationsService: NotificationsService,
@@ -233,6 +235,77 @@ export class CampaignSendWorker extends WorkerHost {
                 recordId: client.id,
                 phone: client.phone,
                 channel: 'llamada',
+                status: 'failed',
+                errorCode: (result.error || 'unknown').substring(0, 50),
+              });
+            }
+          } else if (campaign.channel === 'email') {
+            // === Email via SMTP ===
+            const emailAddress = client.email;
+            if (!emailAddress) {
+              totalFailed++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone || '',
+                channel: 'email',
+                status: 'failed',
+                errorCode: 'no_email',
+              });
+              continue;
+            }
+
+            const smtpConfig = inbox.metadata?.smtp;
+            if (!smtpConfig?.host || !smtpConfig?.user || !smtpConfig?.pass) {
+              totalFailed++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone || '',
+                channel: 'email',
+                status: 'failed',
+                errorCode: 'smtp_not_configured',
+              });
+              continue;
+            }
+
+            const emailContent = this.interpolateMessage(campaign.messageTemplate || '', client);
+            const emailSubject = this.interpolateMessage(campaign.emailSubject || smtpConfig.defaultSubject || 'Mensaje', client);
+
+            const result = await this.emailService.sendEmail({
+              to: emailAddress,
+              subject: emailSubject,
+              html: emailContent.replace(/\n/g, '<br>'),
+              text: emailContent,
+              smtpConfig,
+            });
+
+            if (result.success) {
+              totalSent++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone || '',
+                channel: 'email',
+                status: 'sent',
+                providerMessageId: result.messageId?.substring(0, 100) ?? null,
+                sentAt: new Date(),
+              });
+            } else {
+              totalFailed++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone || '',
+                channel: 'email',
                 status: 'failed',
                 errorCode: (result.error || 'unknown').substring(0, 50),
               });

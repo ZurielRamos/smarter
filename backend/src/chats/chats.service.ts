@@ -56,7 +56,7 @@ export class ChatsService {
       domingo: { enabled: false, start: '09:00', end: '13:00' },
       festivos: { enabled: false, start: '09:00', end: '13:00' },
     };
-    const alwaysConnected = ['sms', 'llamada', 'form'];
+    const alwaysConnected = ['sms', 'llamada', 'form', 'email'];
     const status = alwaysConnected.includes(data.channel) ? 'connected' : 'disconnected';
     const inbox = this.inboxRepo.create({ ...data, status, metadata: { schedule: defaultSchedule } });
     return this.inboxRepo.save(inbox);
@@ -331,6 +331,36 @@ export class ChatsService {
     }
 
     return this.inboxRepo.save(inbox);
+  }
+
+  // === EMAIL SMTP ===
+
+  async configureSmtp(inboxId: string, smtpConfig: { host: string; port: number; secure: boolean; user: string; pass: string; fromName: string; fromEmail: string; defaultSubject?: string }) {
+    const inbox = await this.findInboxById(inboxId);
+    inbox.metadata = {
+      ...inbox.metadata,
+      smtp: smtpConfig,
+    };
+    inbox.channelName = smtpConfig.fromEmail;
+    inbox.status = 'connected';
+    await this.inboxRepo.save(inbox);
+    return { status: 'configured', channelName: smtpConfig.fromEmail };
+  }
+
+  async testSmtp(smtpConfig: { host: string; port: number; secure: boolean; user: string; pass: string; fromName: string; fromEmail: string }) {
+    try {
+      const nodemailer = await import('nodemailer');
+      const transporter = nodemailer.createTransport({
+        host: smtpConfig.host,
+        port: smtpConfig.port || 465,
+        secure: smtpConfig.secure ?? true,
+        auth: { user: smtpConfig.user, pass: smtpConfig.pass },
+      });
+      await transporter.verify();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
   }
 
   async handleWhatsAppEmbeddedSignup(code: string, inboxId: string): Promise<Inbox> {
@@ -1124,11 +1154,50 @@ export class ChatsService {
     if (!conversation) throw new NotFoundException('Conversation not found');
 
     const inbox = conversation.inbox;
-    if (!inbox.accessToken) throw new Error('Inbox not connected');
 
     let externalId: string | null = null;
 
-    if (inbox.channel === 'whatsapp') {
+    if (inbox.channel === 'email') {
+      // Send via SMTP configured in inbox metadata
+      const smtpConfig = inbox.metadata?.smtp;
+      if (!smtpConfig?.host || !smtpConfig?.user || !smtpConfig?.pass) {
+        throw new Error('SMTP no configurado para esta bandeja');
+      }
+
+      // Get contact email from record
+      const record = conversation.recordId
+        ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } })
+        : null;
+      const toEmail = record?.email || conversation.contactId;
+      if (!toEmail || !toEmail.includes('@')) {
+        throw new Error('El contacto no tiene email configurado');
+      }
+
+      const nodemailer = await import('nodemailer');
+      const transporter = nodemailer.createTransport({
+        host: smtpConfig.host,
+        port: smtpConfig.port || 465,
+        secure: smtpConfig.secure ?? true,
+        auth: { user: smtpConfig.user, pass: smtpConfig.pass },
+      });
+
+      const from = `"${smtpConfig.fromName || 'Smartee'}" <${smtpConfig.fromEmail || smtpConfig.user}>`;
+      const subject = smtpConfig.defaultSubject || 'Mensaje de ' + (smtpConfig.fromName || 'Smartee');
+
+      try {
+        const info = await transporter.sendMail({
+          from,
+          to: toEmail,
+          subject,
+          html: content.replace(/\n/g, '<br>'),
+          text: content,
+        });
+        externalId = info.messageId || null;
+      } catch (err) {
+        console.error('[Chat] Email send failed:', err);
+      }
+    } else if (inbox.channel === 'whatsapp') {
+      if (!inbox.accessToken) throw new Error('Inbox not connected');
       // Send via WhatsApp Cloud API
       const messageBody: any = {
         messaging_product: 'whatsapp',
@@ -1150,6 +1219,7 @@ export class ChatsService {
       const data = await res.json();
       externalId = data.messages?.[0]?.id || null;
     } else if (inbox.channel === 'messenger' || inbox.channel === 'instagram') {
+      if (!inbox.accessToken) throw new Error('Inbox not connected');
       // Send via Page Send API
       const messengerPayload: any = {
         recipient: { id: conversation.contactId },
