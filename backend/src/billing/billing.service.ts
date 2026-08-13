@@ -38,7 +38,12 @@ export class BillingService {
   async createPlan(tenantId: string, dto: CreatePlanDto): Promise<CreditPlan> {
     const existing = await this.planRepo.findOne({ where: { tenantId } });
     if (existing) {
-      throw new BadRequestException('Esta cuenta ya tiene un plan asignado');
+      // Update existing plan instead of rejecting
+      existing.type = dto.type;
+      existing.monthlyCredits = dto.monthlyCredits ?? existing.monthlyCredits;
+      existing.rollover = dto.rollover ?? existing.rollover;
+      existing.lowBalanceThreshold = dto.lowBalanceThreshold ?? existing.lowBalanceThreshold;
+      return this.planRepo.save(existing);
     }
 
     const plan = this.planRepo.create({
