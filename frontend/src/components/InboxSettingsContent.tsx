@@ -31,6 +31,10 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
 
+  // WhatsApp connect
+  const [connecting, setConnecting] = useState(false);
+  const [waConfig, setWaConfig] = useState<{ appId: string; configId: string } | null>(null);
+
   // Email config
   const [emailForm, setEmailForm] = useState({ fromEmail: "", fromName: "" });
   const [emailSaving, setEmailSaving] = useState(false);
@@ -59,9 +63,52 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
         if (data.channel === "email") loadEmailConfig(data.id);
         if (data.channel === "sms") setSmsSender(data.metadata?.sender || "");
         if (data.channel === "llamada") setCallVoice(data.metadata?.voice || "Mariana");
+        if (data.channel === "whatsapp" && data.status !== "connected") preloadWaConfig();
       })
       .finally(() => setLoading(false));
   }, [inboxId]);
+
+  const preloadWaConfig = async () => {
+    try {
+      const { data } = await api.get("/chats/whatsapp/config");
+      setWaConfig(data);
+    } catch {}
+  };
+
+  const handleWhatsAppConnect = () => {
+    if (!inbox || !waConfig) return;
+    setConnecting(true);
+
+    const FB = (window as any).FB;
+    if (!FB) { alert("Facebook SDK no cargado. Recarga la página."); setConnecting(false); return; }
+
+    FB.init({ appId: waConfig.appId, xfbml: true, version: "v21.0" });
+
+    FB.login(
+      (response: any) => {
+        if (response.authResponse?.code) {
+          api.post("/chats/whatsapp/embedded-signup", {
+            code: response.authResponse.code,
+            inboxId: inbox.id,
+          }).then(({ data }) => {
+            setInbox(data);
+            setConnecting(false);
+          }).catch(() => { setConnecting(false); });
+        } else { setConnecting(false); }
+      },
+      {
+        config_id: waConfig.configId,
+        response_type: "code",
+        override_default_response_type: true,
+        extras: {
+          setup: {},
+          featureType: "whatsapp_business_app_onboarding",
+          sessionInfoVersion: "3",
+          version: "v4",
+        },
+      }
+    );
+  };
 
   const loadEmailConfig = async (id: string) => {
     try {
@@ -269,12 +316,47 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
               )}
               {inbox.channelName && <span className="text-xs text-gray-400">· {inbox.channelName}</span>}
             </div>
-            {inbox.status === "connected" && (
-              <div className="mt-3 pt-3 border-t border-gray-100 space-y-1 text-xs">
-                {inbox.phoneNumberId && <div className="flex justify-between"><span className="text-gray-500">Phone Number ID</span><span className="font-mono text-gray-700">{inbox.phoneNumberId}</span></div>}
-                {inbox.wabaId && <div className="flex justify-between"><span className="text-gray-500">WABA ID</span><span className="font-mono text-gray-700">{inbox.wabaId}</span></div>}
-                {inbox.pageId && <div className="flex justify-between"><span className="text-gray-500">Page ID</span><span className="font-mono text-gray-700">{inbox.pageId}</span></div>}
-              </div>
+            {inbox.status === "connected" ? (
+              <>
+                <div className="mt-3 pt-3 border-t border-gray-100 space-y-1 text-xs">
+                  {inbox.phoneNumberId && <div className="flex justify-between"><span className="text-gray-500">Phone Number ID</span><span className="font-mono text-gray-700">{inbox.phoneNumberId}</span></div>}
+                  {inbox.wabaId && <div className="flex justify-between"><span className="text-gray-500">WABA ID</span><span className="font-mono text-gray-700">{inbox.wabaId}</span></div>}
+                  {inbox.pageId && <div className="flex justify-between"><span className="text-gray-500">Page ID</span><span className="font-mono text-gray-700">{inbox.pageId}</span></div>}
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      const { data } = await api.put<Inbox>(`/chats/inboxes/${inbox.id}`, {
+                        status: "disconnected",
+                        accessToken: null,
+                        pageId: null,
+                        phoneNumberId: null,
+                        wabaId: null,
+                        channelName: null,
+                      });
+                      setInbox(data);
+                    } catch {}
+                  }}
+                  className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-medium"
+                >
+                  <WifiOff className="h-3 w-3" /> Desconectar
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => {
+                  if (inbox.channel === "whatsapp") {
+                    handleWhatsAppConnect();
+                  } else {
+                    window.location.href = `/api/chats/oauth/connect?inboxId=${inbox.id}&channel=${inbox.channel}`;
+                  }
+                }}
+                disabled={connecting || (inbox.channel === "whatsapp" && !waConfig)}
+                className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-medium disabled:opacity-50"
+              >
+                {connecting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wifi className="h-3 w-3" />}
+                {connecting ? "Conectando..." : "Conectar"}
+              </button>
             )}
           </div>
         )}

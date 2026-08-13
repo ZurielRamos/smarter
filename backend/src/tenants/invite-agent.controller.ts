@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Body,
   Param,
@@ -32,6 +33,21 @@ export class InviteAgentController {
     private readonly configService: ConfigService,
     private readonly authService: AuthService,
   ) {}
+
+  /**
+   * Get tenant members — accessible by any tenant member (not just super admin).
+   */
+  @Get(':tenantId/members')
+  async getMembers(@Param('tenantId') tenantId: string) {
+    return this.userTenantRepo.find({
+      where: [
+        { tenantId, status: 'active' },
+        { tenantId, status: 'pending' },
+      ],
+      relations: { user: true },
+      order: { createdAt: 'ASC' },
+    });
+  }
 
   @Post(':tenantId/invite')
   async inviteAgent(

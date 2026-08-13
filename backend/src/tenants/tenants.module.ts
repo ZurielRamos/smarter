@@ -22,7 +22,7 @@ import { AuthModule } from '../auth/auth.module';
     MailModule,
     AuthModule,
   ],
-  controllers: [TenantsController, ChannelConfigsController, InviteAgentController],
+  controllers: [InviteAgentController, TenantsController, ChannelConfigsController],
   providers: [TenantsService, ChannelConfigsService],
   exports: [TenantsService, ChannelConfigsService],
 })
