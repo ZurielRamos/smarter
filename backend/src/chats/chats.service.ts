@@ -1059,8 +1059,12 @@ export class ChatsService {
       const response = await this.botsService.chat(inbox.botId, messages);
       if (!response?.content) return;
 
+      console.log(`[Bot Auto-Reply] Bot responded for conversation ${conversation.id}, sending message...`);
+
       // Send the bot reply through the normal send flow
       await this.sendMessage(conversation.id, response.content, 'text', 'bot');
+
+      console.log(`[Bot Auto-Reply] Message sent successfully for conversation ${conversation.id}`);
     } catch (err) {
       console.error(`[Bot Auto-Reply] Error for inbox ${inbox.id}:`, err?.message || err);
     }
