@@ -1055,14 +1055,76 @@ export class ChatsService {
         content: m.content || '',
       })).filter((m) => m.content);
 
+      // Build collectedData from existing record to avoid re-asking
+      let collectedData: Record<string, string> | undefined;
+      if (bot.dataCollectionEnabled && conversation.recordId) {
+        const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+        if (record) {
+          collectedData = {};
+          if (record.firstName) collectedData.firstName = record.firstName;
+          if (record.lastName) collectedData.lastName = record.lastName;
+          if (record.email) collectedData.email = record.email;
+          if (record.phone) collectedData.phone = record.phone;
+          if (record.company) collectedData.company = record.company;
+          if (record.city) collectedData.city = record.city;
+          if (record.jobTitle) collectedData.jobTitle = record.jobTitle;
+        }
+      }
+
       // Get bot response
-      const response = await this.botsService.chat(inbox.botId, messages);
+      const response = await this.botsService.chat(inbox.botId, messages, collectedData);
       if (!response?.content) return;
 
       // Send the bot reply through the normal send flow
       await this.sendMessage(conversation.id, response.content, 'text', undefined);
 
-      console.log(`[Bot Auto-Reply] Message sent successfully for conversation ${conversation.id}`);
+      // Handle extracted data — update CRM record and insert system note
+      if (response.extractedData && Object.keys(response.extractedData).length > 0 && conversation.recordId) {
+        const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+        if (record) {
+          const fieldMap: Record<string, string> = {
+            firstName: 'firstName',
+            lastName: 'lastName',
+            email: 'email',
+            phone: 'phone',
+            company: 'company',
+            city: 'city',
+            jobTitle: 'jobTitle',
+            address: 'address',
+            birthDate: 'birthDate',
+          };
+
+          const newData: Record<string, string> = {};
+
+          for (const [key, value] of Object.entries(response.extractedData)) {
+            const recordField = fieldMap[key];
+            if (recordField && value && !record[recordField]) {
+              newData[key] = value;
+              record[recordField] = value;
+            }
+          }
+
+          // Update fullName if we got first/last name
+          if (newData.firstName || newData.lastName) {
+            record.fullName = [record.firstName, record.lastName].filter(Boolean).join(' ');
+          }
+
+          if (Object.keys(newData).length > 0) {
+            await this.clientRecordRepo.save(record);
+
+            // Insert system note in conversation
+            const fieldLabels: Record<string, string> = {
+              firstName: 'Nombre', lastName: 'Apellido', email: 'Email',
+              phone: 'Teléfono', company: 'Empresa', city: 'Ciudad',
+              jobTitle: 'Cargo', address: 'Dirección', birthDate: 'Fecha de nacimiento',
+            };
+            const collected = Object.entries(newData)
+              .map(([k, v]) => `${fieldLabels[k] || k}: ${v}`)
+              .join(', ');
+            await this.createSystemNote(conversation.id, `📋 Dato recopilado: ${collected}`, inbox.tenantId);
+          }
+        }
+      }
     } catch (err) {
       console.error(`[Bot Auto-Reply] Error for inbox ${inbox.id}:`, err?.message || err);
     }
