@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Settings2 } from "lucide-react";
+import { Settings2, Plus } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import axios from "axios";
 
@@ -42,12 +42,15 @@ export function Etiquetas() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-900">Etiquetas</h3>
-          <p className="text-[11px] text-gray-400 mt-0.5">{labels.length} etiquetas</p>
-        </div>
-        <button onClick={() => setShowNewLabel(true)} className="text-xs text-brand-600 font-medium hover:text-brand-700">+ Nueva</button>
+      <div className="px-3 py-3 border-b border-gray-100 flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase">Etiquetas</h3>
+        <button
+          onClick={() => setShowNewLabel(true)}
+          className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+          title="Nueva etiqueta"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
       </div>
 
       {showNewLabel && (

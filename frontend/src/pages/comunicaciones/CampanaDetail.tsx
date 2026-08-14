@@ -888,7 +888,7 @@ export function CampanaDetail() {
                 const isManual = !campaign.isRecurring && !campaign.sendDate;
                 const isScheduled = !campaign.isRecurring && !!campaign.sendDate;
                 const isRecurring = campaign.isRecurring;
-                const canSend = campaign.channel === "sms" ? !!campaign.messageTemplate : campaign.channel === "whatsapp" ? !!campaign.whatsappTemplateName : campaign.channel === "llamada" ? (!!campaign.messageTemplate || !!campaign.callAudioCode) : false;
+                const canSend = campaign.channel === "sms" ? (!!campaign.messageTemplate || !!campaign.emailTemplateId) : campaign.channel === "whatsapp" ? !!campaign.whatsappTemplateName : campaign.channel === "llamada" ? (!!campaign.messageTemplate || !!campaign.callAudioCode || !!campaign.emailTemplateId) : campaign.channel === "email" ? !!campaign.messageTemplate : false;
 
                 if (isManual) {
                   return (

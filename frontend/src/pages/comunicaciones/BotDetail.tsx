@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Bot, Settings2, Play, Pause, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,9 @@ interface BotData {
   name: string;
   description: string | null;
   status: string;
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  totalRequests: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,6 +32,7 @@ const statusColors: Record<string, { bg: string; text: string }> = {
 
 export function BotDetail() {
   const { botId, slug } = useParams();
+  const navigate = useNavigate();
   const [bot, setBot] = useState<BotData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -87,7 +91,7 @@ export function BotDetail() {
             <span className={cn("text-xs px-2 py-1 rounded-full font-medium", colors.bg, colors.text)}>
               {bot.status}
             </span>
-            <Button variant="outline" size="sm" className="gap-1.5">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate(`/${slug}/comunicaciones/bots/${botId}/config`)}>
               <Settings2 className="h-3.5 w-3.5" />
               Configurar
             </Button>
@@ -119,6 +123,34 @@ export function BotDetail() {
               <p className="text-sm font-medium text-gray-900">
                 {new Date(bot.updatedAt).toLocaleDateString("es-CO")}
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Token Usage */}
+        <div className="mt-4 bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Consumo de tokens</h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-blue-50 rounded-lg p-3 text-center">
+              <p className="text-[10px] text-blue-600 font-medium uppercase">Entrada</p>
+              <p className="text-lg font-bold text-blue-700 mt-0.5">
+                {(bot.totalPromptTokens || 0).toLocaleString()}
+              </p>
+              <p className="text-[10px] text-blue-500">tokens</p>
+            </div>
+            <div className="bg-purple-50 rounded-lg p-3 text-center">
+              <p className="text-[10px] text-purple-600 font-medium uppercase">Salida</p>
+              <p className="text-lg font-bold text-purple-700 mt-0.5">
+                {(bot.totalCompletionTokens || 0).toLocaleString()}
+              </p>
+              <p className="text-[10px] text-purple-500">tokens</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 text-center">
+              <p className="text-[10px] text-gray-600 font-medium uppercase">Total</p>
+              <p className="text-lg font-bold text-gray-700 mt-0.5">
+                {((bot.totalPromptTokens || 0) + (bot.totalCompletionTokens || 0)).toLocaleString()}
+              </p>
+              <p className="text-[10px] text-gray-500">{(bot.totalRequests || 0)} requests</p>
             </div>
           </div>
         </div>

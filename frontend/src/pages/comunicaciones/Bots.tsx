@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, Outlet } from "react-router-dom";
 import { Plus, Bot, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
+import { CreateBotModal } from "@/components/CreateBotModal";
+import { toast } from "sonner";
 import axios from "axios";
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
@@ -43,6 +44,8 @@ export function Bots() {
   const [bots, setBots] = useState<BotItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     loadBots();
@@ -61,6 +64,26 @@ export function Bots() {
     }
   };
 
+  const handleCreateBot = async (data: { name: string; description: string }) => {
+    if (!tenantId) return;
+    setCreating(true);
+    try {
+      const { data: newBot } = await api.post<BotItem>("/bots", {
+        tenantId,
+        name: data.name,
+        description: data.description || null,
+      });
+      setBots((prev) => [newBot, ...prev]);
+      setShowCreateModal(false);
+      toast.success("Bot creado correctamente");
+      navigate(`/${slug}/comunicaciones/bots/${newBot.id}`);
+    } catch {
+      toast.error("Error al crear el bot");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const filtered = bots.filter(
     (b) =>
       b.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -72,20 +95,17 @@ export function Bots() {
       {/* List panel */}
       <div className="w-80 border-r border-gray-100 flex flex-col shrink-0">
         {/* Header */}
-        <div className="p-4 border-b border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-900">Bots</h2>
-            <Button
-              size="sm"
-              className="h-7 text-xs gap-1"
-              onClick={() => {
-                // TODO: abrir modal de creación
-              }}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Nuevo
-            </Button>
-          </div>
+        <div className="px-3 py-3 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase">Bots</h3>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            title="Nuevo bot"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="px-3 py-2 border-b border-gray-100">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
             <input
@@ -142,6 +162,14 @@ export function Bots() {
 
       {/* Detail panel */}
       <Outlet />
+
+      {/* Create Bot Modal */}
+      <CreateBotModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSave={handleCreateBot}
+        saving={creating}
+      />
     </>
   );
 }

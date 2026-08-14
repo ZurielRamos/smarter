@@ -1,12 +1,14 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MessageSquare, Send, Wifi, WifiOff, MessageCircle, Phone, Camera, Mail, Settings2, Inbox, CheckCheck, BellOff, Archive, Trash2, UserCircle, Reply, Copy, X, Smile, Paperclip, Mic, StickyNote, Image, FileText, Filter, ArrowUpDown, Megaphone, MoreVertical, Eye } from "lucide-react";
+import { MessageSquare, Send, Wifi, WifiOff, MessageCircle, Phone, Camera, Mail, Settings2, Inbox, CheckCheck, BellOff, Archive, Trash2, UserCircle, Reply, Copy, X, Smile, Paperclip, Mic, StickyNote, Image, FileText, Filter, ArrowUpDown, Megaphone, MoreVertical, Eye, Zap, ShoppingCart, CalendarCheck, Presentation, Star, UserPlus, ArrowRightLeft, ChevronLeft } from "lucide-react";
 import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/components/ChannelIcons";
 import { TemplateSelector, TemplateConfigModal } from "@/components/TemplateModal";
 import { useAuth } from "@/context/AuthContext";
 import { useSocket } from "@/hooks/useSocket";
 import { ChatEmpty } from "./ChatEmpty";
 import { formatWhatsAppText } from "@/utils/whatsapp-format";
+import { createContactEvent } from "@/services/api";
+import { toast } from "sonner";
 import axios from "axios";
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
@@ -15,6 +17,18 @@ api.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
+
+const STATUS_OPTIONS = [
+  { value: "lead", label: "Lead", color: "bg-blue-500" },
+  { value: "contactado", label: "Contactado", color: "bg-sky-500" },
+  { value: "interesado", label: "Interesado", color: "bg-indigo-500" },
+  { value: "oportunidad", label: "Oportunidad", color: "bg-amber-500" },
+  { value: "cliente", label: "Cliente", color: "bg-green-500" },
+  { value: "premium", label: "Premium", color: "bg-purple-500" },
+  { value: "fidelizado", label: "Fidelizado", color: "bg-emerald-500" },
+  { value: "inactivo", label: "Inactivo", color: "bg-gray-400" },
+  { value: "perdido", label: "Perdido", color: "bg-red-500" },
+];
 
 interface Inbox {
   id: string;
@@ -97,6 +111,9 @@ export function Conversaciones() {
   const [channelDropdownOpen, setChannelDropdownOpen] = useState(false);
   const [chatHeaderMenuOpen, setChatHeaderMenuOpen] = useState(false);
   const chatHeaderMenuRef = useRef<HTMLDivElement>(null);
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [eventForm, setEventForm] = useState({ type: 'purchase', name: '', value: '', currency: 'COP' });
+  const [showStatusSubmenu, setShowStatusSubmenu] = useState(false);
   const [selectedInboxFilter, setSelectedInboxFilter] = useState<Set<string>>(new Set());
   const [conversationsTotal, setConversationsTotal] = useState(0);
   const [loadingConversations, setLoadingConversations] = useState(false);
@@ -272,7 +289,10 @@ export function Conversaciones() {
   useEffect(() => {
     if (!chatHeaderMenuOpen) return;
     function handleClick(e: MouseEvent) {
-      if (chatHeaderMenuRef.current && !chatHeaderMenuRef.current.contains(e.target as Node)) setChatHeaderMenuOpen(false);
+      if (chatHeaderMenuRef.current && !chatHeaderMenuRef.current.contains(e.target as Node)) {
+        setChatHeaderMenuOpen(false);
+        setShowStatusSubmenu(false);
+      }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -629,6 +649,41 @@ export function Conversaciones() {
     return conv.contactName || conv.contactId;
   };
 
+  const handleCreateEvent = async () => {
+    const recordId = activeConversation?.record?.id;
+    if (!recordId || !tenantId || !eventForm.name) return;
+    try {
+      await createContactEvent({
+        tenantId,
+        recordId,
+        type: eventForm.type,
+        name: eventForm.name,
+        value: eventForm.value ? parseFloat(eventForm.value) : undefined,
+        currency: eventForm.currency,
+        actorId: user?.id,
+        actorName: user?.name,
+      });
+      toast.success("Evento registrado");
+      setShowEventForm(false);
+      setEventForm({ type: 'purchase', name: '', value: '', currency: 'COP' });
+    } catch {
+      toast.error("Error al registrar evento");
+    }
+  };
+
+  const handleChangeStatus = async (newStatus: string) => {
+    const recordId = activeConversation?.record?.id;
+    if (!recordId) return;
+    try {
+      await api.put(`/records/${recordId}`, { status: newStatus });
+      toast.success(`Estado cambiado a "${STATUS_OPTIONS.find(s => s.value === newStatus)?.label || newStatus}"`);
+      setChatHeaderMenuOpen(false);
+      setShowStatusSubmenu(false);
+    } catch {
+      toast.error("Error al cambiar estado");
+    }
+  };
+
   // Check if the 24h messaging window is closed for messaging channels
   const isWindowClosed = (() => {
     if (!activeConversation) return false;
@@ -961,6 +1016,46 @@ export function Conversaciones() {
                         <Eye className="h-4 w-4 text-gray-400" />
                         Ver Contacto
                       </button>
+                      <button
+                        onClick={() => {
+                          setChatHeaderMenuOpen(false);
+                          setShowEventForm(true);
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Zap className="h-4 w-4 text-amber-500" />
+                        Agregar evento de conversión
+                      </button>
+                      {/* Cambiar estado - con submenu */}
+                      <div
+                        className="relative"
+                        onMouseEnter={() => setShowStatusSubmenu(true)}
+                        onMouseLeave={() => setShowStatusSubmenu(false)}
+                      >
+                        <button
+                          className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <span className="flex items-center gap-2">
+                            <ArrowRightLeft className="h-4 w-4 text-gray-400" />
+                            Cambiar estado
+                          </span>
+                          <ChevronLeft className="h-3.5 w-3.5 text-gray-400" />
+                        </button>
+                        {showStatusSubmenu && (
+                          <div className="absolute right-full top-0 mr-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                            {STATUS_OPTIONS.map((status) => (
+                              <button
+                                key={status.value}
+                                onClick={() => handleChangeStatus(status.value)}
+                                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                              >
+                                <span className={`h-2.5 w-2.5 rounded-full ${status.color}`} />
+                                {status.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1515,6 +1610,125 @@ export function Conversaciones() {
                   Eliminar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Registration Modal */}
+      {showEventForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowEventForm(false)}>
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-amber-50 to-orange-50">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                  <Zap className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900">Registrar evento de conversión</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Este evento queda en el historial del contacto y puede notificarse a plataformas de ads</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-5">
+              {/* Event Type Selection */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">¿Qué ocurrió?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { value: 'purchase', label: 'Compra', desc: 'Venta cerrada', icon: ShoppingCart, color: 'text-green-600' },
+                    { value: 'appointment', label: 'Cita', desc: 'Reunión agendada', icon: CalendarCheck, color: 'text-blue-600' },
+                    { value: 'demo', label: 'Demo', desc: 'Demostración realizada', icon: Presentation, color: 'text-purple-600' },
+                    { value: 'qualified', label: 'Calificado', desc: 'Lead cualificado', icon: Star, color: 'text-amber-600' },
+                    { value: 'proposal', label: 'Propuesta', desc: 'Cotización enviada', icon: FileText, color: 'text-indigo-600' },
+                    { value: 'registration', label: 'Registro', desc: 'Se registró', icon: UserPlus, color: 'text-cyan-600' },
+                    { value: 'subscription', label: 'Suscripción', desc: 'Plan activado', icon: ArrowRightLeft, color: 'text-emerald-600' },
+                    { value: 'custom', label: 'Otro', desc: 'Evento personalizado', icon: Zap, color: 'text-gray-600' },
+                  ] as const).map((opt) => {
+                    const Icon = opt.icon;
+                    const isSelected = eventForm.type === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => setEventForm({ ...eventForm, type: opt.value, name: eventForm.name || opt.label })}
+                        className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all ${isSelected ? "border-brand-500 bg-brand-50/50 ring-1 ring-brand-500/20" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}
+                      >
+                        <Icon className={`h-4 w-4 shrink-0 ${isSelected ? opt.color : "text-gray-400"}`} />
+                        <div>
+                          <p className={`text-sm font-medium ${isSelected ? "text-gray-900" : "text-gray-700"}`}>{opt.label}</p>
+                          <p className="text-[10px] text-gray-400">{opt.desc}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Event Name */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Nombre del evento</label>
+                <input
+                  type="text"
+                  value={eventForm.name}
+                  onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })}
+                  placeholder="Ej: Compra Plan Premium, Demo producto, Cita presencial..."
+                  className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
+                />
+                <p className="text-[11px] text-gray-400 mt-1">Describe brevemente qué pasó con este contacto</p>
+              </div>
+
+              {/* Value */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Valor monetario <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={eventForm.value}
+                    onChange={(e) => setEventForm({ ...eventForm, value: e.target.value })}
+                    placeholder="0"
+                    className="flex-1 px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
+                  />
+                  <select
+                    value={eventForm.currency}
+                    onChange={(e) => setEventForm({ ...eventForm, currency: e.target.value })}
+                    className="w-24 px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
+                  >
+                    <option value="COP">COP</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="MXN">MXN</option>
+                  </select>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">Si este evento tiene un valor de venta, se reportará a las plataformas de ads</p>
+              </div>
+
+              {/* Info box */}
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-blue-50 border border-blue-100">
+                <svg className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <p className="text-[11px] text-blue-700 leading-relaxed">
+                  Si este contacto llegó desde un anuncio (Google, Meta, TikTok), este evento se reportará automáticamente a la plataforma de ads como una conversión.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowEventForm(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateEvent}
+                disabled={!eventForm.name}
+                className="px-5 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors disabled:opacity-50 shadow-sm"
+              >
+                Registrar evento
+              </button>
             </div>
           </div>
         </div>

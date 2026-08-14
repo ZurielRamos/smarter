@@ -246,13 +246,17 @@ export interface ClientRecord {
   fullName: string | null;
   documentType: string | null;
   documentNumber: string | null;
+  company: string | null;
+  jobTitle: string | null;
   phone: string | null;
   countryCode: string | null;
   email: string | null;
+  website: string | null;
   gender: string | null;
   birthDate: string | null;
   city: string | null;
   region: string | null;
+  address: string | null;
   status: string | null;
   channelSource: string | null;
   source: string | null;
@@ -265,6 +269,7 @@ export interface ClientRecord {
   lastContactAt: string | null;
   lastActivityAt: string | null;
   tags: string[] | null;
+  notes: string | null;
   customData: Record<string, any> | null;
   hasAdTracking?: boolean;
   adFirstPlatform?: string | null;

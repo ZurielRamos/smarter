@@ -15,16 +15,21 @@ const SYSTEM_FIELDS = [
   { fieldKey: 'fullName', fieldLabel: 'Nombre completo', fieldType: 'text', fieldGroup: 'identificacion' },
   { fieldKey: 'documentType', fieldLabel: 'Tipo de documento', fieldType: 'select', options: ['CC', 'CE', 'NIT', 'TI', 'Pasaporte', 'RUT'], fieldGroup: 'identificacion' },
   { fieldKey: 'documentNumber', fieldLabel: 'Número de documento', fieldType: 'text', fieldGroup: 'identificacion' },
+  { fieldKey: 'company', fieldLabel: 'Empresa', fieldType: 'text', fieldGroup: 'identificacion' },
+  { fieldKey: 'jobTitle', fieldLabel: 'Cargo', fieldType: 'text', fieldGroup: 'identificacion' },
   // Contacto
   { fieldKey: 'phone', fieldLabel: 'Teléfono', fieldType: 'text', fieldGroup: 'contacto' },
   { fieldKey: 'countryCode', fieldLabel: 'Código de país', fieldType: 'text', fieldGroup: 'contacto' },
   { fieldKey: 'email', fieldLabel: 'Email', fieldType: 'text', fieldGroup: 'contacto' },
+  { fieldKey: 'website', fieldLabel: 'Sitio web', fieldType: 'url', fieldGroup: 'contacto' },
+  { fieldKey: 'language', fieldLabel: 'Idioma preferido', fieldType: 'select', options: ['es', 'en', 'pt', 'fr', 'de'], fieldGroup: 'contacto' },
   // Demografía
   { fieldKey: 'gender', fieldLabel: 'Género', fieldType: 'select', options: ['male', 'female', 'other', 'prefer_not_to_say'], fieldGroup: 'demografia' },
   { fieldKey: 'birthDate', fieldLabel: 'Fecha de nacimiento', fieldType: 'date', fieldGroup: 'demografia' },
   // Ubicación
   { fieldKey: 'city', fieldLabel: 'Ciudad', fieldType: 'text', fieldGroup: 'ubicacion' },
   { fieldKey: 'region', fieldLabel: 'Departamento / Estado', fieldType: 'text', fieldGroup: 'ubicacion' },
+  { fieldKey: 'address', fieldLabel: 'Dirección', fieldType: 'text', fieldGroup: 'ubicacion' },
   // Segmentación
   { fieldKey: 'status', fieldLabel: 'Estado', fieldType: 'select', options: ['lead', 'contactado', 'interesado', 'oportunidad', 'cliente', 'premium', 'fidelizado', 'inactivo', 'perdido'], fieldGroup: 'segmentacion' },
   { fieldKey: 'channelSource', fieldLabel: 'Canal de origen', fieldType: 'select', options: ['whatsapp', 'messenger', 'instagram', 'sms', 'llamada', 'email', 'web', 'formulario', 'landing', 'referido', 'campaña', 'import', 'manual', 'api'], fieldGroup: 'segmentacion' },
@@ -38,6 +43,8 @@ const SYSTEM_FIELDS = [
   { fieldKey: 'lastActivityAt', fieldLabel: 'Última actividad', fieldType: 'date', fieldGroup: 'actividad' },
   // Meta
   { fieldKey: 'tags', fieldLabel: 'Etiquetas', fieldType: 'array', fieldGroup: 'segmentacion' },
+  // General
+  { fieldKey: 'notes', fieldLabel: 'Notas rápidas', fieldType: 'text', fieldGroup: 'general' },
 ];
 
 @Injectable()
@@ -149,5 +156,41 @@ export class TenantsService {
       relations: { user: true },
       order: { createdAt: 'ASC' },
     });
+  }
+
+  /**
+   * Seed missing system fields to all existing tenants.
+   * Safe to run multiple times — skips tenants that already have the field.
+   */
+  async seedMissingFieldsToAllTenants(): Promise<{ updated: number }> {
+    const tenants = await this.tenantRepo.find();
+    let updated = 0;
+
+    for (const tenant of tenants) {
+      const existingFields = await this.customFieldRepo.find({ where: { tenantId: tenant.id } });
+      const existingKeys = new Set(existingFields.map((f) => f.fieldKey));
+
+      const missing = SYSTEM_FIELDS.filter((f) => !existingKeys.has(f.fieldKey));
+      if (missing.length === 0) continue;
+
+      const maxOrder = existingFields.reduce((max, f) => Math.max(max, f.sortOrder), 0);
+      const newFields = missing.map((field, i) =>
+        this.customFieldRepo.create({
+          tenantId: tenant.id,
+          fieldKey: field.fieldKey,
+          fieldLabel: field.fieldLabel,
+          fieldType: field.fieldType,
+          fieldGroup: field.fieldGroup,
+          options: field.options || null,
+          isRequired: false,
+          isSystem: true,
+          sortOrder: maxOrder + i + 1,
+        }),
+      );
+      await this.customFieldRepo.save(newFields);
+      updated++;
+    }
+
+    return { updated };
   }
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Settings2, Users, Clock, UserPlus, X, Loader2, Save, CheckCircle2, MessageSquare, Activity, Shield, TrendingUp, Globe, Mail as MailIcon, MapPin, Building2, ExternalLink, Edit3, Upload, Camera, RefreshCw } from "lucide-react";
+import { Settings2, Users, Clock, UserPlus, X, Loader2, Save, CheckCircle2, MessageSquare, Activity, Shield, TrendingUp, Globe, Mail as MailIcon, MapPin, Building2, ExternalLink, Edit3, Upload, Camera, RefreshCw, Bot } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { InboxSettingsContent } from "@/components/InboxSettingsContent";
 import { WhatsAppTemplatesManager } from "@/components/WhatsAppTemplatesManager";
@@ -645,7 +645,174 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
   );
 }
 
-type Tab = "estado" | "ajustes" | "colaboradores" | "horarios" | "plantillas";
+interface BotOption {
+  id: string;
+  name: string;
+  status: string;
+  description: string | null;
+}
+
+function BotsTab({ inboxId, tenantId }: { inboxId: string; tenantId: string }) {
+  const [bots, setBots] = useState<BotOption[]>([]);
+  const [assignedBotId, setAssignedBotId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      api.get<BotOption[]>("/bots", { params: { tenantId } }),
+      api.get(`/chats/inboxes/${inboxId}`),
+    ]).then(([botsRes, inboxRes]) => {
+      setBots(botsRes.data);
+      setAssignedBotId(inboxRes.data.botId || null);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [inboxId, tenantId]);
+
+  const handleAssign = async (botId: string | null) => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await api.put(`/chats/inboxes/${inboxId}`, { botId });
+      setAssignedBotId(botId);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {} finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>;
+
+  const assignedBot = bots.find((b) => b.id === assignedBotId);
+
+  return (
+    <div className="flex-1 overflow-y-auto p-5">
+      <div className="max-w-2xl">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-900">Bot de respuesta automática</h3>
+          <p className="text-[11px] text-gray-400 mt-0.5">Asigna un bot para que responda automáticamente los chats entrantes de este canal</p>
+        </div>
+
+        {/* Currently assigned bot */}
+        {assignedBot ? (
+          <div className="bg-white rounded-xl border border-green-200 p-4 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center">
+                <Bot className="h-5 w-5 text-green-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900">{assignedBot.name}</p>
+                {assignedBot.description && (
+                  <p className="text-[11px] text-gray-500 truncate">{assignedBot.description}</p>
+                )}
+                <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                  assignedBot.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+                }`}>
+                  {assignedBot.status}
+                </span>
+              </div>
+              <button
+                onClick={() => handleAssign(null)}
+                disabled={saving}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-medium disabled:opacity-50 transition-colors"
+              >
+                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                Desasignar
+              </button>
+            </div>
+            {assignedBot.status !== "active" && (
+              <div className="mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-100">
+                <p className="text-[11px] text-amber-800">
+                  <strong>Atención:</strong> El bot no está activo. Actívalo desde el módulo de Bots para que responda automáticamente.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-gray-50 rounded-xl border border-dashed border-gray-200 p-6 mb-4 text-center">
+            <Bot className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-500">Sin bot asignado</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Selecciona un bot de la lista para activar respuestas automáticas</p>
+          </div>
+        )}
+
+        {saved && (
+          <div className="flex items-center gap-1.5 mb-4 text-xs text-green-600">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Cambios guardados
+          </div>
+        )}
+
+        {/* Available bots list */}
+        <div>
+          <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Bots disponibles</h4>
+          {bots.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-xs text-gray-400">No hay bots creados</p>
+              <p className="text-[11px] text-gray-400 mt-1">Crea un bot en el módulo de Bots para poder asignarlo aquí</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {bots.map((bot) => {
+                const isAssigned = bot.id === assignedBotId;
+                return (
+                  <div
+                    key={bot.id}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors ${
+                      isAssigned
+                        ? "border-green-200 bg-green-50/50"
+                        : "border-gray-200 bg-white hover:border-brand-200 hover:bg-brand-50/20"
+                    }`}
+                  >
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
+                      isAssigned ? "bg-green-100" : "bg-gray-100"
+                    }`}>
+                      <Bot className={`h-4 w-4 ${isAssigned ? "text-green-600" : "text-gray-500"}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900">{bot.name}</p>
+                      {bot.description && (
+                        <p className="text-[10px] text-gray-400 truncate">{bot.description}</p>
+                      )}
+                    </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                      bot.status === "active" ? "bg-green-100 text-green-700" :
+                      bot.status === "draft" ? "bg-yellow-100 text-yellow-700" :
+                      "bg-gray-100 text-gray-600"
+                    }`}>
+                      {bot.status}
+                    </span>
+                    {isAssigned ? (
+                      <span className="text-[10px] text-green-600 font-medium px-2">Asignado</span>
+                    ) : (
+                      <button
+                        onClick={() => handleAssign(bot.id)}
+                        disabled={saving}
+                        className="px-3 py-1.5 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-xs font-medium disabled:opacity-50 transition-colors"
+                      >
+                        {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Asignar"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-100">
+          <p className="text-[11px] text-blue-800">
+            <strong>Nota:</strong> Cuando un bot está asignado y activo, responderá automáticamente a todos los mensajes entrantes del canal. Los agentes humanos pueden tomar el control en cualquier momento.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type Tab = "estado" | "ajustes" | "colaboradores" | "horarios" | "plantillas" | "bots";
 
 export function CanalDetail() {
   const { slug, inboxId } = useParams();
@@ -673,6 +840,7 @@ export function CanalDetail() {
     { key: "horarios", label: "Horarios", icon: Clock },
     ...(inboxChannel === "whatsapp" ? [{ key: "plantillas" as Tab, label: "Plantillas", icon: MessageSquare }] : []),
     ...(inboxChannel === "email" ? [{ key: "plantillas" as Tab, label: "Plantillas", icon: MailIcon }] : []),
+    ...(["whatsapp", "instagram", "messenger"].includes(inboxChannel || "") ? [{ key: "bots" as Tab, label: "Bots", icon: Bot }] : []),
   ];
 
   return (
@@ -721,6 +889,10 @@ export function CanalDetail() {
 
       {activeTab === "plantillas" && inboxChannel === "email" && (
         <EmailTemplatesManager inboxId={inboxId} tenantId={tenantId} />
+      )}
+
+      {activeTab === "bots" && (
+        <BotsTab inboxId={inboxId} tenantId={tenantId} />
       )}
     </div>
   );

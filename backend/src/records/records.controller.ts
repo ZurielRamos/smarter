@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Res } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Res, Req } from '@nestjs/common';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
@@ -10,7 +10,7 @@ export class RecordsController {
   constructor(private readonly recordsService: RecordsService) {}
 
   @Post()
-  create(@Body() body: { tenantId: string; firstName?: string; lastName?: string; phone?: string; email?: string; status?: string; channelSource?: string; tags?: string[]; customData?: Record<string, any> }) {
+  create(@Body() body: { tenantId: string; firstName?: string; lastName?: string; company?: string; jobTitle?: string; phone?: string; email?: string; website?: string; status?: string; channelSource?: string; tags?: string[]; notes?: string; customData?: Record<string, any> }) {
     return this.recordsService.createRecord(body);
   }
 
@@ -181,10 +181,10 @@ export class RecordsController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() body: Partial<{ avatarUrl: string; firstName: string; lastName: string; phone: string; countryCode: string; email: string; documentType: string; documentNumber: string; gender: string; birthDate: string; city: string; region: string; status: string; channelSource: string; source: string; score: number; optInWhatsapp: boolean; optInEmail: boolean; assignedTo: string; assignedTeamId: string; tags: string[]; customData: Record<string, any> }>) {
+  update(@Param('id') id: string, @Body() body: Partial<{ avatarUrl: string; firstName: string; lastName: string; company: string; jobTitle: string; phone: string; countryCode: string; email: string; website: string; documentType: string; documentNumber: string; gender: string; birthDate: string; city: string; region: string; address: string; status: string; channelSource: string; source: string; score: number; optInWhatsapp: boolean; optInEmail: boolean; assignedTo: string; assignedTeamId: string; tags: string[]; notes: string; customData: Record<string, any> }>, @Req() req: any) {
     const data: any = { ...body };
     if (data.birthDate) data.birthDate = new Date(data.birthDate);
-    return this.recordsService.updateRecord(id, data);
+    return this.recordsService.updateRecord(id, data, { actorId: req.user?.id, actorName: req.user?.name });
   }
 
   @Delete(':id')

@@ -35,7 +35,7 @@ export class ChatsController {
   }
 
   @Put('inboxes/:id')
-  updateInbox(@Param('id') id: string, @Body() body: Partial<{ name: string; status: string; accessToken: string | null; pageId: string | null; phoneNumberId: string | null; wabaId: string | null; channelName: string | null }>) {
+  updateInbox(@Param('id') id: string, @Body() body: Partial<{ name: string; status: string; accessToken: string | null; pageId: string | null; phoneNumberId: string | null; wabaId: string | null; channelName: string | null; botId: string | null; metadata: Record<string, any> }>) {
     return this.chatsService.updateInbox(id, body);
   }
 

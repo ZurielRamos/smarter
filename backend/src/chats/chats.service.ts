@@ -14,6 +14,7 @@ import { BillingService } from '../billing/billing.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ConversionsService } from '../conversions/conversions.service';
+import { BotsService } from '../bots/bots.service';
 
 @Injectable()
 export class ChatsService {
@@ -37,6 +38,7 @@ export class ChatsService {
     private readonly webhooksService: WebhooksService,
     private readonly notificationsService: NotificationsService,
     private readonly conversionsService: ConversionsService,
+    private readonly botsService: BotsService,
   ) {}
 
   // === INBOXES ===
@@ -755,6 +757,9 @@ export class ChatsService {
         contact: contactRecord,
         inbox: { id: inbox.id, name: inbox.name, channel: inbox.channel },
       }).catch(() => {});
+
+      // Trigger bot auto-reply if a bot is assigned
+      this.triggerBotReply(inbox, conversation, content).catch(() => {});
     }
   }
 
@@ -938,6 +943,9 @@ export class ChatsService {
     // Emit real-time events
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
+
+    // Trigger bot auto-reply if a bot is assigned
+    this.triggerBotReply(inbox, conversation, content).catch(() => {});
   }
 
   private async handleInstagramMessage(igAccountId: string, value: any): Promise<void> {
@@ -1013,6 +1021,47 @@ export class ChatsService {
     conversation.lastMessageAt = new Date();
     conversation.unreadCount = (conversation.unreadCount || 0) + 1;
     await this.conversationRepo.save(conversation);
+
+    // Emit real-time events
+    this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
+    this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
+
+    // Trigger bot auto-reply if a bot is assigned
+    this.triggerBotReply(inbox, conversation, content).catch(() => {});
+  }
+
+  // === BOT AUTO-REPLY ===
+
+  private async triggerBotReply(inbox: Inbox, conversation: any, inboundContent: string | null): Promise<void> {
+    if (!inbox.botId || !inboundContent) return;
+
+    try {
+      // Verify bot exists and is active
+      const bot = await this.botsService.findOne(inbox.botId);
+      if (!bot || bot.status !== 'active') return;
+
+      // Load recent messages for context (last 20)
+      const recentMessages = await this.messageRepo.find({
+        where: { conversationId: conversation.id },
+        order: { createdAt: 'ASC' },
+        take: 20,
+      });
+
+      // Build messages array for the bot
+      const messages = recentMessages.map((m) => ({
+        role: m.direction === 'inbound' ? 'user' : 'assistant',
+        content: m.content || '',
+      })).filter((m) => m.content);
+
+      // Get bot response
+      const response = await this.botsService.chat(inbox.botId, messages);
+      if (!response?.content) return;
+
+      // Send the bot reply through the normal send flow
+      await this.sendMessage(conversation.id, response.content, 'text', 'bot');
+    } catch (err) {
+      console.error(`[Bot Auto-Reply] Error for inbox ${inbox.id}:`, err);
+    }
   }
 
   // === CONVERSATIONS ===

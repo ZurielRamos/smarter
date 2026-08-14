@@ -19,6 +19,7 @@ import { WebhooksModule } from '../webhooks/webhooks.module';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ConversionsModule } from '../conversions/conversions.module';
+import { BotsModule } from '../bots/bots.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ConversionsModule } from '../conversions/conversions.module';
     UsersModule,
     NotificationsModule,
     ConversionsModule,
+    BotsModule,
   ],
   providers: [ChatsService, ChatsGateway, WebhookForwarderService],
   controllers: [ChatsController, ApiConversationsController, ApiMessagesController, ApiInboxesController, WebhookController],

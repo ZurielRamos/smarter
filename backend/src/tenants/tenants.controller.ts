@@ -183,4 +183,10 @@ export class TenantsController {
       offset: offset ? parseInt(offset, 10) : undefined,
     });
   }
+
+  @Post('seed-fields')
+  @UseGuards(SuperAdminGuard)
+  seedMissingFields() {
+    return this.tenantsService.seedMissingFieldsToAllTenants();
+  }
 }

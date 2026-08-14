@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Trash2, ChevronDown, CheckCheck, Pencil, Tag, Plus } from "lucide-react";
+import { X, Trash2, ChevronDown, CheckCheck, Pencil, Tag, Plus, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { CustomField } from "@/services/api";
 
@@ -10,8 +10,8 @@ interface BulkActionBarProps {
   fields: CustomField[];
   onClear: () => void;
   onSelectAll: () => void;
-  onBulkUpdate: (updates: Record<string, any>) => void;
-  onAddTag: (tag: string) => void;
+  onBulkUpdate: (updates: Record<string, any>) => Promise<void> | void;
+  onAddTag: (tag: string) => Promise<void> | void;
   onDelete: () => void;
 }
 
@@ -25,6 +25,7 @@ export function BulkActionBar({ count, allSelected, total, fields, onClear, onSe
   const [fieldValue, setFieldValue] = useState("");
   const [tagValue, setTagValue] = useState("");
   const [valueOpen, setValueOpen] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
   const editRef = useRef<HTMLDivElement>(null);
   const tagRef = useRef<HTMLDivElement>(null);
   const valueRef = useRef<HTMLDivElement>(null);
@@ -50,7 +51,8 @@ export function BulkActionBar({ count, allSelected, total, fields, onClear, onSe
     let value: any = fieldValue;
     if (selectedField.fieldType === "boolean") value = fieldValue === "true";
     if (selectedField.fieldType === "number") value = Number(fieldValue);
-    onBulkUpdate({ [key]: value });
+    setBulkLoading(true);
+    Promise.resolve(onBulkUpdate({ [key]: value })).finally(() => setBulkLoading(false));
     setEditOpen(false);
     setSelectedField(null);
     setFieldValue("");
@@ -58,7 +60,8 @@ export function BulkActionBar({ count, allSelected, total, fields, onClear, onSe
 
   function handleAddTag() {
     if (!tagValue.trim()) return;
-    onAddTag(tagValue.trim());
+    setBulkLoading(true);
+    Promise.resolve(onAddTag(tagValue.trim())).finally(() => setBulkLoading(false));
     setTagValue("");
     setTagOpen(false);
   }
@@ -70,6 +73,12 @@ export function BulkActionBar({ count, allSelected, total, fields, onClear, onSe
       exit={{ opacity: 0, y: 20 }}
       className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-xl bg-gray-900 text-white shadow-2xl border border-gray-700"
     >
+      {bulkLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/90 rounded-xl z-10">
+          <Loader2 className="h-5 w-5 animate-spin text-brand-400" />
+          <span className="ml-2 text-sm text-gray-300">Procesando...</span>
+        </div>
+      )}
       {/* Selection count */}
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium">

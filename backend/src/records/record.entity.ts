@@ -55,6 +55,12 @@ export class ClientRecord {
   documentNumber: string;
 
   @Column({ type: 'varchar', nullable: true })
+  company: string;
+
+  @Column({ name: 'job_title', type: 'varchar', nullable: true })
+  jobTitle: string;
+
+  @Column({ type: 'varchar', nullable: true })
   phone: string;
 
   @Column({ name: 'country_code', type: 'varchar', length: 5, nullable: true })
@@ -62,6 +68,9 @@ export class ClientRecord {
 
   @Column({ type: 'varchar', nullable: true })
   email: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  website: string;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
   gender: string; // male, female, other, prefer_not_to_say
@@ -75,6 +84,9 @@ export class ClientRecord {
 
   @Column({ type: 'varchar', nullable: true })
   region: string; // departamento, estado, provincia
+
+  @Column({ type: 'varchar', nullable: true })
+  address: string;
 
   // === ESTADO Y SEGMENTACIÓN ===
   @Column({ type: 'varchar', default: 'lead' })
@@ -119,6 +131,9 @@ export class ClientRecord {
   deletedAt: Date | null;
 
   // === ETIQUETAS Y DATOS CUSTOM ===
+  @Column({ type: 'text', nullable: true })
+  notes: string;
+
   @Column({ type: 'jsonb', nullable: true })
   tags: string[];
 

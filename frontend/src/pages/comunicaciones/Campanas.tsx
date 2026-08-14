@@ -155,14 +155,11 @@ export function Campanas() {
     <>
       {/* Campaign list sidebar */}
       <div className="w-80 border-r border-gray-200 flex flex-col shrink-0">
-        <div className="px-3 py-2.5 border-b border-gray-100 flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900">Campañas</h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">{campaigns.length} campañas</p>
-          </div>
+        <div className="px-3 py-3 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase">Campañas</h3>
           <button
             onClick={() => setShowModal(true)}
-            className="p-1.5 rounded-lg text-brand-600 hover:bg-brand-50 transition-colors"
+            className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
             title="Nueva campaña"
           >
             <Plus className="h-4 w-4" />

@@ -57,6 +57,10 @@ export class Inbox {
   @Column({ name: 'channel_name', type: 'varchar', nullable: true })
   channelName: string | null;
 
+  // Bot assigned to this inbox (auto-reply)
+  @Column({ name: 'bot_id', type: 'uuid', nullable: true })
+  botId: string | null;
+
   // Extra metadata (avatar url, etc.)
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any> | null;

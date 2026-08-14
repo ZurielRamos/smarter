@@ -36,6 +36,7 @@ import { PlantillaDetail } from "./pages/comunicaciones/PlantillaDetail";
 import { Bots } from "./pages/comunicaciones/Bots";
 import { BotEmpty } from "./pages/comunicaciones/BotEmpty";
 import { BotDetail } from "./pages/comunicaciones/BotDetail";
+import { BotConfig } from "./pages/comunicaciones/BotConfig";
 import { NewInbox } from "./pages/NewInbox";
 import { Inboxes } from "./pages/Inboxes";
 import { InboxSettings } from "./pages/InboxSettings";
@@ -155,6 +156,7 @@ function App() {
               <Route path="bots" element={<Bots />}>
                 <Route index element={<BotEmpty />} />
                 <Route path=":botId" element={<BotDetail />} />
+                <Route path=":botId/config" element={<BotConfig />} />
               </Route>
             </Route>
             <Route path="/:slug/inboxes" element={<Inboxes />} />

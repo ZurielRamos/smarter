@@ -55,7 +55,7 @@ export class RecordsService {
     return this.recordRepository.findOne({ where: { id } });
   }
 
-  async updateRecord(id: string, data: Partial<ClientRecord>): Promise<ClientRecord> {
+  async updateRecord(id: string, data: Partial<ClientRecord>, actor?: { actorId?: string; actorName?: string }): Promise<ClientRecord> {
     const before = await this.recordRepository.findOne({ where: { id } });
     await this.recordRepository.update(id, data as any);
     const updated = await this.recordRepository.findOne({ where: { id } }) as ClientRecord;
@@ -63,7 +63,7 @@ export class RecordsService {
       this.webhooksService.dispatch(updated.tenantId, 'contact_updated', updated).catch(() => {});
       // Log activity for status changes
       if (data.status && before && before.status !== data.status) {
-        this.logActivity({ tenantId: updated.tenantId, recordId: id, type: 'status_changed', description: `Estado cambiado de ${before.status} a ${data.status}`, metadata: { from: before.status, to: data.status } }).catch(() => {});
+        this.logActivity({ tenantId: updated.tenantId, recordId: id, type: 'status_changed', description: `Estado cambiado de ${before.status} a ${data.status}`, metadata: { from: before.status, to: data.status }, actorId: actor?.actorId, actorName: actor?.actorName }).catch(() => {});
         // Dispatch conversion event to ad platforms
         this.conversionsService.dispatchConversion({
           tenantId: updated.tenantId,
@@ -76,7 +76,7 @@ export class RecordsService {
       }
       // Log activity for assignment changes
       if (data.assignedTo !== undefined && before && before.assignedTo !== data.assignedTo) {
-        this.logActivity({ tenantId: updated.tenantId, recordId: id, type: 'assigned', description: data.assignedTo ? 'Agente asignado' : 'Asignación removida', metadata: { assignedTo: data.assignedTo } }).catch(() => {});
+        this.logActivity({ tenantId: updated.tenantId, recordId: id, type: 'assigned', description: data.assignedTo ? 'Agente asignado' : 'Asignación removida', metadata: { assignedTo: data.assignedTo }, actorId: actor?.actorId, actorName: actor?.actorName }).catch(() => {});
         // Notify the newly assigned agent
         if (data.assignedTo) {
           const contactName = updated.firstName || updated.lastName ? `${updated.firstName || ''} ${updated.lastName || ''}`.trim() : (updated.phone || 'Contacto');
@@ -91,7 +91,7 @@ export class RecordsService {
         }
       }
       if (data.assignedTeamId !== undefined && before && before.assignedTeamId !== data.assignedTeamId) {
-        this.logActivity({ tenantId: updated.tenantId, recordId: id, type: 'assigned', description: data.assignedTeamId ? 'Equipo asignado' : 'Equipo removido', metadata: { assignedTeamId: data.assignedTeamId } }).catch(() => {});
+        this.logActivity({ tenantId: updated.tenantId, recordId: id, type: 'assigned', description: data.assignedTeamId ? 'Equipo asignado' : 'Equipo removido', metadata: { assignedTeamId: data.assignedTeamId }, actorId: actor?.actorId, actorName: actor?.actorName }).catch(() => {});
       }
     }
     return updated;
@@ -687,7 +687,12 @@ export class RecordsService {
     const sample = await this.recordRepository.findOne({ where: { id: ids[0] } });
     const tenantId = sample?.tenantId;
 
-    await this.recordRepository.update(ids, updates as any);
+    // Process in batches to avoid PostgreSQL parameter limit (~32767)
+    const BATCH_SIZE = 5000;
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const batch = ids.slice(i, i + BATCH_SIZE);
+      await this.recordRepository.update(batch, updates as any);
+    }
 
     // Log activities in bulk (async, non-blocking)
     if (tenantId) {
@@ -706,7 +711,12 @@ export class RecordsService {
       }
 
       if (activities.length > 0) {
-        this.activityRepository.save(activities.map((a) => this.activityRepository.create(a))).catch(() => {});
+        // Batch activity saves to avoid memory issues with large sets
+        const ACT_BATCH = 2000;
+        for (let i = 0; i < activities.length; i += ACT_BATCH) {
+          const batch = activities.slice(i, i + ACT_BATCH);
+          this.activityRepository.save(batch.map((a) => this.activityRepository.create(a))).catch(() => {});
+        }
       }
     }
 

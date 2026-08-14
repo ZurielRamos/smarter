@@ -103,30 +103,24 @@ export function Agentes() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900">Agentes</h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">{agents.length} de {maxAgents} agentes</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-              <Users className="h-3.5 w-3.5" />
-              <span className="font-medium">{agents.length}/{maxAgents}</span>
-            </div>
-            {!isAtLimit && (
-              <button
-                onClick={() => setShowInviteModal(true)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-xs font-medium transition-colors"
-              >
-                <Plus className="h-3 w-3" />
-                Agregar
-              </button>
-            )}
-          </div>
+      <div className="px-3 py-3 border-b border-gray-100 flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase">Agentes</h3>
+        {!isAtLimit && (
+          <button
+            onClick={() => setShowInviteModal(true)}
+            className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            title="Agregar agente"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2">
+        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          <Users className="h-3.5 w-3.5" />
+          <span className="font-medium">{agents.length}/{maxAgents}</span>
         </div>
-        {/* Capacity bar */}
-        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${isAtLimit ? "bg-red-500" : isNearLimit ? "bg-amber-500" : "bg-brand-500"}`}
             style={{ width: `${usagePercent}%` }}

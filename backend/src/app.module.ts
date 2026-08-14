@@ -22,6 +22,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ConversionsModule } from './conversions/conversions.module';
 import { TemplatesModule } from './templates/templates.module';
+import { BotsModule } from './bots/bots.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { TemplatesModule } from './templates/templates.module';
     NotificationsModule,
     ConversionsModule,
     TemplatesModule,
+    BotsModule,
   ],
   providers: [
     {
