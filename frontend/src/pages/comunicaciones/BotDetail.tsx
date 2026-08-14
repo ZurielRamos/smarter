@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Bot, Settings2, Play, Pause, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import axios from "axios";
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
@@ -35,6 +37,7 @@ export function BotDetail() {
   const navigate = useNavigate();
   const [bot, setBot] = useState<BotData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (!botId) return;
@@ -50,6 +53,29 @@ export function BotDetail() {
       // handle error
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleStatus = async () => {
+    if (!bot || !botId) return;
+    const newStatus = bot.status === "active" ? "inactive" : "active";
+    try {
+      const { data } = await api.put<BotData>(`/bots/${botId}`, { status: newStatus });
+      setBot(data);
+      toast.success(newStatus === "active" ? "Bot activado" : "Bot pausado");
+    } catch {
+      toast.error("Error al cambiar estado");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!botId) return;
+    try {
+      await api.delete(`/bots/${botId}`);
+      toast.success("Bot eliminado");
+      navigate(`/${slug}/comunicaciones/bots`);
+    } catch {
+      toast.error("Error al eliminar el bot");
     }
   };
 
@@ -158,22 +184,32 @@ export function BotDetail() {
         {/* Actions */}
         <div className="mt-4 flex gap-2">
           {bot.status === "active" ? (
-            <Button variant="outline" size="sm" className="gap-1.5 text-orange-600 hover:text-orange-700">
+            <Button variant="outline" size="sm" className="gap-1.5 text-orange-600 hover:text-orange-700" onClick={handleToggleStatus}>
               <Pause className="h-3.5 w-3.5" />
               Pausar
             </Button>
           ) : (
-            <Button variant="outline" size="sm" className="gap-1.5 text-green-600 hover:text-green-700">
+            <Button variant="outline" size="sm" className="gap-1.5 text-green-600 hover:text-green-700" onClick={handleToggleStatus}>
               <Play className="h-3.5 w-3.5" />
               Activar
             </Button>
           )}
-          <Button variant="outline" size="sm" className="gap-1.5 text-red-600 hover:text-red-700">
+          <Button variant="outline" size="sm" className="gap-1.5 text-red-600 hover:text-red-700" onClick={() => setShowDeleteConfirm(true)}>
             <Trash2 className="h-3.5 w-3.5" />
             Eliminar
           </Button>
         </div>
       </div>
+
+      <ConfirmModal
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        title="Eliminar bot"
+        description="Se eliminará el bot y toda su configuración permanentemente. Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        variant="danger"
+      />
     </div>
   );
 }

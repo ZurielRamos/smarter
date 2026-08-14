@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { MessageSquare, Send, Wifi, WifiOff, MessageCircle, Phone, Camera, Mail, Settings2, Inbox, CheckCheck, BellOff, Archive, Trash2, UserCircle, Reply, Copy, X, Smile, Paperclip, Mic, StickyNote, Image, FileText, Filter, ArrowUpDown, Megaphone, MoreVertical, Eye, Zap, ShoppingCart, CalendarCheck, Presentation, Star, UserPlus, ArrowRightLeft, ChevronLeft } from "lucide-react";
 import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/components/ChannelIcons";
 import { TemplateSelector, TemplateConfigModal } from "@/components/TemplateModal";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { useAuth } from "@/context/AuthContext";
 import { useSocket } from "@/hooks/useSocket";
 import { ChatEmpty } from "./ChatEmpty";
@@ -114,6 +115,7 @@ export function Conversaciones() {
   const [showEventForm, setShowEventForm] = useState(false);
   const [eventForm, setEventForm] = useState({ type: 'purchase', name: '', value: '', currency: 'COP' });
   const [showStatusSubmenu, setShowStatusSubmenu] = useState(false);
+  const [showClearChatConfirm, setShowClearChatConfirm] = useState(false);
   const [selectedInboxFilter, setSelectedInboxFilter] = useState<Set<string>>(new Set());
   const [conversationsTotal, setConversationsTotal] = useState(0);
   const [loadingConversations, setLoadingConversations] = useState(false);
@@ -684,6 +686,18 @@ export function Conversaciones() {
     }
   };
 
+  const handleClearChat = async () => {
+    if (!activeConversation) return;
+    try {
+      await api.delete(`/chats/conversations/${activeConversation.id}/messages`);
+      setMessages([]);
+      toast.success("Chat vaciado");
+      setShowClearChatConfirm(false);
+    } catch {
+      toast.error("Error al vaciar el chat");
+    }
+  };
+
   // Check if the 24h messaging window is closed for messaging channels
   const isWindowClosed = (() => {
     if (!activeConversation) return false;
@@ -1056,6 +1070,18 @@ export function Conversaciones() {
                           </div>
                         )}
                       </div>
+                      {/* Separador */}
+                      <div className="border-t border-gray-100 my-1" />
+                      <button
+                        onClick={() => {
+                          setChatHeaderMenuOpen(false);
+                          setShowClearChatConfirm(true);
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-400" />
+                        Vaciar chat
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1733,6 +1759,16 @@ export function Conversaciones() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={showClearChatConfirm}
+        onClose={() => setShowClearChatConfirm(false)}
+        onConfirm={handleClearChat}
+        title="Vaciar chat"
+        description="Se eliminarán todos los mensajes de esta conversación. Esta acción no se puede deshacer."
+        confirmLabel="Vaciar"
+        variant="danger"
+      />
     </>
   );
 }

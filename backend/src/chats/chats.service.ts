@@ -1245,6 +1245,12 @@ export class ChatsService {
     await this.conversationRepo.delete(conversationId);
   }
 
+  async clearMessages(conversationId: string): Promise<void> {
+    await this.messageRepo.delete({ conversationId });
+    // Update conversation to clear last message
+    await this.conversationRepo.update(conversationId, { lastMessage: null, lastMessageAt: null } as any);
+  }
+
   // === SEND MESSAGE ===
 
   async sendMessage(conversationId: string, content: string, messageType = 'text', senderId?: string, replyToExternalId?: string): Promise<Message> {

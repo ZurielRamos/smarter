@@ -254,6 +254,11 @@ export class ChatsController {
     return this.chatsService.deleteConversation(id);
   }
 
+  @Delete('conversations/:id/messages')
+  clearMessages(@Param('id') id: string) {
+    return this.chatsService.clearMessages(id);
+  }
+
   // === MESSAGES ===
 
   @Get('conversations/:id/messages')
