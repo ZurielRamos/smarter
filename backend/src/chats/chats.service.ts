@@ -759,7 +759,9 @@ export class ChatsService {
       }).catch(() => {});
 
       // Trigger bot auto-reply if a bot is assigned
-      this.triggerBotReply(inbox, conversation, content).catch(() => {});
+      this.triggerBotReply(inbox, conversation, content).catch((err) => {
+        console.error('[Bot Auto-Reply] Failed:', err?.message || err);
+      });
     }
   }
 
@@ -1060,7 +1062,7 @@ export class ChatsService {
       // Send the bot reply through the normal send flow
       await this.sendMessage(conversation.id, response.content, 'text', 'bot');
     } catch (err) {
-      console.error(`[Bot Auto-Reply] Error for inbox ${inbox.id}:`, err);
+      console.error(`[Bot Auto-Reply] Error for inbox ${inbox.id}:`, err?.message || err);
     }
   }
 
