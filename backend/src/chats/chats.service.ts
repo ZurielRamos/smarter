@@ -1060,7 +1060,7 @@ export class ChatsService {
       if (!response?.content) return;
 
       // Send the bot reply through the normal send flow
-      await this.sendMessage(conversation.id, response.content, 'text', null);
+      await this.sendMessage(conversation.id, response.content, 'text', undefined);
 
       console.log(`[Bot Auto-Reply] Message sent successfully for conversation ${conversation.id}`);
     } catch (err) {
