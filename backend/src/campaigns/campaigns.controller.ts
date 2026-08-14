@@ -104,9 +104,12 @@ export class CampaignsController {
       status: string;
       listId: string | null;
       messageTemplate: string;
+      emailSubject: string;
+      emailTemplateId: string | null;
       whatsappTemplateName: string;
       whatsappTemplateLanguage: string;
       whatsappVariableMapping: Record<string, string>;
+      whatsappTemplateCategory: string;
       callVoice: string;
       callRetries: string;
       callLeaveVoicemail: boolean;

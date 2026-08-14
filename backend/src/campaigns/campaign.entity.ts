@@ -112,6 +112,9 @@ export class Campaign {
   @Column({ name: 'email_subject', type: 'varchar', nullable: true })
   emailSubject: string; // Subject line for email campaigns
 
+  @Column({ name: 'email_template_id', type: 'uuid', nullable: true })
+  emailTemplateId: string | null; // Reference to EmailTemplate for multi-language support
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

@@ -89,6 +89,10 @@ export class ClientRecord {
   @Column({ type: 'integer', default: 0 })
   score: number; // lead scoring 0-100
 
+  // === PREFERENCIAS ===
+  @Column({ type: 'varchar', length: 10, default: 'es' })
+  language: string; // ISO 639-1: es, en, pt, fr, de...
+
   // === CONSENTIMIENTO ===
   @Column({ name: 'opt_in_whatsapp', type: 'boolean', default: false })
   optInWhatsapp: boolean;

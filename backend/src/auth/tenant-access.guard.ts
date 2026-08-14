@@ -2,7 +2,7 @@ import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@
 
 /**
  * Guard que verifica que el usuario tiene acceso al tenant solicitado.
- * Busca el tenantId en params.id, params.tenantId, o body.tenantId.
+ * Busca el tenantId en params.tenantId, params.id, query.tenantId, o body.tenantId.
  * SuperAdmins tienen acceso a todos los tenants.
  * Usar DESPUÉS de JwtAuthGuard.
  */

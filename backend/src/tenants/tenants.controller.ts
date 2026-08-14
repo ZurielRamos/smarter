@@ -16,6 +16,7 @@ import {
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SuperAdminGuard } from '../auth/super-admin.guard';
+import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { TenantsService } from './tenants.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
@@ -24,7 +25,7 @@ import { BillingService } from '../billing/billing.service';
 import { CreatePlanDto, RechargeDto } from '../billing/dto';
 
 @Controller('tenants')
-@UseGuards(JwtAuthGuard, SuperAdminGuard)
+@UseGuards(JwtAuthGuard)
 export class TenantsController {
   constructor(
     private readonly tenantsService: TenantsService,
@@ -33,31 +34,37 @@ export class TenantsController {
   ) {}
 
   @Get()
+  @UseGuards(SuperAdminGuard)
   findAll() {
     return this.tenantsService.findAll();
   }
 
   @Get('stats')
+  @UseGuards(SuperAdminGuard)
   getStats() {
     return this.tenantsService.getStats();
   }
 
   @Get('check-slug/:slug')
+  @UseGuards(SuperAdminGuard)
   checkSlug(@Param('slug') slug: string) {
     return this.tenantsService.checkSlugAvailability(slug);
   }
 
   @Get(':id/members')
+  @UseGuards(SuperAdminGuard)
   getMembers(@Param('id') id: string) {
     return this.tenantsService.getMembers(id);
   }
 
   @Get(':id')
+  @UseGuards(SuperAdminGuard)
   findOne(@Param('id') id: string) {
     return this.tenantsService.findOne(id);
   }
 
   @Post()
+  @UseGuards(SuperAdminGuard)
   @UseInterceptors(
     FileFieldsInterceptor([{ name: 'icon', maxCount: 1 }]),
   )
@@ -86,6 +93,7 @@ export class TenantsController {
   }
 
   @Put(':id')
+  @UseGuards(SuperAdminGuard)
   @UseInterceptors(
     FileFieldsInterceptor([{ name: 'icon', maxCount: 1 }]),
   )
@@ -115,6 +123,7 @@ export class TenantsController {
   }
 
   @Delete(':id')
+  @UseGuards(SuperAdminGuard)
   remove(@Param('id') id: string) {
     return this.tenantsService.remove(id);
   }
@@ -122,47 +131,54 @@ export class TenantsController {
   // ─── BILLING / CRÉDITOS ─────────────────────────────
 
   /** Resumen completo de billing del tenant (plan + balance) */
-  @Get(':id/billing')
-  async getBillingSummary(@Param('id') id: string) {
+  @Get(':tenantId/billing')
+  @UseGuards(TenantAccessGuard)
+  async getBillingSummary(@Param('tenantId') tenantId: string) {
     const [plan, balance] = await Promise.all([
-      this.billingService.getPlan(id),
-      this.billingService.getBalance(id).catch(() => null),
+      this.billingService.getPlan(tenantId),
+      this.billingService.getBalance(tenantId).catch(() => null),
     ]);
     return { plan, balance };
   }
 
-  @Get(':id/billing/plan')
-  getBillingPlan(@Param('id') id: string) {
-    return this.billingService.getPlan(id);
+  @Get(':tenantId/billing/plan')
+  @UseGuards(TenantAccessGuard)
+  getBillingPlan(@Param('tenantId') tenantId: string) {
+    return this.billingService.getPlan(tenantId);
   }
 
-  @Post(':id/billing/plan')
-  createBillingPlan(@Param('id') id: string, @Body() dto: CreatePlanDto) {
-    return this.billingService.createPlan(id, dto);
+  @Post(':tenantId/billing/plan')
+  @UseGuards(SuperAdminGuard)
+  createBillingPlan(@Param('tenantId') tenantId: string, @Body() dto: CreatePlanDto) {
+    return this.billingService.createPlan(tenantId, dto);
   }
 
-  @Patch(':id/billing/plan')
-  updateBillingPlan(@Param('id') id: string, @Body() dto: Partial<CreatePlanDto>) {
-    return this.billingService.updatePlan(id, dto);
+  @Patch(':tenantId/billing/plan')
+  @UseGuards(SuperAdminGuard)
+  updateBillingPlan(@Param('tenantId') tenantId: string, @Body() dto: Partial<CreatePlanDto>) {
+    return this.billingService.updatePlan(tenantId, dto);
   }
 
-  @Get(':id/billing/balance')
-  getBillingBalance(@Param('id') id: string) {
-    return this.billingService.getBalance(id);
+  @Get(':tenantId/billing/balance')
+  @UseGuards(TenantAccessGuard)
+  getBillingBalance(@Param('tenantId') tenantId: string) {
+    return this.billingService.getBalance(tenantId);
   }
 
-  @Post(':id/billing/recharge')
-  rechargeBilling(@Param('id') id: string, @Body() dto: RechargeDto, @Req() req: any) {
-    return this.billingService.recharge(id, dto, req.user.id);
+  @Post(':tenantId/billing/recharge')
+  @UseGuards(SuperAdminGuard)
+  rechargeBilling(@Param('tenantId') tenantId: string, @Body() dto: RechargeDto, @Req() req: any) {
+    return this.billingService.recharge(tenantId, dto, req.user.id);
   }
 
-  @Get(':id/billing/transactions')
+  @Get(':tenantId/billing/transactions')
+  @UseGuards(TenantAccessGuard)
   getBillingTransactions(
-    @Param('id') id: string,
+    @Param('tenantId') tenantId: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
-    return this.billingService.getTransactions(id, {
+    return this.billingService.getTransactions(tenantId, {
       limit: limit ? parseInt(limit, 10) : undefined,
       offset: offset ? parseInt(offset, 10) : undefined,
     });

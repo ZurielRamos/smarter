@@ -363,6 +363,41 @@ export class ChatsService {
     }
   }
 
+  async sendTestEmail(inboxId: string, options: { to: string; subject: string; html: string; variables?: Record<string, string>; fromName?: string }) {
+    const inbox = await this.findInboxById(inboxId);
+    const smtpConfig = inbox.metadata?.smtp;
+    if (!smtpConfig?.host || !smtpConfig?.user || !smtpConfig?.pass) {
+      return { success: false, error: 'SMTP no configurado para esta bandeja' };
+    }
+
+    // Replace variables in subject and html
+    let { subject, html } = options;
+    if (options.variables) {
+      for (const [key, value] of Object.entries(options.variables)) {
+        const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+        subject = subject.replace(regex, value);
+        html = html.replace(regex, value);
+      }
+    }
+
+    try {
+      const nodemailer = await import('nodemailer');
+      const transporter = nodemailer.createTransport({
+        host: smtpConfig.host,
+        port: smtpConfig.port || 465,
+        secure: smtpConfig.secure ?? true,
+        auth: { user: smtpConfig.user, pass: smtpConfig.pass },
+      });
+
+      const senderName = options.fromName?.trim() || smtpConfig.fromName || 'Smartee';
+      const from = `"${senderName}" <${smtpConfig.fromEmail || smtpConfig.user}>`;
+      await transporter.sendMail({ from, to: options.to, subject, html });
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
+  }
+
   async handleWhatsAppEmbeddedSignup(code: string, inboxId: string): Promise<Inbox> {
     const appId = this.configService.get<string>('META_APP_ID');
     const appSecret = this.configService.get<string>('META_APP_SECRET');
@@ -764,10 +799,27 @@ export class ChatsService {
   private async handleWhatsAppStatuses(statuses: any[]): Promise<void> {
     for (const status of statuses) {
       if (status.id) {
-        const message = await this.messageRepo.findOne({ where: { externalId: status.id } });
+        const message = await this.messageRepo.findOne({
+          where: { externalId: status.id },
+          relations: { conversation: { inbox: true } },
+        });
         if (message) {
           message.status = status.status; // sent, delivered, read, failed
           await this.messageRepo.save(message);
+
+          // If failed, create a system note with the error details
+          if (status.status === 'failed') {
+            const errorDetail = status.errors?.[0]?.message || status.errors?.[0]?.title || 'Error desconocido de WhatsApp';
+            const errorCode = status.errors?.[0]?.code ? ` (código: ${status.errors[0].code})` : '';
+            console.error('[Webhook] WhatsApp message failed:', JSON.stringify({ externalId: status.id, errors: status.errors }));
+            const tenantId = message.conversation?.inbox?.tenantId;
+            await this.createSystemNote(
+              message.conversationId,
+              `⚠️ Mensaje no entregado: ${errorDetail}${errorCode}`,
+              tenantId,
+            );
+          }
+
           // Emit status update to frontend
           this.chatsGateway.emitMessageStatus(message.conversationId, message.id, status.status);
         }
@@ -1155,7 +1207,23 @@ export class ChatsService {
 
     const inbox = conversation.inbox;
 
+    // Check 24h messaging window for social channels
+    if (['whatsapp', 'messenger', 'instagram'].includes(inbox.channel)) {
+      const lastInbound = await this.messageRepo.findOne({
+        where: { conversationId, direction: 'inbound' },
+        order: { createdAt: 'DESC' },
+      });
+      if (!lastInbound) {
+        throw new BadRequestException('No se puede enviar un mensaje libre sin un mensaje previo del contacto. Usa una plantilla para iniciar la conversación.');
+      }
+      const hoursSinceLastInbound = (Date.now() - new Date(lastInbound.createdAt).getTime()) / (1000 * 60 * 60);
+      if (hoursSinceLastInbound > 24) {
+        throw new BadRequestException('La ventana de conversación de 24 horas está cerrada. Usa una plantilla para reabrir la conversación.');
+      }
+    }
+
     let externalId: string | null = null;
+    let sendError: string | null = null;
 
     if (inbox.channel === 'email') {
       // Send via SMTP configured in inbox metadata
@@ -1193,8 +1261,9 @@ export class ChatsService {
           text: content,
         });
         externalId = info.messageId || null;
-      } catch (err) {
+      } catch (err: any) {
         console.error('[Chat] Email send failed:', err);
+        sendError = err.message || 'Error desconocido al enviar email';
       }
     } else if (inbox.channel === 'whatsapp') {
       if (!inbox.accessToken) throw new Error('Inbox not connected');
@@ -1208,16 +1277,26 @@ export class ChatsService {
       if (replyToExternalId) {
         messageBody.context = { message_id: replyToExternalId };
       }
-      const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${inbox.accessToken}`,
-        },
-        body: JSON.stringify(messageBody),
-      });
-      const data = await res.json();
-      externalId = data.messages?.[0]?.id || null;
+      try {
+        const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${inbox.accessToken}`,
+          },
+          body: JSON.stringify(messageBody),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          console.error('[Chat] WhatsApp send failed:', JSON.stringify(data));
+          const errDetail = data.error?.message || data.error?.error_data?.details || 'Error desconocido';
+          sendError = `WhatsApp API error: ${errDetail}`;
+        }
+        externalId = data.messages?.[0]?.id || null;
+      } catch (err: any) {
+        console.error('[Chat] WhatsApp send error:', err);
+        sendError = err.message || 'Error de conexión con WhatsApp API';
+      }
     } else if (inbox.channel === 'messenger' || inbox.channel === 'instagram') {
       if (!inbox.accessToken) throw new Error('Inbox not connected');
       // Send via Page Send API
@@ -1228,18 +1307,25 @@ export class ChatsService {
       if (replyToExternalId) {
         messengerPayload.reply_to = { mid: replyToExternalId };
       }
-      const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.pageId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${inbox.accessToken}`,
-        },
-        body: JSON.stringify(messengerPayload),
-      });
-      const data = await res.json();
-      externalId = data.message_id || null;
-      if (!externalId) {
-        console.error('[Chat] Messenger send failed:', JSON.stringify(data));
+      try {
+        const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.pageId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${inbox.accessToken}`,
+          },
+          body: JSON.stringify(messengerPayload),
+        });
+        const data = await res.json();
+        externalId = data.message_id || null;
+        if (!externalId) {
+          console.error('[Chat] Messenger send failed:', JSON.stringify(data));
+          const errDetail = data.error?.message || 'Error desconocido';
+          sendError = `${inbox.channel === 'instagram' ? 'Instagram' : 'Messenger'} API error: ${errDetail}`;
+        }
+      } catch (err: any) {
+        console.error(`[Chat] ${inbox.channel} send error:`, err);
+        sendError = err.message || `Error de conexión con ${inbox.channel} API`;
       }
     }
 
@@ -1255,6 +1341,11 @@ export class ChatsService {
       status: externalId ? 'sent' : 'failed',
     });
     const saved = await this.messageRepo.save(message);
+
+    // If send failed, create a system note with the error details
+    if (!externalId && sendError) {
+      await this.createSystemNote(conversationId, `⚠️ Error al enviar mensaje: ${sendError}`, inbox.tenantId);
+    }
 
     // Update conversation
     conversation.lastMessage = content;
@@ -1292,6 +1383,27 @@ export class ChatsService {
     return this.messageRepo.save(message);
   }
 
+  /**
+   * Creates a system note (visible in the conversation) to inform about errors or events.
+   * Used across all channels when a send operation fails.
+   */
+  private async createSystemNote(conversationId: string, content: string, tenantId?: string): Promise<void> {
+    const note = this.messageRepo.create({
+      conversationId,
+      direction: 'outbound',
+      messageType: 'system',
+      content,
+      senderId: null,
+      status: 'delivered',
+    });
+    const saved = await this.messageRepo.save(note);
+
+    // Emit in real-time so the agent sees the error immediately
+    if (tenantId) {
+      this.chatsGateway.emitNewMessage(tenantId, conversationId, saved);
+    }
+  }
+
   async sendMediaMessage(
     conversationId: string,
     file: Express.Multer.File,
@@ -1306,7 +1418,20 @@ export class ChatsService {
 
     const inbox = conversation.inbox;
 
-    // Determine message type from mime
+    // Check 24h messaging window for social channels
+    if (['whatsapp', 'messenger', 'instagram'].includes(inbox.channel)) {
+      const lastInbound = await this.messageRepo.findOne({
+        where: { conversationId, direction: 'inbound' },
+        order: { createdAt: 'DESC' },
+      });
+      if (!lastInbound) {
+        throw new BadRequestException('No se puede enviar archivos sin un mensaje previo del contacto.');
+      }
+      const hoursSinceLastInbound = (Date.now() - new Date(lastInbound.createdAt).getTime()) / (1000 * 60 * 60);
+      if (hoursSinceLastInbound > 24) {
+        throw new BadRequestException('La ventana de conversación de 24 horas está cerrada. No se pueden enviar archivos.');
+      }
+    }    // Determine message type from mime
     let messageType = 'document';
     if (file.mimetype.startsWith('image/')) messageType = 'image';
     else if (file.mimetype.startsWith('video/')) messageType = 'video';
@@ -1324,6 +1449,7 @@ export class ChatsService {
 
     // For WhatsApp, we need to upload media to Meta first, then send
     let externalId: string | null = null;
+    let sendError: string | null = null;
     if (inbox.accessToken && inbox.channel === 'whatsapp' && inbox.phoneNumberId) {
       try {
         // WhatsApp accepts: audio/aac, audio/mp4, audio/mpeg, audio/amr, audio/ogg (opus)
@@ -1366,6 +1492,7 @@ export class ChatsService {
 
         if (!mediaId) {
           console.error('[Chat] WhatsApp media upload failed:', JSON.stringify(uploadData));
+          sendError = `Error al subir archivo a WhatsApp: ${uploadData.error?.message || 'Error desconocido'}`;
         }
 
         if (mediaId) {
@@ -1396,9 +1523,14 @@ export class ChatsService {
           });
           const sendData = await sendRes.json();
           externalId = sendData.messages?.[0]?.id || null;
+          if (!externalId) {
+            const errDetail = sendData.error?.message || 'Error desconocido';
+            sendError = `WhatsApp API error: ${errDetail}`;
+          }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('[Chat] Failed to send media via WhatsApp:', err);
+        sendError = err.message || 'Error de conexión con WhatsApp API';
       }
     } else if (inbox.accessToken && (inbox.channel === 'messenger' || inbox.channel === 'instagram') && inbox.pageId) {
       // Messenger/Instagram: send media using the Firebase URL directly
@@ -1438,9 +1570,12 @@ export class ChatsService {
         externalId = sendData.message_id || null;
         if (!externalId) {
           console.error('[Chat] Messenger media send failed:', JSON.stringify(sendData));
+          const errDetail = sendData.error?.message || 'Error desconocido';
+          sendError = `${inbox.channel === 'instagram' ? 'Instagram' : 'Messenger'} API error: ${errDetail}`;
         }
-      } catch (err) {
-        console.error('[Chat] Failed to send media via Messenger:', err);
+      } catch (err: any) {
+        console.error(`[Chat] Failed to send media via ${inbox.channel}:`, err);
+        sendError = err.message || `Error de conexión con ${inbox.channel} API`;
       }
     }
 
@@ -1457,6 +1592,11 @@ export class ChatsService {
       status: externalId ? 'sent' : 'failed',
     });
     const saved = await this.messageRepo.save(message);
+
+    // If send failed, create a system note with the error details
+    if (!externalId && sendError) {
+      await this.createSystemNote(conversationId, `⚠️ Error al enviar archivo: ${sendError}`, inbox.tenantId);
+    }
 
     // Update conversation
     conversation.lastMessage = caption || `[${messageType}]`;
@@ -1903,9 +2043,11 @@ export class ChatsService {
     const data = await res.json();
     const externalId = data.messages?.[0]?.id || null;
 
+    let sendError: string | null = null;
     if (!externalId) {
       console.error('[Templates] Send failed:', JSON.stringify(data));
       console.error('[Templates] Payload sent:', JSON.stringify(messageBody, null, 2));
+      sendError = data.error?.message || data.error?.error_data?.details || 'Error desconocido al enviar plantilla';
     }
 
     // Save message with rendered content
@@ -1921,6 +2063,11 @@ export class ChatsService {
       status: externalId ? 'sent' : 'failed',
     });
     const saved = await this.messageRepo.save(message);
+
+    // If send failed, create a system note with the error details
+    if (!externalId && sendError) {
+      await this.createSystemNote(conversationId, `⚠️ Error al enviar plantilla "${templateName}": ${sendError}`, inbox.tenantId);
+    }
 
     conversation.lastMessage = `📋 ${templateName}`;
     conversation.lastMessageAt = new Date();

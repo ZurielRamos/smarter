@@ -30,10 +30,17 @@ import { CampanaDetail } from "./pages/comunicaciones/CampanaDetail";
 import { Canales } from "./pages/comunicaciones/Canales";
 import { CanalEmpty } from "./pages/comunicaciones/CanalEmpty";
 import { CanalDetail } from "./pages/comunicaciones/CanalDetail";
+import { Plantillas } from "./pages/comunicaciones/Plantillas";
+import { PlantillaEmpty } from "./pages/comunicaciones/PlantillaEmpty";
+import { PlantillaDetail } from "./pages/comunicaciones/PlantillaDetail";
+import { Bots } from "./pages/comunicaciones/Bots";
+import { BotEmpty } from "./pages/comunicaciones/BotEmpty";
+import { BotDetail } from "./pages/comunicaciones/BotDetail";
 import { NewInbox } from "./pages/NewInbox";
 import { Inboxes } from "./pages/Inboxes";
 import { InboxSettings } from "./pages/InboxSettings";
 import { FormBuilder } from "./pages/FormBuilder";
+import { EmailBuilderPage } from "./pages/EmailBuilderPage";
 import { PublicForm } from "./pages/PublicForm";
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { AdminAccounts } from "./pages/admin/AdminAccounts";
@@ -113,6 +120,9 @@ function App() {
             <Route path="/admin/providers" element={<AdminProviders />} />
           </Route>
 
+          {/* Email builder — fullscreen, fuera del layout */}
+          <Route path="/:slug/email-builder/:inboxId/:templateId" element={<ProtectedRoute><EmailBuilderPage /></ProtectedRoute>} />
+
           {/* Tenant app routes */}
           <Route element={<ProtectedAppLayout />}>
             <Route path="/:slug" element={<Dashboard />} />
@@ -137,6 +147,14 @@ function App() {
               <Route path="canales" element={<Canales />}>
                 <Route index element={<CanalEmpty />} />
                 <Route path=":inboxId" element={<CanalDetail />} />
+              </Route>
+              <Route path="plantillas" element={<Plantillas />}>
+                <Route index element={<PlantillaEmpty />} />
+                <Route path=":templateId" element={<PlantillaDetail />} />
+              </Route>
+              <Route path="bots" element={<Bots />}>
+                <Route index element={<BotEmpty />} />
+                <Route path=":botId" element={<BotDetail />} />
               </Route>
             </Route>
             <Route path="/:slug/inboxes" element={<Inboxes />} />

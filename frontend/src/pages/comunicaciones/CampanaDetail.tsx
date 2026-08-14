@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Users, Send, Calendar, Clock, RefreshCw, Pencil, List, Settings2, Filter, Play, Pause, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MessageEditor } from "@/components/campaigns/MessageEditor";
 import { WhatsAppTemplateSelector } from "@/components/campaigns/WhatsAppTemplateSelector";
 import { CallEditor } from "@/components/campaigns/CallEditor";
+import { EmailEditor } from "@/components/campaigns/EmailEditor";
 import { SegmentBuilder } from "@/components/campaigns/SegmentBuilder";
 import type { SegmentGroup } from "@/components/campaigns/SegmentBuilder";
 import { TimePicker } from "@/components/ui/time-picker";
@@ -31,6 +32,7 @@ interface Campaign {
   recurrenceDays: Record<string, string> | null;
   matchedCount: number;
   messageTemplate: string | null;
+  emailSubject: string | null;
   whatsappTemplateName: string | null;
   whatsappTemplateLanguage: string | null;
   whatsappVariableMapping: Record<string, string> | null;
@@ -39,6 +41,7 @@ interface Campaign {
   callRetries: string | null;
   callLeaveVoicemail: boolean | null;
   callAudioCode: string | null;
+  emailTemplateId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -101,6 +104,7 @@ export function CampanaDetail() {
   const [savingMessage, setSavingMessage] = useState(false);
   const [savingWhatsApp, setSavingWhatsApp] = useState(false);
   const [savingCall, setSavingCall] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
   const [sends, setSends] = useState<CampaignSendRecord[]>([]);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
@@ -109,7 +113,7 @@ export function CampanaDetail() {
   const [showSegmentEditor, setShowSegmentEditor] = useState(false);
   const [editSegments, setEditSegments] = useState<SegmentGroup[]>([]);
   const [segmentPreviewCount, setSegmentPreviewCount] = useState<number | null>(null);
-  const [segmentPreviewSample, setSegmentPreviewSample] = useState<Array<{ idCliente: string; nombreCompleto: string; estado: string; numTransacciones: number }>>([]);
+  const [segmentPreviewSample, setSegmentPreviewSample] = useState<Array<Record<string, any>>>([]);
   const [savingSegments, setSavingSegments] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [editMaxSends, setEditMaxSends] = useState<number | "">("");
@@ -123,18 +127,6 @@ export function CampanaDetail() {
     if (!id) return;
     api.get<Campaign>(`/campaigns/${id}`)
       .then(async ({ data }) => {
-        // Recalcular audiencia con los segmentos actuales (only if using segments, not list)
-        if (!data.listId && data.segments?.length > 0) {
-          try {
-            const segments = data.segments.map((g) => ({
-              logic: g.logic,
-              conditions: g.conditions,
-            }));
-            const { data: preview } = await api.post<{ count: number }>("/campaigns/preview", { segments });
-            data.matchedCount = preview.count;
-            await api.put(`/campaigns/${id}`, { matchedCount: preview.count });
-          } catch {}
-        }
         setCampaign(data);
         // Load record lists and available fields for the tenant
         if (data.tenantId) {
@@ -209,6 +201,8 @@ export function CampanaDetail() {
     try {
       const { data } = await api.put<Campaign>(`/campaigns/${campaign.id}`, {
         messageTemplate: campaign.messageTemplate,
+        emailTemplateId: campaign.emailTemplateId,
+        whatsappVariableMapping: campaign.whatsappVariableMapping,
         callVoice: campaign.callVoice,
         callRetries: campaign.callRetries,
         callLeaveVoicemail: campaign.callLeaveVoicemail,
@@ -219,6 +213,22 @@ export function CampanaDetail() {
       // error
     } finally {
       setSavingCall(false);
+    }
+  };
+
+  const handleSaveEmail = async () => {
+    if (!campaign) return;
+    setSavingEmail(true);
+    try {
+      const { data } = await api.put<Campaign>(`/campaigns/${campaign.id}`, {
+        messageTemplate: campaign.messageTemplate,
+        emailSubject: campaign.emailSubject,
+      });
+      setCampaign(data);
+    } catch {
+      // error
+    } finally {
+      setSavingEmail(false);
     }
   };
 
@@ -336,17 +346,26 @@ export function CampanaDetail() {
           value: c.value as string | number | boolean,
         })),
       }));
+      // Only include conditions with valid field names that exist in availableFields
+      const validFields = new Set(availableFields.map((f) => f.field));
       const segments = source.map((g) => ({
         logic: g.logic,
-        conditions: g.conditions.map((c) => ({
-          field: c.field,
-          operator: c.operator,
-          value: c.value,
-        })),
-      }));
-      const { data } = await api.post<{ count: number; sample: Array<{ idCliente: string; nombreCompleto: string; estado: string; numTransacciones: number }> }>("/campaigns/preview", { segments, tenantId: campaign?.tenantId });
+        conditions: g.conditions
+          .filter((c) => validFields.has(c.field) && c.value !== null && c.value !== undefined && String(c.value).trim() !== '')
+          .map((c) => ({
+            field: c.field,
+            operator: c.operator,
+            value: c.value,
+          })),
+      })).filter((g) => g.conditions.length > 0);
+      const { data } = await api.post<{ count: number; sample: Array<Record<string, any>> }>("/campaigns/preview", { segments, tenantId: campaign?.tenantId });
       setSegmentPreviewCount(data.count);
       setSegmentPreviewSample(data.sample || []);
+      // Save clean segments on backend
+      if (campaign) {
+        setCampaign({ ...campaign, segments });
+        api.put(`/campaigns/${campaign.id}`, { segments }).catch(() => {});
+      }
     } catch {
       setSegmentPreviewCount(null);
     }
@@ -404,6 +423,26 @@ export function CampanaDetail() {
     }
   };
 
+  // Auto-save schedule changes with debounce
+  const scheduleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSaveSchedule = (updates: Partial<Campaign>) => {
+    const updated = { ...campaign, ...updates } as Campaign;
+    setCampaign(updated);
+
+    if (scheduleTimerRef.current) clearTimeout(scheduleTimerRef.current);
+    scheduleTimerRef.current = setTimeout(async () => {
+      try {
+        await api.put(`/campaigns/${updated.id}`, {
+          isRecurring: updated.isRecurring,
+          maxSends: updated.maxSends || null,
+          sendDate: updated.isRecurring ? null : updated.sendDate || null,
+          sendTime: updated.sendTime || null,
+          recurrenceDays: updated.isRecurring ? updated.recurrenceDays || {} : null,
+        });
+      } catch {}
+    }, 800);
+  };
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -450,12 +489,26 @@ export function CampanaDetail() {
           {/* Main info */}
           <div className="space-y-6">
             {/* Message Editor - only for SMS */}
+            {/* SMS Template Selector */}
             {campaign.channel === "sms" && (
-              <MessageEditor
-                value={campaign.messageTemplate || ""}
-                onChange={(val) => setCampaign({ ...campaign, messageTemplate: val })}
-                onSave={handleSaveMessage}
-                saving={savingMessage}
+              <CallEditor
+                message={campaign.messageTemplate || ""}
+                voice=""
+                retries=""
+                leaveVoicemail={false}
+                audioCode=""
+                templateId={campaign.emailTemplateId || null}
+                variableMapping={campaign.whatsappVariableMapping || {}}
+                channel="sms"
+                onMessageChange={(val) => setCampaign({ ...campaign, messageTemplate: val })}
+                onVoiceChange={() => {}}
+                onRetriesChange={() => {}}
+                onLeaveVoicemailChange={() => {}}
+                onAudioCodeChange={() => {}}
+                onTemplateIdChange={(val) => setCampaign({ ...campaign, emailTemplateId: val })}
+                onVariableMappingChange={(val) => setCampaign({ ...campaign, whatsappVariableMapping: val })}
+                onSave={handleSaveCallConfig}
+                saving={savingCall}
                 variables={availableFields}
               />
             )}
@@ -492,14 +545,32 @@ export function CampanaDetail() {
                 retries={campaign.callRetries || ""}
                 leaveVoicemail={campaign.callLeaveVoicemail ?? true}
                 audioCode={campaign.callAudioCode || ""}
+                templateId={campaign.emailTemplateId || null}
+                variableMapping={campaign.whatsappVariableMapping || {}}
                 onMessageChange={(val) => setCampaign({ ...campaign, messageTemplate: val })}
                 onVoiceChange={(val) => setCampaign({ ...campaign, callVoice: val })}
                 onRetriesChange={(val) => setCampaign({ ...campaign, callRetries: val })}
                 onLeaveVoicemailChange={(val) => setCampaign({ ...campaign, callLeaveVoicemail: val })}
                 onAudioCodeChange={(val) => setCampaign({ ...campaign, callAudioCode: val })}
+                onTemplateIdChange={(val) => setCampaign({ ...campaign, emailTemplateId: val })}
+                onVariableMappingChange={(val) => setCampaign({ ...campaign, whatsappVariableMapping: val })}
                 onSave={handleSaveCallConfig}
                 saving={savingCall}
                 variables={availableFields}
+              />
+            )}
+
+            {/* Email Editor - only for email */}
+            {campaign.channel === "email" && (
+              <EmailEditor
+                subject={campaign.emailSubject || ""}
+                body={campaign.messageTemplate || ""}
+                onSubjectChange={(val) => setCampaign({ ...campaign, emailSubject: val })}
+                onBodyChange={(val) => setCampaign({ ...campaign, messageTemplate: val })}
+                onSave={handleSaveEmail}
+                saving={savingEmail}
+                variables={availableFields}
+                inboxId={campaign.inboxId}
               />
             )}
           </div>
@@ -615,24 +686,12 @@ export function CampanaDetail() {
                     matchedCount={segmentPreviewCount}
                     previewSample={segmentPreviewSample}
                     onPreview={handleSegmentPreview}
+                    tenantId={campaign.tenantId}
                   />
                 </div>
               )}
             </div>
 
-            {/* Audience */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">Audiencia</h2>
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-lg bg-accent-50 flex items-center justify-center">
-                  <Users className="h-6 w-6 text-accent-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{campaign.matchedCount.toLocaleString()}</p>
-                  <p className="text-sm text-gray-500">clientes que cumplen las condiciones</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       )}
@@ -645,7 +704,7 @@ export function CampanaDetail() {
               <h2 className="text-base font-semibold text-gray-900 mb-4">Tipo de envío</h2>
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => setCampaign({ ...campaign, isRecurring: false })}
+                  onClick={() => autoSaveSchedule({ isRecurring: false })}
                   className={cn(
                     "p-4 rounded-xl border-2 text-left transition-all",
                     !campaign.isRecurring ? "border-brand-500 bg-brand-50/50" : "border-gray-200 hover:border-gray-300"
@@ -658,7 +717,7 @@ export function CampanaDetail() {
                   <p className="text-[11px] text-gray-500">Enviar una vez, de forma manual o en una fecha programada</p>
                 </button>
                 <button
-                  onClick={() => setCampaign({ ...campaign, isRecurring: true })}
+                  onClick={() => autoSaveSchedule({ isRecurring: true })}
                   className={cn(
                     "p-4 rounded-xl border-2 text-left transition-all",
                     campaign.isRecurring ? "border-brand-500 bg-brand-50/50" : "border-gray-200 hover:border-gray-300"
@@ -685,7 +744,7 @@ export function CampanaDetail() {
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
-                        onClick={() => setCampaign({ ...campaign, sendDate: null, sendTime: null })}
+                        onClick={() => autoSaveSchedule({ sendDate: null, sendTime: null })}
                         className={cn(
                           "px-3 py-2.5 rounded-lg border text-sm font-medium transition-all text-center",
                           !campaign.sendDate ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:border-gray-300"
@@ -695,7 +754,7 @@ export function CampanaDetail() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setCampaign({ ...campaign, sendDate: campaign.sendDate || new Date().toISOString().split("T")[0] })}
+                        onClick={() => autoSaveSchedule({ sendDate: campaign.sendDate || new Date().toISOString().split("T")[0] })}
                         className={cn(
                           "px-3 py-2.5 rounded-lg border text-sm font-medium transition-all text-center",
                           campaign.sendDate ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:border-gray-300"
@@ -714,13 +773,13 @@ export function CampanaDetail() {
                         <input
                           type="date"
                           value={campaign.sendDate ? campaign.sendDate.split("T")[0] : ""}
-                          onChange={(e) => setCampaign({ ...campaign, sendDate: e.target.value || null })}
+                          onChange={(e) => autoSaveSchedule({ sendDate: e.target.value || null })}
                           className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
                         />
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-700 block mb-1.5">Hora de envío</label>
-                        <TimePicker value={campaign.sendTime || ""} onChange={(val) => setCampaign({ ...campaign, sendTime: val || null })} />
+                        <TimePicker value={campaign.sendTime || ""} onChange={(val) => autoSaveSchedule({ sendTime: val || null })} />
                       </div>
                     </div>
                   )}
@@ -731,37 +790,12 @@ export function CampanaDetail() {
                     <input
                       type="number"
                       value={campaign.maxSends || ""}
-                      onChange={(e) => setCampaign({ ...campaign, maxSends: e.target.value ? Number(e.target.value) : null })}
+                      onChange={(e) => autoSaveSchedule({ maxSends: e.target.value ? Number(e.target.value) : null })}
                       placeholder="Sin límite (se envía a toda la audiencia)"
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
                     />
                     <p className="text-[11px] text-gray-400 mt-1">Máximo de mensajes a enviar en esta ejecución. Déjalo vacío para enviar a todos.</p>
                   </div>
-                </div>
-
-                {/* Save */}
-                <div className="flex justify-end pt-5 mt-5 border-t border-gray-100">
-                  <Button
-                    size="sm"
-                    onClick={async () => {
-                      setSavingSchedule(true);
-                      try {
-                        const { data } = await api.put(`/campaigns/${campaign.id}`, {
-                          isRecurring: false,
-                          maxSends: campaign.maxSends || null,
-                          sendDate: campaign.sendDate || null,
-                          sendTime: campaign.sendTime || null,
-                          recurrenceDays: null,
-                          status: 'draft',
-                        });
-                        setCampaign(data);
-                      } catch {} finally { setSavingSchedule(false); }
-                    }}
-                    disabled={savingSchedule}
-                    className="bg-brand-800 hover:bg-brand-700 text-white"
-                  >
-                    {savingSchedule ? "Guardando..." : "Guardar programación"}
-                  </Button>
                 </div>
               </div>
             ) : (
@@ -793,7 +827,7 @@ export function CampanaDetail() {
                                 } else {
                                   updated[dayKey] = "09:00";
                                 }
-                                setCampaign({ ...campaign, recurrenceDays: Object.keys(updated).length > 0 ? updated : null });
+                                autoSaveSchedule({ recurrenceDays: Object.keys(updated).length > 0 ? updated : null });
                               }}
                               className={cn(
                                 "w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
@@ -814,7 +848,7 @@ export function CampanaDetail() {
                                   onChange={(val) => {
                                     const updated = { ...(campaign.recurrenceDays || {}) };
                                     updated[dayKey] = val || "09:00";
-                                    setCampaign({ ...campaign, recurrenceDays: updated });
+                                    autoSaveSchedule({ recurrenceDays: updated });
                                   }}
                                 />
                               </div>
@@ -831,37 +865,12 @@ export function CampanaDetail() {
                     <input
                       type="number"
                       value={campaign.maxSends || ""}
-                      onChange={(e) => setCampaign({ ...campaign, maxSends: e.target.value ? Number(e.target.value) : null })}
+                      onChange={(e) => autoSaveSchedule({ maxSends: e.target.value ? Number(e.target.value) : null })}
                       placeholder="Sin límite"
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
                     />
                     <p className="text-[11px] text-gray-400 mt-1">Máximo de mensajes a enviar en cada ejecución recurrente. Déjalo vacío para enviar a todos.</p>
                   </div>
-                </div>
-
-                {/* Save */}
-                <div className="flex justify-end pt-5 mt-5 border-t border-gray-100">
-                  <Button
-                    size="sm"
-                    onClick={async () => {
-                      setSavingSchedule(true);
-                      try {
-                        const { data } = await api.put(`/campaigns/${campaign.id}`, {
-                          isRecurring: true,
-                          maxSends: campaign.maxSends || null,
-                          sendDate: null,
-                          sendTime: null,
-                          recurrenceDays: campaign.recurrenceDays || {},
-                          status: 'draft',
-                        });
-                        setCampaign(data);
-                      } catch {} finally { setSavingSchedule(false); }
-                    }}
-                    disabled={savingSchedule}
-                    className="bg-brand-800 hover:bg-brand-700 text-white"
-                  >
-                    {savingSchedule ? "Guardando..." : "Guardar programación"}
-                  </Button>
                 </div>
               </div>
             )}
@@ -1083,6 +1092,7 @@ export function CampanaDetail() {
                 matchedCount={segmentPreviewCount}
                 previewSample={segmentPreviewSample}
                 onPreview={handleSegmentPreview}
+                tenantId={campaign.tenantId}
               />
             </div>
           </div>

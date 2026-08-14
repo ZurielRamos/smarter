@@ -259,6 +259,7 @@ export interface ClientRecord {
   score: number;
   optInWhatsapp: boolean;
   optInEmail: boolean;
+  language: string;
   assignedTo: string | null;
   assignedTeamId: string | null;
   lastContactAt: string | null;

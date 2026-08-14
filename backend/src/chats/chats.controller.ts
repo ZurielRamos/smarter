@@ -119,6 +119,15 @@ export class ChatsController {
     return this.chatsService.testSmtp(body);
   }
 
+  // Send test email template
+  @Post('inboxes/:id/email/test')
+  async sendTestEmail(
+    @Param('id') id: string,
+    @Body() body: { to: string; subject: string; html: string; variables?: Record<string, string>; fromName?: string },
+  ) {
+    return this.chatsService.sendTestEmail(id, body);
+  }
+
   // Get WhatsApp config ID for frontend
   @Public()
   @Get('whatsapp/config')

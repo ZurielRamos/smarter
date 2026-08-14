@@ -14,6 +14,7 @@ import { GripVertical, Plus, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
+import { api } from "@/services/api";
 import { cn } from "@/lib/utils";
 
 export interface SegmentCondition {
@@ -36,102 +37,60 @@ interface FieldDef {
   operators: { value: string; label: string }[];
 }
 
-const AVAILABLE_FIELDS: FieldDef[] = [
-  {
-    field: "estado",
-    label: "Estado",
-    type: "list",
-    operators: [
-      { value: "equals", label: "es" },
-      { value: "not_equals", label: "no es" },
-    ],
-  },
-  {
-    field: "numTransacciones",
-    label: "Nº Transacciones",
-    type: "number",
-    operators: [
-      { value: "greater_than", label: "mayor que" },
-      { value: "less_than", label: "menor que" },
-      { value: "greater_or_equal", label: "mayor o igual a" },
-      { value: "less_or_equal", label: "menor o igual a" },
-      { value: "equals", label: "igual a" },
-    ],
-  },
-  {
-    field: "montoTotal",
-    label: "Monto Total",
-    type: "number",
-    operators: [
-      { value: "greater_than", label: "mayor que" },
-      { value: "less_than", label: "menor que" },
-      { value: "greater_or_equal", label: "mayor o igual a" },
-      { value: "less_or_equal", label: "menor o igual a" },
-    ],
-  },
-  {
-    field: "segmentoValor",
-    label: "Segmento Valor",
-    type: "list",
-    operators: [
-      { value: "equals", label: "es" },
-      { value: "not_equals", label: "no es" },
-    ],
-  },
-  {
-    field: "ciudad",
-    label: "Ciudad",
-    type: "text",
-    operators: [
-      { value: "equals", label: "es" },
-      { value: "not_equals", label: "no es" },
-      { value: "contains", label: "contiene" },
-    ],
-  },
-  {
-    field: "productoPreferido",
-    label: "Producto Preferido",
-    type: "list",
-    operators: [
-      { value: "equals", label: "es" },
-      { value: "not_equals", label: "no es" },
-    ],
-  },
-  {
-    field: "frecuenciaSemanal",
-    label: "Frecuencia Semanal",
-    type: "number",
-    operators: [
-      { value: "greater_than", label: "mayor que" },
-      { value: "less_than", label: "menor que" },
-    ],
-  },
-  {
-    field: "tieneBonoActivo",
-    label: "Tiene Bono Activo",
-    type: "boolean",
-    operators: [
-      { value: "is_true", label: "Sí" },
-      { value: "is_false", label: "No" },
-    ],
-  },
-  {
-    field: "ultimoJuego",
-    label: "Último Juego",
-    type: "list",
-    operators: [
-      { value: "equals", label: "es" },
-      { value: "not_equals", label: "no es" },
-    ],
-  },
-];
+const OPERATORS_BY_TYPE: Record<string, { value: string; label: string }[]> = {
+  text: [
+    { value: "equals", label: "es" },
+    { value: "not_equals", label: "no es" },
+    { value: "contains", label: "contiene" },
+  ],
+  select: [
+    { value: "equals", label: "es" },
+    { value: "not_equals", label: "no es" },
+  ],
+  number: [
+    { value: "greater_than", label: "mayor que" },
+    { value: "less_than", label: "menor que" },
+    { value: "greater_or_equal", label: "mayor o igual a" },
+    { value: "less_or_equal", label: "menor o igual a" },
+    { value: "equals", label: "igual a" },
+  ],
+  boolean: [
+    { value: "is_true", label: "Sí" },
+    { value: "is_false", label: "No" },
+  ],
+  date: [
+    { value: "greater_than", label: "después de" },
+    { value: "less_than", label: "antes de" },
+    { value: "equals", label: "igual a" },
+  ],
+  url: [
+    { value: "equals", label: "es" },
+    { value: "contains", label: "contiene" },
+  ],
+};
+
+// System fields that should be treated as "list" (selectable) in segmentation
+const SYSTEM_LIST_FIELDS = new Set(["status", "documentType", "gender", "channelSource", "countryCode", "language"]);
+
+function fieldTypeToSegmentType(fieldType: string, fieldKey?: string): string {
+  if (fieldKey && SYSTEM_LIST_FIELDS.has(fieldKey)) return "list";
+  switch (fieldType) {
+    case "number": return "number";
+    case "boolean": return "boolean";
+    case "date": return "date";
+    case "select": return "list";
+    case "url": return "text";
+    default: return "text";
+  }
+}
 
 interface SegmentBuilderProps {
   groups: SegmentGroup[];
   onChange: (groups: SegmentGroup[]) => void;
   matchedCount: number | null;
-  previewSample: Array<{ idCliente: string; nombreCompleto: string; estado: string; numTransacciones: number }>;
+  previewSample: Array<Record<string, any>>;
   onPreview: () => void;
+  tenantId?: string;
 }
 
 // Draggable field chip
@@ -225,13 +184,32 @@ function ConditionRow({
         />
       )}
 
-      {needsValue && !isNumeric && (
+      {needsValue && !isNumeric && fieldDef.type === "list" && (
         <Combobox
           value={condition.value as string}
           onChange={(val) => onUpdate({ value: val })}
           options={fieldOptions}
           placeholder="Seleccionar valor..."
           className="flex-1 min-w-[150px]"
+        />
+      )}
+
+      {needsValue && !isNumeric && fieldDef.type === "text" && (
+        <input
+          type="text"
+          value={condition.value as string}
+          onChange={(e) => onUpdate({ value: e.target.value })}
+          placeholder="Valor..."
+          className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-md min-w-[100px] focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+        />
+      )}
+
+      {needsValue && fieldDef.type === "date" && (
+        <input
+          type="date"
+          value={condition.value as string}
+          onChange={(e) => onUpdate({ value: e.target.value })}
+          className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-md min-w-[100px] focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
         />
       )}
 
@@ -245,9 +223,43 @@ function ConditionRow({
   );
 }
 
-export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, onPreview }: SegmentBuilderProps) {
+export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, onPreview, tenantId }: SegmentBuilderProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [fieldOptionsCache, setFieldOptionsCache] = useState<Record<string, string[]>>({});
+  const [availableFields, setAvailableFields] = useState<FieldDef[]>([]);
+  const [fieldSearch, setFieldSearch] = useState("");
+
+  // Load fields from tenant custom fields
+  useEffect(() => {
+    if (!tenantId) return;
+    api.get<Array<{ fieldKey: string; fieldLabel: string; fieldType: string; isSystem: boolean; options: string[] | null }>>(`/custom-fields/${tenantId}`)
+      .then(({ data: fields }) => {
+        const defs: FieldDef[] = fields.map((f) => {
+          const segType = fieldTypeToSegmentType(f.fieldType, f.fieldKey);
+          return {
+            field: f.fieldKey,
+            label: f.fieldLabel,
+            type: segType,
+            operators: segType === "list"
+              ? OPERATORS_BY_TYPE.select
+              : (OPERATORS_BY_TYPE[f.fieldType] || OPERATORS_BY_TYPE.text),
+          };
+        });
+        setAvailableFields(defs);
+
+        // Pre-populate options cache for select fields that have predefined options
+        const optionsCache: Record<string, string[]> = {};
+        for (const f of fields) {
+          if (f.options && f.options.length > 0) {
+            optionsCache[f.fieldKey] = f.options;
+          }
+        }
+        if (Object.keys(optionsCache).length > 0) {
+          setFieldOptionsCache((prev) => ({ ...prev, ...optionsCache }));
+        }
+      })
+      .catch(() => {});
+  }, [tenantId]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -255,13 +267,14 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
 
   // Load distinct values for a field
   const loadFieldOptions = async (field: string) => {
-    if (fieldOptionsCache[field]) return;
+    if (fieldOptionsCache[field]?.length > 0) return; // Already has options (predefined or loaded)
     try {
-      const res = await fetch(`/api/records/distinct-values?field=${field}`);
-      const values = await res.json();
-      setFieldOptionsCache((prev) => ({ ...prev, [field]: values }));
+      const { data: values } = await api.get<string[]>(`/records/distinct-values`, { params: { field, tenantId } });
+      if (values && values.length > 0) {
+        setFieldOptionsCache((prev) => ({ ...prev, [field]: values }));
+      }
     } catch {
-      // silently fail
+      setFieldOptionsCache((prev) => ({ ...prev, [field]: prev[field] || [] }));
     }
   };
 
@@ -270,7 +283,7 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
     const nonNumericFields = new Set<string>();
     for (const group of groups) {
       for (const cond of group.conditions) {
-        const def = AVAILABLE_FIELDS.find((f) => f.field === cond.field);
+        const def = availableFields.find((f) => f.field === cond.field);
         if (def && def.type !== "number") {
           nonNumericFields.add(cond.field);
         }
@@ -359,21 +372,32 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
   };
 
   const activeField = activeId
-    ? AVAILABLE_FIELDS.find((f) => `field_${f.field}` === activeId)
+    ? availableFields.find((f) => `field_${f.field}` === activeId)
     : null;
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex h-full gap-4">
         {/* Left: Available fields */}
-        <div className="w-[220px] shrink-0 flex flex-col">
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">
-            Campos disponibles
-          </h4>
-          <div className="space-y-1.5 overflow-y-auto flex-1 pr-1">
-            {AVAILABLE_FIELDS.map((field) => (
-              <DraggableFieldChip key={field.field} field={field} />
-            ))}
+        <div className="w-[220px] shrink-0 flex flex-col border border-gray-200 rounded-lg overflow-hidden">
+          <div className="px-3 py-2 border-b border-gray-100 bg-gray-50">
+            <h4 className="text-xs font-semibold text-gray-600 uppercase mb-2">
+              Campos disponibles
+            </h4>
+            <input
+              type="text"
+              value={fieldSearch}
+              onChange={(e) => setFieldSearch(e.target.value)}
+              placeholder="Buscar campo..."
+              className="w-full px-2.5 py-1.5 rounded-md border border-gray-200 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
+            />
+          </div>
+          <div className="space-y-1 overflow-y-auto flex-1 p-2 max-h-[400px]">
+            {availableFields
+              .filter((f) => !fieldSearch || f.label.toLowerCase().includes(fieldSearch.toLowerCase()) || f.field.toLowerCase().includes(fieldSearch.toLowerCase()))
+              .map((field) => (
+                <DraggableFieldChip key={field.field} field={field} />
+              ))}
           </div>
         </div>
 
@@ -402,10 +426,9 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
               <div className="divide-y divide-accent-100 max-h-[120px] overflow-y-auto">
                 {previewSample.map((client, idx) => (
                   <div key={idx} className="flex items-center gap-4 px-3 py-1.5 text-xs">
-                    <span className="font-mono text-gray-500 w-[80px]">{client.idCliente}</span>
-                    <span className="text-gray-700 flex-1">{client.nombreCompleto || "—"}</span>
-                    <span className="text-gray-500">{client.estado || "—"}</span>
-                    <span className="text-gray-500">{client.numTransacciones ?? "—"}</span>
+                    <span className="text-gray-700 flex-1">{client.fullName || client.firstName || "—"}</span>
+                    <span className="text-gray-500">{client.phone || "—"}</span>
+                    <span className="text-gray-500">{client.status || "—"}</span>
                   </div>
                 ))}
               </div>
@@ -464,7 +487,7 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
                     <ConditionRow
                       key={cond.id}
                       condition={cond}
-                      fieldDef={AVAILABLE_FIELDS.find((f) => f.field === cond.field)}
+                      fieldDef={availableFields.find((f) => f.field === cond.field)}
                       fieldOptions={fieldOptionsCache[cond.field] || []}
                       onUpdate={(updates) => updateCondition(group.id, cond.id, updates)}
                       onRemove={() => removeCondition(group.id, cond.id)}

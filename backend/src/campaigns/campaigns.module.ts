@@ -5,6 +5,7 @@ import { Campaign } from './campaign.entity';
 import { CampaignSend } from './campaign-send.entity';
 import { CampaignSendLog } from './campaign-send-log.entity';
 import { ClientRecord } from '../records/record.entity';
+import { Activity } from '../records/activity.entity';
 import { ChannelConfig } from '../tenants/channel-config.entity';
 import { RecordList } from '../records/record-list.entity';
 import { CustomField } from '../records/custom-field.entity';
@@ -26,15 +27,17 @@ import { BillingModule } from '../billing/billing.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { TemplatesModule } from '../templates/templates.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Campaign, CampaignSend, CampaignSendLog, ClientRecord, ChannelConfig, RecordList, CustomField, Inbox, Conversation, Message, Tenant]),
+    TypeOrmModule.forFeature([Campaign, CampaignSend, CampaignSendLog, ClientRecord, Activity, ChannelConfig, RecordList, CustomField, Inbox, Conversation, Message, Tenant]),
     BullModule.registerQueue({ name: 'campaign-send' }),
     BillingModule,
     WebhooksModule,
     UsersModule,
     NotificationsModule,
+    TemplatesModule,
   ],
   providers: [CampaignsService, WhatsAppService, CallService, SmsService, EmailService, CampaignsGateway, CampaignSendWorker, CampaignSchedulerService],
   controllers: [CampaignsController, ApiCampaignsController],

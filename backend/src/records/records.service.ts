@@ -874,22 +874,48 @@ export class RecordsService {
     return this.activityRepository.save(activity);
   }
 
-  async getDistinctValues(field: string): Promise<string[]> {
+  async getDistinctValues(field: string, tenantId?: string): Promise<string[]> {
+    // System columns mapping
     const columnMap: Record<string, string> = {
       status: 'status',
       channelSource: 'channel_source',
+      city: 'city',
+      region: 'region',
+      gender: 'gender',
+      documentType: 'document_type',
+      source: 'source',
+      countryCode: 'country_code',
+      language: 'language',
     };
 
     const col = columnMap[field];
-    if (!col) return [];
 
-    const results = await this.recordRepository
+    if (col) {
+      // System field: query column directly
+      const qb = this.recordRepository
+        .createQueryBuilder('client')
+        .select(`DISTINCT client.${col}`, 'value')
+        .where(`client.${col} IS NOT NULL AND client.${col} != ''`);
+
+      if (tenantId) {
+        qb.andWhere('client.tenant_id = :tenantId', { tenantId });
+      }
+
+      const results = await qb.orderBy('value', 'ASC').limit(100).getRawMany();
+      return results.map((r) => r.value);
+    }
+
+    // Custom field: query from custom_data JSONB
+    const qb = this.recordRepository
       .createQueryBuilder('client')
-      .select(`DISTINCT client.${col}`, 'value')
-      .where(`client.${col} IS NOT NULL AND client.${col} != ''`)
-      .orderBy('value', 'ASC')
-      .getRawMany();
+      .select(`DISTINCT client.custom_data->>'${field}'`, 'value')
+      .where(`client.custom_data->>'${field}' IS NOT NULL AND client.custom_data->>'${field}' != ''`);
 
+    if (tenantId) {
+      qb.andWhere('client.tenant_id = :tenantId', { tenantId });
+    }
+
+    const results = await qb.orderBy('value', 'ASC').limit(100).getRawMany();
     return results.map((r) => r.value);
   }
 

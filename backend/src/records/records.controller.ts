@@ -116,8 +116,8 @@ export class RecordsController {
   }
 
   @Get('distinct-values')
-  getDistinctValues(@Query('field') field: string) {
-    return this.recordsService.getDistinctValues(field);
+  getDistinctValues(@Query('field') field: string, @Query('tenantId') tenantId?: string) {
+    return this.recordsService.getDistinctValues(field, tenantId);
   }
 
   @Get('notes')

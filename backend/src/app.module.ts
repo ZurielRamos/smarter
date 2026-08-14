@@ -21,6 +21,7 @@ import { TeamsModule } from './teams/teams.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ConversionsModule } from './conversions/conversions.module';
+import { TemplatesModule } from './templates/templates.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { ConversionsModule } from './conversions/conversions.module';
     WebhooksModule,
     NotificationsModule,
     ConversionsModule,
+    TemplatesModule,
   ],
   providers: [
     {

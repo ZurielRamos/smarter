@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Trash2, Wifi, WifiOff, Phone, MessageCircle, Camera, MessageSquare, Mail, Copy, CheckCircle2, XCircle, RefreshCw, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Wifi, WifiOff, Phone, MessageCircle, Camera, MessageSquare, Mail, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import headerBg from "@/assets/header-background.jpg";
 import axios from "axios";
@@ -49,14 +49,12 @@ export function InboxSettings() {
   const [name, setName] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Email config state
-  const [emailForm, setEmailForm] = useState({ fromEmail: "", fromName: "" });
-  const [emailSaving, setEmailSaving] = useState(false);
-  const [emailConfig, setEmailConfig] = useState<{ domain: string; domainStatus: string } | null>(null);
-  const [dnsRecords, setDnsRecords] = useState<{ type: string; name: string; value: string; purpose: string }[]>([]);
-  const [verifying, setVerifying] = useState(false);
-  const [verifyResult, setVerifyResult] = useState<{ verified: boolean; results: { record: string; status: string; detail?: string }[] } | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
+  // SMTP config state
+  const [smtpForm, setSmtpForm] = useState({ host: "", port: 465, secure: true, user: "", pass: "", fromName: "", fromEmail: "", defaultSubject: "" });
+  const [smtpSaving, setSmtpSaving] = useState(false);
+  const [smtpSaved, setSmtpSaved] = useState(false);
+  const [smtpTesting, setSmtpTesting] = useState(false);
+  const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; error?: string } | null>(null);
 
   // SMS config state
   const [smsSender, setSmsSender] = useState("");
@@ -75,7 +73,19 @@ export function InboxSettings() {
       .then(({ data }) => {
         setInbox(data);
         setName(data.name);
-        if (data.channel === "email") loadEmailConfig(data.id);
+        if (data.channel === "email") {
+          const smtp = data.metadata?.smtp || {};
+          setSmtpForm({
+            host: smtp.host || "",
+            port: smtp.port || 465,
+            secure: smtp.secure ?? true,
+            user: smtp.user || "",
+            pass: smtp.pass || "",
+            fromName: smtp.fromName || "",
+            fromEmail: smtp.fromEmail || "",
+            defaultSubject: smtp.defaultSubject || "",
+          });
+        }
         if (data.channel === "sms") {
           setSmsSender(data.metadata?.sender || "");
         }
@@ -87,56 +97,29 @@ export function InboxSettings() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const loadEmailConfig = async (inboxId: string) => {
+  const handleSmtpSave = async () => {
+    if (!inbox || !smtpForm.host || !smtpForm.user || !smtpForm.pass) return;
+    setSmtpSaving(true);
+    setSmtpTestResult(null);
     try {
-      const { data } = await api.get(`/email-config/inbox/${inboxId}`);
-      if (data) {
-        setEmailConfig(data);
-        setEmailForm({ fromEmail: data.fromEmail, fromName: data.fromName });
-        const dnsRes = await api.get(`/email-config/inbox/${inboxId}/dns-records`);
-        setDnsRecords(dnsRes.data.records || []);
-      }
-    } catch {}
+      await api.put(`/chats/inboxes/${inbox.id}/smtp`, smtpForm);
+      setSmtpSaved(true);
+      setTimeout(() => setSmtpSaved(false), 2000);
+      const { data } = await api.get<Inbox>(`/chats/inboxes/${inbox.id}`);
+      setInbox(data);
+    } catch {} finally { setSmtpSaving(false); }
   };
 
-  const handleEmailSave = async () => {
-    if (!inbox || !emailForm.fromEmail || !emailForm.fromName) return;
-    setEmailSaving(true);
+  const handleSmtpTest = async () => {
+    if (!inbox || !smtpForm.host || !smtpForm.user || !smtpForm.pass) return;
+    setSmtpTesting(true);
+    setSmtpTestResult(null);
     try {
-      const { data } = await api.post(`/email-config/inbox/${inbox.id}`, {
-        tenantId: inbox.tenantId,
-        fromEmail: emailForm.fromEmail,
-        fromName: emailForm.fromName,
-      });
-      setEmailConfig(data);
-      setVerifyResult(null);
-      const dnsRes = await api.get(`/email-config/inbox/${inbox.id}/dns-records`);
-      setDnsRecords(dnsRes.data.records || []);
-    } catch {} finally {
-      setEmailSaving(false);
-    }
-  };
-
-  const handleVerifyDomain = async () => {
-    if (!inbox) return;
-    setVerifying(true);
-    try {
-      const { data } = await api.post(`/email-config/inbox/${inbox.id}/verify`);
-      setVerifyResult(data);
-      if (data.verified) {
-        setEmailConfig((prev) => prev ? { ...prev, domainStatus: "verified" } : prev);
-      } else {
-        setEmailConfig((prev) => prev ? { ...prev, domainStatus: "failed" } : prev);
-      }
-    } catch {} finally {
-      setVerifying(false);
-    }
-  };
-
-  const copyToClipboard = (text: string, key: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(key);
-    setTimeout(() => setCopied(null), 2000);
+      const { data } = await api.post(`/chats/inboxes/${inbox.id}/smtp/test`, smtpForm);
+      setSmtpTestResult(data);
+    } catch {
+      setSmtpTestResult({ success: false, error: "Error de conexión" });
+    } finally { setSmtpTesting(false); }
   };
 
   const handleSmsSave = async () => {
@@ -305,122 +288,72 @@ export function InboxSettings() {
             </div>
           ) : inbox.channel === "email" ? (
           <div className="bg-white rounded-xl border border-orange-200 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-sm font-semibold text-gray-900">Configuración de dominio</h2>
-              {emailConfig?.domainStatus === "verified" && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 font-medium">
-                  <CheckCircle2 className="h-2.5 w-2.5" /> Verificado
-                </span>
-              )}
-              {emailConfig?.domainStatus === "failed" && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 font-medium">
-                  <XCircle className="h-2.5 w-2.5" /> Falló
-                </span>
-              )}
-              {emailConfig?.domainStatus === "pending" && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
-                  Pendiente
-                </span>
-              )}
-            </div>
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">Configuración SMTP</h2>
+            <p className="text-[11px] text-gray-500 mb-4">Configura las credenciales SMTP para enviar correos desde esta bandeja.</p>
 
-            {/* Email form */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Nombre del remitente</label>
-                <input
-                  type="text"
-                  value={emailForm.fromName}
-                  onChange={(e) => setEmailForm({ ...emailForm, fromName: e.target.value })}
-                  placeholder="Mi Empresa"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Email del remitente</label>
-                <input
-                  type="email"
-                  value={emailForm.fromEmail}
-                  onChange={(e) => setEmailForm({ ...emailForm, fromEmail: e.target.value })}
-                  placeholder="comunicaciones@miempresa.com"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-            <button
-              onClick={handleEmailSave}
-              disabled={emailSaving || !emailForm.fromEmail || !emailForm.fromName}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-xs font-medium transition-colors disabled:opacity-50"
-            >
-              {emailSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-              Guardar
-            </button>
-
-            {/* DNS Records */}
-            {emailConfig && dnsRecords.length > 0 && (
-              <div className="mt-5 pt-5 border-t border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">Registros DNS</h3>
-                <p className="text-xs text-gray-500 mb-4">
-                  Agrega estos registros en la configuración DNS de <code className="bg-gray-100 px-1 rounded">{emailConfig.domain}</code>
-                </p>
-                <div className="space-y-3">
-                  {dnsRecords.map((record, i) => (
-                    <div key={i} className="p-3 rounded-lg border border-gray-200 bg-gray-50/50">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 font-mono font-bold">{record.type}</span>
-                            <span className="text-xs text-gray-500">{record.purpose}</span>
-                          </div>
-                          <div className="mt-2 space-y-1">
-                            <div>
-                              <span className="text-[10px] font-medium text-gray-400 uppercase">Nombre</span>
-                              <p className="text-xs font-mono text-gray-700 break-all">{record.name}</p>
-                            </div>
-                            <div>
-                              <span className="text-[10px] font-medium text-gray-400 uppercase">Valor</span>
-                              <p className="text-xs font-mono text-gray-700 break-all">{record.value}</p>
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => copyToClipboard(record.value, `${i}`)}
-                          className="shrink-0 p-1.5 rounded-md hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
-                        >
-                          {copied === `${i}` ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Servidor SMTP</label>
+                  <input type="text" value={smtpForm.host} onChange={(e) => setSmtpForm({ ...smtpForm, host: e.target.value })} placeholder="smtp.gmail.com" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
-
-                <div className="mt-4">
-                  <button
-                    onClick={handleVerifyDomain}
-                    disabled={verifying}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-brand-300 text-brand-700 hover:bg-brand-50 text-xs font-medium transition-colors disabled:opacity-50"
-                  >
-                    {verifying ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                    Verificar dominio
-                  </button>
-                </div>
-
-                {verifyResult && (
-                  <div className={`mt-3 p-3 rounded-lg border ${verifyResult.verified ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
-                    <p className={`text-xs font-medium mb-2 ${verifyResult.verified ? "text-green-800" : "text-red-800"}`}>
-                      {verifyResult.verified ? "✓ Dominio verificado correctamente" : "✗ Verificación incompleta"}
-                    </p>
-                    <div className="space-y-1">
-                      {verifyResult.results.map((r, i) => (
-                        <div key={i} className="flex items-center gap-2 text-xs">
-                          {r.status === "ok" ? <CheckCircle2 className="h-3 w-3 text-green-600 shrink-0" /> : <XCircle className="h-3 w-3 text-red-500 shrink-0" />}
-                          <span className={r.status === "ok" ? "text-green-700" : "text-red-700"}>
-                            {r.record}{r.detail ? ` — ${r.detail}` : ""}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Puerto</label>
+                    <input type="number" value={smtpForm.port} onChange={(e) => setSmtpForm({ ...smtpForm, port: parseInt(e.target.value) || 465 })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                   </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">SSL/TLS</label>
+                    <button type="button" onClick={() => setSmtpForm({ ...smtpForm, secure: !smtpForm.secure })} className={`w-full px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${smtpForm.secure ? "border-green-300 bg-green-50 text-green-700" : "border-gray-200 text-gray-500"}`}>
+                      {smtpForm.secure ? "Sí" : "No"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Usuario</label>
+                  <input type="text" value={smtpForm.user} onChange={(e) => setSmtpForm({ ...smtpForm, user: e.target.value })} placeholder="usuario@dominio.com" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Contraseña</label>
+                  <input type="password" value={smtpForm.pass} onChange={(e) => setSmtpForm({ ...smtpForm, pass: e.target.value })} placeholder="••••••••" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Nombre remitente</label>
+                  <input type="text" value={smtpForm.fromName} onChange={(e) => setSmtpForm({ ...smtpForm, fromName: e.target.value })} placeholder="Mi Empresa" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Email remitente</label>
+                  <input type="email" value={smtpForm.fromEmail} onChange={(e) => setSmtpForm({ ...smtpForm, fromEmail: e.target.value })} placeholder="correo@dominio.com" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Asunto por defecto (conversaciones)</label>
+                <input type="text" value={smtpForm.defaultSubject} onChange={(e) => setSmtpForm({ ...smtpForm, defaultSubject: e.target.value })} placeholder="Nuevo mensaje" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                <p className="text-[10px] text-gray-400 mt-1">Se usa cuando se envía un mensaje desde la conversación</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 mt-4">
+              <button onClick={handleSmtpTest} disabled={smtpTesting || !smtpForm.host || !smtpForm.user || !smtpForm.pass} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-300 text-orange-700 hover:bg-orange-50 text-xs font-medium disabled:opacity-50">
+                {smtpTesting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wifi className="h-3 w-3" />}
+                Probar conexión
+              </button>
+              <button onClick={handleSmtpSave} disabled={smtpSaving || !smtpForm.host || !smtpForm.user || !smtpForm.pass} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-xs font-medium disabled:opacity-50">
+                {smtpSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : smtpSaved ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
+                {smtpSaved ? "Guardado" : "Guardar SMTP"}
+              </button>
+            </div>
+
+            {smtpTestResult && (
+              <div className={`mt-3 p-2.5 rounded-lg border text-xs ${smtpTestResult.success ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"}`}>
+                {smtpTestResult.success ? (
+                  <div className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3" /> Conexión SMTP exitosa</div>
+                ) : (
+                  <div className="flex items-center gap-1.5"><XCircle className="h-3 w-3" /> {smtpTestResult.error || "Error de conexión"}</div>
                 )}
               </div>
             )}

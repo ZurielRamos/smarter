@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MessageSquare, Send, Wifi, WifiOff, MessageCircle, Phone, Camera, Mail, Settings2, Inbox, CheckCheck, BellOff, Archive, Trash2, UserCircle, Reply, Copy, X, Smile, Paperclip, Mic, StickyNote, Image, FileText, Filter, ArrowUpDown, Megaphone } from "lucide-react";
+import { MessageSquare, Send, Wifi, WifiOff, MessageCircle, Phone, Camera, Mail, Settings2, Inbox, CheckCheck, BellOff, Archive, Trash2, UserCircle, Reply, Copy, X, Smile, Paperclip, Mic, StickyNote, Image, FileText, Filter, ArrowUpDown, Megaphone, MoreVertical, Eye } from "lucide-react";
 import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/components/ChannelIcons";
 import { TemplateSelector, TemplateConfigModal } from "@/components/TemplateModal";
 import { useAuth } from "@/context/AuthContext";
 import { useSocket } from "@/hooks/useSocket";
 import { ChatEmpty } from "./ChatEmpty";
+import { formatWhatsAppText } from "@/utils/whatsapp-format";
 import axios from "axios";
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
@@ -94,6 +95,8 @@ export function Conversaciones() {
   const [inputMode, setInputMode] = useState<"reply" | "note">("reply");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [channelDropdownOpen, setChannelDropdownOpen] = useState(false);
+  const [chatHeaderMenuOpen, setChatHeaderMenuOpen] = useState(false);
+  const chatHeaderMenuRef = useRef<HTMLDivElement>(null);
   const [selectedInboxFilter, setSelectedInboxFilter] = useState<Set<string>>(new Set());
   const [conversationsTotal, setConversationsTotal] = useState(0);
   const [loadingConversations, setLoadingConversations] = useState(false);
@@ -265,6 +268,15 @@ export function Conversaciones() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [filterDropdownOpen]);
+
+  useEffect(() => {
+    if (!chatHeaderMenuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (chatHeaderMenuRef.current && !chatHeaderMenuRef.current.contains(e.target as Node)) setChatHeaderMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [chatHeaderMenuOpen]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, conv: Conversation) => {
     e.preventDefault();
@@ -617,6 +629,28 @@ export function Conversaciones() {
     return conv.contactName || conv.contactId;
   };
 
+  // Check if the 24h messaging window is closed for messaging channels
+  const isWindowClosed = (() => {
+    if (!activeConversation) return false;
+    const channel = activeConversation.inbox?.channel;
+    if (!channel || !["whatsapp", "messenger", "instagram"].includes(channel)) return false;
+    // Find the last inbound message
+    const lastInbound = [...messages].reverse().find((m) => m.direction === "inbound");
+    // Find the last outbound template message (reopens the window)
+    const lastOutboundTemplate = [...messages].reverse().find((m) => m.direction === "outbound" && m.messageType === "template");
+    
+    // The window is open if either:
+    // 1. Last inbound was within 24h
+    // 2. Last outbound template was within 24h (templates reopen the window)
+    const lastInboundTime = lastInbound ? new Date(lastInbound.createdAt).getTime() : 0;
+    const lastTemplateTime = lastOutboundTemplate ? new Date(lastOutboundTemplate.createdAt).getTime() : 0;
+    const lastWindowOpener = Math.max(lastInboundTime, lastTemplateTime);
+    
+    if (lastWindowOpener === 0) return true; // No inbound or template = window never opened
+    const hoursSinceLastOpener = (Date.now() - lastWindowOpener) / (1000 * 60 * 60);
+    return hoursSinceLastOpener > 24;
+  })();
+
   return (
     <>
       {/* Conversations sidebar */}
@@ -885,7 +919,7 @@ export function Conversaciones() {
         <div className="flex-1 flex flex-col bg-gray-50 min-w-0 overflow-hidden">
           {activeConversation ? (
             <>
-              <div className="h-14 px-6 flex items-center border-b border-gray-200 bg-white shrink-0">
+              <div className="h-14 px-6 flex items-center justify-between border-b border-gray-200 bg-white shrink-0">
                 <div className="flex items-center gap-3">
                   <div className={`relative h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-gray-600 ${activeConversation.hasAdTracking ? "ring-2 ring-blue-500 ring-offset-1 bg-gradient-to-br from-blue-50 to-indigo-100" : "bg-gray-200"}`}>
                     {getDisplayName(activeConversation).charAt(0).toUpperCase()}
@@ -903,6 +937,32 @@ export function Conversaciones() {
                     <p className="text-sm font-medium text-gray-900">{getDisplayName(activeConversation)}</p>
                     <p className="text-[10px] text-gray-400">{activeConversation.contactId}</p>
                   </div>
+                </div>
+                {/* Dropdown menu */}
+                <div className="relative" ref={chatHeaderMenuRef}>
+                  <button
+                    onClick={() => setChatHeaderMenuOpen(!chatHeaderMenuOpen)}
+                    className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                  {chatHeaderMenuOpen && (
+                    <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                      <button
+                        onClick={() => {
+                          setChatHeaderMenuOpen(false);
+                          const recordId = activeConversation.record?.id;
+                          if (recordId) {
+                            navigate(`/${slug}/clients/${recordId}`);
+                          }
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Eye className="h-4 w-4 text-gray-400" />
+                        Ver Contacto
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1016,7 +1076,7 @@ export function Conversaciones() {
                           className="max-w-[150px] max-h-[150px] mb-1"
                         />
                       ) : null}
-                      {msg.content && msg.messageType !== "template" && <p className="whitespace-pre-wrap">{msg.content}</p>}
+                      {msg.content && msg.messageType !== "template" && <p className="whitespace-pre-wrap">{formatWhatsAppText(msg.content)}</p>}
                       {!msg.content && !msg.mediaUrl && msg.messageType !== "template" && <p className="whitespace-pre-wrap text-gray-400 italic">[{msg.messageType}]</p>}
                       <p className={`text-[10px] mt-1 flex items-center gap-1 ${msg.messageType === "template" ? "text-green-500" : msg.messageType === "note" ? "text-yellow-500" : msg.direction === "outbound" ? "text-white/60" : "text-gray-400"}`}>
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -1059,6 +1119,28 @@ export function Conversaciones() {
                     <span className="flex items-center gap-1"><StickyNote className="h-3 w-3" /> Nota privada</span>
                   </button>
                 </div>
+
+                {/* 24h window closed alert */}
+                {isWindowClosed && inputMode === "reply" ? (
+                  <div className="px-5 py-4">
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200">
+                      <span className="text-amber-500 text-lg">⏱️</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-amber-800">Ventana de conversación cerrada</p>
+                        <p className="text-xs text-amber-600 mt-0.5">Han pasado más de 24 horas desde el último mensaje del contacto. {activeConversation?.inbox?.channel === "whatsapp" ? "Usa una plantilla para reabrir la conversación." : "Espera a que el contacto responda."}</p>
+                      </div>
+                    </div>
+                    {activeConversation?.inbox?.channel === "whatsapp" && (
+                      <div className="mt-2 flex justify-end">
+                        <TemplateSelector
+                          inboxId={activeConversation.inboxId}
+                          onSelect={(t) => setSelectedTemplate(t)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                <>
 
                 {/* Reply preview */}
                 {replyTo && inputMode === "reply" && (
@@ -1232,6 +1314,8 @@ export function Conversaciones() {
                     </button>
                   </div>
                 </div>
+                </>
+                )}
               </div>
             </>
           ) : (
@@ -1474,7 +1558,7 @@ function TemplateBubble({ msg }: { msg: Message }) {
     return (
       <>
         <p className="text-[10px] font-medium text-green-600 mb-1 flex items-center gap-1">📋 Plantilla</p>
-        <p className="whitespace-pre-wrap">{msg.content}</p>
+        <p className="whitespace-pre-wrap">{formatWhatsAppText(msg.content || "")}</p>
       </>
     );
   }
@@ -1495,9 +1579,9 @@ function TemplateBubble({ msg }: { msg: Message }) {
       {renderedHeader && (
         <p className="font-bold text-gray-900 text-[13px] mb-1">{renderedHeader}</p>
       )}
-      <p className="whitespace-pre-wrap text-[13px] text-gray-700 leading-relaxed">{renderedBody}</p>
+      <p className="whitespace-pre-wrap text-[13px] text-gray-700 leading-relaxed">{formatWhatsAppText(renderedBody)}</p>
       {footer?.text && (
-        <p className="text-[11px] text-gray-400 mt-2">{footer.text}</p>
+        <p className="text-[11px] text-gray-400 mt-2">{formatWhatsAppText(footer.text)}</p>
       )}
       {buttons?.buttons && buttons.buttons.length > 0 && (
         <div className="mt-2 pt-2 border-t border-green-200 space-y-1">

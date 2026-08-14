@@ -4,6 +4,7 @@ import { Settings2, Users, Clock, UserPlus, X, Loader2, Save, CheckCircle2, Mess
 import { useAuth } from "@/context/AuthContext";
 import { InboxSettingsContent } from "@/components/InboxSettingsContent";
 import { WhatsAppTemplatesManager } from "@/components/WhatsAppTemplatesManager";
+import { EmailTemplatesManager } from "@/components/EmailTemplatesManager";
 import { api } from "@/services/api";
 
 interface DaySchedule {
@@ -649,6 +650,9 @@ type Tab = "estado" | "ajustes" | "colaboradores" | "horarios" | "plantillas";
 export function CanalDetail() {
   const { slug, inboxId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const tenantRole = user?.tenantRoles.find((tr: any) => tr.tenant.slug === slug);
+  const tenantId = tenantRole?.tenantId || "";
   const [activeTab, setActiveTab] = useState<Tab>("ajustes");
   const [inboxChannel, setInboxChannel] = useState<string | null>(null);
 
@@ -668,6 +672,7 @@ export function CanalDetail() {
     { key: "colaboradores", label: "Colaboradores", icon: Users },
     { key: "horarios", label: "Horarios", icon: Clock },
     ...(inboxChannel === "whatsapp" ? [{ key: "plantillas" as Tab, label: "Plantillas", icon: MessageSquare }] : []),
+    ...(inboxChannel === "email" ? [{ key: "plantillas" as Tab, label: "Plantillas", icon: MailIcon }] : []),
   ];
 
   return (
@@ -710,8 +715,12 @@ export function CanalDetail() {
         <ScheduleTab inboxId={inboxId} />
       )}
 
-      {activeTab === "plantillas" && (
+      {activeTab === "plantillas" && inboxChannel === "whatsapp" && (
         <WhatsAppTemplatesManager inboxId={inboxId} />
+      )}
+
+      {activeTab === "plantillas" && inboxChannel === "email" && (
+        <EmailTemplatesManager inboxId={inboxId} tenantId={tenantId} />
       )}
     </div>
   );

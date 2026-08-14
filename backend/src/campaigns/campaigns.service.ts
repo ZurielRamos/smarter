@@ -83,9 +83,13 @@ export class CampaignsService {
       status: string;
       listId: string | null;
       messageTemplate: string;
+      emailSubject: string;
+      emailTemplateId: string | null;
+      inboxId: string | null;
       whatsappTemplateName: string;
       whatsappTemplateLanguage: string;
       whatsappVariableMapping: Record<string, string>;
+      whatsappTemplateCategory: string;
       callVoice: string;
       callRetries: string;
       callLeaveVoicemail: boolean;
@@ -234,9 +238,11 @@ export class CampaignsService {
         const paramKey = `p_${i}_${j}`;
         const col = this.fieldToColumn(cond.field);
 
-        // Skip comparison operators with empty values
-        if (['greater_than', 'less_than', 'greater_or_equal', 'less_or_equal'].includes(cond.operator) && (!cond.value || String(cond.value).trim() === '')) {
-          continue;
+        // Skip any condition with empty/null value (except boolean operators)
+        if (!['is_true', 'is_false', 'is_null', 'is_not_null'].includes(cond.operator)) {
+          if (cond.value === null || cond.value === undefined || String(cond.value).trim() === '') {
+            continue;
+          }
         }
 
         const sqlCond = this.buildConditionSql(col, cond.operator, paramKey, cond.field);
@@ -362,6 +368,25 @@ export class CampaignsService {
     } else if (campaign.channel === 'llamada') {
       if (!campaign.messageTemplate && !campaign.callAudioCode) {
         throw new BadRequestException('La campaña de llamada necesita un mensaje o audio configurado');
+      }
+    } else if (campaign.channel === 'email') {
+      // If using a multi-language template, skip inline content validation
+      if (!campaign.emailTemplateId) {
+        if (!campaign.messageTemplate) {
+          throw new BadRequestException('La campaña de email necesita un contenido HTML configurado o una plantilla asignada');
+        }
+        if (!campaign.emailSubject) {
+          throw new BadRequestException('La campaña de email necesita un asunto configurado o una plantilla asignada');
+        }
+      }
+      // Validate that the inbox has SMTP configured
+      if (campaign.inboxId) {
+        const inbox = await this.inboxRepo.findOneBy({ id: campaign.inboxId });
+        if (!inbox?.metadata?.smtp?.host || !inbox?.metadata?.smtp?.user || !inbox?.metadata?.smtp?.pass) {
+          throw new BadRequestException('La bandeja de email no tiene SMTP configurado. Configúralo en Canales > Email > SMTP');
+        }
+      } else {
+        throw new BadRequestException('La campaña de email necesita una bandeja de email asignada');
       }
     } else {
       throw new BadRequestException('Canal no soportado para envío');

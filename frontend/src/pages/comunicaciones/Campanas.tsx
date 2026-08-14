@@ -199,7 +199,7 @@ export function Campanas() {
                     </span>
                   </div>
                   <p className="text-[11px] text-gray-400 mt-0.5 truncate">
-                    {c.matchedCount.toLocaleString()} clientes · {c.channel || "sin canal"}
+                    {c.channel || "sin canal"}
                   </p>
                 </div>
               </button>

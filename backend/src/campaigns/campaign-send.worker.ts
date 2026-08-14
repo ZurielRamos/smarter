@@ -7,6 +7,7 @@ import { CampaignSend } from './campaign-send.entity';
 import { CampaignSendLog } from './campaign-send-log.entity';
 import { Campaign } from './campaign.entity';
 import { ClientRecord } from '../records/record.entity';
+import { Activity } from '../records/activity.entity';
 import { Inbox } from '../chats/inbox.entity';
 import { Conversation } from '../chats/conversation.entity';
 import { Message } from '../chats/message.entity';
@@ -18,6 +19,7 @@ import { EmailService } from './email.service';
 import { ConfigService } from '@nestjs/config';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TemplatesService } from '../templates/templates.service';
 
 export interface CampaignSendJobData {
   sendId: string;
@@ -49,6 +51,8 @@ export class CampaignSendWorker extends WorkerHost {
     private readonly conversationRepo: Repository<Conversation>,
     @InjectRepository(Message)
     private readonly messageRepo: Repository<Message>,
+    @InjectRepository(Activity)
+    private readonly activityRepo: Repository<Activity>,
     private readonly gateway: CampaignsGateway,
     private readonly billingService: BillingService,
     private readonly smsService: SmsService,
@@ -57,6 +61,7 @@ export class CampaignSendWorker extends WorkerHost {
     private readonly configService: ConfigService,
     private readonly webhooksService: WebhooksService,
     private readonly notificationsService: NotificationsService,
+    private readonly templatesService: TemplatesService,
   ) {
     super();
   }
@@ -92,6 +97,14 @@ export class CampaignSendWorker extends WorkerHost {
     if (campaign.channel === 'whatsapp' && (!inbox.accessToken || !inbox.phoneNumberId)) {
       await this.failSend(sendId, 'La bandeja no tiene credenciales configuradas');
       return;
+    }
+    // Email requires SMTP configuration in inbox metadata
+    if (campaign.channel === 'email') {
+      const smtpConfig = inbox.metadata?.smtp;
+      if (!smtpConfig?.host || !smtpConfig?.user || !smtpConfig?.pass) {
+        await this.failSend(sendId, 'La bandeja de email no tiene SMTP configurado');
+        return;
+      }
     }
 
     const recipientIds = send.recipientIds;
@@ -150,7 +163,23 @@ export class CampaignSendWorker extends WorkerHost {
         const logs: Partial<CampaignSendLog>[] = [];
 
         for (const client of clients) {
-          if (!client.phone) {
+          if (campaign.channel === 'email') {
+            // Email channel: validate email instead of phone
+            if (!client.email) {
+              totalFailed++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone || '',
+                channel: 'email',
+                status: 'failed',
+                errorCode: 'no_email',
+              });
+              continue;
+            }
+          } else if (!client.phone) {
             totalFailed++;
             logs.push({
               sendId,
@@ -167,7 +196,8 @@ export class CampaignSendWorker extends WorkerHost {
 
           if (campaign.channel === 'sms') {
             // === SMS via LabsMobile ===
-            const smsMessage = this.interpolateMessage(campaign.messageTemplate || '', client);
+            const smsBody = await this.resolveTextContent(campaign, client);
+            const smsMessage = this.interpolateMessage(smsBody, client);
             const result = await this.smsService.sendSms(client.phone, smsMessage);
 
             if (result.success) {
@@ -198,7 +228,8 @@ export class CampaignSendWorker extends WorkerHost {
             }
           } else if (campaign.channel === 'llamada') {
             // === Voice call via Onurix ===
-            const callMessage = this.interpolateMessage(campaign.messageTemplate || '', client);
+            const callBody = await this.resolveTextContent(campaign, client);
+            const callMessage = this.interpolateMessage(callBody, client);
             const voice = inbox.metadata?.voice || campaign.callVoice || 'Mariana';
             const result = await this.callService.sendCall({
               phone: client.phone,
@@ -273,14 +304,15 @@ export class CampaignSendWorker extends WorkerHost {
               continue;
             }
 
-            const emailContent = this.interpolateMessage(campaign.messageTemplate || '', client);
-            const emailSubject = this.interpolateMessage(campaign.emailSubject || smtpConfig.defaultSubject || 'Mensaje', client);
+            const emailContent = await this.resolveEmailContent(campaign, client);
+            const emailSubject = this.interpolateMessage(emailContent.subject, client);
+            const emailHtml = this.interpolateMessage(emailContent.html, client);
 
             const result = await this.emailService.sendEmail({
               to: emailAddress,
               subject: emailSubject,
-              html: emailContent.replace(/\n/g, '<br>'),
-              text: emailContent,
+              html: emailHtml.replace(/\n/g, '<br>'),
+              text: emailHtml,
               smtpConfig,
             });
 
@@ -374,6 +406,9 @@ export class CampaignSendWorker extends WorkerHost {
             clients,
             templateComponents,
           );
+
+          // Log activity to contact timeline
+          await this.logCampaignActivities(successfulSends, campaign, clients);
         }
 
         // Update progress
@@ -600,6 +635,59 @@ export class CampaignSendWorker extends WorkerHost {
   }
 
   /**
+   * Resolve email content (subject + html) for a campaign and client.
+   * If the campaign uses an EmailTemplate (multi-language), resolves by client language.
+   * Otherwise falls back to the inline messageTemplate/emailSubject fields.
+   */
+  private async resolveEmailContent(
+    campaign: Campaign,
+    client: ClientRecord,
+  ): Promise<{ subject: string; html: string }> {
+    if (campaign.emailTemplateId) {
+      try {
+        const translation = await this.templatesService.resolveTranslation(
+          campaign.emailTemplateId,
+          client.language || 'es',
+        );
+        return { subject: translation.subject || '', html: translation.html || '' };
+      } catch {
+        // If template resolution fails, fall back to inline content
+        this.logger.warn(`[Worker] Failed to resolve email template ${campaign.emailTemplateId}, using inline content`);
+      }
+    }
+    // Fallback: use inline campaign fields
+    return {
+      subject: campaign.emailSubject || 'Mensaje',
+      html: campaign.messageTemplate || '',
+    };
+  }
+
+  /**
+   * Resolve text content (body) for SMS/Call campaigns.
+   * Uses template if emailTemplateId is set, otherwise falls back to messageTemplate.
+   */
+  private async resolveTextContent(
+    campaign: Campaign,
+    client: ClientRecord,
+  ): Promise<string> {
+    this.logger.log(`[resolveTextContent] emailTemplateId=${campaign.emailTemplateId}, messageTemplate=${(campaign.messageTemplate || '').substring(0, 30)}`);
+    if (campaign.emailTemplateId) {
+      try {
+        const translation = await this.templatesService.resolveTranslation(
+          campaign.emailTemplateId,
+          client.language || 'es',
+        );
+        this.logger.log(`[resolveTextContent] Resolved template body: ${(translation.body || '').substring(0, 50)}`);
+        return translation.body || '';
+      } catch (err) {
+        this.logger.warn(`[Worker] Failed to resolve template ${campaign.emailTemplateId}: ${err}`);
+      }
+    }
+    this.logger.log(`[resolveTextContent] Falling back to messageTemplate`);
+    return campaign.messageTemplate || '';
+  }
+
+  /**
    * For each successful send, find or create the conversation in the inbox,
    * then insert an outbound template message. Done in batch for efficiency.
    */
@@ -611,41 +699,60 @@ export class CampaignSendWorker extends WorkerHost {
     templateComponents: any[] | null,
   ): Promise<void> {
     try {
-      const phones = successfulLogs.map((l) => l.phone!).filter(Boolean);
-      if (phones.length === 0) return;
+      // For email campaigns, use email as contact identifier; otherwise use phone
+      const isEmail = campaign.channel === 'email';
+      const contactIdentifiers = isEmail
+        ? successfulLogs.map((l) => {
+            const client = clients.find((c) => c.id === l.recordId);
+            return client?.email || '';
+          }).filter(Boolean)
+        : successfulLogs.map((l) => l.phone!).filter(Boolean);
 
-      // Find existing conversations for these phones in this inbox
+      if (contactIdentifiers.length === 0) return;
+
+      // Find existing conversations for these contacts in this inbox
       const existingConvs = await this.conversationRepo
         .createQueryBuilder('c')
         .where('c.inbox_id = :inboxId', { inboxId: inbox.id })
-        .andWhere('c.contact_id IN (:...phones)', { phones })
+        .andWhere('c.contact_id IN (:...contactIdentifiers)', { contactIdentifiers })
         .getMany();
 
-      const convByPhone = new Map(existingConvs.map((c) => [c.contactId, c]));
+      const convByContact = new Map(existingConvs.map((c) => [c.contactId, c]));
       const now = new Date();
-      const lastMessageText = campaign.channel === 'sms'
-        ? (campaign.messageTemplate || 'SMS').substring(0, 100)
-        : `📋 ${campaign.whatsappTemplateName || ''}`;
+      let lastMessageText: string;
+      if (campaign.channel === 'email') {
+        lastMessageText = `📧 ${campaign.emailSubject || 'Email'}`.substring(0, 100);
+      } else if (campaign.channel === 'sms') {
+        lastMessageText = (campaign.messageTemplate || 'SMS').substring(0, 100);
+      } else {
+        lastMessageText = `📋 ${campaign.whatsappTemplateName || ''}`;
+      }
 
       // Create missing conversations
       const newConversations: Partial<Conversation>[] = [];
       for (const log of successfulLogs) {
-        const phone = log.phone!;
-        if (!convByPhone.has(phone)) {
-          const client = clients.find((c) => c.id === log.recordId);
-          const contactName = client ? [client.firstName, client.lastName].filter(Boolean).join(' ') || phone : phone;
-          newConversations.push({
-            inboxId: inbox.id,
-            contactId: phone,
-            contactName,
-            recordId: log.recordId,
-            status: 'open',
-            lastMessage: lastMessageText,
-            lastMessageAt: now,
-            lastMessageSource: 'campaign',
-            unreadCount: 0,
-          });
-        }
+        const client = clients.find((c) => c.id === log.recordId);
+        const contactId = isEmail ? (client?.email || '') : log.phone!;
+        if (!contactId || convByContact.has(contactId)) continue;
+
+        const contactName = client ? [client.firstName, client.lastName].filter(Boolean).join(' ') || contactId : contactId;
+        const renderedPreview = client
+          ? this.interpolateMessage((campaign.messageTemplate || campaign.whatsappTemplateName || ''), client).substring(0, 100)
+          : lastMessageText;
+
+        newConversations.push({
+          inboxId: inbox.id,
+          contactId,
+          contactName,
+          recordId: log.recordId,
+          status: 'open',
+          lastMessage: renderedPreview,
+          lastMessageAt: now,
+          lastMessageSource: 'campaign',
+          unreadCount: 0,
+        });
+        // Prevent duplicates within the same batch
+        convByContact.set(contactId, null as any);
       }
 
       // Bulk insert new conversations
@@ -654,29 +761,36 @@ export class CampaignSendWorker extends WorkerHost {
           this.conversationRepo.create(newConversations),
         );
         for (const conv of inserted) {
-          convByPhone.set(conv.contactId, conv);
+          convByContact.set(conv.contactId, conv);
         }
       }
 
       // Build messages for all successful sends
       const messages: Partial<Message>[] = [];
       for (const log of successfulLogs) {
-        const phone = log.phone!;
-        const conv = convByPhone.get(phone);
+        const client = clients.find((c) => c.id === log.recordId);
+        const contactId = isEmail ? (client?.email || '') : log.phone!;
+        const conv = convByContact.get(contactId);
         if (!conv) continue;
 
-        const client = clients.find((c) => c.id === log.recordId);
         let renderedContent: string;
         let messageType: string;
         let templateMeta: string | null = null;
 
-        if (campaign.channel === 'sms') {
-          // SMS: interpolate message template with client data
-          renderedContent = this.interpolateMessage(campaign.messageTemplate || '', client!);
+        if (campaign.channel === 'email') {
+          // Email: resolve from template or inline
+          const emailContent = await this.resolveEmailContent(campaign, client!);
+          renderedContent = this.interpolateMessage(emailContent.html, client!);
+          messageType = 'text';
+        } else if (campaign.channel === 'sms') {
+          // SMS: resolve from template or inline messageTemplate
+          const smsBody = await this.resolveTextContent(campaign, client!);
+          renderedContent = this.interpolateMessage(smsBody, client!);
           messageType = 'text';
         } else if (campaign.channel === 'llamada') {
-          // Call: interpolate message
-          renderedContent = this.interpolateMessage(campaign.messageTemplate || '', client!);
+          // Call: resolve from template or inline
+          const callBody = await this.resolveTextContent(campaign, client!);
+          renderedContent = this.interpolateMessage(callBody, client!);
           messageType = 'text';
         } else {
           // WhatsApp: render template
@@ -714,21 +828,63 @@ export class CampaignSendWorker extends WorkerHost {
       // Bulk insert messages
       if (messages.length > 0) {
         await this.messageRepo.insert(messages);
-      }
 
-      // Update last_message on existing conversations
-      const existingPhones = existingConvs.map((c) => c.contactId);
-      if (existingPhones.length > 0) {
-        await this.conversationRepo
-          .createQueryBuilder()
-          .update(Conversation)
-          .set({ lastMessage: lastMessageText, lastMessageAt: now, lastMessageSource: 'campaign' })
-          .where('inbox_id = :inboxId AND contact_id IN (:...phones)', { inboxId: inbox.id, phones: existingPhones })
-          .execute();
+        // Update lastMessage on all conversations with the actual rendered content
+        for (const msg of messages) {
+          if (msg.conversationId && msg.content) {
+            await this.conversationRepo.update(msg.conversationId, {
+              lastMessage: (msg.content as string).substring(0, 100),
+              lastMessageAt: now,
+              lastMessageSource: 'campaign',
+            });
+          }
+        }
       }
     } catch (error) {
       this.logger.error('[Worker] Error inserting conversations/messages:', error);
       // Non-fatal: don't fail the send because of this
+    }
+  }
+
+  /**
+   * Log a 'campaign_sent' activity to each contact's timeline.
+   */
+  private async logCampaignActivities(
+    successfulLogs: Partial<CampaignSendLog>[],
+    campaign: Campaign,
+    clients: ClientRecord[],
+  ): Promise<void> {
+    try {
+      const channelLabels: Record<string, string> = {
+        sms: 'SMS',
+        whatsapp: 'WhatsApp',
+        email: 'Email',
+        llamada: 'Llamada',
+      };
+      const channelLabel = channelLabels[campaign.channel || ''] || campaign.channel || '';
+
+      const activities = successfulLogs
+        .filter((l) => l.recordId)
+        .map((l) => ({
+          tenantId: campaign.tenantId,
+          recordId: l.recordId!,
+          type: 'campaign_sent',
+          description: `Campaña "${campaign.name}" enviada por ${channelLabel}`,
+          metadata: {
+            campaignId: campaign.id,
+            campaignName: campaign.name,
+            channel: campaign.channel,
+            sendId: l.sendId,
+          },
+        }));
+
+      if (activities.length > 0) {
+        await this.activityRepo.save(
+          this.activityRepo.create(activities),
+        );
+      }
+    } catch (error) {
+      this.logger.error('[Worker] Error logging campaign activities:', error);
     }
   }
 
