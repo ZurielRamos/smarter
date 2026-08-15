@@ -91,4 +91,10 @@ export class UpdateBotDto {
   @Min(0)
   @Max(15)
   replyDelay?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  contextMessages?: number;
 }

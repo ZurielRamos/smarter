@@ -32,6 +32,7 @@ interface BotData {
   dataCollectionMode: string;
   dataCollectionFields: string[];
   replyDelay: number;
+  contextMessages: number;
   welcomeMessage: string | null;
   fallbackMessage: string | null;
   systemPrompt: string | null;
@@ -249,6 +250,7 @@ export function BotConfig() {
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [fallbackMessage, setFallbackMessage] = useState("");
   const [replyDelay, setReplyDelay] = useState(4);
+  const [contextMessages, setContextMessages] = useState(20);
 
   // Advanced
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -276,6 +278,7 @@ export function BotConfig() {
       setDataCollectionIntensity(parseInt(data.dataCollectionMode) || 3);
       setDataCollectionFields(data.dataCollectionFields || []);
       setReplyDelay(data.replyDelay ?? 4);
+      setContextMessages(data.contextMessages ?? 20);
       setWelcomeMessage(data.welcomeMessage || "");
       setFallbackMessage(data.fallbackMessage || "");
       setSystemPrompt(data.systemPrompt || "");
@@ -310,6 +313,7 @@ export function BotConfig() {
         dataCollectionMode: String(dataCollectionIntensity),
         dataCollectionFields,
         replyDelay,
+        contextMessages,
         welcomeMessage: welcomeMessage.trim() || null,
         fallbackMessage: fallbackMessage.trim() || null,
         systemPrompt: systemPrompt.trim() || null,
@@ -703,6 +707,16 @@ export function BotConfig() {
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Máximo de tokens por respuesta</label>
               <input type="number" min={1} max={16384} value={maxTokens} onChange={(e) => setMaxTokens(Math.max(1, Math.min(16384, parseInt(e.target.value) || 1024)))} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200" />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-gray-600">Mensajes de contexto</label>
+                <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{contextMessages}</span>
+              </div>
+              <input type="range" min="1" max="50" step="1" value={contextMessages} onChange={(e) => setContextMessages(parseInt(e.target.value))} className="w-full accent-brand-600" />
+              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>1 mensaje</span><span>50 mensajes</span></div>
+              <p className="text-[10px] text-gray-400 mt-1">Cantidad de mensajes recientes del historial que el bot recibe como contexto. Más contexto = mejor memoria, más tokens consumidos.</p>
             </div>
           </div>
         </div>

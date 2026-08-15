@@ -81,6 +81,9 @@ export class Bot {
   @Column({ name: 'reply_delay', type: 'int', default: 4 })
   replyDelay: number; // seconds to wait before responding (debounce)
 
+  @Column({ name: 'context_messages', type: 'int', default: 20 })
+  contextMessages: number; // how many recent messages to send as context
+
   // === Usage tracking ===
 
   @Column({ name: 'total_prompt_tokens', type: 'int', default: 0 })

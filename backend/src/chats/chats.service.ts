@@ -1074,12 +1074,14 @@ export class ChatsService {
       const bot = await this.botsService.findOne(inbox.botId);
       if (!bot || bot.status !== 'active') return;
 
-      // Load recent messages for context (last 20)
+      // Load recent messages for context (last N messages, ordered chronologically)
+      const contextLimit = bot.contextMessages || 20;
       const recentMessages = await this.messageRepo.find({
         where: { conversationId: conversation.id },
-        order: { createdAt: 'ASC' },
-        take: 20,
+        order: { createdAt: 'DESC' },
+        take: contextLimit,
       });
+      recentMessages.reverse(); // Back to chronological order
 
       // Build messages array for the bot
       const messages = recentMessages.map((m) => ({
