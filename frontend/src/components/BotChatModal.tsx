@@ -58,7 +58,7 @@ export function BotChatModal({ open, onClose, botId, botName }: BotChatModalProp
 
       // Show system note if handed off
       if (data.handedOff) {
-        newMessages.push({ role: "system", content: "🤖→👤 Bot desactivado: el contacto pidió un agente humano." });
+        newMessages.push({ role: "system", content: "🤖 Bot desactivado: la conversación fue resuelta o transferida a un humano." });
       }
 
       // Show system note if data was extracted

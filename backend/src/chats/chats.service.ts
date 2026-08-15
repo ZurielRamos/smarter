@@ -1169,6 +1169,13 @@ export class ChatsService {
       }
       await this.messageRepo.save(sentMessage);
 
+      // Handle bot self-handoff (bot decided to transfer or resolved)
+      if (response.handedOff) {
+        conversation.botStatus = 'handed_off';
+        await this.conversationRepo.save(conversation);
+        await this.createSystemNote(conversation.id, '🤖→👤 Bot desactivado: la conversación fue resuelta o transferida.', inbox.tenantId);
+      }
+
       // Handle extracted data — update CRM record and insert system note
       if (response.extractedData && Object.keys(response.extractedData).length > 0 && conversation.recordId) {
         const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });

@@ -122,6 +122,17 @@ export class BotsService {
 
     let content = choice?.content || 'Sin respuesta';
     let extractedData: Record<string, string> | undefined;
+    let handedOff = false;
+
+    // Post-process: extract control signals
+    if (content.includes('<!--HANDOFF-->')) {
+      handedOff = true;
+      content = content.replace(/<!--HANDOFF-->/g, '').trim();
+    }
+    if (content.includes('<!--RESOLVED-->')) {
+      handedOff = true; // resolved = bot done, same effect
+      content = content.replace(/<!--RESOLVED-->/g, '').trim();
+    }
 
     // Post-process: extract DATA block if data collection is enabled
     if (bot.dataCollectionEnabled) {
@@ -147,6 +158,7 @@ export class BotsService {
         cost: usage.total_cost ?? null,
       } : undefined,
       extractedData,
+      handedOff,
     };
   }
 
@@ -271,6 +283,12 @@ export class BotsService {
         }
       }
     }
+
+    // Control signals
+    parts.push('\nSEÑALES DE CONTROL:');
+    parts.push('Si determines que la conversación debe ser transferida a un agente humano (el tema excede tus capacidades, el usuario está frustrado, o no puedes resolver su consulta), incluye al final de tu respuesta: <!--HANDOFF-->');
+    parts.push('Si determines que cumpliste tu objetivo y la conversación está resuelta (el usuario está satisfecho y no tiene más preguntas), incluye al final: <!--RESOLVED-->');
+    parts.push('Estos bloques son invisibles para el usuario. Solo úsalos cuando sea claramente necesario.');
 
     return parts.join('\n');
   }
