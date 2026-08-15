@@ -84,22 +84,10 @@ const ROUTING_VARIANTS = [
   { value: "floor", label: "Floor", icon: "💰", description: "Precio más bajo" },
 ];
 
-const STANDARD_FIELDS = [
-  { field: "firstName", label: "Nombre" },
-  { field: "lastName", label: "Apellido" },
-  { field: "email", label: "Email" },
-  { field: "phone", label: "Teléfono" },
-  { field: "company", label: "Empresa" },
-  { field: "city", label: "Ciudad" },
-  { field: "jobTitle", label: "Cargo" },
-  { field: "address", label: "Dirección" },
-  { field: "birthDate", label: "Fecha de nacimiento" },
-];
-
 function AddFieldDropdown({ existingFields, onAdd, tenantId }: { existingFields: string[]; onAdd: (field: string, label: string) => void; tenantId?: string }) {
   const [open, setOpen] = useState(false);
-  const [allFields, setAllFields] = useState<{ field: string; label: string }[]>(STANDARD_FIELDS);
-  const [loadedCustom, setLoadedCustom] = useState(false);
+  const [allFields, setAllFields] = useState<{ field: string; label: string }[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -113,11 +101,14 @@ function AddFieldDropdown({ existingFields, onAdd, tenantId }: { existingFields:
   }, []);
 
   useEffect(() => {
-    if (open && !loadedCustom && tenantId) {
+    if (open && !loaded && tenantId) {
       api.get(`/custom-fields/${tenantId}`).then(({ data }) => {
-        const customFields = (data || []).map((cf: any) => ({ field: `custom:${cf.fieldKey}`, label: cf.fieldLabel }));
-        setAllFields([...STANDARD_FIELDS, ...customFields]);
-        setLoadedCustom(true);
+        const fields = (data || []).map((cf: any) => ({
+          field: cf.isSystem ? cf.fieldKey : `custom:${cf.fieldKey}`,
+          label: cf.fieldLabel,
+        }));
+        setAllFields(fields);
+        setLoaded(true);
       }).catch(() => {});
     }
     if (open) setTimeout(() => inputRef.current?.focus(), 50);
