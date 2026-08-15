@@ -84,6 +84,17 @@ export class Bot {
   @Column({ name: 'context_messages', type: 'int', default: 20 })
   contextMessages: number; // how many recent messages to send as context
 
+  // === Conversation Control ===
+
+  @Column({ name: 'max_bot_messages', type: 'int', default: 0 })
+  maxBotMessages: number; // 0 = unlimited
+
+  @Column({ name: 'handoff_keywords', type: 'jsonb', nullable: true, default: '[]' })
+  handoffKeywords: string[];
+
+  @Column({ name: 'handoff_message', type: 'text', nullable: true })
+  handoffMessage: string | null;
+
   // === Usage tracking ===
 
   @Column({ name: 'total_prompt_tokens', type: 'int', default: 0 })

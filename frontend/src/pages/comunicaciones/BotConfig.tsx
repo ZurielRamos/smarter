@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Bot, Save, Loader2, Cpu, MessageSquare,
   Search, Check, X, Play, Plus, Trash2, UserCircle,
-  BookOpen, Shield, ChevronDown, Eye, ClipboardList,
+  BookOpen, Shield, ChevronDown, Eye, ClipboardList, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BotChatModal } from "@/components/BotChatModal";
@@ -34,6 +34,9 @@ interface BotData {
   dataCollectionFields: { field: string; label: string; instructions: string; priority: number }[];
   replyDelay: number;
   contextMessages: number;
+  maxBotMessages: number;
+  handoffKeywords: string[];
+  handoffMessage: string | null;
   welcomeMessage: string | null;
   fallbackMessage: string | null;
   systemPrompt: string | null;
@@ -309,6 +312,10 @@ export function BotConfig() {
   const [fallbackMessage, setFallbackMessage] = useState("");
   const [replyDelay, setReplyDelay] = useState(4);
   const [contextMessages, setContextMessages] = useState(20);
+  const [maxBotMessages, setMaxBotMessages] = useState(0);
+  const [handoffKeywords, setHandoffKeywords] = useState<string[]>([]);
+  const [handoffMessage, setHandoffMessage] = useState("");
+  const [newKeyword, setNewKeyword] = useState("");
 
   // Advanced
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -337,6 +344,9 @@ export function BotConfig() {
       setDataCollectionFields(data.dataCollectionFields || []);
       setReplyDelay(data.replyDelay ?? 4);
       setContextMessages(data.contextMessages ?? 20);
+      setMaxBotMessages(data.maxBotMessages ?? 0);
+      setHandoffKeywords(data.handoffKeywords || []);
+      setHandoffMessage(data.handoffMessage || "");
       setWelcomeMessage(data.welcomeMessage || "");
       setFallbackMessage(data.fallbackMessage || "");
       setSystemPrompt(data.systemPrompt || "");
@@ -372,6 +382,9 @@ export function BotConfig() {
         dataCollectionFields,
         replyDelay,
         contextMessages,
+        maxBotMessages,
+        handoffKeywords,
+        handoffMessage: handoffMessage.trim() || null,
         welcomeMessage: welcomeMessage.trim() || null,
         fallbackMessage: fallbackMessage.trim() || null,
         systemPrompt: systemPrompt.trim() || null,
@@ -763,7 +776,63 @@ export function BotConfig() {
           </div>
         </div>
 
-        {/* 5. Model & Parameters */}
+        {/* 5. Conversation Control */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <RefreshCw className="h-4 w-4 text-brand-600" />
+            <h3 className="text-sm font-semibold text-gray-900">Control de conversación</h3>
+          </div>
+          <p className="text-xs text-gray-500 mb-4">Configura cuándo el bot deja de responder y transfiere a un agente humano.</p>
+
+          <div className="space-y-4">
+            {/* Max messages */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-gray-600">Máximo de mensajes del bot</label>
+                <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                  {maxBotMessages === 0 ? "Sin límite" : maxBotMessages}
+                </span>
+              </div>
+              <input type="range" min="0" max="50" step="1" value={maxBotMessages} onChange={(e) => setMaxBotMessages(parseInt(e.target.value))} className="w-full accent-brand-600" />
+              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>Sin límite</span><span>50 mensajes</span></div>
+              <p className="text-[10px] text-gray-400 mt-1">Después de este número de respuestas, el bot se pausa y espera intervención humana.</p>
+            </div>
+
+            {/* Handoff keywords */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Palabras clave de transferencia</label>
+              <p className="text-[10px] text-gray-400 mb-2">Si el contacto escribe alguna de estas palabras, el bot se desactiva y transfiere a un humano.</p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {handoffKeywords.map((kw, i) => (
+                  <span key={i} className="flex items-center gap-1 px-2 py-1 rounded-md bg-gray-100 text-xs text-gray-700">
+                    {kw}
+                    <button onClick={() => setHandoffKeywords((prev) => prev.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input type="text" value={newKeyword} onChange={(e) => setNewKeyword(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && newKeyword.trim()) { e.preventDefault(); setHandoffKeywords((prev) => [...prev, newKeyword.trim()]); setNewKeyword(""); } }}
+                  placeholder="Ej: agente, humano, persona..."
+                  className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                />
+                <button onClick={() => { if (newKeyword.trim()) { setHandoffKeywords((prev) => [...prev, newKeyword.trim()]); setNewKeyword(""); } }} disabled={!newKeyword.trim()} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-40">
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Handoff message */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje al transferir</label>
+              <textarea value={handoffMessage} onChange={(e) => setHandoffMessage(e.target.value)} placeholder="Te conecto con un agente humano. Un momento por favor..." rows={2} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
+            </div>
+          </div>
+        </div>
+
+        {/* 6. Model & Parameters */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Cpu className="h-4 w-4 text-brand-600" />

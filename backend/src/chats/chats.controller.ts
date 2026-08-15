@@ -249,6 +249,16 @@ export class ChatsController {
     return this.chatsService.markAsRead(id);
   }
 
+  @Post('conversations/:id/bot-reactivate')
+  reactivateBot(@Param('id') id: string) {
+    return this.chatsService.reactivateBot(id);
+  }
+
+  @Post('conversations/:id/bot-pause')
+  pauseBot(@Param('id') id: string) {
+    return this.chatsService.pauseBot(id);
+  }
+
   @Delete('conversations/:id')
   deleteConversation(@Param('id') id: string) {
     return this.chatsService.deleteConversation(id);

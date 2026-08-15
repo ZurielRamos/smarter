@@ -97,4 +97,18 @@ export class UpdateBotDto {
   @Min(1)
   @Max(100)
   contextMessages?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  maxBotMessages?: number;
+
+  @IsOptional()
+  @IsArray()
+  handoffKeywords?: string[];
+
+  @IsOptional()
+  @IsString()
+  handoffMessage?: string | null;
 }

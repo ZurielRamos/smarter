@@ -1074,6 +1074,38 @@ export class ChatsService {
       const bot = await this.botsService.findOne(inbox.botId);
       if (!bot || bot.status !== 'active') return;
 
+      // Check conversation bot status
+      if (conversation.botStatus === 'handed_off') return;
+
+      // Check handoff keywords
+      if (bot.handoffKeywords && bot.handoffKeywords.length > 0) {
+        const lowerContent = inboundContent.toLowerCase();
+        const triggered = bot.handoffKeywords.some((kw) => lowerContent.includes(kw.toLowerCase()));
+        if (triggered) {
+          // Hand off to human
+          conversation.botStatus = 'handed_off';
+          await this.conversationRepo.save(conversation);
+
+          const handoffMsg = bot.handoffMessage || 'Te conecto con un agente humano. Un momento por favor.';
+          await this.sendMessage(conversation.id, handoffMsg, 'text', undefined);
+          await this.createSystemNote(conversation.id, '🤖→👤 Bot desactivado: el contacto pidió un agente humano.', inbox.tenantId);
+          return;
+        }
+      }
+
+      // Check max bot messages limit
+      if (bot.maxBotMessages > 0) {
+        const botMessageCount = await this.messageRepo.count({
+          where: { conversationId: conversation.id, direction: 'outbound', botId: inbox.botId },
+        });
+        if (botMessageCount >= bot.maxBotMessages) {
+          conversation.botStatus = 'paused';
+          await this.conversationRepo.save(conversation);
+          await this.createSystemNote(conversation.id, `🤖 Bot pausado: se alcanzó el límite de ${bot.maxBotMessages} mensajes.`, inbox.tenantId);
+          return;
+        }
+      }
+
       // Load recent messages for context (last N messages, ordered chronologically)
       const contextLimit = bot.contextMessages || 20;
       const recentMessages = await this.messageRepo.find({
@@ -1376,6 +1408,26 @@ export class ChatsService {
     }
   }
 
+  async reactivateBot(conversationId: string): Promise<{ botStatus: string }> {
+    const conversation = await this.conversationRepo.findOne({ where: { id: conversationId }, relations: { inbox: true } });
+    if (!conversation) throw new NotFoundException('Conversation not found');
+    conversation.botStatus = 'active';
+    await this.conversationRepo.save(conversation);
+    await this.createSystemNote(conversationId, '🤖 Bot reactivado por un agente.', conversation.inbox?.tenantId);
+    this.chatsGateway.emitConversationUpdate(conversation.inbox?.tenantId, conversation);
+    return { botStatus: 'active' };
+  }
+
+  async pauseBot(conversationId: string): Promise<{ botStatus: string }> {
+    const conversation = await this.conversationRepo.findOne({ where: { id: conversationId }, relations: { inbox: true } });
+    if (!conversation) throw new NotFoundException('Conversation not found');
+    conversation.botStatus = 'handed_off';
+    await this.conversationRepo.save(conversation);
+    await this.createSystemNote(conversationId, '🤖 Bot desactivado manualmente por un agente.', conversation.inbox?.tenantId);
+    this.chatsGateway.emitConversationUpdate(conversation.inbox?.tenantId, conversation);
+    return { botStatus: 'handed_off' };
+  }
+
   async deleteConversation(conversationId: string): Promise<void> {
     await this.messageRepo.delete({ conversationId });
     await this.conversationRepo.delete(conversationId);
@@ -1541,6 +1593,12 @@ export class ChatsService {
     // Update conversation
     conversation.lastMessage = content;
     conversation.lastMessageAt = new Date();
+
+    // Auto-pause bot when a human agent sends a message
+    if (senderId && senderId !== 'bot' && conversation.botStatus === 'active') {
+      conversation.botStatus = 'handed_off';
+    }
+
     await this.conversationRepo.save(conversation);
 
     // Emit real-time events

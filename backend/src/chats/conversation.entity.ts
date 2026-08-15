@@ -73,6 +73,10 @@ export class Conversation {
   @Column({ name: 'ad_platform', type: 'varchar', length: 20, nullable: true })
   adPlatform: string | null;
 
+  // Bot control: active | paused | handed_off
+  @Column({ name: 'bot_status', type: 'varchar', length: 20, default: 'active' })
+  botStatus: string;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
