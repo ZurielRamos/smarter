@@ -1,14 +1,13 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { initializeApp, cert, getApps, App } from 'firebase-admin/app';
-import { getStorage, Storage } from 'firebase-admin/storage';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuid } from 'uuid';
 import sharp from 'sharp';
 
 /**
  * Unified media storage service.
  * Handles downloading media from any channel (WhatsApp, Messenger, Instagram, Telegram, etc.)
- * and storing it in Firebase Storage with a consistent path structure.
+ * and storing it in Cloudflare R2 with a consistent path structure.
  *
  * Path convention: media/{tenantId}/{channel}/{conversationId}/{messageId}/{filename}
  */
@@ -35,7 +34,7 @@ export interface MediaDownloadOptions {
 export interface StoredMedia {
   /** Public URL to access the file */
   url: string;
-  /** Storage path in Firebase */
+  /** Storage path in R2 */
   path: string;
   /** File size in bytes */
   size: number;
@@ -45,48 +44,43 @@ export interface StoredMedia {
 
 @Injectable()
 export class MediaStorageService implements OnModuleInit {
-  private storage: Storage | null = null;
+  private s3Client: S3Client | null = null;
   private bucketName: string;
-  private app: App | null = null;
+  private publicUrl: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.bucketName = this.configService.get<string>('FIREBASE_STORAGE_BUCKET', '');
+    this.bucketName = this.configService.get<string>('R2_BUCKET_NAME', '');
+    this.publicUrl = this.configService.get<string>('R2_PUBLIC_URL', '');
   }
 
   onModuleInit() {
-    const projectId = this.configService.get<string>('FIREBASE_PROJECT_ID');
-    const clientEmail = this.configService.get<string>('FIREBASE_CLIENT_EMAIL');
-    const privateKey = this.configService.get<string>('FIREBASE_PRIVATE_KEY');
+    const accountId = this.configService.get<string>('CLOUDFLARE_ACCOUNT_ID');
+    const accessKeyId = this.configService.get<string>('R2_ACCESS_KEY_ID');
+    const secretAccessKey = this.configService.get<string>('R2_SECRET_ACCESS_KEY');
 
-    if (!projectId || !clientEmail || !privateKey) {
-      console.warn('[MediaStorage] Firebase credentials not configured. Media storage disabled.');
+    if (!accountId || !accessKeyId || !secretAccessKey) {
+      console.warn('[MediaStorage] Cloudflare R2 credentials not configured. Media storage disabled.');
       return;
     }
 
-    const existingApps = getApps();
-    if (existingApps.length === 0) {
-      this.app = initializeApp({
-        credential: cert({
-          projectId,
-          clientEmail,
-          privateKey: privateKey.replace(/\\n/g, '\n'),
-        }),
-        storageBucket: this.bucketName,
-      });
-    } else {
-      this.app = existingApps[0];
-    }
+    this.s3Client = new S3Client({
+      region: 'auto',
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
+    });
 
-    this.storage = getStorage(this.app);
-    console.log('[MediaStorage] Firebase Storage initialized');
+    console.log('[MediaStorage] Cloudflare R2 Storage initialized');
   }
 
   /**
-   * Download media from a source URL and upload to Firebase Storage.
+   * Download media from a source URL and upload to Cloudflare R2.
    * Works with any channel — just provide the correct sourceUrl and auth.
    */
   async downloadAndStore(options: MediaDownloadOptions): Promise<StoredMedia | null> {
-    if (!this.storage) {
+    if (!this.s3Client) {
       console.warn('[MediaStorage] Storage not initialized, skipping media download');
       return null;
     }
@@ -129,27 +123,24 @@ export class MediaStorageService implements OnModuleInit {
       // Build storage path
       const storagePath = `media/${options.tenantId}/${options.channel}/${options.conversationId}/${options.messageId}/${filename}`;
 
-      // Upload to Firebase Storage
-      const bucket = this.storage.bucket(this.bucketName);
-      const file = bucket.file(storagePath);
-
-      const token = uuid();
-      await file.save(buffer, {
-        metadata: {
-          contentType,
-          metadata: {
-            firebaseStorageDownloadTokens: token,
+      // Upload to Cloudflare R2
+      await this.s3Client.send(
+        new PutObjectCommand({
+          Bucket: this.bucketName,
+          Key: storagePath,
+          Body: buffer,
+          ContentType: contentType,
+          Metadata: {
             channel: options.channel,
             tenantId: options.tenantId,
             conversationId: options.conversationId,
             messageId: options.messageId,
           },
-        },
-      });
+        }),
+      );
 
-      // Build Firebase Storage download URL with token
-      const encodedPath = encodeURIComponent(storagePath);
-      const url = `https://firebasestorage.googleapis.com/v0/b/${this.bucketName}/o/${encodedPath}?alt=media&token=${token}`;
+      // Build public URL
+      const url = `${this.publicUrl}/${storagePath}`;
 
       return {
         url,
@@ -231,7 +222,7 @@ export class MediaStorageService implements OnModuleInit {
   }
 
   /**
-   * Upload a file buffer directly to Firebase Storage (for outbound media from agents).
+   * Upload a file buffer directly to Cloudflare R2 (for outbound media from agents).
    */
   async uploadBuffer(
     buffer: Buffer,
@@ -244,7 +235,7 @@ export class MediaStorageService implements OnModuleInit {
       filename?: string;
     },
   ): Promise<StoredMedia | null> {
-    if (!this.storage) {
+    if (!this.s3Client) {
       console.warn('[MediaStorage] Storage not initialized, skipping upload');
       return null;
     }
@@ -272,19 +263,24 @@ export class MediaStorageService implements OnModuleInit {
       const filename = `${uuid()}${ext}`;
       const storagePath = `media/${options.tenantId}/${options.channel}/${options.conversationId}/${options.messageId}/${filename}`;
 
-      const bucket = this.storage.bucket(this.bucketName);
-      const file = bucket.file(storagePath);
-
-      const token = uuid();
-      await file.save(finalBuffer, {
-        metadata: {
-          contentType,
-          metadata: { firebaseStorageDownloadTokens: token },
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: storagePath,
+        Body: finalBuffer,
+        ContentType: contentType,
+        Metadata: {
+          channel: options.channel,
+          tenantId: options.tenantId,
+          conversationId: options.conversationId,
+          messageId: options.messageId,
         },
       });
 
-      const encodedPath = encodeURIComponent(storagePath);
-      const url = `https://firebasestorage.googleapis.com/v0/b/${this.bucketName}/o/${encodedPath}?alt=media&token=${token}`;
+      console.log(`[MediaStorage] Uploading to R2: ${storagePath} (${contentType}, ${finalBuffer.length} bytes)`);
+      await this.s3Client.send(command);
+      console.log(`[MediaStorage] Upload successful: ${storagePath}`);
+
+      const url = `${this.publicUrl}/${storagePath}`;
 
       return { url, path: storagePath, size: finalBuffer.length, mimeType: contentType };
     } catch (error) {

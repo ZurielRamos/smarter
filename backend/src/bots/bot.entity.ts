@@ -104,7 +104,7 @@ export class Bot {
   dataCollectionMode: string; // '1' to '5' intensity level
 
   @Column({ name: 'data_collection_fields', type: 'jsonb', nullable: true, default: '[]' })
-  dataCollectionFields: string[];
+  dataCollectionFields: { field: string; label: string; instructions: string; priority: number }[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

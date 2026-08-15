@@ -1095,13 +1095,26 @@ export class ChatsService {
         const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
         if (record) {
           collectedData = {};
-          if (record.firstName) collectedData.firstName = record.firstName;
-          if (record.lastName) collectedData.lastName = record.lastName;
-          if (record.email) collectedData.email = record.email;
-          if (record.phone) collectedData.phone = record.phone;
-          if (record.company) collectedData.company = record.company;
-          if (record.city) collectedData.city = record.city;
-          if (record.jobTitle) collectedData.jobTitle = record.jobTitle;
+          const standardFields: Record<string, string> = {
+            firstName: record.firstName,
+            lastName: record.lastName,
+            email: record.email,
+            phone: record.phone,
+            company: record.company,
+            city: record.city,
+            jobTitle: record.jobTitle,
+            address: record.address,
+          };
+          for (const f of bot.dataCollectionFields) {
+            const key = f.field;
+            if (key.startsWith('custom:')) {
+              const customKey = key.replace('custom:', '');
+              const val = record.customData?.[customKey];
+              if (val) collectedData[key] = String(val);
+            } else if (standardFields[key]) {
+              collectedData[key] = standardFields[key];
+            }
+          }
         }
       }
 
@@ -1128,7 +1141,7 @@ export class ChatsService {
       if (response.extractedData && Object.keys(response.extractedData).length > 0 && conversation.recordId) {
         const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
         if (record) {
-          const fieldMap: Record<string, string> = {
+          const standardFieldMap: Record<string, string> = {
             firstName: 'firstName',
             lastName: 'lastName',
             email: 'email',
@@ -1143,10 +1156,23 @@ export class ChatsService {
           const newData: Record<string, string> = {};
 
           for (const [key, value] of Object.entries(response.extractedData)) {
-            const recordField = fieldMap[key];
-            if (recordField && value && !record[recordField]) {
-              newData[key] = value;
-              record[recordField] = value;
+            if (!value) continue;
+
+            if (key.startsWith('custom:')) {
+              // Custom field — store in customData jsonb
+              const customKey = key.replace('custom:', '');
+              if (!record.customData) record.customData = {};
+              if (!record.customData[customKey]) {
+                record.customData[customKey] = value;
+                newData[key] = value;
+              }
+            } else {
+              // Standard field
+              const recordField = standardFieldMap[key];
+              if (recordField && !record[recordField]) {
+                record[recordField] = value;
+                newData[key] = value;
+              }
             }
           }
 
@@ -1159,13 +1185,11 @@ export class ChatsService {
             await this.clientRecordRepo.save(record);
 
             // Insert system note in conversation
-            const fieldLabels: Record<string, string> = {
-              firstName: 'Nombre', lastName: 'Apellido', email: 'Email',
-              phone: 'Teléfono', company: 'Empresa', city: 'Ciudad',
-              jobTitle: 'Cargo', address: 'Dirección', birthDate: 'Fecha de nacimiento',
-            };
+            const fieldLabelMap = Object.fromEntries(
+              (bot.dataCollectionFields || []).map((f) => [f.field, f.label]),
+            );
             const collected = Object.entries(newData)
-              .map(([k, v]) => `${fieldLabels[k] || k}: ${v}`)
+              .map(([k, v]) => `${fieldLabelMap[k] || k}: ${v}`)
               .join(', ');
             await this.createSystemNote(conversation.id, `📋 Dato recopilado: ${collected}`, inbox.tenantId);
           }

@@ -193,59 +193,56 @@ export class BotsService {
 
     // Data collection
     if (bot.dataCollectionEnabled && bot.dataCollectionFields && bot.dataCollectionFields.length > 0) {
-      const fieldLabels: Record<string, string> = {
-        firstName: 'nombre',
-        lastName: 'apellido',
-        email: 'correo electrónico',
-        phone: 'teléfono',
-        company: 'empresa',
-        city: 'ciudad',
-        jobTitle: 'cargo',
-        address: 'dirección',
-        birthDate: 'fecha de nacimiento',
-      };
-      const fieldNames = bot.dataCollectionFields.map((f) => fieldLabels[f] || f).join(', ');
-      const fieldKeys = bot.dataCollectionFields.join(', ');
+      const fields = bot.dataCollectionFields;
+      const fieldKeys = fields.map((f) => f.field).join(', ');
 
       parts.push('\nEXTRACCIÓN DE DATOS:');
 
       const intensity = parseInt(bot.dataCollectionMode) || 3;
 
       if (intensity <= 1) {
-        // Muy pasivo: solo si el usuario lo menciona explícitamente
-        parts.push(`Si durante la conversación el usuario menciona explícitamente estos datos: ${fieldNames}, extráelos.`);
-        parts.push('NO preguntes por estos datos bajo ninguna circunstancia. Solo regístralos si el usuario los dice por iniciativa propia.');
+        parts.push('Solo registra datos si el usuario los menciona explícitamente por iniciativa propia.');
+        parts.push('NO preguntes por estos datos bajo ninguna circunstancia.');
       } else if (intensity === 2) {
-        // Pasivo: extrae si surgen naturalmente
-        parts.push(`Si durante la conversación detectas estos datos del contacto: ${fieldNames}, extráelos.`);
-        parts.push('NO preguntes activamente por estos datos. Solo extráelos si el usuario los menciona de forma natural.');
+        parts.push('Extrae datos solo si el usuario los menciona de forma natural. NO preguntes activamente.');
       } else if (intensity === 3) {
-        // Balanceado: pregunta si hay oportunidad natural
-        parts.push(`Tienes como objetivo secundario recopilar estos datos del contacto: ${fieldNames}.`);
         parts.push('Si surge un momento natural en la conversación, puedes preguntar por alguno de estos datos.');
         parts.push('No fuerces la pregunta si no tiene sentido en el contexto.');
       } else if (intensity === 4) {
-        // Activo: pregunta proactivamente
-        parts.push(`Tu objetivo secundario IMPORTANTE es recopilar estos datos del contacto: ${fieldNames}.`);
         parts.push('Busca momentos en la conversación para preguntar por los datos que faltan.');
         parts.push('Pregunta un dato a la vez, de forma conversacional y amable.');
-        parts.push('No dejes pasar más de 2-3 mensajes sin intentar obtener un dato.');
       } else {
-        // Muy activo: prioridad alta
-        parts.push(`Tu objetivo PRIORITARIO es recopilar estos datos del contacto: ${fieldNames}.`);
-        parts.push('Desde el primer mensaje, comienza a preguntar por los datos que necesitas.');
+        parts.push('Tu objetivo PRIORITARIO es recopilar estos datos. Pregunta desde el primer mensaje.');
         parts.push('Pregunta un dato a la vez pero de forma directa y clara.');
-        parts.push('No continúes la conversación sin intentar obtener al menos un dato en cada respuesta.');
-        parts.push('Prioriza: nombre, email, teléfono.');
       }
 
-      parts.push(`Cuando obtengas uno o más datos REALES, incluye AL FINAL de tu respuesta (en una línea aparte) este bloque exacto:`);
+      // List fields grouped by priority
+      const highPriority = fields.filter((f) => f.priority === 1);
+      const medPriority = fields.filter((f) => f.priority === 2);
+      const lowPriority = fields.filter((f) => f.priority === 3 || !f.priority);
+
+      const formatField = (f: { field: string; label: string; instructions: string }) =>
+        f.instructions ? `- ${f.field} (${f.label}): ${f.instructions}` : `- ${f.field} (${f.label})`;
+
+      if (highPriority.length > 0) {
+        parts.push('\nPRIORIDAD ALTA (preguntar primero):');
+        highPriority.forEach((f) => parts.push(formatField(f)));
+      }
+      if (medPriority.length > 0) {
+        parts.push('\nPRIORIDAD MEDIA:');
+        medPriority.forEach((f) => parts.push(formatField(f)));
+      }
+      if (lowPriority.length > 0) {
+        parts.push('\nPRIORIDAD BAJA (solo si hay oportunidad):');
+        lowPriority.forEach((f) => parts.push(formatField(f)));
+      }
+
+      parts.push(`\nCuando obtengas uno o más datos REALES, incluye AL FINAL de tu respuesta (en una línea aparte) este bloque exacto:`);
       parts.push(`<!--DATA:{"campo":"valor_real"}-->`);
       parts.push(`Los campos válidos son: ${fieldKeys}`);
       parts.push('REGLAS ESTRICTAS PARA EL BLOQUE DATA:');
       parts.push('- SOLO incluye datos que el usuario haya ESCRITO EXPLÍCITAMENTE en su mensaje.');
-      parts.push('- NUNCA inventes, supongas ni deduzcas datos. Si el usuario dice "hola" y nada más, NO hay datos.');
-      parts.push('- NUNCA incluyas placeholders, valores genéricos ni nombres inventados.');
+      parts.push('- NUNCA inventes, supongas ni deduzcas datos.');
       parts.push('- Si el usuario NO ha proporcionado ningún dato concreto, NO incluyas el bloque DATA.');
       parts.push('- Solo incluye datos NUEVOS. No repitas datos ya recopilados.');
       parts.push('- Este bloque es invisible para el usuario.');
@@ -253,13 +250,13 @@ export class BotsService {
       // Tell the model what's already collected
       if (collectedData && Object.keys(collectedData).length > 0) {
         const alreadyCollected = Object.entries(collectedData).map(([k, v]) => `${k}: ${v}`).join(', ');
-        const missingFields = bot.dataCollectionFields.filter((f) => !collectedData[f]);
+        const missingFields = fields.filter((f) => !collectedData[f.field]);
         parts.push(`\nDatos YA recopilados (NO los vuelvas a incluir en DATA): ${alreadyCollected}`);
         if (missingFields.length > 0) {
-          const missingNames = missingFields.map((f) => fieldLabels[f] || f).join(', ');
+          const missingNames = missingFields.map((f) => f.label).join(', ');
           parts.push(`Datos que AÚN FALTAN por recopilar: ${missingNames}`);
         } else {
-          parts.push('Ya se han recopilado todos los datos necesarios. No necesitas pedir más información.');
+          parts.push('Ya se han recopilados todos los datos necesarios. No necesitas pedir más información.');
         }
       }
     }

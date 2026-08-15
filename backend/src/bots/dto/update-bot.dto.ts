@@ -84,7 +84,7 @@ export class UpdateBotDto {
 
   @IsOptional()
   @IsArray()
-  dataCollectionFields?: string[];
+  dataCollectionFields?: { field: string; label: string; instructions: string; priority: number }[];
 
   @IsOptional()
   @IsNumber()

@@ -30,7 +30,7 @@ interface BotData {
   businessContext: string | null;
   dataCollectionEnabled: boolean;
   dataCollectionMode: string;
-  dataCollectionFields: string[];
+  dataCollectionFields: { field: string; label: string; instructions: string; priority: number }[];
   replyDelay: number;
   contextMessages: number;
   welcomeMessage: string | null;
@@ -76,24 +76,88 @@ const LANGUAGES = [
   { value: "fr", label: "Francés" },
 ];
 
-const DATA_FIELDS = [
-  { value: "firstName", label: "Nombre" },
-  { value: "lastName", label: "Apellido" },
-  { value: "email", label: "Email" },
-  { value: "phone", label: "Teléfono" },
-  { value: "company", label: "Empresa" },
-  { value: "city", label: "Ciudad" },
-  { value: "jobTitle", label: "Cargo" },
-  { value: "address", label: "Dirección" },
-  { value: "birthDate", label: "Fecha de nacimiento" },
-];
-
 const ROUTING_VARIANTS = [
   { value: "", label: "Standard", icon: "⚖️", description: "Precio y velocidad" },
   { value: "nitro", label: "Nitro", icon: "⚡", description: "Máxima velocidad" },
   { value: "exacto", label: "Exacto", icon: "🎯", description: "Calidad tool-calling" },
   { value: "floor", label: "Floor", icon: "💰", description: "Precio más bajo" },
 ];
+
+const STANDARD_FIELDS = [
+  { field: "firstName", label: "Nombre" },
+  { field: "lastName", label: "Apellido" },
+  { field: "email", label: "Email" },
+  { field: "phone", label: "Teléfono" },
+  { field: "company", label: "Empresa" },
+  { field: "city", label: "Ciudad" },
+  { field: "jobTitle", label: "Cargo" },
+  { field: "address", label: "Dirección" },
+  { field: "birthDate", label: "Fecha de nacimiento" },
+];
+
+function AddFieldDropdown({ existingFields, onAdd }: { existingFields: string[]; onAdd: (field: string, label: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [customField, setCustomField] = useState("");
+  const [customLabel, setCustomLabel] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const available = STANDARD_FIELDS.filter((f) => !existingFields.includes(f.field));
+
+  const handleAddCustom = () => {
+    if (!customField.trim() || !customLabel.trim()) return;
+    onAdd(`custom:${customField.trim()}`, customLabel.trim());
+    setCustomField("");
+    setCustomLabel("");
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen(!open)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors">
+        <Plus className="h-3 w-3" /> Agregar campo
+      </button>
+
+      {open && (
+        <div className="absolute z-50 top-full left-0 mt-1 w-72 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+          {available.length > 0 && (
+            <>
+              <div className="px-3 py-1.5 border-b border-gray-100">
+                <p className="text-[10px] text-gray-400 font-medium uppercase">Campos estándar</p>
+              </div>
+              <div className="max-h-40 overflow-y-auto">
+                {available.map((f) => (
+                  <button key={f.field} type="button" onClick={() => { onAdd(f.field, f.label); setOpen(false); }}
+                    className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                  >
+                    <span>{f.label}</span>
+                    <span className="text-[10px] text-gray-400 font-mono">{f.field}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          <div className="px-3 py-2 border-t border-gray-100">
+            <p className="text-[10px] text-gray-400 font-medium uppercase mb-1.5">Campo personalizado</p>
+            <div className="flex gap-1.5">
+              <input type="text" value={customLabel} onChange={(e) => setCustomLabel(e.target.value)} placeholder="Label" className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-brand-300" />
+              <input type="text" value={customField} onChange={(e) => setCustomField(e.target.value.replace(/\s/g, '_').toLowerCase())} placeholder="key" className="w-20 px-2 py-1 text-xs border border-gray-200 rounded font-mono focus:outline-none focus:border-brand-300" />
+              <button type="button" onClick={handleAddCustom} disabled={!customField.trim() || !customLabel.trim()} className="px-2 py-1 rounded bg-brand-600 text-white text-xs disabled:opacity-40">
+                <Plus className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Model Selector ──────────────────────────────────────────────
 
@@ -244,7 +308,7 @@ export function BotConfig() {
   // Data Collection
   const [dataCollectionEnabled, setDataCollectionEnabled] = useState(false);
   const [dataCollectionIntensity, setDataCollectionIntensity] = useState(3);
-  const [dataCollectionFields, setDataCollectionFields] = useState<string[]>([]);
+  const [dataCollectionFields, setDataCollectionFields] = useState<{ field: string; label: string; instructions: string; priority: number }[]>([]);
 
   // Behavior
   const [welcomeMessage, setWelcomeMessage] = useState("");
@@ -345,8 +409,17 @@ export function BotConfig() {
     setLanguages((prev) => prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l]);
   };
 
-  const toggleDataField = (f: string) => {
-    setDataCollectionFields((prev) => prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]);
+  const addDataField = (field: string, label: string) => {
+    if (dataCollectionFields.some((f) => f.field === field)) return;
+    setDataCollectionFields((prev) => [...prev, { field, label, instructions: "", priority: 2 }]);
+  };
+
+  const removeDataField = (field: string) => {
+    setDataCollectionFields((prev) => prev.filter((f) => f.field !== field));
+  };
+
+  const updateDataField = (field: string, updates: Partial<{ instructions: string; priority: number }>) => {
+    setDataCollectionFields((prev) => prev.map((f) => f.field === field ? { ...f, ...updates } : f));
   };
 
   // Compile prompt preview (mirrors backend logic)
@@ -383,8 +456,7 @@ export function BotConfig() {
       parts.push(`\nCONTEXTO DEL NEGOCIO:\n${businessContext}`);
     }
     if (dataCollectionEnabled && dataCollectionFields.length > 0) {
-      const fieldLabels: Record<string, string> = { firstName: "nombre", lastName: "apellido", email: "email", phone: "teléfono", company: "empresa", city: "ciudad", jobTitle: "cargo", address: "dirección", birthDate: "fecha de nacimiento" };
-      const fieldNames = dataCollectionFields.map((f) => fieldLabels[f] || f).join(", ");
+      const fieldNames = dataCollectionFields.map((f) => `${f.label}${f.instructions ? ` (${f.instructions})` : ""}`).join(", ");
       const intensityLabel = ["", "muy pasivo", "pasivo", "balanceado", "activo", "muy activo"][dataCollectionIntensity] || "balanceado";
       parts.push(`\nEXTRACCIÓN DE DATOS (intensidad: ${intensityLabel}):`);
       parts.push(`Campos: ${fieldNames}`);
@@ -609,19 +681,49 @@ export function BotConfig() {
 
               {/* Fields */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Campos a recopilar</label>
-                <div className="flex flex-wrap gap-2">
-                  {DATA_FIELDS.map((f) => (
-                    <button
-                      key={f.value}
-                      type="button"
-                      onClick={() => toggleDataField(f.value)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${dataCollectionFields.includes(f.value) ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"}`}
-                    >
-                      {f.label}
-                    </button>
+                <label className="block text-xs font-medium text-gray-600 mb-2">Campos a recopilar</label>
+
+                {/* Existing fields */}
+                <div className="space-y-2 mb-3">
+                  {dataCollectionFields.map((f) => (
+                    <div key={f.field} className="border border-gray-200 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${f.priority === 1 ? "bg-red-100 text-red-700" : f.priority === 2 ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-600"}`}>
+                            {f.priority === 1 ? "Alta" : f.priority === 2 ? "Media" : "Baja"}
+                          </span>
+                          <span className="text-sm font-medium text-gray-900">{f.label}</span>
+                          <span className="text-[10px] text-gray-400 font-mono">{f.field}</span>
+                        </div>
+                        <button onClick={() => removeDataField(f.field)} className="p-1 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={f.instructions}
+                          onChange={(e) => updateDataField(f.field, { instructions: e.target.value })}
+                          placeholder="Instrucciones específicas (opcional)..."
+                          className="flex-1 px-2 py-1 rounded border border-gray-200 text-xs text-gray-700 focus:outline-none focus:border-brand-300"
+                        />
+                        <div className="flex gap-0.5 shrink-0">
+                          {[1, 2, 3].map((p) => (
+                            <button key={p} type="button" onClick={() => updateDataField(f.field, { priority: p })}
+                              className={`w-5 h-5 rounded text-[9px] font-bold transition-colors ${f.priority === p ? (p === 1 ? "bg-red-100 text-red-700" : p === 2 ? "bg-yellow-100 text-yellow-700" : "bg-gray-200 text-gray-600") : "bg-gray-50 text-gray-400 hover:bg-gray-100"}`}
+                            >{p}</button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
+
+                {/* Add field dropdown */}
+                <AddFieldDropdown
+                  existingFields={dataCollectionFields.map((f) => f.field)}
+                  onAdd={addDataField}
+                />
               </div>
             </div>
           )}
