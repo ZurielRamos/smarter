@@ -67,7 +67,7 @@ export class BotsService {
     }));
   }
 
-  async chat(botId: string, messages: { role: string; content: string }[], collectedData?: Record<string, string>): Promise<{ role: string; content: string; usage?: { prompt_tokens: number; completion_tokens: number }; extractedData?: Record<string, string> }> {
+  async chat(botId: string, messages: { role: string; content: string }[], collectedData?: Record<string, string>): Promise<{ role: string; content: string; usage?: { prompt_tokens: number; completion_tokens: number; model: string; cost: number | null }; extractedData?: Record<string, string> }> {
     const bot = await this.findOne(botId);
     const apiKey = this.configService.get<string>('OPENROUTER_API_KEY');
     if (!apiKey) throw new NotFoundException('OPENROUTER_API_KEY no configurada');
@@ -129,7 +129,12 @@ export class BotsService {
     return {
       role: 'assistant',
       content,
-      usage: usage ? { prompt_tokens: usage.prompt_tokens, completion_tokens: usage.completion_tokens } : undefined,
+      usage: usage ? {
+        prompt_tokens: usage.prompt_tokens,
+        completion_tokens: usage.completion_tokens,
+        model: bot.model || 'openai/gpt-4o-mini',
+        cost: usage.total_cost ?? null,
+      } : undefined,
       extractedData,
     };
   }

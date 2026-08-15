@@ -65,6 +65,14 @@ export class Message {
   @Column({ type: 'varchar', length: 20, nullable: true, default: null })
   source: string | null;
 
+  // Bot that generated this message (null for human/inbound messages)
+  @Column({ name: 'bot_id', type: 'uuid', nullable: true })
+  botId: string | null;
+
+  // AI usage metadata for bot-generated messages
+  @Column({ name: 'ai_usage', type: 'jsonb', nullable: true })
+  aiUsage: { promptTokens: number; completionTokens: number; model: string; cost: number } | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

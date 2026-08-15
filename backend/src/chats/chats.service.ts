@@ -1110,7 +1110,19 @@ export class ChatsService {
       if (!response?.content) return;
 
       // Send the bot reply through the normal send flow
-      await this.sendMessage(conversation.id, response.content, 'text', undefined);
+      const sentMessage = await this.sendMessage(conversation.id, response.content, 'text', undefined);
+
+      // Attach bot metadata to the saved message
+      sentMessage.botId = inbox.botId;
+      if (response.usage) {
+        sentMessage.aiUsage = {
+          promptTokens: response.usage.prompt_tokens,
+          completionTokens: response.usage.completion_tokens,
+          model: response.usage.model || bot.model || 'unknown',
+          cost: response.usage.cost ?? 0,
+        };
+      }
+      await this.messageRepo.save(sentMessage);
 
       // Handle extracted data — update CRM record and insert system note
       if (response.extractedData && Object.keys(response.extractedData).length > 0 && conversation.recordId) {
