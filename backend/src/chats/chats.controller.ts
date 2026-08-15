@@ -250,13 +250,13 @@ export class ChatsController {
   }
 
   @Post('conversations/:id/bot-reactivate')
-  reactivateBot(@Param('id') id: string) {
-    return this.chatsService.reactivateBot(id);
+  reactivateBot(@Param('id') id: string, @Req() req: any) {
+    return this.chatsService.reactivateBot(id, req.user?.name || req.user?.email);
   }
 
   @Post('conversations/:id/bot-pause')
-  pauseBot(@Param('id') id: string) {
-    return this.chatsService.pauseBot(id);
+  pauseBot(@Param('id') id: string, @Req() req: any) {
+    return this.chatsService.pauseBot(id, req.user?.name || req.user?.email);
   }
 
   @Delete('conversations/:id')

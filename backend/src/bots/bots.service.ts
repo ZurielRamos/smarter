@@ -67,10 +67,21 @@ export class BotsService {
     }));
   }
 
-  async chat(botId: string, messages: { role: string; content: string }[], collectedData?: Record<string, string>): Promise<{ role: string; content: string; usage?: { prompt_tokens: number; completion_tokens: number; model: string; cost: number | null }; extractedData?: Record<string, string> }> {
+  async chat(botId: string, messages: { role: string; content: string }[], collectedData?: Record<string, string>): Promise<{ role: string; content: string; usage?: { prompt_tokens: number; completion_tokens: number; model: string; cost: number | null }; extractedData?: Record<string, string>; handedOff?: boolean }> {
     const bot = await this.findOne(botId);
     const apiKey = this.configService.get<string>('OPENROUTER_API_KEY');
     if (!apiKey) throw new NotFoundException('OPENROUTER_API_KEY no configurada');
+
+    // Check handoff keywords in the last user message
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+    if (lastUserMsg && bot.handoffKeywords && bot.handoffKeywords.length > 0) {
+      const lowerContent = lastUserMsg.content.toLowerCase();
+      const triggered = bot.handoffKeywords.some((kw) => lowerContent.includes(kw.toLowerCase()));
+      if (triggered) {
+        const handoffMsg = bot.handoffMessage || 'Te conecto con un agente humano. Un momento por favor.';
+        return { role: 'assistant', content: handoffMsg, handedOff: true };
+      }
+    }
 
     const systemPrompt = this.compileSystemPrompt(bot, collectedData);
     const systemMessages: { role: string; content: string }[] = [];

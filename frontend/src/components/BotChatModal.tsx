@@ -50,11 +50,16 @@ export function BotChatModal({ open, onClose, botId, botName }: BotChatModalProp
     setSending(true);
 
     try {
-      const { data } = await api.post<{ role: string; content: string; extractedData?: Record<string, string> }>(`/bots/${botId}/chat`, {
+      const { data } = await api.post<{ role: string; content: string; extractedData?: Record<string, string>; handedOff?: boolean }>(`/bots/${botId}/chat`, {
         messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
         collectedData,
       });
       const newMessages: Message[] = [{ role: "assistant", content: data.content }];
+
+      // Show system note if handed off
+      if (data.handedOff) {
+        newMessages.push({ role: "system", content: "🤖→👤 Bot desactivado: el contacto pidió un agente humano." });
+      }
 
       // Show system note if data was extracted
       if (data.extractedData && Object.keys(data.extractedData).length > 0) {

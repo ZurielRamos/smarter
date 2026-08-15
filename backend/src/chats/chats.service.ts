@@ -1408,22 +1408,22 @@ export class ChatsService {
     }
   }
 
-  async reactivateBot(conversationId: string): Promise<{ botStatus: string }> {
+  async reactivateBot(conversationId: string, agentName?: string): Promise<{ botStatus: string }> {
     const conversation = await this.conversationRepo.findOne({ where: { id: conversationId }, relations: { inbox: true } });
     if (!conversation) throw new NotFoundException('Conversation not found');
     conversation.botStatus = 'active';
     await this.conversationRepo.save(conversation);
-    await this.createSystemNote(conversationId, '🤖 Bot reactivado por un agente.', conversation.inbox?.tenantId);
+    await this.createSystemNote(conversationId, `🤖 Bot reactivado por ${agentName || 'un agente'}.`, conversation.inbox?.tenantId);
     this.chatsGateway.emitConversationUpdate(conversation.inbox?.tenantId, conversation);
     return { botStatus: 'active' };
   }
 
-  async pauseBot(conversationId: string): Promise<{ botStatus: string }> {
+  async pauseBot(conversationId: string, agentName?: string): Promise<{ botStatus: string }> {
     const conversation = await this.conversationRepo.findOne({ where: { id: conversationId }, relations: { inbox: true } });
     if (!conversation) throw new NotFoundException('Conversation not found');
     conversation.botStatus = 'handed_off';
     await this.conversationRepo.save(conversation);
-    await this.createSystemNote(conversationId, '🤖 Bot desactivado manualmente por un agente.', conversation.inbox?.tenantId);
+    await this.createSystemNote(conversationId, `🤖 Bot desactivado por ${agentName || 'un agente'}.`, conversation.inbox?.tenantId);
     this.chatsGateway.emitConversationUpdate(conversation.inbox?.tenantId, conversation);
     return { botStatus: 'handed_off' };
   }

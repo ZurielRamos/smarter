@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MessageSquare, Send, Wifi, WifiOff, MessageCircle, Phone, Camera, Mail, Settings2, Inbox, CheckCheck, BellOff, Archive, Trash2, UserCircle, Reply, Copy, X, Smile, Paperclip, Mic, StickyNote, Image, FileText, Filter, ArrowUpDown, Megaphone, MoreVertical, Eye, Zap, ShoppingCart, CalendarCheck, Presentation, Star, UserPlus, ArrowRightLeft, ChevronLeft } from "lucide-react";
+import { MessageSquare, Send, Wifi, WifiOff, MessageCircle, Phone, Camera, Mail, Settings2, Inbox, CheckCheck, BellOff, Archive, Trash2, UserCircle, Reply, Copy, X, Smile, Paperclip, Mic, StickyNote, Image, FileText, Filter, ArrowUpDown, Megaphone, MoreVertical, Eye, Zap, ShoppingCart, CalendarCheck, Presentation, Star, UserPlus, ArrowRightLeft, ChevronLeft, Bot } from "lucide-react";
 import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/components/ChannelIcons";
 import { TemplateSelector, TemplateConfigModal } from "@/components/TemplateModal";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -51,6 +51,7 @@ interface Conversation {
   adPlatform?: string | null;
   unreadCount: number;
   labelIds?: string[];
+  botStatus?: string;
   inbox?: {
     id: string;
     name: string;
@@ -698,6 +699,25 @@ export function Conversaciones() {
     }
   };
 
+  const handleToggleBot = async () => {
+    if (!activeConversation) return;
+    const isActive = activeConversation.botStatus === 'active';
+    try {
+      if (isActive) {
+        await api.post(`/chats/conversations/${activeConversation.id}/bot-pause`);
+        setConversations((prev) => prev.map((c) => c.id === activeConversation.id ? { ...c, botStatus: 'handed_off' } : c));
+        toast.success("Bot pausado");
+      } else {
+        await api.post(`/chats/conversations/${activeConversation.id}/bot-reactivate`);
+        setConversations((prev) => prev.map((c) => c.id === activeConversation.id ? { ...c, botStatus: 'active' } : c));
+        toast.success("Bot activado");
+      }
+      setChatHeaderMenuOpen(false);
+    } catch {
+      toast.error("Error al cambiar estado del bot");
+    }
+  };
+
   // Check if the 24h messaging window is closed for messaging channels
   const isWindowClosed = (() => {
     if (!activeConversation) return false;
@@ -1072,6 +1092,13 @@ export function Conversaciones() {
                       </div>
                       {/* Separador */}
                       <div className="border-t border-gray-100 my-1" />
+                      <button
+                        onClick={handleToggleBot}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Bot className={`h-4 w-4 ${activeConversation.botStatus === 'active' ? 'text-green-500' : 'text-gray-400'}`} />
+                        {activeConversation.botStatus === 'active' ? 'Pausar bot' : 'Activar bot'}
+                      </button>
                       <button
                         onClick={() => {
                           setChatHeaderMenuOpen(false);
