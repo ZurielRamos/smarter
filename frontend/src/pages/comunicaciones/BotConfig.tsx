@@ -98,9 +98,11 @@ const STANDARD_FIELDS = [
 
 function AddFieldDropdown({ existingFields, onAdd, tenantId }: { existingFields: string[]; onAdd: (field: string, label: string) => void; tenantId?: string }) {
   const [open, setOpen] = useState(false);
-  const [customFields, setCustomFields] = useState<{ field: string; label: string }[]>([]);
+  const [allFields, setAllFields] = useState<{ field: string; label: string }[]>(STANDARD_FIELDS);
   const [loadedCustom, setLoadedCustom] = useState(false);
+  const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -113,14 +115,17 @@ function AddFieldDropdown({ existingFields, onAdd, tenantId }: { existingFields:
   useEffect(() => {
     if (open && !loadedCustom && tenantId) {
       api.get(`/custom-fields/${tenantId}`).then(({ data }) => {
-        setCustomFields((data || []).map((cf: any) => ({ field: `custom:${cf.fieldKey}`, label: cf.fieldLabel })));
+        const customFields = (data || []).map((cf: any) => ({ field: `custom:${cf.fieldKey}`, label: cf.fieldLabel }));
+        setAllFields([...STANDARD_FIELDS, ...customFields]);
         setLoadedCustom(true);
       }).catch(() => {});
     }
+    if (open) setTimeout(() => inputRef.current?.focus(), 50);
   }, [open, tenantId]);
 
-  const availableStandard = STANDARD_FIELDS.filter((f) => !existingFields.includes(f.field));
-  const availableCustom = customFields.filter((f) => !existingFields.includes(f.field));
+  const available = allFields
+    .filter((f) => !existingFields.includes(f.field))
+    .filter((f) => !search || f.label.toLowerCase().includes(search.toLowerCase()) || f.field.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="relative" ref={ref}>
@@ -130,43 +135,23 @@ function AddFieldDropdown({ existingFields, onAdd, tenantId }: { existingFields:
 
       {open && (
         <div className="absolute z-50 top-full left-0 mt-1 w-72 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-          {availableStandard.length > 0 && (
-            <>
-              <div className="px-3 py-1.5 border-b border-gray-100">
-                <p className="text-[10px] text-gray-400 font-medium uppercase">Campos estándar</p>
-              </div>
-              <div className="max-h-40 overflow-y-auto">
-                {availableStandard.map((f) => (
-                  <button key={f.field} type="button" onClick={() => { onAdd(f.field, f.label); setOpen(false); }}
-                    className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between"
-                  >
-                    <span>{f.label}</span>
-                    <span className="text-[10px] text-gray-400 font-mono">{f.field}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-          {availableCustom.length > 0 && (
-            <>
-              <div className="px-3 py-1.5 border-t border-gray-100">
-                <p className="text-[10px] text-gray-400 font-medium uppercase">Campos personalizados</p>
-              </div>
-              <div className="max-h-40 overflow-y-auto">
-                {availableCustom.map((f) => (
-                  <button key={f.field} type="button" onClick={() => { onAdd(f.field, f.label); setOpen(false); }}
-                    className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between"
-                  >
-                    <span>{f.label}</span>
-                    <span className="text-[10px] text-gray-400 font-mono">{f.field}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-          {availableStandard.length === 0 && availableCustom.length === 0 && (
-            <div className="px-3 py-4 text-center text-xs text-gray-400">Todos los campos ya están agregados</div>
-          )}
+          <div className="px-3 py-2 border-b border-gray-100">
+            <input ref={inputRef} type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar campo..." className="w-full px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" />
+          </div>
+          <div className="max-h-52 overflow-y-auto">
+            {available.length === 0 ? (
+              <div className="px-3 py-4 text-center text-xs text-gray-400">No hay campos disponibles</div>
+            ) : (
+              available.map((f) => (
+                <button key={f.field} type="button" onClick={() => { onAdd(f.field, f.label); setOpen(false); setSearch(""); }}
+                  className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                >
+                  <span>{f.label}</span>
+                  <span className="text-[10px] text-gray-400 font-mono">{f.field}</span>
+                </button>
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>
