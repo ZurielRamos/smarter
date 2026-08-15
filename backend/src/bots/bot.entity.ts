@@ -78,6 +78,9 @@ export class Bot {
   @Column({ name: 'max_tokens', type: 'int', default: 1024 })
   maxTokens: number;
 
+  @Column({ name: 'reply_delay', type: 'int', default: 4 })
+  replyDelay: number; // seconds to wait before responding (debounce)
+
   // === Usage tracking ===
 
   @Column({ name: 'total_prompt_tokens', type: 'int', default: 0 })

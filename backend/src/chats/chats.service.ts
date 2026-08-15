@@ -18,6 +18,8 @@ import { BotsService } from '../bots/bots.service';
 
 @Injectable()
 export class ChatsService {
+  // Debounce timers for bot replies (conversationId -> timeout)
+  private botReplyTimers = new Map<string, NodeJS.Timeout>();
   constructor(
     @InjectRepository(Inbox)
     private readonly inboxRepo: Repository<Inbox>,
@@ -759,7 +761,7 @@ export class ChatsService {
       }).catch(() => {});
 
       // Trigger bot auto-reply if a bot is assigned
-      this.triggerBotReply(inbox, conversation, content).catch((err) => {
+      this.scheduleBotReply(inbox, conversation, content).catch((err) => {
         console.error('[Bot Auto-Reply] Failed:', err?.message || err);
       });
     }
@@ -947,7 +949,7 @@ export class ChatsService {
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
     // Trigger bot auto-reply if a bot is assigned
-    this.triggerBotReply(inbox, conversation, content).catch(() => {});
+    this.scheduleBotReply(inbox, conversation, content).catch(() => {});
   }
 
   private async handleInstagramMessage(igAccountId: string, value: any): Promise<void> {
@@ -1029,10 +1031,40 @@ export class ChatsService {
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
     // Trigger bot auto-reply if a bot is assigned
-    this.triggerBotReply(inbox, conversation, content).catch(() => {});
+    this.scheduleBotReply(inbox, conversation, content).catch(() => {});
   }
 
   // === BOT AUTO-REPLY ===
+
+  private async scheduleBotReply(inbox: Inbox, conversation: any, content: string | null): Promise<void> {
+    if (!inbox.botId || !content) return;
+
+    const bot = await this.botsService.findOne(inbox.botId);
+    if (!bot || bot.status !== 'active') return;
+
+    const delay = (bot.replyDelay ?? 4) * 1000; // default 4 seconds
+
+    // If delay is 0, respond immediately
+    if (delay <= 0) {
+      return this.triggerBotReply(inbox, conversation, content);
+    }
+
+    const conversationId = conversation.id;
+
+    // Cancel existing timer for this conversation
+    const existing = this.botReplyTimers.get(conversationId);
+    if (existing) clearTimeout(existing);
+
+    // Set new timer
+    const timer = setTimeout(() => {
+      this.botReplyTimers.delete(conversationId);
+      this.triggerBotReply(inbox, conversation, content).catch((err) => {
+        console.error('[Bot Auto-Reply] Debounced reply failed:', err?.message || err);
+      });
+    }, delay);
+
+    this.botReplyTimers.set(conversationId, timer);
+  }
 
   private async triggerBotReply(inbox: Inbox, conversation: any, inboundContent: string | null): Promise<void> {
     if (!inbox.botId || !inboundContent) return;

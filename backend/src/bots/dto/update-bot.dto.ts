@@ -85,4 +85,10 @@ export class UpdateBotDto {
   @IsOptional()
   @IsArray()
   dataCollectionFields?: string[];
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(15)
+  replyDelay?: number;
 }

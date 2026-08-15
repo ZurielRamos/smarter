@@ -31,6 +31,7 @@ interface BotData {
   dataCollectionEnabled: boolean;
   dataCollectionMode: string;
   dataCollectionFields: string[];
+  replyDelay: number;
   welcomeMessage: string | null;
   fallbackMessage: string | null;
   systemPrompt: string | null;
@@ -247,6 +248,7 @@ export function BotConfig() {
   // Behavior
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [fallbackMessage, setFallbackMessage] = useState("");
+  const [replyDelay, setReplyDelay] = useState(4);
 
   // Advanced
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -273,6 +275,7 @@ export function BotConfig() {
       setDataCollectionEnabled(data.dataCollectionEnabled || false);
       setDataCollectionIntensity(parseInt(data.dataCollectionMode) || 3);
       setDataCollectionFields(data.dataCollectionFields || []);
+      setReplyDelay(data.replyDelay ?? 4);
       setWelcomeMessage(data.welcomeMessage || "");
       setFallbackMessage(data.fallbackMessage || "");
       setSystemPrompt(data.systemPrompt || "");
@@ -306,6 +309,7 @@ export function BotConfig() {
         dataCollectionEnabled,
         dataCollectionMode: String(dataCollectionIntensity),
         dataCollectionFields,
+        replyDelay,
         welcomeMessage: welcomeMessage.trim() || null,
         fallbackMessage: fallbackMessage.trim() || null,
         systemPrompt: systemPrompt.trim() || null,
@@ -626,6 +630,27 @@ export function BotConfig() {
             <h3 className="text-sm font-semibold text-gray-900">Mensajes automáticos</h3>
           </div>
           <div className="space-y-4">
+            {/* Reply delay */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-gray-600">Tiempo de espera antes de responder</label>
+                <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                  {replyDelay === 0 ? "Inmediato" : `${replyDelay}s`}
+                </span>
+              </div>
+              <input
+                type="range" min="0" max="15" step="1"
+                value={replyDelay}
+                onChange={(e) => setReplyDelay(parseInt(e.target.value))}
+                className="w-full accent-brand-600"
+              />
+              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                <span>Inmediato</span>
+                <span>15 segundos</span>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">Espera a que el usuario termine de escribir antes de responder. Útil cuando envían varios mensajes seguidos.</p>
+            </div>
+
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje de bienvenida</label>
               <textarea value={welcomeMessage} onChange={(e) => setWelcomeMessage(e.target.value)} placeholder="Hola 👋 ¿En qué puedo ayudarte hoy?" rows={2} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
