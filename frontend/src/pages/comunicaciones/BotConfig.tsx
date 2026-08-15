@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BotChatModal } from "@/components/BotChatModal";
+import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import axios from "axios";
 
@@ -95,10 +96,10 @@ const STANDARD_FIELDS = [
   { field: "birthDate", label: "Fecha de nacimiento" },
 ];
 
-function AddFieldDropdown({ existingFields, onAdd }: { existingFields: string[]; onAdd: (field: string, label: string) => void }) {
+function AddFieldDropdown({ existingFields, onAdd, tenantId }: { existingFields: string[]; onAdd: (field: string, label: string) => void; tenantId?: string }) {
   const [open, setOpen] = useState(false);
-  const [customField, setCustomField] = useState("");
-  const [customLabel, setCustomLabel] = useState("");
+  const [customFields, setCustomFields] = useState<{ field: string; label: string }[]>([]);
+  const [loadedCustom, setLoadedCustom] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -109,14 +110,17 @@ function AddFieldDropdown({ existingFields, onAdd }: { existingFields: string[];
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const available = STANDARD_FIELDS.filter((f) => !existingFields.includes(f.field));
+  useEffect(() => {
+    if (open && !loadedCustom && tenantId) {
+      api.get(`/custom-fields/${tenantId}`).then(({ data }) => {
+        setCustomFields((data || []).map((cf: any) => ({ field: `custom:${cf.fieldKey}`, label: cf.fieldLabel })));
+        setLoadedCustom(true);
+      }).catch(() => {});
+    }
+  }, [open, tenantId]);
 
-  const handleAddCustom = () => {
-    if (!customField.trim() || !customLabel.trim()) return;
-    onAdd(`custom:${customField.trim()}`, customLabel.trim());
-    setCustomField("");
-    setCustomLabel("");
-  };
+  const availableStandard = STANDARD_FIELDS.filter((f) => !existingFields.includes(f.field));
+  const availableCustom = customFields.filter((f) => !existingFields.includes(f.field));
 
   return (
     <div className="relative" ref={ref}>
@@ -126,13 +130,13 @@ function AddFieldDropdown({ existingFields, onAdd }: { existingFields: string[];
 
       {open && (
         <div className="absolute z-50 top-full left-0 mt-1 w-72 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-          {available.length > 0 && (
+          {availableStandard.length > 0 && (
             <>
               <div className="px-3 py-1.5 border-b border-gray-100">
                 <p className="text-[10px] text-gray-400 font-medium uppercase">Campos estándar</p>
               </div>
               <div className="max-h-40 overflow-y-auto">
-                {available.map((f) => (
+                {availableStandard.map((f) => (
                   <button key={f.field} type="button" onClick={() => { onAdd(f.field, f.label); setOpen(false); }}
                     className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between"
                   >
@@ -143,16 +147,26 @@ function AddFieldDropdown({ existingFields, onAdd }: { existingFields: string[];
               </div>
             </>
           )}
-          <div className="px-3 py-2 border-t border-gray-100">
-            <p className="text-[10px] text-gray-400 font-medium uppercase mb-1.5">Campo personalizado</p>
-            <div className="flex gap-1.5">
-              <input type="text" value={customLabel} onChange={(e) => setCustomLabel(e.target.value)} placeholder="Label" className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-brand-300" />
-              <input type="text" value={customField} onChange={(e) => setCustomField(e.target.value.replace(/\s/g, '_').toLowerCase())} placeholder="key" className="w-20 px-2 py-1 text-xs border border-gray-200 rounded font-mono focus:outline-none focus:border-brand-300" />
-              <button type="button" onClick={handleAddCustom} disabled={!customField.trim() || !customLabel.trim()} className="px-2 py-1 rounded bg-brand-600 text-white text-xs disabled:opacity-40">
-                <Plus className="h-3 w-3" />
-              </button>
-            </div>
-          </div>
+          {availableCustom.length > 0 && (
+            <>
+              <div className="px-3 py-1.5 border-t border-gray-100">
+                <p className="text-[10px] text-gray-400 font-medium uppercase">Campos personalizados</p>
+              </div>
+              <div className="max-h-40 overflow-y-auto">
+                {availableCustom.map((f) => (
+                  <button key={f.field} type="button" onClick={() => { onAdd(f.field, f.label); setOpen(false); }}
+                    className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                  >
+                    <span>{f.label}</span>
+                    <span className="text-[10px] text-gray-400 font-mono">{f.field}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {availableStandard.length === 0 && availableCustom.length === 0 && (
+            <div className="px-3 py-4 text-center text-xs text-gray-400">Todos los campos ya están agregados</div>
+          )}
         </div>
       )}
     </div>
@@ -285,6 +299,10 @@ function ModelSelector({ value, onChange }: { value: string; onChange: (v: strin
 export function BotConfig() {
   const { botId, slug } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const currentTenant = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
+  const tenantId = currentTenant?.tenantId;
+
   const [bot, setBot] = useState<BotData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -723,6 +741,7 @@ export function BotConfig() {
                 <AddFieldDropdown
                   existingFields={dataCollectionFields.map((f) => f.field)}
                   onAdd={addDataField}
+                  tenantId={tenantId}
                 />
               </div>
             </div>
