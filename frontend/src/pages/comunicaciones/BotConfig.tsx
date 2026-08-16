@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Bot, Save, Loader2, Cpu, MessageSquare,
   Search, Check, X, Play, Plus, Trash2, UserCircle,
-  BookOpen, Shield, ChevronDown, Eye, ClipboardList, RefreshCw,
+  BookOpen, Shield, ChevronDown, Eye, ClipboardList, RefreshCw, Wrench, Globe, FileText, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BotChatModal } from "@/components/BotChatModal";
@@ -274,6 +274,148 @@ function ModelSelector({ value, onChange }: { value: string; onChange: (v: strin
   );
 }
 
+// ─── Tool Form Modal ─────────────────────────────────────────────
+
+function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; botId: string; onClose: () => void; onSaved: (t: any) => void }) {
+  const [name, setName] = useState(tool?.name || "");
+  const [description, setDescription] = useState(tool?.description || "");
+  const [executionType, setExecutionType] = useState(tool?.executionType || "webhook");
+  const [webhookUrl, setWebhookUrl] = useState(tool?.webhookUrl || "");
+  const [webhookMethod, setWebhookMethod] = useState(tool?.webhookMethod || "POST");
+  const [staticResponse, setStaticResponse] = useState(tool?.staticResponse || "");
+  const [parameters, setParameters] = useState(tool?.parameters ? JSON.stringify(tool.parameters, null, 2) : '{\n  "type": "object",\n  "properties": {}\n}');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!name.trim() || !description.trim()) return;
+    setSaving(true);
+    try {
+      let parsedParams;
+      try { parsedParams = JSON.parse(parameters); } catch { parsedParams = { type: "object", properties: {} }; }
+
+      const payload: any = {
+        name: name.trim().replace(/\s+/g, '_').toLowerCase(),
+        description: description.trim(),
+        parameters: parsedParams,
+        executionType,
+        webhookUrl: executionType === "webhook" ? webhookUrl.trim() : null,
+        webhookMethod: executionType === "webhook" ? webhookMethod : null,
+        staticResponse: executionType === "static" ? staticResponse : null,
+        isEnabled: true,
+      };
+
+      if (tool?.id) {
+        const { data } = await api.put(`/bots/tools/${tool.id}`, payload);
+        onSaved(data);
+      } else {
+        const { data } = await api.post(`/bots/${botId}/tools`, payload);
+        onSaved(data);
+      }
+    } catch {
+      // error handled by interceptor
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-150" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <h3 className="text-sm font-semibold text-gray-900">{tool ? "Editar herramienta" : "Nueva herramienta"}</h3>
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {/* Name */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Nombre de la función</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value.replace(/\s+/g, '_').toLowerCase())} placeholder="buscar_producto" className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200" />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Descripción (el modelo la usa para decidir cuándo usar esta tool)</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Busca un producto en el catálogo por nombre o categoría" rows={2} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
+          </div>
+
+          {/* Execution type */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Tipo de ejecución</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setExecutionType("webhook")}
+                className={`px-3 py-2.5 rounded-lg border text-left transition-colors ${executionType === "webhook" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+              >
+                <div className="flex items-center gap-2 mb-0.5">
+                  <Globe className="h-3.5 w-3.5 text-blue-600" />
+                  <span className={`text-xs font-medium ${executionType === "webhook" ? "text-brand-700" : "text-gray-700"}`}>Webhook</span>
+                </div>
+                <p className="text-[10px] text-gray-400">Llama una URL externa</p>
+              </button>
+              <button type="button" onClick={() => setExecutionType("static")}
+                className={`px-3 py-2.5 rounded-lg border text-left transition-colors ${executionType === "static" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+              >
+                <div className="flex items-center gap-2 mb-0.5">
+                  <FileText className="h-3.5 w-3.5 text-amber-600" />
+                  <span className={`text-xs font-medium ${executionType === "static" ? "text-brand-700" : "text-gray-700"}`}>Respuesta estática</span>
+                </div>
+                <p className="text-[10px] text-gray-400">Devuelve un texto fijo</p>
+              </button>
+            </div>
+          </div>
+
+          {/* Webhook config */}
+          {executionType === "webhook" && (
+            <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
+              <div className="flex gap-2">
+                <div className="w-24">
+                  <label className="block text-[10px] text-gray-500 mb-1">Método</label>
+                  <div className="flex gap-1">
+                    {["GET", "POST"].map((m) => (
+                      <button key={m} type="button" onClick={() => setWebhookMethod(m)}
+                        className={`flex-1 px-2 py-1 rounded text-[10px] font-medium border transition-colors ${webhookMethod === m ? "border-brand-300 bg-white text-brand-700" : "border-gray-200 text-gray-500"}`}
+                      >{m}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-[10px] text-gray-500 mb-1">URL</label>
+                  <input type="text" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://api.example.com/search" className="w-full px-2 py-1 rounded border border-gray-200 text-xs font-mono text-gray-800 focus:outline-none focus:border-brand-300" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Static response */}
+          {executionType === "static" && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Respuesta</label>
+              <textarea value={staticResponse} onChange={(e) => setStaticResponse(e.target.value)} placeholder='{"horario": "Lunes a Viernes 8am-6pm", "telefono": "+57 300 123 4567"}' rows={3} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-y" />
+            </div>
+          )}
+
+          {/* Parameters (JSON Schema) */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Parámetros (JSON Schema)</label>
+            <p className="text-[10px] text-gray-400 mb-1.5">Define qué argumentos recibe esta función. El modelo los llenará automáticamente.</p>
+            <textarea value={parameters} onChange={(e) => setParameters(e.target.value)} rows={5} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-xs font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-y" />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2 sticky bottom-0 bg-white">
+          <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+          <button onClick={handleSave} disabled={saving || !name.trim() || !description.trim()} className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-xs font-medium disabled:opacity-50">
+            {saving && <Loader2 className="h-3 w-3 animate-spin" />}
+            {tool ? "Guardar" : "Crear"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ──────────────────────────────────────────────
 
 export function BotConfig() {
@@ -319,6 +461,12 @@ export function BotConfig() {
   const [handoffMessage, setHandoffMessage] = useState("");
   const [newKeyword, setNewKeyword] = useState("");
 
+  // Tools
+  interface BotToolItem { id: string; name: string; description: string; parameters: any; executionType: string; webhookUrl: string | null; webhookMethod: string | null; webhookHeaders: Record<string, string> | null; staticResponse: string | null; isEnabled: boolean }
+  const [tools, setTools] = useState<BotToolItem[]>([]);
+  const [showToolForm, setShowToolForm] = useState(false);
+  const [editingTool, setEditingTool] = useState<BotToolItem | null>(null);
+
   // Advanced
   const [systemPrompt, setSystemPrompt] = useState("");
   const [model, setModel] = useState("");
@@ -351,6 +499,8 @@ export function BotConfig() {
       setHandoffKeywords(data.handoffKeywords || []);
       setHandoffMessage(data.handoffMessage || "");
       setWelcomeMessage(data.welcomeMessage || "");
+      // Load tools
+      api.get(`/bots/${botId}/tools`).then(({ data: t }) => setTools(t || [])).catch(() => {});
       setFallbackMessage(data.fallbackMessage || "");
       setSystemPrompt(data.systemPrompt || "");
       const savedModel = data.model || "";
@@ -849,7 +999,70 @@ export function BotConfig() {
           </div>
         </div>
 
-        {/* 6. Model & Parameters */}
+        {/* 6. Tools */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-brand-600" />
+              <h3 className="text-sm font-semibold text-gray-900">Herramientas</h3>
+            </div>
+            <button type="button" onClick={() => { setEditingTool(null); setShowToolForm(true); }} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors">
+              <Plus className="h-3 w-3" /> Agregar
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mb-4">Las herramientas permiten al bot ejecutar acciones durante la conversación (consultar APIs, buscar datos, etc.).</p>
+
+          {tools.length === 0 ? (
+            <div className="text-center py-6 border border-dashed border-gray-200 rounded-lg">
+              <Wrench className="h-6 w-6 text-gray-300 mx-auto mb-2" />
+              <p className="text-xs text-gray-400">No hay herramientas configuradas</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {tools.map((tool) => (
+                <div key={tool.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg group">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${tool.executionType === "webhook" ? "bg-blue-50" : "bg-amber-50"}`}>
+                      {tool.executionType === "webhook" ? <Globe className="h-3.5 w-3.5 text-blue-600" /> : <FileText className="h-3.5 w-3.5 text-amber-600" />}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900 truncate">{tool.name}</span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${tool.isEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                          {tool.isEnabled ? "activa" : "inactiva"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 truncate">{tool.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => { setEditingTool(tool); setShowToolForm(true); }} className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil className="h-3 w-3" /></button>
+                    <button onClick={async () => { await api.delete(`/bots/tools/${tool.id}`); setTools((prev) => prev.filter((t) => t.id !== tool.id)); }} className="p-1.5 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Tool Form Modal */}
+        {showToolForm && (
+          <ToolFormModal
+            tool={editingTool}
+            botId={botId!}
+            onClose={() => setShowToolForm(false)}
+            onSaved={(saved) => {
+              if (editingTool) {
+                setTools((prev) => prev.map((t) => t.id === saved.id ? saved : t));
+              } else {
+                setTools((prev) => [...prev, saved]);
+              }
+              setShowToolForm(false);
+            }}
+          />
+        )}
+
+        {/* 7. Model & Parameters */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Cpu className="h-4 w-4 text-brand-600" />
