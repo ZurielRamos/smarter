@@ -26,6 +26,10 @@ export class UpdateBotDto {
   role?: string | null;
 
   @IsOptional()
+  @IsString()
+  objective?: string | null;
+
+  @IsOptional()
   @IsArray()
   tone?: string[];
 

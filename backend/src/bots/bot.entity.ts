@@ -40,6 +40,9 @@ export class Bot {
   @Column({ type: 'varchar', length: 50, nullable: true })
   role: string | null; // soporte, ventas, recepcionista, agendamiento, custom
 
+  @Column({ type: 'text', nullable: true })
+  objective: string | null; // what the bot should accomplish
+
   @Column({ type: 'jsonb', nullable: true, default: '[]' })
   tone: string[]; // ["formal", "amigable", "tecnico"]
 

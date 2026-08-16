@@ -3,22 +3,35 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { Bot } from './bot.entity';
+import { BotTool } from './bot-tool.entity';
 import { CreateBotDto } from './dto/create-bot.dto';
 import { UpdateBotDto } from './dto/update-bot.dto';
+import { CreateBotToolDto } from './dto/create-bot-tool.dto';
+import { UpdateBotToolDto } from './dto/update-bot-tool.dto';
+
+export interface ChatResponse {
+  role: string;
+  content: string;
+  usage?: { prompt_tokens: number; completion_tokens: number; model: string; cost: number | null };
+  extractedData?: Record<string, string>;
+  handedOff?: boolean;
+  toolsExecuted?: { name: string; result: string }[];
+}
 
 @Injectable()
 export class BotsService {
   constructor(
     @InjectRepository(Bot)
     private readonly botRepo: Repository<Bot>,
+    @InjectRepository(BotTool)
+    private readonly botToolRepo: Repository<BotTool>,
     private readonly configService: ConfigService,
   ) {}
 
+  // ─── CRUD Bot ───────────────────────────────────────────
+
   async findAll(tenantId: string): Promise<Bot[]> {
-    return this.botRepo.find({
-      where: { tenantId },
-      order: { createdAt: 'DESC' },
-    });
+    return this.botRepo.find({ where: { tenantId }, order: { createdAt: 'DESC' } });
   }
 
   async findOne(id: string): Promise<Bot> {
@@ -28,12 +41,7 @@ export class BotsService {
   }
 
   async create(dto: CreateBotDto): Promise<Bot> {
-    const bot = this.botRepo.create({
-      tenantId: dto.tenantId,
-      name: dto.name,
-      description: dto.description || null,
-      status: 'draft',
-    });
+    const bot = this.botRepo.create({ tenantId: dto.tenantId, name: dto.name, description: dto.description || null, status: 'draft' });
     return this.botRepo.save(bot);
   }
 
@@ -47,6 +55,44 @@ export class BotsService {
     const bot = await this.findOne(id);
     await this.botRepo.remove(bot);
   }
+
+  // ─── CRUD BotTool ───────────────────────────────────────
+
+  async getTools(botId: string): Promise<BotTool[]> {
+    return this.botToolRepo.find({ where: { botId }, order: { sortOrder: 'ASC', createdAt: 'ASC' } });
+  }
+
+  async createTool(dto: CreateBotToolDto): Promise<BotTool> {
+    const tool = this.botToolRepo.create({
+      botId: dto.botId,
+      name: dto.name,
+      description: dto.description,
+      parameters: dto.parameters || { type: 'object', properties: {} },
+      executionType: dto.executionType,
+      webhookUrl: dto.webhookUrl || null,
+      webhookMethod: dto.webhookMethod || 'POST',
+      webhookHeaders: dto.webhookHeaders || null,
+      staticResponse: dto.staticResponse || null,
+      internalAction: dto.internalAction || null,
+      isEnabled: dto.isEnabled ?? true,
+    });
+    return this.botToolRepo.save(tool);
+  }
+
+  async updateTool(id: string, dto: UpdateBotToolDto): Promise<BotTool> {
+    const tool = await this.botToolRepo.findOne({ where: { id } });
+    if (!tool) throw new NotFoundException('Tool no encontrada');
+    Object.assign(tool, dto);
+    return this.botToolRepo.save(tool);
+  }
+
+  async removeTool(id: string): Promise<void> {
+    const tool = await this.botToolRepo.findOne({ where: { id } });
+    if (!tool) throw new NotFoundException('Tool no encontrada');
+    await this.botToolRepo.remove(tool);
+  }
+
+  // ─── Models Search ──────────────────────────────────────
 
   async searchModels(q?: string): Promise<{ id: string; name: string; pricing: { prompt: string; completion: string }; context_length: number }[]> {
     const params = new URLSearchParams();
@@ -67,12 +113,14 @@ export class BotsService {
     }));
   }
 
-  async chat(botId: string, messages: { role: string; content: string }[], collectedData?: Record<string, string>): Promise<{ role: string; content: string; usage?: { prompt_tokens: number; completion_tokens: number; model: string; cost: number | null }; extractedData?: Record<string, string>; handedOff?: boolean }> {
+  // ─── Chat with Tools ───────────────────────────────────
+
+  async chat(botId: string, messages: { role: string; content: string }[], collectedData?: Record<string, string>): Promise<ChatResponse> {
     const bot = await this.findOne(botId);
     const apiKey = this.configService.get<string>('OPENROUTER_API_KEY');
     if (!apiKey) throw new NotFoundException('OPENROUTER_API_KEY no configurada');
 
-    // Check handoff keywords in the last user message
+    // Check handoff keywords first (no tokens spent)
     const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
     if (lastUserMsg && bot.handoffKeywords && bot.handoffKeywords.length > 0) {
       const lowerContent = lastUserMsg.content.toLowerCase();
@@ -83,24 +131,108 @@ export class BotsService {
       }
     }
 
+    // Build system prompt
     const systemPrompt = this.compileSystemPrompt(bot, collectedData);
-    const systemMessages: { role: string; content: string }[] = [];
-    if (systemPrompt) {
-      systemMessages.push({ role: 'system', content: systemPrompt });
+
+    // Build tools array
+    const tools = await this.compileTools(bot, collectedData);
+
+    // First request to OpenRouter
+    const requestMessages: any[] = [];
+    if (systemPrompt) requestMessages.push({ role: 'system', content: systemPrompt });
+    requestMessages.push(...messages);
+
+    const requestBody: any = {
+      model: bot.model || 'openai/gpt-4o-mini',
+      messages: requestMessages,
+      temperature: Number(bot.temperature) || 0.7,
+      max_tokens: bot.maxTokens || 1024,
+    };
+    if (tools.length > 0) {
+      requestBody.tools = tools;
+      requestBody.tool_choice = 'auto';
     }
 
+    let response = await this.callOpenRouter(apiKey, requestBody);
+
+    // Process tool calls (loop up to 3 rounds)
+    let extractedData: Record<string, string> | undefined;
+    let handedOff = false;
+    const toolsExecuted: { name: string; result: string }[] = [];
+    let rounds = 0;
+
+    while (response.tool_calls && response.tool_calls.length > 0 && rounds < 3) {
+      rounds++;
+
+      // Add assistant message with tool_calls to conversation
+      requestBody.messages.push({
+        role: 'assistant',
+        content: response.content || null,
+        tool_calls: response.tool_calls,
+      });
+
+      // Execute each tool call
+      for (const toolCall of response.tool_calls) {
+        const fnName = toolCall.function.name;
+        let args: Record<string, any> = {};
+        try { args = JSON.parse(toolCall.function.arguments); } catch {}
+
+        const result = await this.executeTool(bot, fnName, args);
+        toolsExecuted.push({ name: fnName, result });
+
+        // Handle system tools
+        if (fnName === 'save_contact_data') {
+          extractedData = { ...(extractedData || {}), ...args };
+        } else if (fnName === 'handoff_to_human') {
+          handedOff = true;
+        } else if (fnName === 'mark_resolved') {
+          handedOff = true;
+        }
+
+        // Add tool result to conversation
+        requestBody.messages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: result,
+        });
+      }
+
+      // Request again with tool results
+      response = await this.callOpenRouter(apiKey, requestBody);
+    }
+
+    const content = response.content || 'Sin respuesta';
+
+    // Accumulate token usage
+    if (response.usage) {
+      bot.totalPromptTokens = (bot.totalPromptTokens || 0) + (response.usage.prompt_tokens || 0);
+      bot.totalCompletionTokens = (bot.totalCompletionTokens || 0) + (response.usage.completion_tokens || 0);
+      bot.totalRequests = (bot.totalRequests || 0) + 1;
+      await this.botRepo.save(bot);
+    }
+
+    return {
+      role: 'assistant',
+      content,
+      usage: response.usage ? {
+        prompt_tokens: response.usage.prompt_tokens,
+        completion_tokens: response.usage.completion_tokens,
+        model: bot.model || 'openai/gpt-4o-mini',
+        cost: response.usage.total_cost ?? null,
+      } : undefined,
+      extractedData,
+      handedOff,
+      toolsExecuted: toolsExecuted.length > 0 ? toolsExecuted : undefined,
+    };
+  }
+
+  // ─── OpenRouter API Call ────────────────────────────────
+
+  private async callOpenRouter(apiKey: string, body: any): Promise<any> {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: bot.model || 'openai/gpt-4o-mini',
-        messages: [...systemMessages, ...messages],
-        temperature: Number(bot.temperature) || 0.7,
-        max_tokens: bot.maxTokens || 1024,
-      }),
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
@@ -109,64 +241,125 @@ export class BotsService {
     }
 
     const json = await res.json();
-    const choice = json.choices?.[0]?.message;
-    const usage = json.usage;
+    const choice = json.choices?.[0]?.message || {};
+    return { ...choice, usage: json.usage };
+  }
 
-    // Accumulate token usage
-    if (usage) {
-      bot.totalPromptTokens = (bot.totalPromptTokens || 0) + (usage.prompt_tokens || 0);
-      bot.totalCompletionTokens = (bot.totalCompletionTokens || 0) + (usage.completion_tokens || 0);
-      bot.totalRequests = (bot.totalRequests || 0) + 1;
-      await this.botRepo.save(bot);
-    }
+  // ─── Compile Tools ──────────────────────────────────────
 
-    let content = choice?.content || 'Sin respuesta';
-    let extractedData: Record<string, string> | undefined;
-    let handedOff = false;
+  private async compileTools(bot: Bot, collectedData?: Record<string, string>): Promise<any[]> {
+    const tools: any[] = [];
 
-    // Post-process: extract control signals
-    if (content.includes('<!--HANDOFF-->')) {
-      handedOff = true;
-      content = content.replace(/<!--HANDOFF-->/g, '').trim();
-    }
-    if (content.includes('<!--RESOLVED-->')) {
-      handedOff = true; // resolved = bot done, same effect
-      content = content.replace(/<!--RESOLVED-->/g, '').trim();
-    }
-
-    // Post-process: extract DATA block if data collection is enabled
-    if (bot.dataCollectionEnabled) {
-      const dataMatch = content.match(/<!--DATA:(.*?)-->/s);
-      if (dataMatch) {
-        try {
-          extractedData = JSON.parse(dataMatch[1]);
-        } catch {
-          // ignore parse errors
+    // System tool: save_contact_data
+    if (bot.dataCollectionEnabled && bot.dataCollectionFields && bot.dataCollectionFields.length > 0) {
+      const missingFields = bot.dataCollectionFields.filter((f) => !collectedData?.[f.field]);
+      if (missingFields.length > 0) {
+        const properties: Record<string, any> = {};
+        for (const f of missingFields) {
+          properties[f.field] = { type: 'string', description: f.instructions || f.label };
         }
-        // Remove the DATA block from the response
-        content = content.replace(/<!--DATA:.*?-->/s, '').trim();
+        tools.push({
+          type: 'function',
+          function: {
+            name: 'save_contact_data',
+            description: 'Guarda datos del contacto que el usuario ha proporcionado explícitamente en la conversación. SOLO usar cuando el usuario ha dicho un dato concreto.',
+            parameters: { type: 'object', properties },
+          },
+        });
       }
     }
 
-    return {
-      role: 'assistant',
-      content,
-      usage: usage ? {
-        prompt_tokens: usage.prompt_tokens,
-        completion_tokens: usage.completion_tokens,
-        model: bot.model || 'openai/gpt-4o-mini',
-        cost: usage.total_cost ?? null,
-      } : undefined,
-      extractedData,
-      handedOff,
-    };
+    // System tool: handoff_to_human
+    tools.push({
+      type: 'function',
+      function: {
+        name: 'handoff_to_human',
+        description: 'Transfiere la conversación a un agente humano. Usar cuando el tema excede las capacidades del bot, el usuario está frustrado, o no se puede resolver.',
+        parameters: { type: 'object', properties: { reason: { type: 'string', description: 'Razón de la transferencia' } } },
+      },
+    });
+
+    // System tool: mark_resolved
+    tools.push({
+      type: 'function',
+      function: {
+        name: 'mark_resolved',
+        description: `Marca la conversación como resuelta. Usar cuando se cumplió el objetivo${bot.objective ? ': ' + bot.objective : ''} y el usuario no tiene más preguntas.`,
+        parameters: { type: 'object', properties: { summary: { type: 'string', description: 'Resumen de lo resuelto' } } },
+      },
+    });
+
+    // Custom tools from DB
+    const customTools = await this.botToolRepo.find({ where: { botId: bot.id, isEnabled: true }, order: { sortOrder: 'ASC' } });
+    for (const ct of customTools) {
+      tools.push({
+        type: 'function',
+        function: {
+          name: ct.name,
+          description: ct.description,
+          parameters: ct.parameters || { type: 'object', properties: {} },
+        },
+      });
+    }
+
+    return tools;
   }
 
-  compileSystemPrompt(bot: Bot, collectedData?: Record<string, string>): string {
-    // If user has manual system prompt override, use it directly
-    if (bot.systemPrompt?.trim()) {
-      return bot.systemPrompt;
+  // ─── Execute Tool ───────────────────────────────────────
+
+  private async executeTool(bot: Bot, toolName: string, args: Record<string, any>): Promise<string> {
+    // System tools return confirmation
+    if (toolName === 'save_contact_data') {
+      return JSON.stringify({ success: true, saved: args });
     }
+    if (toolName === 'handoff_to_human') {
+      return JSON.stringify({ success: true, message: 'Conversación transferida a un agente humano.' });
+    }
+    if (toolName === 'mark_resolved') {
+      return JSON.stringify({ success: true, message: 'Conversación marcada como resuelta.' });
+    }
+
+    // Custom tools
+    const tool = await this.botToolRepo.findOne({ where: { botId: bot.id, name: toolName, isEnabled: true } });
+    if (!tool) return JSON.stringify({ error: 'Tool not found' });
+
+    if (tool.executionType === 'static') {
+      return tool.staticResponse || JSON.stringify({ result: 'No response configured' });
+    }
+
+    if (tool.executionType === 'webhook') {
+      return this.executeWebhook(tool, args);
+    }
+
+    return JSON.stringify({ error: 'Unknown execution type' });
+  }
+
+  private async executeWebhook(tool: BotTool, args: Record<string, any>): Promise<string> {
+    if (!tool.webhookUrl) return JSON.stringify({ error: 'No webhook URL configured' });
+
+    try {
+      const method = tool.webhookMethod || 'POST';
+      const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(tool.webhookHeaders || {}) };
+
+      const fetchOptions: any = { method, headers };
+      if (method !== 'GET') {
+        fetchOptions.body = JSON.stringify(args);
+      }
+
+      const res = await fetch(tool.webhookUrl, fetchOptions);
+      const text = await res.text();
+
+      // Try to parse as JSON, otherwise return raw
+      try { JSON.parse(text); return text; } catch { return JSON.stringify({ result: text }); }
+    } catch (err: any) {
+      return JSON.stringify({ error: `Webhook failed: ${err.message}` });
+    }
+  }
+
+  // ─── Compile System Prompt ──────────────────────────────
+
+  compileSystemPrompt(bot: Bot, collectedData?: Record<string, string>): string {
+    if (bot.systemPrompt?.trim()) return bot.systemPrompt;
 
     const parts: string[] = [];
 
@@ -177,6 +370,11 @@ export class BotsService {
       if (bot.role) identity += ` un asistente de ${bot.role}`;
       identity += '.';
       parts.push(identity);
+    }
+
+    // Objective
+    if (bot.objective) {
+      parts.push(`Tu objetivo principal es: ${bot.objective}`);
     }
 
     // Tone
@@ -195,7 +393,7 @@ export class BotsService {
       }
     }
 
-    // Format constraint (messaging channels don't render markdown)
+    // Format constraint
     parts.push('\nFORMATO DE RESPUESTA:');
     parts.push('- Responde en texto plano, sin markdown, sin tablas, sin asteriscos, sin formato especial.');
     parts.push('- Usa saltos de línea para separar ideas.');
@@ -204,9 +402,7 @@ export class BotsService {
     // Rules
     if (bot.rules && bot.rules.length > 0) {
       parts.push('\nREGLAS:');
-      bot.rules.forEach((rule) => {
-        parts.push(`- ${rule}`);
-      });
+      bot.rules.forEach((rule) => parts.push(`- ${rule}`));
     }
 
     // Business context
@@ -214,81 +410,18 @@ export class BotsService {
       parts.push(`\nCONTEXTO DEL NEGOCIO:\n${bot.businessContext}`);
     }
 
-    // Data collection
-    if (bot.dataCollectionEnabled && bot.dataCollectionFields && bot.dataCollectionFields.length > 0) {
-      const fields = bot.dataCollectionFields;
-      const fieldKeys = fields.map((f) => f.field).join(', ');
-
-      parts.push('\nEXTRACCIÓN DE DATOS:');
-
-      const intensity = parseInt(bot.dataCollectionMode) || 3;
-
-      if (intensity <= 1) {
-        parts.push('Solo registra datos si el usuario los menciona explícitamente por iniciativa propia.');
-        parts.push('NO preguntes por estos datos bajo ninguna circunstancia.');
-      } else if (intensity === 2) {
-        parts.push('Extrae datos solo si el usuario los menciona de forma natural. NO preguntes activamente.');
-      } else if (intensity === 3) {
-        parts.push('Si surge un momento natural en la conversación, puedes preguntar por alguno de estos datos.');
-        parts.push('No fuerces la pregunta si no tiene sentido en el contexto.');
-      } else if (intensity === 4) {
-        parts.push('Busca momentos en la conversación para preguntar por los datos que faltan.');
-        parts.push('Pregunta un dato a la vez, de forma conversacional y amable.');
-      } else {
-        parts.push('Tu objetivo PRIORITARIO es recopilar estos datos. Pregunta desde el primer mensaje.');
-        parts.push('Pregunta un dato a la vez pero de forma directa y clara.');
-      }
-
-      // List fields grouped by priority
-      const highPriority = fields.filter((f) => f.priority === 1);
-      const medPriority = fields.filter((f) => f.priority === 2);
-      const lowPriority = fields.filter((f) => f.priority === 3 || !f.priority);
-
-      const formatField = (f: { field: string; label: string; instructions: string }) =>
-        f.instructions ? `- ${f.field} (${f.label}): ${f.instructions}` : `- ${f.field} (${f.label})`;
-
-      if (highPriority.length > 0) {
-        parts.push('\nPRIORIDAD ALTA (preguntar primero):');
-        highPriority.forEach((f) => parts.push(formatField(f)));
-      }
-      if (medPriority.length > 0) {
-        parts.push('\nPRIORIDAD MEDIA:');
-        medPriority.forEach((f) => parts.push(formatField(f)));
-      }
-      if (lowPriority.length > 0) {
-        parts.push('\nPRIORIDAD BAJA (solo si hay oportunidad):');
-        lowPriority.forEach((f) => parts.push(formatField(f)));
-      }
-
-      parts.push(`\nCuando obtengas uno o más datos REALES, incluye AL FINAL de tu respuesta (en una línea aparte) este bloque exacto:`);
-      parts.push(`<!--DATA:{"campo":"valor_real"}-->`);
-      parts.push(`Los campos válidos son: ${fieldKeys}`);
-      parts.push('REGLAS ESTRICTAS PARA EL BLOQUE DATA:');
-      parts.push('- SOLO incluye datos que el usuario haya ESCRITO EXPLÍCITAMENTE en su mensaje.');
-      parts.push('- NUNCA inventes, supongas ni deduzcas datos.');
-      parts.push('- Si el usuario NO ha proporcionado ningún dato concreto, NO incluyas el bloque DATA.');
-      parts.push('- Solo incluye datos NUEVOS. No repitas datos ya recopilados.');
-      parts.push('- Este bloque es invisible para el usuario.');
-
-      // Tell the model what's already collected
-      if (collectedData && Object.keys(collectedData).length > 0) {
-        const alreadyCollected = Object.entries(collectedData).map(([k, v]) => `${k}: ${v}`).join(', ');
-        const missingFields = fields.filter((f) => !collectedData[f.field]);
-        parts.push(`\nDatos YA recopilados (NO los vuelvas a incluir en DATA): ${alreadyCollected}`);
-        if (missingFields.length > 0) {
-          const missingNames = missingFields.map((f) => f.label).join(', ');
-          parts.push(`Datos que AÚN FALTAN por recopilar: ${missingNames}`);
-        } else {
-          parts.push('Ya se han recopilados todos los datos necesarios. No necesitas pedir más información.');
+    // Data collection context (what's already collected)
+    if (bot.dataCollectionEnabled && collectedData && Object.keys(collectedData).length > 0) {
+      const alreadyCollected = Object.entries(collectedData).map(([k, v]) => `${k}: ${v}`).join(', ');
+      parts.push(`\nDatos del contacto ya recopilados: ${alreadyCollected}`);
+      const missingFields = (bot.dataCollectionFields || []).filter((f) => !collectedData[f.field]);
+      if (missingFields.length > 0) {
+        const intensity = parseInt(bot.dataCollectionMode) || 3;
+        if (intensity >= 3) {
+          parts.push(`Datos que aún faltan: ${missingFields.map((f) => f.label).join(', ')}. Busca oportunidades naturales para preguntar.`);
         }
       }
     }
-
-    // Control signals
-    parts.push('\nSEÑALES DE CONTROL:');
-    parts.push('Si determines que la conversación debe ser transferida a un agente humano (el tema excede tus capacidades, el usuario está frustrado, o no puedes resolver su consulta), incluye al final de tu respuesta: <!--HANDOFF-->');
-    parts.push('Si determines que cumpliste tu objetivo y la conversación está resuelta (el usuario está satisfecho y no tiene más preguntas), incluye al final: <!--RESOLVED-->');
-    parts.push('Estos bloques son invisibles para el usuario. Solo úsalos cuando sea claramente necesario.');
 
     return parts.join('\n');
   }

@@ -11,6 +11,8 @@ import {
 import { BotsService } from './bots.service';
 import { CreateBotDto } from './dto/create-bot.dto';
 import { UpdateBotDto } from './dto/update-bot.dto';
+import { CreateBotToolDto } from './dto/create-bot-tool.dto';
+import { UpdateBotToolDto } from './dto/update-bot-tool.dto';
 
 @Controller('bots')
 export class BotsController {
@@ -49,5 +51,28 @@ export class BotsController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.service.remove(id);
+  }
+
+  // ─── Bot Tools ─────────────────────────────────────────
+
+  @Get(':id/tools')
+  getTools(@Param('id') id: string) {
+    return this.service.getTools(id);
+  }
+
+  @Post(':id/tools')
+  createTool(@Param('id') id: string, @Body() dto: CreateBotToolDto) {
+    dto.botId = id;
+    return this.service.createTool(dto);
+  }
+
+  @Put('tools/:toolId')
+  updateTool(@Param('toolId') toolId: string, @Body() dto: UpdateBotToolDto) {
+    return this.service.updateTool(toolId, dto);
+  }
+
+  @Delete('tools/:toolId')
+  removeTool(@Param('toolId') toolId: string) {
+    return this.service.removeTool(toolId);
   }
 }

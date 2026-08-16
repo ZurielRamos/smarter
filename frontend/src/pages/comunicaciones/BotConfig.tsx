@@ -25,6 +25,7 @@ interface BotData {
   status: string;
   persona: string | null;
   role: string | null;
+  objective: string | null;
   tone: string[];
   language: string;
   rules: string[];
@@ -292,6 +293,7 @@ export function BotConfig() {
   const [persona, setPersona] = useState("");
   const [role, setRole] = useState("");
   const [customRole, setCustomRole] = useState("");
+  const [objective, setObjective] = useState("");
   const [tone, setTone] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>(["es"]);
 
@@ -335,6 +337,7 @@ export function BotConfig() {
       setRole(data.role || "");
       setCustomRole(ROLES.some((r) => r.value === data.role) || !data.role ? "" : data.role);
       if (data.role && !ROLES.some((r) => r.value === data.role)) setRole("custom");
+      setObjective(data.objective || "");
       setTone(data.tone || []);
       setLanguages(data.language ? data.language.split(",") : ["es"]);
       setRules(data.rules || []);
@@ -373,6 +376,7 @@ export function BotConfig() {
       const { data } = await api.put<BotData>(`/bots/${botId}`, {
         persona: persona.trim() || null,
         role: role === "custom" ? (customRole.trim() || null) : (role || null),
+        objective: objective.trim() || null,
         tone,
         language: languages.join(","),
         rules,
@@ -441,6 +445,7 @@ export function BotConfig() {
       identity += ".";
       parts.push(identity);
     }
+    if (objective) parts.push(`Objetivo: ${objective}`);
     if (tone.length > 0) parts.push(`Tu tono de comunicación es: ${tone.join(", ")}.`);
     if (languages.length > 0) {
       const langMap: Record<string, string> = { es: "español", en: "inglés", pt: "portugués", fr: "francés" };
@@ -565,6 +570,18 @@ export function BotConfig() {
                   className="mt-2 w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                 />
               )}
+            </div>
+
+            {/* Objective */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Objetivo</label>
+              <textarea
+                value={objective} onChange={(e) => setObjective(e.target.value)}
+                placeholder="Ej: Resolver dudas sobre productos y recopilar datos para agendar una demostración..."
+                rows={2}
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">Cuando el bot cumpla este objetivo, podrá marcar la conversación como resuelta.</p>
             </div>
 
             {/* Tone */}

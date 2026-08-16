@@ -50,7 +50,7 @@ export function BotChatModal({ open, onClose, botId, botName }: BotChatModalProp
     setSending(true);
 
     try {
-      const { data } = await api.post<{ role: string; content: string; extractedData?: Record<string, string>; handedOff?: boolean }>(`/bots/${botId}/chat`, {
+      const { data } = await api.post<{ role: string; content: string; extractedData?: Record<string, string>; handedOff?: boolean; toolsExecuted?: { name: string; result: string }[] }>(`/bots/${botId}/chat`, {
         messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
         collectedData,
       });
@@ -61,13 +61,41 @@ export function BotChatModal({ open, onClose, botId, botName }: BotChatModalProp
         newMessages.push({ role: "system", content: "🤖 Bot desactivado: la conversación fue resuelta o transferida a un humano." });
       }
 
-      // Show system note if data was extracted
-      if (data.extractedData && Object.keys(data.extractedData).length > 0) {
+      // Show system note for tools executed (excluding system tools)
+      if (data.toolsExecuted) {
+        for (const t of data.toolsExecuted) {
+          if (t.name === 'save_contact_data') {
+            const parsed = JSON.parse(t.result);
+            if (parsed.saved) {
+              const fields = Object.entries(parsed.saved).map(([k, v]) => `${k}: ${v}`).join(", ");
+              newMessages.push({ role: "system", content: `📋 Dato recopilado: ${fields}` });
+            }
+          } else if (t.name === 'handoff_to_human' || t.name === 'mark_resolved') {
+            // Already handled above
+          } else {
+            newMessages.push({ role: "system", content: `🔧 Tool ejecutada: ${t.name}` });
+          }
+        }
+      }
+
+      // Legacy: direct extractedData (if tool wasn't used)
+      if (data.extractedData && Object.keys(data.extractedData).length > 0 && !data.toolsExecuted?.some((t) => t.name === 'save_contact_data')) {
         setCollectedData((prev) => ({ ...prev, ...data.extractedData }));
         const fields = Object.entries(data.extractedData)
           .map(([key, value]) => `${key}: ${value}`)
           .join(", ");
         newMessages.push({ role: "system", content: `📋 Dato recopilado: ${fields}` });
+      }
+
+      // Update collected data from save_contact_data tool
+      if (data.toolsExecuted?.some((t) => t.name === 'save_contact_data')) {
+        const saveCall = data.toolsExecuted.find((t) => t.name === 'save_contact_data');
+        if (saveCall) {
+          try {
+            const parsed = JSON.parse(saveCall.result);
+            if (parsed.saved) setCollectedData((prev) => ({ ...prev, ...parsed.saved }));
+          } catch {}
+        }
       }
 
       setMessages((prev) => [...prev, ...newMessages]);
