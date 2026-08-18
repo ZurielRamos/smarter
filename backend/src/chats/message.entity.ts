@@ -71,7 +71,7 @@ export class Message {
 
   // AI usage metadata for bot-generated messages
   @Column({ name: 'ai_usage', type: 'jsonb', nullable: true })
-  aiUsage: { promptTokens: number; completionTokens: number; model: string; cost: number } | null;
+  aiUsage: { promptTokens: number; completionTokens: number; model: string; cost: number; credits: number } | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

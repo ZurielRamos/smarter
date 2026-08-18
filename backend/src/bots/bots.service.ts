@@ -13,7 +13,7 @@ import { BillingService } from '../billing/billing.service';
 export interface ChatResponse {
   role: string;
   content: string;
-  usage?: { prompt_tokens: number; completion_tokens: number; model: string; cost: number | null };
+  usage?: { prompt_tokens: number; completion_tokens: number; model: string; cost: number | null; credits: number };
   extractedData?: Record<string, string>;
   handedOff?: boolean;
   toolsExecuted?: { name: string; result: string }[];
@@ -221,6 +221,28 @@ export class BotsService {
     bot.totalRequests = (bot.totalRequests || 0) + 1;
     await this.botRepo.save(bot);
 
+    // Calculate and debit credits
+    let creditsConsumed = 0;
+    try {
+      const inputRate = await this.billingService.getEffectiveActionCost(bot.tenantId, 'ai_input_tokens') ?? 0;
+      const outputRate = await this.billingService.getEffectiveActionCost(bot.tenantId, 'ai_output_tokens') ?? 0;
+      // Rates are per 1M tokens
+      const inputCredits = (totalPromptTokens / 1_000_000) * inputRate;
+      const outputCredits = (totalCompletionTokens / 1_000_000) * outputRate;
+      creditsConsumed = Math.ceil((inputCredits + outputCredits) * 100) / 100; // round to 2 decimals
+
+      if (creditsConsumed > 0) {
+        await this.billingService.consume(bot.tenantId, {
+          amount: creditsConsumed,
+          source: 'bot_message',
+          referenceId: bot.id,
+          description: `Bot "${bot.name}" - ${totalPromptTokens} in / ${totalCompletionTokens} out tokens`,
+        });
+      }
+    } catch (err) {
+      console.warn(`[Bot Billing] Failed to debit credits for bot ${bot.id}:`, err?.message);
+    }
+
     return {
       role: 'assistant',
       content,
@@ -229,6 +251,7 @@ export class BotsService {
         completion_tokens: totalCompletionTokens,
         model: resolvedModel,
         cost: totalCost,
+        credits: creditsConsumed,
       },
       extractedData,
       handedOff,

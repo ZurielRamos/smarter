@@ -1077,6 +1077,17 @@ export class ChatsService {
       // Check conversation bot status
       if (conversation.botStatus === 'handed_off') return;
 
+      // Check credits before calling AI
+      try {
+        const balance = await this.billingService.getBalance(inbox.tenantId);
+        if (balance && balance.available <= 0) {
+          await this.createSystemNote(conversation.id, '⚠️ Bot pausado: créditos insuficientes.', inbox.tenantId);
+          conversation.botStatus = 'paused';
+          await this.conversationRepo.save(conversation);
+          return;
+        }
+      } catch {}
+
       // Check handoff keywords
       if (bot.handoffKeywords && bot.handoffKeywords.length > 0) {
         const lowerContent = inboundContent.toLowerCase();
@@ -1163,8 +1174,9 @@ export class ChatsService {
         sentMessage.aiUsage = {
           promptTokens: response.usage.prompt_tokens,
           completionTokens: response.usage.completion_tokens,
-          model: response.usage.model || bot.model || 'unknown',
+          model: response.usage.model || 'unknown',
           cost: response.usage.cost ?? 0,
+          credits: response.usage.credits ?? 0,
         };
       }
       await this.messageRepo.save(sentMessage);
