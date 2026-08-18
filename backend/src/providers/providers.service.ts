@@ -63,6 +63,15 @@ export class ProvidersService {
           { key: 'INSTAGRAM_APP_SECRET', label: 'Instagram App Secret', set: !!this.configService.get('INSTAGRAM_APP_SECRET') },
         ],
       },
+      {
+        channel: 'ai',
+        provider: 'openrouter',
+        name: 'OpenRouter',
+        configured: !!this.configService.get('OPENROUTER_API_KEY'),
+        keys: [
+          { key: 'OPENROUTER_API_KEY', label: 'API Key', set: !!this.configService.get('OPENROUTER_API_KEY') },
+        ],
+      },
     ];
   }
 

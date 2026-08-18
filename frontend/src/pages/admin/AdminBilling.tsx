@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import headerBg from "@/assets/header-background.jpg";
 import {
   MessageSquare,
@@ -11,10 +12,12 @@ import {
   X,
   ArrowUpCircle,
   ArrowDownCircle,
+  Bot,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { api } from "@/services/api";
+import { ModelSelector } from "@/components/ModelSelector";
 
 interface CreditCost {
   id: string;
@@ -86,6 +89,20 @@ const ACTIONS = [
     color: "text-orange-600",
     bg: "bg-orange-50",
   },
+  {
+    action: "ai_input_tokens",
+    label: "1M Tokens Entrada",
+    icon: Bot,
+    color: "text-emerald-600",
+    bg: "bg-emerald-50",
+  },
+  {
+    action: "ai_output_tokens",
+    label: "1M Tokens Salida",
+    icon: Bot,
+    color: "text-emerald-600",
+    bg: "bg-emerald-50",
+  },
 ];
 
 const TYPE_LABELS: Record<string, string> = {
@@ -105,6 +122,8 @@ export function AdminBilling() {
   const [costs, setCosts] = useState<Record<string, number>>({});
   const [savedCosts, setSavedCosts] = useState<Record<string, number>>({});
   const [savingCosts, setSavingCosts] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [defaultModel, setDefaultModel] = useState("");
 
   const fetchTransactions = async () => {
     setLoading(true);
@@ -137,8 +156,20 @@ export function AdminBilling() {
     fetchTransactions();
   }, []);
 
+  // Open config modal from query param (e.g. from UserMenu)
+  useEffect(() => {
+    if (searchParams.get("config") === "1") {
+      handleOpenConfig();
+      searchParams.delete("config");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams]);
+
   const handleOpenConfig = () => {
     fetchCosts();
+    api.get<{ model: string }>("/billing/config/default-model")
+      .then(({ data }) => setDefaultModel(data.model))
+      .catch(() => {});
     setShowConfigModal(true);
   };
 
@@ -147,13 +178,16 @@ export function AdminBilling() {
     try {
       for (const a of ACTIONS) {
         const cost = costs[a.action];
-        if (cost !== undefined && cost >= 1) {
+        if (cost !== undefined && cost > 0) {
           await api.post("/billing/config/costs", {
             action: a.action,
             label: a.label,
             cost,
           });
         }
+      }
+      if (defaultModel) {
+        await api.post("/billing/config/default-model", { model: defaultModel });
       }
       setSavedCosts({ ...costs });
       setShowConfigModal(false);
@@ -186,11 +220,29 @@ export function AdminBilling() {
       >
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Créditos</h1>
+            <h1 className="text-2xl font-bold text-white">Configuración</h1>
             <p className="text-brand-300 text-sm mt-1">
-              Historial de recargas y consumos del sistema
+              Costos globales y modelo de IA
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1, ease: "easeOut" }}
+        className="py-6 flex-1 min-h-0 overflow-auto flex items-center justify-center"
+      >
+        <div className="text-center">
+          <div className="h-16 w-16 rounded-full bg-brand-50 flex items-center justify-center mb-4 mx-auto">
+            <Coins className="h-7 w-7 text-brand-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">Configuración de consumos</h3>
+          <p className="text-gray-500 text-sm max-w-sm mb-6">
+            Define los costos globales por acción y el modelo de IA por defecto.
+          </p>
           <Button
             onClick={handleOpenConfig}
             className="bg-brand-700 hover:bg-brand-600 text-white gap-2"
@@ -199,115 +251,6 @@ export function AdminBilling() {
             Configurar consumos
           </Button>
         </div>
-      </div>
-
-      {/* Transactions list */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.1, ease: "easeOut" }}
-        className="py-6 flex-1 min-h-0 overflow-auto"
-      >
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-brand-500" />
-          </div>
-        ) : transactions.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12">
-            <div className="flex flex-col items-center justify-center text-center">
-              <div className="h-16 w-16 rounded-full bg-brand-50 flex items-center justify-center mb-4">
-                <Coins className="h-7 w-7 text-brand-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Sin movimientos
-              </h3>
-              <p className="text-gray-500 text-sm max-w-sm">
-                Aún no hay recargas ni consumos registrados en el sistema.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fecha
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cuenta
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Descripción
-                  </th>
-                  <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Créditos
-                  </th>
-                  <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Balance
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {transactions.map((tx) => {
-                  const isPositive = tx.amount > 0;
-                  return (
-                    <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">
-                        {formatDate(tx.createdAt)}
-                      </td>
-                      <td className="px-6 py-3 text-sm text-gray-900 font-medium">
-                        {tx.tenant?.name ?? "—"}
-                      </td>
-                      <td className="px-6 py-3">
-                        <span
-                          className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-                            isPositive
-                              ? "bg-green-50 text-green-700"
-                              : "bg-red-50 text-red-700"
-                          }`}
-                        >
-                          {isPositive ? (
-                            <ArrowUpCircle className="h-3 w-3" />
-                          ) : (
-                            <ArrowDownCircle className="h-3 w-3" />
-                          )}
-                          {TYPE_LABELS[tx.type] ?? tx.type}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3 text-sm text-gray-600">
-                        {tx.description ?? tx.source ?? "—"}
-                      </td>
-                      <td className="px-6 py-3 text-right">
-                        <span
-                          className={`text-sm font-semibold ${
-                            isPositive ? "text-green-600" : "text-red-600"
-                          }`}
-                        >
-                          {isPositive ? "+" : ""}
-                          {tx.amount.toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3 text-right text-sm text-gray-500">
-                        {tx.balanceAfter.toLocaleString()}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {total > transactions.length && (
-              <div className="px-6 py-3 border-t border-gray-100 text-center">
-                <p className="text-xs text-gray-400">
-                  Mostrando {transactions.length} de {total} movimientos
-                </p>
-              </div>
-            )}
-          </div>
-        )}
       </motion.div>
 
       {/* Config Modal */}
@@ -368,13 +311,14 @@ export function AdminBilling() {
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
-                        min={1}
+                        min={0.01}
+                        step="0.01"
                         value={costs[action] ?? ""}
                         placeholder="0"
                         onChange={(e) =>
                           setCosts((prev) => ({
                             ...prev,
-                            [action]: parseInt(e.target.value) || 0,
+                            [action]: parseFloat(e.target.value) || 0,
                           }))
                         }
                         className="w-20 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
@@ -383,6 +327,14 @@ export function AdminBilling() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Model selector */}
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                  Modelo IA por defecto (OpenRouter)
+                </label>
+                <ModelSelector value={defaultModel} onChange={setDefaultModel} />
               </div>
 
               {/* Actions */}

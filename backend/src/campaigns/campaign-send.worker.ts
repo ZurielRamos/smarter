@@ -480,7 +480,7 @@ export class CampaignSendWorker extends WorkerHost {
       if (totalSent >= 0 && campaign.tenantId) {
         try {
           const costAction = this.getCostAction(campaign.channel, campaign.whatsappTemplateCategory);
-          const unitCost = await this.billingService.getActionCost(costAction);
+          const unitCost = await this.billingService.getEffectiveActionCost(campaign.tenantId, costAction);
           if (unitCost !== null) {
             const reservedAmount = recipientIds.length * unitCost;
             const usedAmount = totalSent * unitCost;
@@ -522,7 +522,7 @@ export class CampaignSendWorker extends WorkerHost {
       if (campaign.tenantId) {
         try {
           const costAction = this.getCostAction(campaign.channel, campaign.whatsappTemplateCategory);
-          const unitCost = await this.billingService.getActionCost(costAction);
+          const unitCost = await this.billingService.getEffectiveActionCost(campaign.tenantId, costAction);
           if (unitCost !== null) {
             const reservedAmount = recipientIds.length * unitCost;
             const usedAmount = totalSent * unitCost;

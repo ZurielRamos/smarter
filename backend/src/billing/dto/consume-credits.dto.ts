@@ -1,8 +1,8 @@
-import { IsInt, IsString, IsOptional, Min } from 'class-validator';
+import { IsNumber, IsString, IsOptional, Min } from 'class-validator';
 
 export class ConsumeCreditsDto {
-  @IsInt()
-  @Min(1)
+  @IsNumber()
+  @Min(0.0001)
   amount: number;
 
   /** Identificador de la acción (ej: whatsapp_message, call_minute) */

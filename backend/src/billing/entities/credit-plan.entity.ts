@@ -30,7 +30,7 @@ export class CreditPlan {
   type: PlanType;
 
   /** Créditos otorgados al inicio de cada mes (solo aplica para monthly) */
-  @Column({ name: 'monthly_credits', type: 'int', default: 0 })
+  @Column({ name: 'monthly_credits', type: 'decimal', precision: 12, scale: 4, default: 0, transformer: { to: (v: number) => v, from: (v: string) => parseFloat(v) } })
   monthlyCredits: number;
 
   /** Si los créditos no usados se acumulan al renovar */

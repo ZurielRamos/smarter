@@ -35,6 +35,53 @@ export class BillingController {
     return this.billingService.upsertCost(body.action, body.label, body.cost);
   }
 
+  @Get('config/default-model')
+  @UseGuards(SuperAdminGuard)
+  getDefaultModel() {
+    return this.billingService.getDefaultModel();
+  }
+
+  @Post('config/default-model')
+  @UseGuards(SuperAdminGuard)
+  setDefaultModel(@Body() body: { model: string }) {
+    return this.billingService.setDefaultModel(body.model);
+  }
+
+  // ─── TENANT COST OVERRIDES ─────────────────────────
+
+  @Get('config/tenant-costs/:tenantId')
+  @UseGuards(SuperAdminGuard)
+  getTenantCosts(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
+    return this.billingService.getTenantCosts(tenantId);
+  }
+
+  @Post('config/tenant-costs/:tenantId')
+  @UseGuards(SuperAdminGuard)
+  upsertTenantCost(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Body() body: { action: string; cost: number | null },
+  ) {
+    if (body.cost === null || body.cost === 0) {
+      return this.billingService.deleteTenantCost(tenantId, body.action);
+    }
+    return this.billingService.upsertTenantCost(tenantId, body.action, body.cost);
+  }
+
+  @Get('config/tenant-costs/:tenantId/default-model')
+  @UseGuards(SuperAdminGuard)
+  getTenantDefaultModel(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
+    return this.billingService.getTenantDefaultModel(tenantId);
+  }
+
+  @Post('config/tenant-costs/:tenantId/default-model')
+  @UseGuards(SuperAdminGuard)
+  setTenantDefaultModel(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Body() body: { model: string },
+  ) {
+    return this.billingService.setTenantDefaultModel(tenantId, body.model);
+  }
+
   // ─── HISTORIAL GLOBAL ──────────────────────────────
 
   @Get('config/transactions')

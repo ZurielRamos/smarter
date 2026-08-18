@@ -41,7 +41,7 @@ export class CreditsGuard implements CanActivate {
       throw new ForbiddenException('No se pudo determinar la cuenta');
     }
 
-    const cost = await this.billingService.getActionCost(action);
+    const cost = await this.billingService.getEffectiveActionCost(tenantId, action);
     if (cost === null) {
       return true; // Acción sin costo configurado, permitir
     }

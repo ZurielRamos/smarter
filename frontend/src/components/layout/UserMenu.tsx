@@ -18,6 +18,7 @@ export function UserMenu() {
 
   const isOnTenant = !!slug && !location.pathname.startsWith("/admin");
   const isAdmin = user?.isSuperAdmin;
+  const isOnAdmin = location.pathname.startsWith("/admin");
   const currentRole = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
   const tenantId = currentRole?.tenantId;
   const { getStatus } = usePresence();
@@ -141,6 +142,18 @@ export function UserMenu() {
                 >
                   <Settings2 className="h-4 w-4 text-gray-400" />
                   Configurar cuenta
+                </button>
+              )}
+              {isOnAdmin && (
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    navigate("/admin/billing?config=1");
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Coins className="h-4 w-4 text-gray-400" />
+                  Configurar consumos
                 </button>
               )}
               <button

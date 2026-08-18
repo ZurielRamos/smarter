@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import headerBg from "@/assets/header-background.jpg";
 import {
   Building2,
@@ -13,6 +14,7 @@ import {
   Power,
   Trash2,
   Coins,
+  Eye,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -33,6 +35,7 @@ interface Tenant {
 
 export function AdminAccounts() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -424,6 +427,16 @@ export function AdminAccounts() {
             className="fixed z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 animate-in fade-in zoom-in-95 duration-100"
             style={{ top: contextMenu.y, left: contextMenu.x }}
           >
+            <button
+              onClick={() => {
+                setContextMenu(null);
+                navigate(`/admin/accounts/${contextMenu.tenant.id}`);
+              }}
+              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <Eye className="h-4 w-4 text-gray-400" />
+              Ver detalles
+            </button>
             <button
               onClick={() => openConfigModal(contextMenu.tenant)}
               className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"

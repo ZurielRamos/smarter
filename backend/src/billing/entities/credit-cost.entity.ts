@@ -24,7 +24,7 @@ export class CreditCost {
   label: string;
 
   /** Costo en créditos */
-  @Column({ type: 'int' })
+  @Column({ type: 'decimal', precision: 12, scale: 4, transformer: { to: (v: number) => v, from: (v: string) => parseFloat(v) } })
   cost: number;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })

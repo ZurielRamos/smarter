@@ -415,7 +415,7 @@ export class CampaignsService {
     // Reserve credits for the full audience before sending
     if (campaign.tenantId) {
       const costAction = this.getCostActionForChannel(campaign.channel, campaign.whatsappTemplateCategory);
-      const unitCost = await this.billingService.getActionCost(costAction);
+      const unitCost = await this.billingService.getEffectiveActionCost(campaign.tenantId, costAction);
       if (unitCost !== null) {
         const totalToReserve = recipientIds.length * unitCost;
         await this.billingService.reserve(campaign.tenantId, totalToReserve, savedSend.id);

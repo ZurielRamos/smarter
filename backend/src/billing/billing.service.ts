@@ -12,6 +12,7 @@ import {
   CreditBalance,
   CreditTransaction,
   CreditCost,
+  TenantCreditCost,
   PlanType,
   TransactionType,
 } from './entities';
@@ -30,6 +31,8 @@ export class BillingService {
     private readonly transactionRepo: Repository<CreditTransaction>,
     @InjectRepository(CreditCost)
     private readonly costRepo: Repository<CreditCost>,
+    @InjectRepository(TenantCreditCost)
+    private readonly tenantCostRepo: Repository<TenantCreditCost>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -187,7 +190,7 @@ export class BillingService {
 
   /**
    * Consume créditos basándose en la acción configurada.
-   * Consulta el costo automáticamente desde credit_costs.
+   * Prioriza el costo a nivel de tenant sobre el global.
    */
   async consumeByAction(
     tenantId: string,
@@ -195,7 +198,7 @@ export class BillingService {
     referenceId?: string,
     performedBy?: string,
   ): Promise<CreditTransaction> {
-    const cost = await this.getActionCost(action);
+    const cost = await this.getEffectiveActionCost(tenantId, action);
     if (cost === null) {
       throw new BadRequestException(`Acción "${action}" no tiene un costo configurado`);
     }
@@ -376,6 +379,74 @@ export class BillingService {
     }
     const entity = this.costRepo.create({ action, label, cost });
     return this.costRepo.save(entity);
+  }
+
+  async getDefaultModel(): Promise<{ model: string }> {
+    const entry = await this.costRepo.findOne({ where: { action: '__config_default_model' } });
+    return { model: entry?.label ?? '' };
+  }
+
+  async setDefaultModel(model: string): Promise<{ model: string }> {
+    let entry = await this.costRepo.findOne({ where: { action: '__config_default_model' } });
+    if (entry) {
+      entry.label = model;
+      await this.costRepo.save(entry);
+    } else {
+      entry = this.costRepo.create({ action: '__config_default_model', label: model, cost: 0, isActive: false });
+      await this.costRepo.save(entry);
+    }
+    return { model };
+  }
+
+  // ─── TENANT COST OVERRIDES ─────────────────────────
+
+  async getTenantCosts(tenantId: string): Promise<TenantCreditCost[]> {
+    return this.tenantCostRepo.find({ where: { tenantId }, order: { action: 'ASC' } });
+  }
+
+  async upsertTenantCost(tenantId: string, action: string, cost: number): Promise<TenantCreditCost> {
+    let existing = await this.tenantCostRepo.findOne({ where: { tenantId, action } });
+    if (existing) {
+      existing.cost = cost;
+      return this.tenantCostRepo.save(existing);
+    }
+    const entity = this.tenantCostRepo.create({ tenantId, action, cost });
+    return this.tenantCostRepo.save(entity);
+  }
+
+  async deleteTenantCost(tenantId: string, action: string): Promise<void> {
+    await this.tenantCostRepo.delete({ tenantId, action });
+  }
+
+  /**
+   * Obtiene el costo efectivo de una acción para un tenant.
+   * Prioridad: tenant override > global.
+   */
+  async getEffectiveActionCost(tenantId: string, action: string): Promise<number | null> {
+    const tenantCost = await this.tenantCostRepo.findOne({ where: { tenantId, action } });
+    if (tenantCost) return tenantCost.cost;
+    return this.getActionCost(action);
+  }
+
+  async getTenantDefaultModel(tenantId: string): Promise<{ model: string }> {
+    const entry = await this.tenantCostRepo.findOne({ where: { tenantId, action: '__config_default_model' } });
+    return { model: entry?.label ?? '' };
+  }
+
+  async setTenantDefaultModel(tenantId: string, model: string): Promise<{ model: string }> {
+    if (!model) {
+      await this.tenantCostRepo.delete({ tenantId, action: '__config_default_model' });
+      return { model: '' };
+    }
+    let entry = await this.tenantCostRepo.findOne({ where: { tenantId, action: '__config_default_model' } });
+    if (entry) {
+      entry.label = model;
+      await this.tenantCostRepo.save(entry);
+    } else {
+      entry = this.tenantCostRepo.create({ tenantId, action: '__config_default_model', label: model, cost: 0 });
+      await this.tenantCostRepo.save(entry);
+    }
+    return { model };
   }
 
   // ─── RENOVACIÓN MENSUAL (CRON) ─────────────────────

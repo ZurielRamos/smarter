@@ -8,6 +8,7 @@ import { CreateBotDto } from './dto/create-bot.dto';
 import { UpdateBotDto } from './dto/update-bot.dto';
 import { CreateBotToolDto } from './dto/create-bot-tool.dto';
 import { UpdateBotToolDto } from './dto/update-bot-tool.dto';
+import { BillingService } from '../billing/billing.service';
 
 export interface ChatResponse {
   role: string;
@@ -26,6 +27,7 @@ export class BotsService {
     @InjectRepository(BotTool)
     private readonly botToolRepo: Repository<BotTool>,
     private readonly configService: ConfigService,
+    private readonly billingService: BillingService,
   ) {}
 
   // ─── CRUD Bot ───────────────────────────────────────────
@@ -142,8 +144,11 @@ export class BotsService {
     if (systemPrompt) requestMessages.push({ role: 'system', content: systemPrompt });
     requestMessages.push(...messages);
 
+    // Resolve model: tenant config → global config → fallback
+    const resolvedModel = await this.resolveModel(bot.tenantId);
+
     const requestBody: any = {
-      model: bot.model || 'openai/gpt-4o-mini',
+      model: resolvedModel,
       messages: requestMessages,
       temperature: Number(bot.temperature) || 0.7,
       max_tokens: bot.maxTokens || 1024,
@@ -222,7 +227,7 @@ export class BotsService {
       usage: {
         prompt_tokens: totalPromptTokens,
         completion_tokens: totalCompletionTokens,
-        model: bot.model || 'openai/gpt-4o-mini',
+        model: resolvedModel,
         cost: totalCost,
       },
       extractedData,
@@ -423,6 +428,19 @@ export class BotsService {
   }
 
   // ─── Helpers ─────────────────────────────────────────────
+
+  private async resolveModel(tenantId: string): Promise<string> {
+    // 1. Tenant-level config
+    const tenantConfig = await this.billingService.getTenantDefaultModel(tenantId);
+    if (tenantConfig.model) return tenantConfig.model;
+
+    // 2. Global config
+    const globalConfig = await this.billingService.getDefaultModel();
+    if (globalConfig.model) return globalConfig.model;
+
+    // 3. Fallback
+    return 'openai/gpt-4o-mini';
+  }
 
   private applyTransform(value: string, transform?: string): string {
     if (!transform || !value) return value;

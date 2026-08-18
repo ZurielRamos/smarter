@@ -8,7 +8,6 @@ const navItems = [
   { to: "/admin", label: "Dashboard" },
   { to: "/admin/accounts", label: "Cuentas" },
   { to: "/admin/users", label: "Usuarios" },
-  { to: "/admin/billing", label: "Créditos" },
   { to: "/admin/providers", label: "Proveedores" },
 ];
 

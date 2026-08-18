@@ -45,6 +45,7 @@ import { EmailBuilderPage } from "./pages/EmailBuilderPage";
 import { PublicForm } from "./pages/PublicForm";
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { AdminAccounts } from "./pages/admin/AdminAccounts";
+import { AdminAccountDetail } from "./pages/admin/AdminAccountDetail";
 import { AdminUsers } from "./pages/admin/AdminUsers";
 import { AdminBilling } from "./pages/admin/AdminBilling";
 import { AdminProviders } from "./pages/admin/AdminProviders";
@@ -116,6 +117,7 @@ function App() {
           <Route element={<ProtectedAdminLayout />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/accounts" element={<AdminAccounts />} />
+            <Route path="/admin/accounts/:tenantId" element={<AdminAccountDetail />} />
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/billing" element={<AdminBilling />} />
             <Route path="/admin/providers" element={<AdminProviders />} />

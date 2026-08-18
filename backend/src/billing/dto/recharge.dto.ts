@@ -1,8 +1,8 @@
-import { IsInt, IsString, IsOptional, Min } from 'class-validator';
+import { IsNumber, IsString, IsOptional, Min } from 'class-validator';
 
 export class RechargeDto {
-  @IsInt()
-  @Min(1)
+  @IsNumber()
+  @Min(0.01)
   amount: number;
 
   @IsString()

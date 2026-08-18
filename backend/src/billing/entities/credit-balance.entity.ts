@@ -22,11 +22,11 @@ export class CreditBalance {
   tenant: Tenant;
 
   /** Créditos disponibles para consumir */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'decimal', precision: 12, scale: 4, default: 0, transformer: { to: (v: number) => v, from: (v: string) => parseFloat(v) } })
   available: number;
 
   /** Créditos reservados (en proceso de uso) */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'decimal', precision: 12, scale: 4, default: 0, transformer: { to: (v: number) => v, from: (v: string) => parseFloat(v) } })
   reserved: number;
 
   /** Última fecha de renovación mensual */

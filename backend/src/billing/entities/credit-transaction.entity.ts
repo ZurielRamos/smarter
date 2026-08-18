@@ -41,11 +41,11 @@ export class CreditTransaction {
   type: TransactionType;
 
   /** Cantidad de créditos (positivo para ingreso, negativo para egreso) */
-  @Column({ type: 'int' })
+  @Column({ type: 'decimal', precision: 12, scale: 4, transformer: { to: (v: number) => v, from: (v: string) => parseFloat(v) } })
   amount: number;
 
   /** Balance resultante después de esta transacción */
-  @Column({ name: 'balance_after', type: 'int' })
+  @Column({ name: 'balance_after', type: 'decimal', precision: 12, scale: 4, transformer: { to: (v: number) => v, from: (v: string) => parseFloat(v) } })
   balanceAfter: number;
 
   /** Fuente/acción que generó la transacción (ej: whatsapp, call, campaign) */
