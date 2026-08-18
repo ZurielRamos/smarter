@@ -53,7 +53,7 @@ export class BotTool {
   webhookBodyType: string | null; // json | form | raw
 
   @Column({ name: 'webhook_body_fields', type: 'jsonb', nullable: true })
-  webhookBodyFields: { key: string; value: string; source?: string; description?: string; transform?: string }[] | null;
+  webhookBodyFields: { key: string; value: string }[] | null;
 
   @Column({ name: 'webhook_raw_body', type: 'text', nullable: true })
   webhookRawBody: string | null;

@@ -426,25 +426,39 @@ export class BotsService {
 
   private applyTransform(value: string, transform?: string): string {
     if (!transform || !value) return value;
-    const transforms = transform.split(',').map((t) => t.trim().toLowerCase());
+    const transforms = transform.split(',').map((t) => t.trim());
     let result = value;
     for (const t of transforms) {
-      if (t === 'date_ymd' || t === 'date') {
-        // Try to parse as date and format as yyyy-mm-dd
+      const tl = t.toLowerCase();
+      if (tl === 'date_ymd' || tl === 'date') {
         const d = new Date(result);
         if (!isNaN(d.getTime())) result = d.toISOString().split('T')[0];
-      } else if (t === 'uppercase') {
+      } else if (tl === 'uppercase') {
         result = result.toUpperCase();
-      } else if (t === 'lowercase') {
+      } else if (tl === 'lowercase') {
         result = result.toLowerCase();
-      } else if (t === 'no_tildes' || t === 'remove_accents') {
+      } else if (tl === 'no_tildes' || tl === 'remove_accents') {
         result = result.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      } else if (t === 'trim') {
+      } else if (tl === 'trim') {
         result = result.trim();
       } else if (t.startsWith('prefix:')) {
         result = t.substring(7) + result;
       } else if (t.startsWith('suffix:')) {
         result = result + t.substring(7);
+      } else if (t.startsWith('map:')) {
+        // map:original1=nuevo1|original2=nuevo2
+        const mappings = t.substring(4).split('|');
+        for (const m of mappings) {
+          const [from, to] = m.split('=');
+          if (from && to && result.toLowerCase() === from.toLowerCase()) {
+            result = to;
+            break;
+          }
+        }
+      } else if (t.startsWith('replace:')) {
+        // replace:buscar=reemplazar
+        const parts = t.substring(8).split('=');
+        if (parts[0]) result = result.replaceAll(parts[0], parts[1] || '');
       }
     }
     return result;

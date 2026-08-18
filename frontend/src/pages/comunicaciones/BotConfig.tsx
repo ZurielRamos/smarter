@@ -400,12 +400,6 @@ function KvRow({ item, index, items, setItems, valuePlaceholder, tenantId }: { i
       {source === "ai" && (
         <input type="text" value={item.description || ""} onChange={(e) => update({ description: e.target.value })} placeholder="Describe cómo debe obtener este dato (ej: el producto que busca el usuario)" className="w-full px-2 py-1.5 rounded border border-gray-200 text-[10px] text-gray-700 focus:outline-none focus:border-brand-300" />
       )}
-
-      {/* Transform */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-[9px] text-gray-400 shrink-0">Transformar:</span>
-        <input type="text" value={item.transform || ""} onChange={(e) => update({ transform: e.target.value })} placeholder="ej: no_tildes, prefix:PC25-, date" className="flex-1 px-2 py-1 rounded border border-gray-200 text-[9px] font-mono text-gray-600 focus:outline-none focus:border-brand-300" />
-      </div>
     </div>
   );
 }
@@ -523,7 +517,6 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
         value: i.source === "ai" ? `{{${i.key}}}` : i.source === "contact" ? `{{contact.${i.value}}}` : i.value,
         source: i.source || "fixed",
         description: i.description || "",
-        transform: i.transform || "",
       }));
 
       const payload: any = {
