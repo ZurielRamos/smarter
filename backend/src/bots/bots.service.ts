@@ -182,6 +182,7 @@ export class BotsService {
 
         const result = await this.executeTool(bot, fnName, args, collectedData);
         toolsExecuted.push({ name: fnName, result });
+        console.log(`[Bot Tool] ${fnName} args:`, JSON.stringify(args), 'result:', result.substring(0, 200));
 
         // Handle system tools
         if (fnName === 'save_contact_data') {
