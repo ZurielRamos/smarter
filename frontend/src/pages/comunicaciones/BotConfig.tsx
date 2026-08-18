@@ -311,6 +311,25 @@ function MiniSelect({ value, onChange, options, labels }: { value: string; onCha
   );
 }
 
+// ─── KV List ──────────────────────────────────────────────────────
+
+function KvList({ items, setItems, valuePlaceholder = "" }: { items: { key: string; value: string }[]; setItems: (v: { key: string; value: string }[]) => void; valuePlaceholder?: string }) {
+  return (
+    <div className="space-y-1.5">
+      {items.map((item, i) => (
+        <div key={i} className="flex gap-1.5 items-center">
+          <input type="text" value={item.key} onChange={(e) => { const next = [...items]; next[i] = { ...next[i], key: e.target.value }; setItems(next); }} placeholder="Name" className="w-1/3 px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300" />
+          <input type="text" value={item.value} onChange={(e) => { const next = [...items]; next[i] = { ...next[i], value: e.target.value }; setItems(next); }} placeholder={valuePlaceholder || "Value"} className="flex-1 px-2 py-1.5 rounded border border-gray-200 text-xs focus:outline-none focus:border-brand-300" />
+          <button type="button" onClick={() => setItems(items.filter((_, idx) => idx !== i))} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
+        </div>
+      ))}
+      <button type="button" onClick={() => setItems([...items, { key: "", value: "" }])} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-700">
+        <Plus className="h-2.5 w-2.5" /> Agregar
+      </button>
+    </div>
+  );
+}
+
 // ─── Tool Form Modal ─────────────────────────────────────────────
 
 function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; botId: string; onClose: () => void; onSaved: (t: any) => void }) {
@@ -319,8 +338,6 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
   const [executionType, setExecutionType] = useState(tool?.executionType || "webhook");
   const [staticResponse, setStaticResponse] = useState(tool?.staticResponse || "");
   const [saving, setSaving] = useState(false);
-
-  // Webhook fields
   const [method, setMethod] = useState(tool?.webhookMethod || "GET");
   const [url, setUrl] = useState(tool?.webhookUrl || "");
   const [authType, setAuthType] = useState(tool?.webhookAuthType || "none");
@@ -379,31 +396,6 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
       }
     } catch {} finally { setSaving(false); }
   };
-
-  const addKvRow = (list: { key: string; value: string }[], setter: (v: { key: string; value: string }[]) => void) => {
-    setter([...list, { key: "", value: "" }]);
-  };
-  const updateKvRow = (list: { key: string; value: string }[], setter: (v: { key: string; value: string }[]) => void, idx: number, field: "key" | "value", val: string) => {
-    setter(list.map((item, i) => i === idx ? { ...item, [field]: val } : item));
-  };
-  const removeKvRow = (list: { key: string; value: string }[], setter: (v: { key: string; value: string }[]) => void, idx: number) => {
-    setter(list.filter((_, i) => i !== idx));
-  };
-
-  const KvList = ({ items, setItems, nameLabel = "Name", valueLabel = "Value", valuePlaceholder = "" }: { items: { key: string; value: string }[]; setItems: (v: { key: string; value: string }[]) => void; nameLabel?: string; valueLabel?: string; valuePlaceholder?: string }) => (
-    <div className="space-y-1.5">
-      {items.map((item, i) => (
-        <div key={i} className="flex gap-1.5 items-center">
-          <input type="text" value={item.key} onChange={(e) => updateKvRow(items, setItems, i, "key", e.target.value)} placeholder={nameLabel} className="w-1/3 px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300" />
-          <input type="text" value={item.value} onChange={(e) => updateKvRow(items, setItems, i, "value", e.target.value)} placeholder={valuePlaceholder || valueLabel} className="flex-1 px-2 py-1.5 rounded border border-gray-200 text-xs focus:outline-none focus:border-brand-300" />
-          <button type="button" onClick={() => removeKvRow(items, setItems, i)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
-        </div>
-      ))}
-      <button type="button" onClick={() => addKvRow(items, setItems)} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-700">
-        <Plus className="h-2.5 w-2.5" /> Agregar
-      </button>
-    </div>
-  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
