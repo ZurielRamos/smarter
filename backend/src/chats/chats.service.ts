@@ -1169,6 +1169,15 @@ export class ChatsService {
       }
       await this.messageRepo.save(sentMessage);
 
+      // Log tool executions as system notes
+      if (response.toolsExecuted && response.toolsExecuted.length > 0) {
+        for (const t of response.toolsExecuted) {
+          if (t.name === 'save_contact_data') continue; // handled separately below
+          if (t.name === 'handoff_to_human' || t.name === 'mark_resolved') continue; // handled below
+          await this.createSystemNote(conversation.id, `🔧 Herramienta ejecutada: ${t.name}`, inbox.tenantId);
+        }
+      }
+
       // Handle bot self-handoff (bot decided to transfer or resolved)
       if (response.handedOff) {
         conversation.botStatus = 'handed_off';
