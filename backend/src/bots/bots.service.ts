@@ -144,8 +144,8 @@ export class BotsService {
     if (systemPrompt) requestMessages.push({ role: 'system', content: systemPrompt });
     requestMessages.push(...messages);
 
-    // Resolve model: tenant config → global config → fallback
-    const resolvedModel = await this.resolveModel(bot.tenantId);
+    // Resolve model: tenant config → global config → fallback + variant
+    const resolvedModel = await this.resolveModel(bot.tenantId, bot.model);
 
     const requestBody: any = {
       model: resolvedModel,
@@ -429,17 +429,26 @@ export class BotsService {
 
   // ─── Helpers ─────────────────────────────────────────────
 
-  private async resolveModel(tenantId: string): Promise<string> {
+  private async resolveModel(tenantId: string, variant?: string | null): Promise<string> {
     // 1. Tenant-level config
     const tenantConfig = await this.billingService.getTenantDefaultModel(tenantId);
-    if (tenantConfig.model) return tenantConfig.model;
+    let model = tenantConfig.model || '';
 
     // 2. Global config
-    const globalConfig = await this.billingService.getDefaultModel();
-    if (globalConfig.model) return globalConfig.model;
+    if (!model) {
+      const globalConfig = await this.billingService.getDefaultModel();
+      model = globalConfig.model || '';
+    }
 
     // 3. Fallback
-    return 'openai/gpt-4o-mini';
+    if (!model) model = 'openai/gpt-4o-mini';
+
+    // Append routing variant if configured
+    if (variant && !model.includes(':')) {
+      model = `${model}:${variant}`;
+    }
+
+    return model;
   }
 
   private applyTransform(value: string, transform?: string): string {

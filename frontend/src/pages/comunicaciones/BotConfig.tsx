@@ -778,6 +778,7 @@ export function BotConfig() {
 
   // Advanced
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [variant, setVariant] = useState("");
   const [temperature, setTemperature] = useState(0.7);
   const [maxTokens, setMaxTokens] = useState(1024);
 
@@ -810,6 +811,7 @@ export function BotConfig() {
       api.get(`/bots/${botId}/tools`).then(({ data: t }) => setTools(t || [])).catch(() => {});
       setFallbackMessage(data.fallbackMessage || "");
       setSystemPrompt(data.systemPrompt || "");
+      setVariant(data.model?.includes(":") ? data.model.split(":").pop() || "" : "");
       setTemperature(Number(data.temperature) || 0.7);
       setMaxTokens(data.maxTokens || 1024);
     } catch { toast.error("Error al cargar el bot"); }
@@ -839,6 +841,7 @@ export function BotConfig() {
         welcomeMessage: welcomeMessage.trim() || null,
         fallbackMessage: fallbackMessage.trim() || null,
         systemPrompt: systemPrompt.trim() || null,
+        model: variant || null,
         temperature,
         maxTokens,
       });
@@ -1367,6 +1370,22 @@ export function BotConfig() {
           </div>
 
           <div className="space-y-4">
+            {/* Routing variant */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Modo de enrutamiento</label>
+              <div className="grid grid-cols-4 gap-2">
+                {ROUTING_VARIANTS.map((v) => (
+                  <button key={v.value} type="button" onClick={() => setVariant(v.value)}
+                    className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-center transition-colors ${variant === v.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}
+                  >
+                    <span className="text-sm">{v.icon}</span>
+                    <span className={`text-xs font-medium ${variant === v.value ? "text-brand-700" : "text-gray-700"}`}>{v.label}</span>
+                    <span className="text-[10px] text-gray-400 leading-tight">{v.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-medium text-gray-600">Temperatura</label>
