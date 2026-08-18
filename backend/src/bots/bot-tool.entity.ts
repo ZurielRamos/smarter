@@ -58,6 +58,9 @@ export class BotTool {
   @Column({ name: 'webhook_raw_body', type: 'text', nullable: true })
   webhookRawBody: string | null;
 
+  @Column({ name: 'response_mapping', type: 'jsonb', nullable: true })
+  responseMapping: { path: string; label: string }[] | null;
+
   @Column({ name: 'webhook_auth_type', type: 'varchar', length: 20, nullable: true })
   webhookAuthType: string | null; // none | bearer | basic | api_key
 

@@ -479,6 +479,7 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
   const [bodyType, setBodyType] = useState(tool?.webhookBodyType || "json");
   const [bodyFields, setBodyFields] = useState<{ key: string; value: string; source?: string; description?: string }[]>(() => parseStoredItems(tool?.webhookBodyFields));
   const [rawBody, setRawBody] = useState(tool?.webhookRawBody || "");
+  const [responseMapping, setResponseMapping] = useState<{ path: string; label: string }[]>(tool?.responseMapping || []);
 
   const handleSave = async () => {
     if (!name.trim() || !description.trim()) return;
@@ -530,6 +531,7 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
         webhookBodyType: executionType === "webhook" && sendBody ? bodyType : null,
         webhookBodyFields: executionType === "webhook" && sendBody && bodyType !== "raw" ? toStorageItems(bodyFields) : null,
         webhookRawBody: executionType === "webhook" && sendBody && bodyType === "raw" ? rawBody : null,
+        responseMapping: executionType === "webhook" && responseMapping.filter((r) => r.path && r.label).length > 0 ? responseMapping.filter((r) => r.path && r.label) : null,
         webhookAuthType: executionType === "webhook" ? authType : null,
         webhookAuthValue: executionType === "webhook" && authType !== "none" ? authValue : null,
         staticResponse: executionType === "static" ? staticResponse : null,
@@ -672,6 +674,32 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Response mapping (webhook only) */}
+          {executionType === "webhook" && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Mapeo de respuesta</label>
+                  <p className="text-[10px] text-gray-400">Define qué datos de la respuesta del endpoint se le pasan al modelo.</p>
+                </div>
+              </div>
+              <div className="space-y-1.5 mt-2">
+                {responseMapping.map((item, i) => (
+                  <div key={i} className="flex gap-1.5 items-center">
+                    <input type="text" value={item.path} onChange={(e) => { const next = [...responseMapping]; next[i] = { ...next[i], path: e.target.value }; setResponseMapping(next); }} placeholder="data.products" className="w-2/5 px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300" />
+                    <span className="text-gray-400 text-xs">→</span>
+                    <input type="text" value={item.label} onChange={(e) => { const next = [...responseMapping]; next[i] = { ...next[i], label: e.target.value }; setResponseMapping(next); }} placeholder="Productos encontrados" className="flex-1 px-2 py-1.5 rounded border border-gray-200 text-xs focus:outline-none focus:border-brand-300" />
+                    <button type="button" onClick={() => setResponseMapping(responseMapping.filter((_, idx) => idx !== i))} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => setResponseMapping([...responseMapping, { path: "", label: "" }])} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-700">
+                  <Plus className="h-2.5 w-2.5" /> Agregar campo
+                </button>
+              </div>
+              <p className="text-[9px] text-gray-400 mt-1.5">Usa dot notation para acceder a campos anidados: data.items, result.price. Si no configuras ninguno, se pasa la respuesta completa.</p>
             </div>
           )}
 

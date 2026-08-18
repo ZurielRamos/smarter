@@ -400,10 +400,35 @@ export class BotsService {
       const res = await fetch(url, fetchOptions);
       const text = await res.text();
 
-      try { JSON.parse(text); return text; } catch { return JSON.stringify({ result: text }); }
+      // Parse response
+      let responseData: any;
+      try { responseData = JSON.parse(text); } catch { responseData = text; }
+
+      // Apply response mapping if configured
+      if (tool.responseMapping && tool.responseMapping.length > 0 && typeof responseData === 'object') {
+        const mapped: Record<string, any> = {};
+        for (const mapping of tool.responseMapping) {
+          const value = this.getNestedValue(responseData, mapping.path);
+          if (value !== undefined) mapped[mapping.label] = value;
+        }
+        return JSON.stringify(mapped);
+      }
+
+      return typeof responseData === 'string' ? JSON.stringify({ result: responseData }) : text;
     } catch (err: any) {
       return JSON.stringify({ error: `Webhook failed: ${err.message}` });
     }
+  }
+
+  // ─── Helpers ─────────────────────────────────────────────
+
+  private getNestedValue(obj: any, path: string): any {
+    return path.split('.').reduce((current, key) => {
+      if (current === undefined || current === null) return undefined;
+      const match = key.match(/^(\w+)\[(\d+)\]$/);
+      if (match) return current[match[1]]?.[parseInt(match[2])];
+      return current[key];
+    }, obj);
   }
 
   // ─── Compile System Prompt ──────────────────────────────
