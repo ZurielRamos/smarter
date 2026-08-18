@@ -311,46 +311,6 @@ function MiniSelect({ value, onChange, options, labels }: { value: string; onCha
   );
 }
 
-// ─── Add Parameter Row ────────────────────────────────────────────
-
-function AddParamRow({ onAdd }: { onAdd: (key: string, type: string, desc: string) => void }) {
-  const [key, setKey] = useState("");
-  const [type, setType] = useState("string");
-  const [desc, setDesc] = useState("");
-
-  const handle = () => {
-    if (!key.trim()) return;
-    onAdd(key.trim().replace(/\s+/g, '_').toLowerCase(), type, desc.trim());
-    setKey(""); setDesc("");
-  };
-
-  return (
-    <div className="flex items-end gap-2">
-      <div className="w-28">
-        <label className="block text-[10px] text-gray-400 mb-0.5">Nombre</label>
-        <input type="text" value={key} onChange={(e) => setKey(e.target.value.replace(/\s+/g, '_').toLowerCase())} placeholder="query" className="w-full px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300" onKeyDown={(e) => { if (e.key === "Enter") handle(); }} />
-      </div>
-      <div className="w-20">
-        <label className="block text-[10px] text-gray-400 mb-0.5">Tipo</label>
-        <div className="flex gap-0.5">
-          {["string", "number"].map((t) => (
-            <button key={t} type="button" onClick={() => setType(t)}
-              className={`flex-1 px-1 py-1.5 rounded text-[10px] font-medium border transition-colors ${type === t ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
-            >{t === "string" ? "Texto" : "Número"}</button>
-          ))}
-        </div>
-      </div>
-      <div className="flex-1">
-        <label className="block text-[10px] text-gray-400 mb-0.5">Descripción</label>
-        <input type="text" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Término de búsqueda" className="w-full px-2 py-1.5 rounded border border-gray-200 text-xs focus:outline-none focus:border-brand-300" onKeyDown={(e) => { if (e.key === "Enter") handle(); }} />
-      </div>
-      <button type="button" onClick={handle} disabled={!key.trim()} className="px-2 py-1.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-40">
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
 // ─── Tool Form Modal ─────────────────────────────────────────────
 
 function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; botId: string; onClose: () => void; onSaved: (t: any) => void }) {
@@ -358,7 +318,6 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
   const [description, setDescription] = useState(tool?.description || "");
   const [executionType, setExecutionType] = useState(tool?.executionType || "webhook");
   const [staticResponse, setStaticResponse] = useState(tool?.staticResponse || "");
-  const [parameters, setParameters] = useState(tool?.parameters ? JSON.stringify(tool.parameters, null, 2) : '{\n  "type": "object",\n  "properties": {}\n}');
   const [saving, setSaving] = useState(false);
 
   // Webhook fields
@@ -378,8 +337,21 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
     if (!name.trim() || !description.trim()) return;
     setSaving(true);
     try {
-      let parsedParams;
-      try { parsedParams = JSON.parse(parameters); } catch { parsedParams = { type: "object", properties: {} }; }
+      // Auto-build parameters from {{param}} placeholders in url, query params, headers, body
+      const extractParams = (text: string): string[] => {
+        const matches = text.match(/\{\{(\w+)\}\}/g) || [];
+        return matches.map((m) => m.replace(/\{\{|\}\}/g, ""));
+      };
+
+      const allParams = new Set<string>();
+      extractParams(url).forEach((p) => allParams.add(p));
+      if (sendQueryParams) queryParams.forEach((qp) => { extractParams(qp.value).forEach((p) => allParams.add(p)); });
+      if (sendHeaders) headers.forEach((h) => { extractParams(h.value).forEach((p) => allParams.add(p)); });
+      if (sendBody) bodyFields.forEach((f) => { extractParams(f.value).forEach((p) => allParams.add(p)); });
+
+      const properties: Record<string, any> = {};
+      allParams.forEach((p) => { properties[p] = { type: "string", description: p }; });
+      const parsedParams = { type: "object", properties };
 
       const payload: any = {
         name: name.trim().replace(/\s+/g, '_').toLowerCase(),
@@ -551,38 +523,6 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
               <textarea value={staticResponse} onChange={(e) => setStaticResponse(e.target.value)} placeholder='{"horario": "Lunes a Viernes 8am-6pm"}' rows={3} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-y" />
             </div>
           )}
-
-          {/* Parameters builder */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Parámetros</label>
-            <p className="text-[10px] text-gray-400 mb-2">El modelo extraerá estos datos de la conversación para ejecutar la herramienta.</p>
-            <div className="space-y-2 mb-2">
-              {(() => {
-                let parsed: any;
-                try { parsed = JSON.parse(parameters); } catch { parsed = { type: "object", properties: {} }; }
-                const props = parsed.properties || {};
-                return Object.entries(props).map(([key, val]: [string, any]) => (
-                  <div key={key} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                    <span className="text-xs font-mono text-gray-800 font-medium">{key}</span>
-                    <span className="text-[9px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{val.type || "string"}</span>
-                    <span className="flex-1 text-[10px] text-gray-500 truncate">{val.description || ""}</span>
-                    <button type="button" onClick={() => {
-                      const p = JSON.parse(parameters);
-                      delete p.properties[key];
-                      setParameters(JSON.stringify(p, null, 2));
-                    }} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
-                  </div>
-                ));
-              })()}
-            </div>
-            <AddParamRow onAdd={(key, type, desc) => {
-              let parsed: any;
-              try { parsed = JSON.parse(parameters); } catch { parsed = { type: "object", properties: {} }; }
-              if (!parsed.properties) parsed.properties = {};
-              parsed.properties[key] = { type, description: desc };
-              setParameters(JSON.stringify(parsed, null, 2));
-            }} />
-          </div>
         </div>
 
         {/* Footer */}
