@@ -313,26 +313,133 @@ function MiniSelect({ value, onChange, options, labels }: { value: string; onCha
 
 // ─── KV List ──────────────────────────────────────────────────────
 
-function KvList({ items, setItems, valuePlaceholder = "" }: { items: { key: string; value: string }[]; setItems: (v: { key: string; value: string }[]) => void; valuePlaceholder?: string }) {
+function KvList({ items, setItems, valuePlaceholder = "", tenantId }: { items: { key: string; value: string; source?: string; description?: string }[]; setItems: (v: any[]) => void; valuePlaceholder?: string; tenantId?: string }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {items.map((item, i) => (
-        <div key={i} className="flex gap-1.5 items-center">
-          <input type="text" value={item.key} onChange={(e) => { const next = [...items]; next[i] = { ...next[i], key: e.target.value }; setItems(next); }} placeholder="Name" className="w-1/3 px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300" />
-          <input type="text" value={item.value} onChange={(e) => { const next = [...items]; next[i] = { ...next[i], value: e.target.value }; setItems(next); }} placeholder={valuePlaceholder || "Value"} className="flex-1 px-2 py-1.5 rounded border border-gray-200 text-xs focus:outline-none focus:border-brand-300" />
-          <button type="button" onClick={() => setItems(items.filter((_, idx) => idx !== i))} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
-        </div>
+        <KvRow key={i} item={item} index={i} items={items} setItems={setItems} valuePlaceholder={valuePlaceholder} tenantId={tenantId} />
       ))}
-      <button type="button" onClick={() => setItems([...items, { key: "", value: "" }])} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-700">
+      <button type="button" onClick={() => setItems([...items, { key: "", value: "", source: "fixed" }])} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-700">
         <Plus className="h-2.5 w-2.5" /> Agregar
       </button>
     </div>
   );
 }
 
+function KvRow({ item, index, items, setItems, valuePlaceholder, tenantId }: { item: any; index: number; items: any[]; setItems: (v: any[]) => void; valuePlaceholder?: string; tenantId?: string }) {
+  const [showSourceMenu, setShowSourceMenu] = useState(false);
+  const [fields, setFields] = useState<{ field: string; label: string }[]>([]);
+  const [loadedFields, setLoadedFields] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const source = item.source || "fixed";
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowSourceMenu(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const loadFields = () => {
+    if (loadedFields || !tenantId) return;
+    api.get(`/custom-fields/${tenantId}`).then(({ data }) => {
+      setFields((data || []).map((cf: any) => ({ field: cf.fieldKey, label: cf.fieldLabel })));
+      setLoadedFields(true);
+    }).catch(() => {});
+  };
+
+  const update = (updates: Partial<typeof item>) => {
+    const next = [...items];
+    next[index] = { ...next[index], ...updates };
+    setItems(next);
+  };
+
+  const sourceColors: Record<string, string> = {
+    fixed: "bg-gray-100 text-gray-600",
+    contact: "bg-blue-100 text-blue-700",
+    ai: "bg-purple-100 text-purple-700",
+  };
+  const sourceLabels: Record<string, string> = { fixed: "Fijo", contact: "Contacto", ai: "IA" };
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-2 space-y-1.5">
+      <div className="flex gap-1.5 items-center">
+        <input type="text" value={item.key} onChange={(e) => update({ key: e.target.value })} placeholder="Name" className="w-1/3 px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300" />
+
+        {/* Source selector */}
+        <div className="relative" ref={menuRef}>
+          <button type="button" onClick={() => { setShowSourceMenu(!showSourceMenu); loadFields(); }}
+            className={`px-2 py-1.5 rounded text-[10px] font-medium whitespace-nowrap ${sourceColors[source]}`}
+          >{sourceLabels[source]} ▾</button>
+          {showSourceMenu && (
+            <div className="absolute z-50 top-full left-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-0.5 animate-in fade-in duration-100">
+              <button type="button" onClick={() => { update({ source: "fixed", value: "", description: "" }); setShowSourceMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50">Valor fijo</button>
+              <button type="button" onClick={() => { update({ source: "contact", value: "", description: "" }); setShowSourceMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50">Campo del contacto</button>
+              <button type="button" onClick={() => { update({ source: "ai", value: "", description: "" }); setShowSourceMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50">IA (de la conversación)</button>
+            </div>
+          )}
+        </div>
+
+        {/* Value input depends on source */}
+        {source === "fixed" && (
+          <input type="text" value={item.value} onChange={(e) => update({ value: e.target.value })} placeholder={valuePlaceholder || "Valor"} className="flex-1 px-2 py-1.5 rounded border border-gray-200 text-xs focus:outline-none focus:border-brand-300" />
+        )}
+        {source === "contact" && (
+          <ContactFieldSelect value={item.value} onChange={(v) => update({ value: v })} fields={fields} />
+        )}
+        {source === "ai" && (
+          <span className="flex-1 text-[10px] text-purple-600 italic">El modelo lo extrae</span>
+        )}
+
+        <button type="button" onClick={() => setItems(items.filter((_, idx) => idx !== index))} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
+      </div>
+
+      {/* AI description */}
+      {source === "ai" && (
+        <input type="text" value={item.description || ""} onChange={(e) => update({ description: e.target.value })} placeholder="Describe cómo debe obtener este dato (ej: el producto que busca el usuario)" className="w-full px-2 py-1.5 rounded border border-gray-200 text-[10px] text-gray-700 focus:outline-none focus:border-brand-300" />
+      )}
+    </div>
+  );
+}
+
+function ContactFieldSelect({ value, onChange, fields }: { value: string; onChange: (v: string) => void; fields: { field: string; label: string }[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const selected = fields.find((f) => f.field === value);
+
+  return (
+    <div className="relative flex-1" ref={ref}>
+      <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-2 py-1.5 rounded border border-gray-200 text-xs text-gray-700 hover:border-gray-300 bg-white">
+        <span className="truncate">{selected?.label || value || "Seleccionar campo..."}</span>
+        <ChevronDown className="h-3 w-3 text-gray-400" />
+      </button>
+      {open && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 max-h-40 overflow-y-auto py-0.5 animate-in fade-in duration-100">
+          {fields.map((f) => (
+            <button key={f.field} type="button" onClick={() => { onChange(f.field); setOpen(false); }}
+              className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${f.field === value ? "bg-brand-50 text-brand-700" : "hover:bg-gray-50"}`}
+            >{f.label} <span className="text-gray-400 ml-1">{f.field}</span></button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Tool Form Modal ─────────────────────────────────────────────
 
-function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; botId: string; onClose: () => void; onSaved: (t: any) => void }) {
+function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any | null; botId: string; tenantId?: string; onClose: () => void; onSaved: (t: any) => void }) {
   const [name, setName] = useState(tool?.name || "");
   const [description, setDescription] = useState(tool?.description || "");
   const [executionType, setExecutionType] = useState(tool?.executionType || "webhook");
@@ -354,21 +461,27 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
     if (!name.trim() || !description.trim()) return;
     setSaving(true);
     try {
-      // Auto-build parameters from {{param}} placeholders in url, query params, headers, body
-      const extractParams = (text: string): string[] => {
-        const matches = text.match(/\{\{(\w+)\}\}/g) || [];
-        return matches.map((m) => m.replace(/\{\{|\}\}/g, ""));
-      };
-
-      const allParams = new Set<string>();
-      extractParams(url).forEach((p) => allParams.add(p));
-      if (sendQueryParams) queryParams.forEach((qp) => { extractParams(qp.value).forEach((p) => allParams.add(p)); });
-      if (sendHeaders) headers.forEach((h) => { extractParams(h.value).forEach((p) => allParams.add(p)); });
-      if (sendBody) bodyFields.forEach((f) => { extractParams(f.value).forEach((p) => allParams.add(p)); });
-
+      // Build parameters from AI-sourced fields
+      const aiFields = new Set<string>();
+      const allItems = [...(sendQueryParams ? queryParams : []), ...(sendHeaders ? headers : []), ...(sendBody ? bodyFields : [])];
+      for (const item of allItems) {
+        if (item.source === "ai" && item.key) aiFields.add(item.key);
+      }
       const properties: Record<string, any> = {};
-      allParams.forEach((p) => { properties[p] = { type: "string", description: p }; });
+      for (const item of allItems) {
+        if (item.source === "ai" && item.key) {
+          properties[item.key] = { type: "string", description: item.description || item.key };
+        }
+      }
       const parsedParams = { type: "object", properties };
+
+      // Convert items to storage format (replace source types with actual values for webhook execution)
+      const toStorageItems = (items: any[]) => items.filter((i) => i.key).map((i) => ({
+        key: i.key,
+        value: i.source === "ai" ? `{{${i.key}}}` : i.source === "contact" ? `{{contact.${i.value}}}` : i.value,
+        source: i.source || "fixed",
+        description: i.description || "",
+      }));
 
       const payload: any = {
         name: name.trim().replace(/\s+/g, '_').toLowerCase(),
@@ -377,10 +490,10 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
         executionType,
         webhookUrl: executionType === "webhook" ? url.trim() : null,
         webhookMethod: executionType === "webhook" ? method : null,
-        webhookHeaders: executionType === "webhook" && sendHeaders ? headers.filter((h) => h.key) : null,
-        webhookQueryParams: executionType === "webhook" && sendQueryParams ? queryParams.filter((p) => p.key) : null,
+        webhookHeaders: executionType === "webhook" && sendHeaders ? toStorageItems(headers) : null,
+        webhookQueryParams: executionType === "webhook" && sendQueryParams ? toStorageItems(queryParams) : null,
         webhookBodyType: executionType === "webhook" && sendBody ? bodyType : null,
-        webhookBodyFields: executionType === "webhook" && sendBody ? bodyFields.filter((f) => f.key) : null,
+        webhookBodyFields: executionType === "webhook" && sendBody ? toStorageItems(bodyFields) : null,
         webhookAuthType: executionType === "webhook" ? authType : null,
         webhookAuthValue: executionType === "webhook" && authType !== "none" ? authValue : null,
         staticResponse: executionType === "static" ? staticResponse : null,
@@ -476,7 +589,7 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
                   <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${sendQueryParams ? "translate-x-4" : ""}`} />
                 </button>
               </div>
-              {sendQueryParams && <div className="mb-3"><KvList items={queryParams} setItems={setQueryParams} valuePlaceholder="{{param}} o valor fijo" /></div>}
+              {sendQueryParams && <div className="mb-3"><KvList items={queryParams} setItems={setQueryParams} valuePlaceholder="valor fijo" tenantId={tenantId} /></div>}
 
               {/* Headers */}
               <div className="flex items-center justify-between py-2">
@@ -488,7 +601,7 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
                   <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${sendHeaders ? "translate-x-4" : ""}`} />
                 </button>
               </div>
-              {sendHeaders && <div className="mb-3"><KvList items={headers} setItems={setHeaders} valuePlaceholder="valor" /></div>}
+              {sendHeaders && <div className="mb-3"><KvList items={headers} setItems={setHeaders} valuePlaceholder="valor" tenantId={tenantId} /></div>}
 
               {/* Body */}
               {method !== "GET" && (
@@ -511,7 +624,7 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
                           >{t.toUpperCase()}</button>
                         ))}
                       </div>
-                      <KvList items={bodyFields} setItems={setBodyFields} valuePlaceholder="{{param}} o valor fijo" />
+                      <KvList items={bodyFields} setItems={setBodyFields} valuePlaceholder="valor fijo" tenantId={tenantId} />
                     </div>
                   )}
                 </div>
@@ -1175,6 +1288,7 @@ export function BotConfig() {
           <ToolFormModal
             tool={editingTool}
             botId={botId!}
+            tenantId={tenantId}
             onClose={() => setShowToolForm(false)}
             onSaved={(saved) => {
               if (editingTool) {
