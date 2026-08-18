@@ -274,6 +274,43 @@ function ModelSelector({ value, onChange }: { value: string; onChange: (v: strin
   );
 }
 
+// ─── Mini Select ──────────────────────────────────────────────────
+
+function MiniSelect({ value, onChange, options, labels }: { value: string; onChange: (v: string) => void; options: string[]; labels?: Record<string, string> }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const display = labels?.[value] || value;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded border border-gray-200 text-xs text-gray-800 hover:border-gray-300 focus:outline-none focus:border-brand-300 bg-white transition-colors"
+      >
+        <span className="font-medium">{display}</span>
+        <ChevronDown className={`h-3 w-3 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-0.5 animate-in fade-in slide-in-from-top-1 duration-100">
+          {options.map((opt) => (
+            <button key={opt} type="button" onClick={() => { onChange(opt); setOpen(false); }}
+              className={`w-full text-left px-2.5 py-1.5 text-xs transition-colors ${opt === value ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+            >{labels?.[opt] || opt}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Add Parameter Row ────────────────────────────────────────────
 
 function AddParamRow({ onAdd }: { onAdd: (key: string, type: string, desc: string) => void }) {
@@ -442,15 +479,9 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
             <div className="space-y-3 border border-gray-200 rounded-lg p-4">
               {/* Method + URL */}
               <div className="flex gap-2">
-                <div className="w-24 shrink-0">
+                <div className="w-28 shrink-0">
                   <label className="block text-[10px] text-gray-500 mb-1">Método</label>
-                  <div className="flex flex-col gap-0.5">
-                    {["GET", "POST", "PUT", "PATCH", "DELETE"].map((m) => (
-                      <button key={m} type="button" onClick={() => setMethod(m)}
-                        className={`px-2 py-1 rounded text-[10px] font-medium border transition-colors ${method === m ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
-                      >{m}</button>
-                    ))}
-                  </div>
+                  <MiniSelect value={method} onChange={setMethod} options={["GET", "POST", "PUT", "PATCH", "DELETE"]} />
                 </div>
                 <div className="flex-1">
                   <label className="block text-[10px] text-gray-500 mb-1">URL</label>
@@ -462,13 +493,7 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
               {/* Authentication */}
               <div>
                 <label className="block text-[10px] text-gray-500 mb-1">Autenticación</label>
-                <div className="flex gap-1 mb-1.5">
-                  {[{ v: "none", l: "Ninguna" }, { v: "bearer", l: "Bearer" }, { v: "basic", l: "Basic" }, { v: "api_key", l: "API Key" }].map((a) => (
-                    <button key={a.v} type="button" onClick={() => setAuthType(a.v)}
-                      className={`px-2 py-1 rounded text-[10px] font-medium border transition-colors ${authType === a.v ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
-                    >{a.l}</button>
-                  ))}
-                </div>
+                <MiniSelect value={authType} onChange={setAuthType} options={["none", "bearer", "basic", "api_key"]} labels={{ none: "Ninguna", bearer: "Bearer Token", basic: "Basic Auth", api_key: "API Key" }} />
                 {authType !== "none" && (
                   <input type="text" value={authValue} onChange={(e) => setAuthValue(e.target.value)}
                     placeholder={authType === "bearer" ? "Token..." : authType === "basic" ? "usuario:contraseña" : "X-Api-Key:valor"}
