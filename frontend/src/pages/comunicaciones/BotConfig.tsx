@@ -440,6 +440,28 @@ function ContactFieldSelect({ value, onChange, fields }: { value: string; onChan
 // ─── Tool Form Modal ─────────────────────────────────────────────
 
 function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any | null; botId: string; tenantId?: string; onClose: () => void; onSaved: (t: any) => void }) {
+  // Parse stored items back to editable format
+  const parseStoredItems = (items: any[] | null | undefined): { key: string; value: string; source?: string; description?: string }[] => {
+    if (!items || items.length === 0) return [];
+    return items.map((item: any) => {
+      // If it has a source field already, use it (but fix the value)
+      if (item.source === "ai") return { key: item.key, value: "", source: "ai", description: item.description || "" };
+      if (item.source === "contact") {
+        // Extract field name from {{contact.fieldName}}
+        const match = item.value?.match(/^\{\{contact\.(\w+)\}\}$/);
+        return { key: item.key, value: match ? match[1] : item.value, source: "contact", description: "" };
+      }
+      if (item.source === "fixed" || !item.source) {
+        // Check if value looks like a contact placeholder (from old saves)
+        const contactMatch = item.value?.match(/^\{\{contact\.(\w+)\}\}$/);
+        if (contactMatch) return { key: item.key, value: contactMatch[1], source: "contact", description: "" };
+        const aiMatch = item.value?.match(/^\{\{(\w+)\}\}$/);
+        if (aiMatch && aiMatch[1] === item.key) return { key: item.key, value: "", source: "ai", description: item.description || "" };
+        return { key: item.key, value: item.value || "", source: "fixed", description: "" };
+      }
+      return { key: item.key, value: item.value || "", source: item.source || "fixed", description: item.description || "" };
+    });
+  };
   const [name, setName] = useState(tool?.name || "");
   const [description, setDescription] = useState(tool?.description || "");
   const [executionType, setExecutionType] = useState(tool?.executionType || "webhook");
@@ -450,12 +472,12 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
   const [authType, setAuthType] = useState(tool?.webhookAuthType || "none");
   const [authValue, setAuthValue] = useState(tool?.webhookAuthValue || "");
   const [sendQueryParams, setSendQueryParams] = useState((tool?.webhookQueryParams?.length || 0) > 0);
-  const [queryParams, setQueryParams] = useState<{ key: string; value: string; source?: string; description?: string }[]>(tool?.webhookQueryParams || []);
+  const [queryParams, setQueryParams] = useState<{ key: string; value: string; source?: string; description?: string }[]>(() => parseStoredItems(tool?.webhookQueryParams));
   const [sendHeaders, setSendHeaders] = useState((tool?.webhookHeaders?.length || 0) > 0);
-  const [headers, setHeaders] = useState<{ key: string; value: string; source?: string; description?: string }[]>(tool?.webhookHeaders || []);
+  const [headers, setHeaders] = useState<{ key: string; value: string; source?: string; description?: string }[]>(() => parseStoredItems(tool?.webhookHeaders));
   const [sendBody, setSendBody] = useState((tool?.webhookBodyFields?.length || 0) > 0 || !!tool?.webhookRawBody || !!tool?.webhookBodyType);
   const [bodyType, setBodyType] = useState(tool?.webhookBodyType || "json");
-  const [bodyFields, setBodyFields] = useState<{ key: string; value: string }[]>(tool?.webhookBodyFields || []);
+  const [bodyFields, setBodyFields] = useState<{ key: string; value: string; source?: string; description?: string }[]>(() => parseStoredItems(tool?.webhookBodyFields));
   const [rawBody, setRawBody] = useState(tool?.webhookRawBody || "");
 
   const handleSave = async () => {
@@ -488,7 +510,7 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
       }
       const parsedParams = { type: "object", properties };
 
-      // Convert items to storage format (replace source types with actual values for webhook execution)
+      // Convert items to storage format
       const toStorageItems = (items: any[]) => items.filter((i) => i.key).map((i) => ({
         key: i.key,
         value: i.source === "ai" ? `{{${i.key}}}` : i.source === "contact" ? `{{contact.${i.value}}}` : i.value,
