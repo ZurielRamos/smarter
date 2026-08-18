@@ -477,7 +477,9 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
               {/* Query Params */}
               <div>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={sendQueryParams} onChange={(e) => setSendQueryParams(e.target.checked)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+                  <button type="button" onClick={() => setSendQueryParams(!sendQueryParams)} className={`relative w-7 h-4 rounded-full transition-colors ${sendQueryParams ? "bg-brand-600" : "bg-gray-300"}`}>
+                    <span className={`absolute top-0.5 left-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${sendQueryParams ? "translate-x-3" : ""}`} />
+                  </button>
                   <span className="text-[10px] font-medium text-gray-600">Query Parameters</span>
                 </label>
                 {sendQueryParams && <div className="mt-2"><KvList items={queryParams} setItems={setQueryParams} valuePlaceholder="{{param}} o valor fijo" /></div>}
@@ -486,7 +488,9 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
               {/* Headers */}
               <div>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={sendHeaders} onChange={(e) => setSendHeaders(e.target.checked)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+                  <button type="button" onClick={() => setSendHeaders(!sendHeaders)} className={`relative w-7 h-4 rounded-full transition-colors ${sendHeaders ? "bg-brand-600" : "bg-gray-300"}`}>
+                    <span className={`absolute top-0.5 left-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${sendHeaders ? "translate-x-3" : ""}`} />
+                  </button>
                   <span className="text-[10px] font-medium text-gray-600">Headers</span>
                 </label>
                 {sendHeaders && <div className="mt-2"><KvList items={headers} setItems={setHeaders} valuePlaceholder="valor" /></div>}
@@ -496,7 +500,9 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
               {method !== "GET" && (
                 <div>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={sendBody} onChange={(e) => setSendBody(e.target.checked)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+                    <button type="button" onClick={() => setSendBody(!sendBody)} className={`relative w-7 h-4 rounded-full transition-colors ${sendBody ? "bg-brand-600" : "bg-gray-300"}`}>
+                      <span className={`absolute top-0.5 left-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${sendBody ? "translate-x-3" : ""}`} />
+                    </button>
                     <span className="text-[10px] font-medium text-gray-600">Body</span>
                   </label>
                   {sendBody && (
