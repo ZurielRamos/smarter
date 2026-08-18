@@ -475,36 +475,41 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
               </div>
 
               {/* Query Params */}
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <button type="button" onClick={() => setSendQueryParams(!sendQueryParams)} className={`relative w-7 h-4 rounded-full transition-colors ${sendQueryParams ? "bg-brand-600" : "bg-gray-300"}`}>
-                    <span className={`absolute top-0.5 left-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${sendQueryParams ? "translate-x-3" : ""}`} />
-                  </button>
-                  <span className="text-[10px] font-medium text-gray-600">Query Parameters</span>
-                </label>
-                {sendQueryParams && <div className="mt-2"><KvList items={queryParams} setItems={setQueryParams} valuePlaceholder="{{param}} o valor fijo" /></div>}
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="text-xs font-medium text-gray-700">Query Parameters</p>
+                  <p className="text-[10px] text-gray-400">Parámetros enviados en la URL (?key=value)</p>
+                </div>
+                <button type="button" onClick={() => setSendQueryParams(!sendQueryParams)} className={`relative w-9 h-5 rounded-full transition-colors ${sendQueryParams ? "bg-brand-600" : "bg-gray-300"}`}>
+                  <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${sendQueryParams ? "translate-x-4" : ""}`} />
+                </button>
               </div>
+              {sendQueryParams && <div className="mb-3"><KvList items={queryParams} setItems={setQueryParams} valuePlaceholder="{{param}} o valor fijo" /></div>}
 
               {/* Headers */}
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <button type="button" onClick={() => setSendHeaders(!sendHeaders)} className={`relative w-7 h-4 rounded-full transition-colors ${sendHeaders ? "bg-brand-600" : "bg-gray-300"}`}>
-                    <span className={`absolute top-0.5 left-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${sendHeaders ? "translate-x-3" : ""}`} />
-                  </button>
-                  <span className="text-[10px] font-medium text-gray-600">Headers</span>
-                </label>
-                {sendHeaders && <div className="mt-2"><KvList items={headers} setItems={setHeaders} valuePlaceholder="valor" /></div>}
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="text-xs font-medium text-gray-700">Headers</p>
+                  <p className="text-[10px] text-gray-400">Cabeceras HTTP adicionales</p>
+                </div>
+                <button type="button" onClick={() => setSendHeaders(!sendHeaders)} className={`relative w-9 h-5 rounded-full transition-colors ${sendHeaders ? "bg-brand-600" : "bg-gray-300"}`}>
+                  <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${sendHeaders ? "translate-x-4" : ""}`} />
+                </button>
               </div>
+              {sendHeaders && <div className="mb-3"><KvList items={headers} setItems={setHeaders} valuePlaceholder="valor" /></div>}
 
               {/* Body */}
               {method !== "GET" && (
                 <div>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <button type="button" onClick={() => setSendBody(!sendBody)} className={`relative w-7 h-4 rounded-full transition-colors ${sendBody ? "bg-brand-600" : "bg-gray-300"}`}>
-                      <span className={`absolute top-0.5 left-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${sendBody ? "translate-x-3" : ""}`} />
+                  <div className="flex items-center justify-between py-2">
+                    <div>
+                      <p className="text-xs font-medium text-gray-700">Body</p>
+                      <p className="text-[10px] text-gray-400">Cuerpo de la petición</p>
+                    </div>
+                    <button type="button" onClick={() => setSendBody(!sendBody)} className={`relative w-9 h-5 rounded-full transition-colors ${sendBody ? "bg-brand-600" : "bg-gray-300"}`}>
+                      <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${sendBody ? "translate-x-4" : ""}`} />
                     </button>
-                    <span className="text-[10px] font-medium text-gray-600">Body</span>
-                  </label>
+                  </div>
                   {sendBody && (
                     <div className="mt-2">
                       <div className="flex gap-1 mb-2">
