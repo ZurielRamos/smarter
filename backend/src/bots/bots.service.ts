@@ -180,7 +180,7 @@ export class BotsService {
         let args: Record<string, any> = {};
         try { args = JSON.parse(toolCall.function.arguments); } catch {}
 
-        const result = await this.executeTool(bot, fnName, args);
+        const result = await this.executeTool(bot, fnName, args, collectedData);
         toolsExecuted.push({ name: fnName, result });
 
         // Handle system tools
@@ -311,7 +311,7 @@ export class BotsService {
 
   // ─── Execute Tool ───────────────────────────────────────
 
-  private async executeTool(bot: Bot, toolName: string, args: Record<string, any>): Promise<string> {
+  private async executeTool(bot: Bot, toolName: string, args: Record<string, any>, contactData?: Record<string, any>): Promise<string> {
     // System tools return confirmation
     if (toolName === 'save_contact_data') {
       return JSON.stringify({ success: true, saved: args });
@@ -332,14 +332,21 @@ export class BotsService {
     }
 
     if (tool.executionType === 'webhook') {
-      return this.executeWebhook(tool, args);
+      return this.executeWebhook(tool, args, contactData);
     }
 
     return JSON.stringify({ error: 'Unknown execution type' });
   }
 
-  private async executeWebhook(tool: BotTool, args: Record<string, any>): Promise<string> {
+  private async executeWebhook(tool: BotTool, args: Record<string, any>, contactData?: Record<string, any>): Promise<string> {
     if (!tool.webhookUrl) return JSON.stringify({ error: 'No webhook URL configured' });
+
+    // Replace both {{param}} (from AI) and {{contact.field}} (from CRM)
+    const replacePlaceholders = (text: string): string => {
+      return text
+        .replace(/\{\{contact\.(\w+)\}\}/g, (_, field) => contactData?.[field] ?? '')
+        .replace(/\{\{(\w+)\}\}/g, (_, k) => args[k] ?? '');
+    };
 
     try {
       const method = (tool.webhookMethod || 'GET').toUpperCase();
@@ -349,9 +356,7 @@ export class BotsService {
       if (tool.webhookQueryParams && tool.webhookQueryParams.length > 0) {
         const params = new URLSearchParams();
         for (const p of tool.webhookQueryParams) {
-          // Replace {{paramName}} with values from args
-          const value = p.value.replace(/\{\{(\w+)\}\}/g, (_, k) => args[k] ?? '');
-          params.set(p.key, value);
+          params.set(p.key, replacePlaceholders(p.value));
         }
         url += (url.includes('?') ? '&' : '?') + params.toString();
       }
@@ -360,7 +365,7 @@ export class BotsService {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (tool.webhookHeaders && tool.webhookHeaders.length > 0) {
         for (const h of tool.webhookHeaders) {
-          headers[h.key] = h.value.replace(/\{\{(\w+)\}\}/g, (_, k) => args[k] ?? '');
+          headers[h.key] = replacePlaceholders(h.value);
         }
       }
 
@@ -379,19 +384,14 @@ export class BotsService {
       const fetchOptions: any = { method, headers };
       if (method !== 'GET') {
         if (tool.webhookBodyType === 'raw' && tool.webhookRawBody) {
-          // Raw JSON body with placeholder replacement
-          let rawBody = tool.webhookRawBody;
-          rawBody = rawBody.replace(/\{\{(\w+)\}\}/g, (_, k) => args[k] ?? '');
-          fetchOptions.body = rawBody;
+          fetchOptions.body = replacePlaceholders(tool.webhookRawBody);
         } else if (tool.webhookBodyFields && tool.webhookBodyFields.length > 0) {
           const body: Record<string, any> = {};
           for (const f of tool.webhookBodyFields) {
-            // Replace {{paramName}} with values from args
-            body[f.key] = f.value.replace(/\{\{(\w+)\}\}/g, (_, k) => args[k] ?? '');
+            body[f.key] = replacePlaceholders(f.value);
           }
           fetchOptions.body = JSON.stringify(body);
         } else {
-          // Send all args as body if no fields specified
           fetchOptions.body = JSON.stringify(args);
         }
       }
