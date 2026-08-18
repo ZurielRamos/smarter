@@ -73,6 +73,10 @@ export class Message {
   @Column({ name: 'ai_usage', type: 'jsonb', nullable: true })
   aiUsage: { promptTokens: number; completionTokens: number; model: string; cost: number; credits: number } | null;
 
+  // Credits consumed by this message (unified across all message types)
+  @Column({ name: 'credits_cost', type: 'decimal', precision: 10, scale: 4, default: 0 })
+  creditsCost: number;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

@@ -1178,6 +1178,7 @@ export class ChatsService {
           cost: response.usage.cost ?? 0,
           credits: response.usage.credits ?? 0,
         };
+        sentMessage.creditsCost = response.usage.credits ?? 0;
       }
       await this.messageRepo.save(sentMessage);
 
@@ -2201,7 +2202,10 @@ export class ChatsService {
     };
     const billingAction = actionMap[categoryLower] || 'whatsapp_utility';
 
+    let templateCreditsCost = 0;
     try {
+      const cost = await this.billingService.getEffectiveActionCost(inbox.tenantId, billingAction);
+      templateCreditsCost = cost ?? 0;
       await this.billingService.consumeByAction(
         inbox.tenantId,
         billingAction,
@@ -2338,6 +2342,7 @@ export class ChatsService {
       externalId,
       senderId: senderId || null,
       status: externalId ? 'sent' : 'failed',
+      creditsCost: templateCreditsCost,
     });
     const saved = await this.messageRepo.save(message);
 
