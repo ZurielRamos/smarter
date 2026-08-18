@@ -21,6 +21,17 @@ interface BotChatModalProps {
   botName: string;
 }
 
+const MOCK_CONTACT: Record<string, string> = {
+  firstName: "Carlos",
+  lastName: "Pérez",
+  email: "carlos.perez@ejemplo.com",
+  phone: "+573001234567",
+  company: "Empresa Demo",
+  city: "Bogotá",
+  jobTitle: "Gerente",
+  address: "Calle 100 #15-20",
+};
+
 export function BotChatModal({ open, onClose, botId, botName }: BotChatModalProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -53,6 +64,7 @@ export function BotChatModal({ open, onClose, botId, botName }: BotChatModalProp
       const { data } = await api.post<{ role: string; content: string; extractedData?: Record<string, string>; handedOff?: boolean; toolsExecuted?: { name: string; result: string }[] }>(`/bots/${botId}/chat`, {
         messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
         collectedData,
+        mockContact: MOCK_CONTACT,
       });
       const newMessages: Message[] = [{ role: "assistant", content: data.content }];
 

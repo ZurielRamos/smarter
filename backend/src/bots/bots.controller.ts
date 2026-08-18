@@ -44,8 +44,10 @@ export class BotsController {
   }
 
   @Post(':id/chat')
-  chat(@Param('id') id: string, @Body() body: { messages: { role: string; content: string }[]; collectedData?: Record<string, string> }) {
-    return this.service.chat(id, body.messages, body.collectedData);
+  chat(@Param('id') id: string, @Body() body: { messages: { role: string; content: string }[]; collectedData?: Record<string, string>; mockContact?: Record<string, string> }) {
+    // Merge mockContact into collectedData for testing
+    const contactData = { ...(body.mockContact || {}), ...(body.collectedData || {}) };
+    return this.service.chat(id, body.messages, Object.keys(contactData).length > 0 ? contactData : undefined);
   }
 
   @Delete(':id')
