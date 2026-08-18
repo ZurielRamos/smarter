@@ -453,9 +453,10 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
   const [queryParams, setQueryParams] = useState<{ key: string; value: string }[]>(tool?.webhookQueryParams || []);
   const [sendHeaders, setSendHeaders] = useState((tool?.webhookHeaders?.length || 0) > 0);
   const [headers, setHeaders] = useState<{ key: string; value: string }[]>(tool?.webhookHeaders || []);
-  const [sendBody, setSendBody] = useState((tool?.webhookBodyFields?.length || 0) > 0);
+  const [sendBody, setSendBody] = useState((tool?.webhookBodyFields?.length || 0) > 0 || !!tool?.staticResponse && tool?.webhookBodyType === 'raw');
   const [bodyType, setBodyType] = useState(tool?.webhookBodyType || "json");
   const [bodyFields, setBodyFields] = useState<{ key: string; value: string }[]>(tool?.webhookBodyFields || []);
+  const [rawBody, setRawBody] = useState(tool?.webhookRawBody || "");
 
   const handleSave = async () => {
     if (!name.trim() || !description.trim()) return;
@@ -463,15 +464,27 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
     try {
       // Build parameters from AI-sourced fields
       const aiFields = new Set<string>();
-      const allItems = [...(sendQueryParams ? queryParams : []), ...(sendHeaders ? headers : []), ...(sendBody ? bodyFields : [])];
+      const allItems = [...(sendQueryParams ? queryParams : []), ...(sendHeaders ? headers : []), ...(sendBody && bodyType !== "raw" ? bodyFields : [])];
       for (const item of allItems) {
         if (item.source === "ai" && item.key) aiFields.add(item.key);
       }
+      // Also extract {{param}} from rawBody and URL
+      if (sendBody && bodyType === "raw" && rawBody) {
+        const matches = rawBody.match(/\{\{(\w+)\}\}/g) || [];
+        matches.forEach((m: string) => { const p = m.replace(/\{\{|\}\}/g, ""); if (!p.startsWith("contact.")) aiFields.add(p); });
+      }
+      const urlMatches = url.match(/\{\{(\w+)\}\}/g) || [];
+      urlMatches.forEach((m: string) => { const p = m.replace(/\{\{|\}\}/g, ""); if (!p.startsWith("contact.")) aiFields.add(p); });
+
       const properties: Record<string, any> = {};
       for (const item of allItems) {
         if (item.source === "ai" && item.key) {
           properties[item.key] = { type: "string", description: item.description || item.key };
         }
+      }
+      // Add URL/rawBody extracted params that aren't already covered
+      for (const p of aiFields) {
+        if (!properties[p]) properties[p] = { type: "string", description: p };
       }
       const parsedParams = { type: "object", properties };
 
@@ -493,7 +506,8 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
         webhookHeaders: executionType === "webhook" && sendHeaders ? toStorageItems(headers) : null,
         webhookQueryParams: executionType === "webhook" && sendQueryParams ? toStorageItems(queryParams) : null,
         webhookBodyType: executionType === "webhook" && sendBody ? bodyType : null,
-        webhookBodyFields: executionType === "webhook" && sendBody ? toStorageItems(bodyFields) : null,
+        webhookBodyFields: executionType === "webhook" && sendBody && bodyType !== "raw" ? toStorageItems(bodyFields) : null,
+        webhookRawBody: executionType === "webhook" && sendBody && bodyType === "raw" ? rawBody : null,
         webhookAuthType: executionType === "webhook" ? authType : null,
         webhookAuthValue: executionType === "webhook" && authType !== "none" ? authValue : null,
         staticResponse: executionType === "static" ? staticResponse : null,
@@ -618,13 +632,20 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
                   {sendBody && (
                     <div className="mt-2">
                       <div className="flex gap-1 mb-2">
-                        {["json", "form"].map((t) => (
-                          <button key={t} type="button" onClick={() => setBodyType(t)}
-                            className={`px-2 py-1 rounded text-[10px] font-medium border transition-colors ${bodyType === t ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-500"}`}
-                          >{t.toUpperCase()}</button>
+                        {[{ v: "json", l: "JSON" }, { v: "form", l: "FORM" }, { v: "raw", l: "RAW" }].map((t) => (
+                          <button key={t.v} type="button" onClick={() => setBodyType(t.v)}
+                            className={`px-2 py-1 rounded text-[10px] font-medium border transition-colors ${bodyType === t.v ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-500"}`}
+                          >{t.l}</button>
                         ))}
                       </div>
-                      <KvList items={bodyFields} setItems={setBodyFields} valuePlaceholder="valor fijo" tenantId={tenantId} />
+                      {bodyType === "raw" ? (
+                        <div>
+                          <textarea value={rawBody} onChange={(e) => setRawBody(e.target.value)} placeholder={'{\n  "user": {\n    "name": "{{nombre}}",\n    "email": "{{contact.email}}"\n  },\n  "query": "{{busqueda}}"\n}'} rows={6} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-xs font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-y" />
+                          <p className="text-[9px] text-gray-400 mt-1">JSON libre. Usa {"{{param}}"} para valores de la IA o {"{{contact.campo}}"} para datos del contacto.</p>
+                        </div>
+                      ) : (
+                        <KvList items={bodyFields} setItems={setBodyFields} valuePlaceholder="valor fijo" tenantId={tenantId} />
+                      )}
                     </div>
                   )}
                 </div>

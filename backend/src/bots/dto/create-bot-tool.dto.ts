@@ -46,6 +46,10 @@ export class CreateBotToolDto {
 
   @IsOptional()
   @IsString()
+  webhookRawBody?: string;
+
+  @IsOptional()
+  @IsString()
   webhookAuthType?: string;
 
   @IsOptional()

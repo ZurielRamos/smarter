@@ -45,6 +45,10 @@ export class UpdateBotToolDto {
 
   @IsOptional()
   @IsString()
+  webhookRawBody?: string;
+
+  @IsOptional()
+  @IsString()
   webhookAuthType?: string;
 
   @IsOptional()

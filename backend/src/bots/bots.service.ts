@@ -373,16 +373,23 @@ export class BotsService {
 
       // Build body
       const fetchOptions: any = { method, headers };
-      if (method !== 'GET' && tool.webhookBodyFields && tool.webhookBodyFields.length > 0) {
-        const body: Record<string, any> = {};
-        for (const f of tool.webhookBodyFields) {
-          // Replace {{paramName}} with values from args
-          body[f.key] = f.value.replace(/\{\{(\w+)\}\}/g, (_, k) => args[k] ?? '');
+      if (method !== 'GET') {
+        if (tool.webhookBodyType === 'raw' && tool.webhookRawBody) {
+          // Raw JSON body with placeholder replacement
+          let rawBody = tool.webhookRawBody;
+          rawBody = rawBody.replace(/\{\{(\w+)\}\}/g, (_, k) => args[k] ?? '');
+          fetchOptions.body = rawBody;
+        } else if (tool.webhookBodyFields && tool.webhookBodyFields.length > 0) {
+          const body: Record<string, any> = {};
+          for (const f of tool.webhookBodyFields) {
+            // Replace {{paramName}} with values from args
+            body[f.key] = f.value.replace(/\{\{(\w+)\}\}/g, (_, k) => args[k] ?? '');
+          }
+          fetchOptions.body = JSON.stringify(body);
+        } else {
+          // Send all args as body if no fields specified
+          fetchOptions.body = JSON.stringify(args);
         }
-        fetchOptions.body = JSON.stringify(body);
-      } else if (method !== 'GET') {
-        // Send all args as body if no fields specified
-        fetchOptions.body = JSON.stringify(args);
       }
 
       const res = await fetch(url, fetchOptions);
