@@ -389,7 +389,9 @@ export class BotsService {
         } else if (tool.webhookBodyFields && tool.webhookBodyFields.length > 0) {
           const body: Record<string, any> = {};
           for (const f of tool.webhookBodyFields) {
-            body[f.key] = replacePlaceholders(f.value);
+            let val = replacePlaceholders(f.value);
+            val = this.applyTransform(val, (f as any).transform);
+            body[f.key] = val;
           }
           fetchOptions.body = JSON.stringify(body);
         } else {
@@ -421,6 +423,32 @@ export class BotsService {
   }
 
   // ─── Helpers ─────────────────────────────────────────────
+
+  private applyTransform(value: string, transform?: string): string {
+    if (!transform || !value) return value;
+    const transforms = transform.split(',').map((t) => t.trim().toLowerCase());
+    let result = value;
+    for (const t of transforms) {
+      if (t === 'date_ymd' || t === 'date') {
+        // Try to parse as date and format as yyyy-mm-dd
+        const d = new Date(result);
+        if (!isNaN(d.getTime())) result = d.toISOString().split('T')[0];
+      } else if (t === 'uppercase') {
+        result = result.toUpperCase();
+      } else if (t === 'lowercase') {
+        result = result.toLowerCase();
+      } else if (t === 'no_tildes' || t === 'remove_accents') {
+        result = result.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      } else if (t === 'trim') {
+        result = result.trim();
+      } else if (t.startsWith('prefix:')) {
+        result = t.substring(7) + result;
+      } else if (t.startsWith('suffix:')) {
+        result = result + t.substring(7);
+      }
+    }
+    return result;
+  }
 
   private getNestedValue(obj: any, path: string): any {
     return path.split('.').reduce((current, key) => {
