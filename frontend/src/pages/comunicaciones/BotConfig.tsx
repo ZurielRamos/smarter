@@ -450,10 +450,10 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
   const [authType, setAuthType] = useState(tool?.webhookAuthType || "none");
   const [authValue, setAuthValue] = useState(tool?.webhookAuthValue || "");
   const [sendQueryParams, setSendQueryParams] = useState((tool?.webhookQueryParams?.length || 0) > 0);
-  const [queryParams, setQueryParams] = useState<{ key: string; value: string }[]>(tool?.webhookQueryParams || []);
+  const [queryParams, setQueryParams] = useState<{ key: string; value: string; source?: string; description?: string }[]>(tool?.webhookQueryParams || []);
   const [sendHeaders, setSendHeaders] = useState((tool?.webhookHeaders?.length || 0) > 0);
-  const [headers, setHeaders] = useState<{ key: string; value: string }[]>(tool?.webhookHeaders || []);
-  const [sendBody, setSendBody] = useState((tool?.webhookBodyFields?.length || 0) > 0 || !!tool?.staticResponse && tool?.webhookBodyType === 'raw');
+  const [headers, setHeaders] = useState<{ key: string; value: string; source?: string; description?: string }[]>(tool?.webhookHeaders || []);
+  const [sendBody, setSendBody] = useState((tool?.webhookBodyFields?.length || 0) > 0 || !!tool?.webhookRawBody || !!tool?.webhookBodyType);
   const [bodyType, setBodyType] = useState(tool?.webhookBodyType || "json");
   const [bodyFields, setBodyFields] = useState<{ key: string; value: string }[]>(tool?.webhookBodyFields || []);
   const [rawBody, setRawBody] = useState(tool?.webhookRawBody || "");
