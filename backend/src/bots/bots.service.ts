@@ -338,18 +338,56 @@ export class BotsService {
     if (!tool.webhookUrl) return JSON.stringify({ error: 'No webhook URL configured' });
 
     try {
-      const method = tool.webhookMethod || 'POST';
-      const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(tool.webhookHeaders || {}) };
+      const method = (tool.webhookMethod || 'GET').toUpperCase();
 
+      // Build URL with query params
+      let url = tool.webhookUrl;
+      if (tool.webhookQueryParams && tool.webhookQueryParams.length > 0) {
+        const params = new URLSearchParams();
+        for (const p of tool.webhookQueryParams) {
+          // Replace {{paramName}} with values from args
+          const value = p.value.replace(/\{\{(\w+)\}\}/g, (_, k) => args[k] ?? '');
+          params.set(p.key, value);
+        }
+        url += (url.includes('?') ? '&' : '?') + params.toString();
+      }
+
+      // Build headers
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (tool.webhookHeaders && tool.webhookHeaders.length > 0) {
+        for (const h of tool.webhookHeaders) {
+          headers[h.key] = h.value.replace(/\{\{(\w+)\}\}/g, (_, k) => args[k] ?? '');
+        }
+      }
+
+      // Auth
+      if (tool.webhookAuthType === 'bearer' && tool.webhookAuthValue) {
+        headers['Authorization'] = `Bearer ${tool.webhookAuthValue}`;
+      } else if (tool.webhookAuthType === 'basic' && tool.webhookAuthValue) {
+        headers['Authorization'] = `Basic ${Buffer.from(tool.webhookAuthValue).toString('base64')}`;
+      } else if (tool.webhookAuthType === 'api_key' && tool.webhookAuthValue) {
+        // Format: header_name:value
+        const [headerName, ...valueParts] = tool.webhookAuthValue.split(':');
+        if (headerName && valueParts.length) headers[headerName] = valueParts.join(':');
+      }
+
+      // Build body
       const fetchOptions: any = { method, headers };
-      if (method !== 'GET') {
+      if (method !== 'GET' && tool.webhookBodyFields && tool.webhookBodyFields.length > 0) {
+        const body: Record<string, any> = {};
+        for (const f of tool.webhookBodyFields) {
+          // Replace {{paramName}} with values from args
+          body[f.key] = f.value.replace(/\{\{(\w+)\}\}/g, (_, k) => args[k] ?? '');
+        }
+        fetchOptions.body = JSON.stringify(body);
+      } else if (method !== 'GET') {
+        // Send all args as body if no fields specified
         fetchOptions.body = JSON.stringify(args);
       }
 
-      const res = await fetch(tool.webhookUrl, fetchOptions);
+      const res = await fetch(url, fetchOptions);
       const text = await res.text();
 
-      // Try to parse as JSON, otherwise return raw
       try { JSON.parse(text); return text; } catch { return JSON.stringify({ result: text }); }
     } catch (err: any) {
       return JSON.stringify({ error: `Webhook failed: ${err.message}` });

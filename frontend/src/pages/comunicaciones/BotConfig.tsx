@@ -320,11 +320,22 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
   const [name, setName] = useState(tool?.name || "");
   const [description, setDescription] = useState(tool?.description || "");
   const [executionType, setExecutionType] = useState(tool?.executionType || "webhook");
-  const [webhookUrl, setWebhookUrl] = useState(tool?.webhookUrl || "");
-  const [webhookMethod, setWebhookMethod] = useState(tool?.webhookMethod || "POST");
   const [staticResponse, setStaticResponse] = useState(tool?.staticResponse || "");
   const [parameters, setParameters] = useState(tool?.parameters ? JSON.stringify(tool.parameters, null, 2) : '{\n  "type": "object",\n  "properties": {}\n}');
   const [saving, setSaving] = useState(false);
+
+  // Webhook fields
+  const [method, setMethod] = useState(tool?.webhookMethod || "GET");
+  const [url, setUrl] = useState(tool?.webhookUrl || "");
+  const [authType, setAuthType] = useState(tool?.webhookAuthType || "none");
+  const [authValue, setAuthValue] = useState(tool?.webhookAuthValue || "");
+  const [sendQueryParams, setSendQueryParams] = useState((tool?.webhookQueryParams?.length || 0) > 0);
+  const [queryParams, setQueryParams] = useState<{ key: string; value: string }[]>(tool?.webhookQueryParams || []);
+  const [sendHeaders, setSendHeaders] = useState((tool?.webhookHeaders?.length || 0) > 0);
+  const [headers, setHeaders] = useState<{ key: string; value: string }[]>(tool?.webhookHeaders || []);
+  const [sendBody, setSendBody] = useState((tool?.webhookBodyFields?.length || 0) > 0);
+  const [bodyType, setBodyType] = useState(tool?.webhookBodyType || "json");
+  const [bodyFields, setBodyFields] = useState<{ key: string; value: string }[]>(tool?.webhookBodyFields || []);
 
   const handleSave = async () => {
     if (!name.trim() || !description.trim()) return;
@@ -338,8 +349,14 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
         description: description.trim(),
         parameters: parsedParams,
         executionType,
-        webhookUrl: executionType === "webhook" ? webhookUrl.trim() : null,
-        webhookMethod: executionType === "webhook" ? webhookMethod : null,
+        webhookUrl: executionType === "webhook" ? url.trim() : null,
+        webhookMethod: executionType === "webhook" ? method : null,
+        webhookHeaders: executionType === "webhook" && sendHeaders ? headers.filter((h) => h.key) : null,
+        webhookQueryParams: executionType === "webhook" && sendQueryParams ? queryParams.filter((p) => p.key) : null,
+        webhookBodyType: executionType === "webhook" && sendBody ? bodyType : null,
+        webhookBodyFields: executionType === "webhook" && sendBody ? bodyFields.filter((f) => f.key) : null,
+        webhookAuthType: executionType === "webhook" ? authType : null,
+        webhookAuthValue: executionType === "webhook" && authType !== "none" ? authValue : null,
         staticResponse: executionType === "static" ? staticResponse : null,
         isEnabled: true,
       };
@@ -351,17 +368,38 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
         const { data } = await api.post(`/bots/${botId}/tools`, payload);
         onSaved(data);
       }
-    } catch {
-      // error handled by interceptor
-    } finally {
-      setSaving(false);
-    }
+    } catch {} finally { setSaving(false); }
   };
+
+  const addKvRow = (list: { key: string; value: string }[], setter: (v: { key: string; value: string }[]) => void) => {
+    setter([...list, { key: "", value: "" }]);
+  };
+  const updateKvRow = (list: { key: string; value: string }[], setter: (v: { key: string; value: string }[]) => void, idx: number, field: "key" | "value", val: string) => {
+    setter(list.map((item, i) => i === idx ? { ...item, [field]: val } : item));
+  };
+  const removeKvRow = (list: { key: string; value: string }[], setter: (v: { key: string; value: string }[]) => void, idx: number) => {
+    setter(list.filter((_, i) => i !== idx));
+  };
+
+  const KvList = ({ items, setItems, nameLabel = "Name", valueLabel = "Value", valuePlaceholder = "" }: { items: { key: string; value: string }[]; setItems: (v: { key: string; value: string }[]) => void; nameLabel?: string; valueLabel?: string; valuePlaceholder?: string }) => (
+    <div className="space-y-1.5">
+      {items.map((item, i) => (
+        <div key={i} className="flex gap-1.5 items-center">
+          <input type="text" value={item.key} onChange={(e) => updateKvRow(items, setItems, i, "key", e.target.value)} placeholder={nameLabel} className="w-1/3 px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300" />
+          <input type="text" value={item.value} onChange={(e) => updateKvRow(items, setItems, i, "value", e.target.value)} placeholder={valuePlaceholder || valueLabel} className="flex-1 px-2 py-1.5 rounded border border-gray-200 text-xs focus:outline-none focus:border-brand-300" />
+          <button type="button" onClick={() => removeKvRow(items, setItems, i)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
+        </div>
+      ))}
+      <button type="button" onClick={() => addKvRow(items, setItems)} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-700">
+        <Plus className="h-2.5 w-2.5" /> Agregar
+      </button>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-150" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
           <h3 className="text-sm font-semibold text-gray-900">{tool ? "Editar herramienta" : "Nueva herramienta"}</h3>
           <button onClick={onClose} className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
@@ -370,36 +408,30 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
         <div className="px-5 py-4 space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Nombre de la función</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value.replace(/\s+/g, '_').toLowerCase())} placeholder="buscar_producto" className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200" />
+            <label className="block text-xs font-medium text-gray-600 mb-1">Nombre de la función</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value.replace(/\s+/g, '_').toLowerCase())} placeholder="buscar_producto" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200" />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Descripción (el modelo la usa para decidir cuándo usar esta tool)</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Busca un producto en el catálogo por nombre o categoría" rows={2} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
+            <label className="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="El modelo usa esta descripción para decidir cuándo ejecutar la herramienta" rows={2} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
           </div>
 
           {/* Execution type */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Tipo de ejecución</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Tipo</label>
             <div className="grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setExecutionType("webhook")}
-                className={`px-3 py-2.5 rounded-lg border text-left transition-colors ${executionType === "webhook" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+                className={`px-3 py-2 rounded-lg border text-left transition-colors ${executionType === "webhook" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
               >
-                <div className="flex items-center gap-2 mb-0.5">
-                  <Globe className="h-3.5 w-3.5 text-blue-600" />
-                  <span className={`text-xs font-medium ${executionType === "webhook" ? "text-brand-700" : "text-gray-700"}`}>Webhook</span>
-                </div>
+                <span className={`text-xs font-medium ${executionType === "webhook" ? "text-brand-700" : "text-gray-700"}`}>HTTP Request</span>
                 <p className="text-[10px] text-gray-400">Llama una URL externa</p>
               </button>
               <button type="button" onClick={() => setExecutionType("static")}
-                className={`px-3 py-2.5 rounded-lg border text-left transition-colors ${executionType === "static" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+                className={`px-3 py-2 rounded-lg border text-left transition-colors ${executionType === "static" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
               >
-                <div className="flex items-center gap-2 mb-0.5">
-                  <FileText className="h-3.5 w-3.5 text-amber-600" />
-                  <span className={`text-xs font-medium ${executionType === "static" ? "text-brand-700" : "text-gray-700"}`}>Respuesta estática</span>
-                </div>
+                <span className={`text-xs font-medium ${executionType === "static" ? "text-brand-700" : "text-gray-700"}`}>Respuesta estática</span>
                 <p className="text-[10px] text-gray-400">Devuelve un texto fijo</p>
               </button>
             </div>
@@ -407,38 +439,98 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
 
           {/* Webhook config */}
           {executionType === "webhook" && (
-            <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
+            <div className="space-y-3 border border-gray-200 rounded-lg p-4">
+              {/* Method + URL */}
               <div className="flex gap-2">
-                <div className="w-24">
+                <div className="w-24 shrink-0">
                   <label className="block text-[10px] text-gray-500 mb-1">Método</label>
-                  <div className="flex gap-1">
-                    {["GET", "POST"].map((m) => (
-                      <button key={m} type="button" onClick={() => setWebhookMethod(m)}
-                        className={`flex-1 px-2 py-1 rounded text-[10px] font-medium border transition-colors ${webhookMethod === m ? "border-brand-300 bg-white text-brand-700" : "border-gray-200 text-gray-500"}`}
+                  <div className="flex flex-col gap-0.5">
+                    {["GET", "POST", "PUT", "PATCH", "DELETE"].map((m) => (
+                      <button key={m} type="button" onClick={() => setMethod(m)}
+                        className={`px-2 py-1 rounded text-[10px] font-medium border transition-colors ${method === m ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
                       >{m}</button>
                     ))}
                   </div>
                 </div>
                 <div className="flex-1">
                   <label className="block text-[10px] text-gray-500 mb-1">URL</label>
-                  <input type="text" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://api.example.com/search" className="w-full px-2 py-1 rounded border border-gray-200 text-xs font-mono text-gray-800 focus:outline-none focus:border-brand-300" />
+                  <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://api.example.com/endpoint" className="w-full px-2 py-1.5 rounded border border-gray-200 text-xs font-mono text-gray-800 focus:outline-none focus:border-brand-300" />
+                  <p className="text-[9px] text-gray-400 mt-0.5">Usa {"{{param}}"} para insertar valores de los parámetros</p>
                 </div>
               </div>
+
+              {/* Authentication */}
+              <div>
+                <label className="block text-[10px] text-gray-500 mb-1">Autenticación</label>
+                <div className="flex gap-1 mb-1.5">
+                  {[{ v: "none", l: "Ninguna" }, { v: "bearer", l: "Bearer" }, { v: "basic", l: "Basic" }, { v: "api_key", l: "API Key" }].map((a) => (
+                    <button key={a.v} type="button" onClick={() => setAuthType(a.v)}
+                      className={`px-2 py-1 rounded text-[10px] font-medium border transition-colors ${authType === a.v ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
+                    >{a.l}</button>
+                  ))}
+                </div>
+                {authType !== "none" && (
+                  <input type="text" value={authValue} onChange={(e) => setAuthValue(e.target.value)}
+                    placeholder={authType === "bearer" ? "Token..." : authType === "basic" ? "usuario:contraseña" : "X-Api-Key:valor"}
+                    className="w-full px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300"
+                  />
+                )}
+              </div>
+
+              {/* Query Params */}
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={sendQueryParams} onChange={(e) => setSendQueryParams(e.target.checked)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+                  <span className="text-[10px] font-medium text-gray-600">Query Parameters</span>
+                </label>
+                {sendQueryParams && <div className="mt-2"><KvList items={queryParams} setItems={setQueryParams} valuePlaceholder="{{param}} o valor fijo" /></div>}
+              </div>
+
+              {/* Headers */}
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={sendHeaders} onChange={(e) => setSendHeaders(e.target.checked)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+                  <span className="text-[10px] font-medium text-gray-600">Headers</span>
+                </label>
+                {sendHeaders && <div className="mt-2"><KvList items={headers} setItems={setHeaders} valuePlaceholder="valor" /></div>}
+              </div>
+
+              {/* Body */}
+              {method !== "GET" && (
+                <div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={sendBody} onChange={(e) => setSendBody(e.target.checked)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+                    <span className="text-[10px] font-medium text-gray-600">Body</span>
+                  </label>
+                  {sendBody && (
+                    <div className="mt-2">
+                      <div className="flex gap-1 mb-2">
+                        {["json", "form"].map((t) => (
+                          <button key={t} type="button" onClick={() => setBodyType(t)}
+                            className={`px-2 py-1 rounded text-[10px] font-medium border transition-colors ${bodyType === t ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-500"}`}
+                          >{t.toUpperCase()}</button>
+                        ))}
+                      </div>
+                      <KvList items={bodyFields} setItems={setBodyFields} valuePlaceholder="{{param}} o valor fijo" />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
           {/* Static response */}
           {executionType === "static" && (
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Respuesta</label>
-              <textarea value={staticResponse} onChange={(e) => setStaticResponse(e.target.value)} placeholder='{"horario": "Lunes a Viernes 8am-6pm", "telefono": "+57 300 123 4567"}' rows={3} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-y" />
+              <label className="block text-xs font-medium text-gray-600 mb-1">Respuesta</label>
+              <textarea value={staticResponse} onChange={(e) => setStaticResponse(e.target.value)} placeholder='{"horario": "Lunes a Viernes 8am-6pm"}' rows={3} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-y" />
             </div>
           )}
 
           {/* Parameters builder */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Parámetros</label>
-            <p className="text-[10px] text-gray-400 mb-2">Define qué información necesita esta herramienta. El modelo la extraerá automáticamente de la conversación.</p>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Parámetros</label>
+            <p className="text-[10px] text-gray-400 mb-2">El modelo extraerá estos datos de la conversación para ejecutar la herramienta.</p>
             <div className="space-y-2 mb-2">
               {(() => {
                 let parsed: any;
@@ -446,9 +538,9 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
                 const props = parsed.properties || {};
                 return Object.entries(props).map(([key, val]: [string, any]) => (
                   <div key={key} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                    <input type="text" value={key} readOnly className="w-28 px-2 py-1 rounded border border-gray-200 text-xs font-mono text-gray-800 bg-white" />
-                    <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{val.type || "string"}</span>
-                    <span className="flex-1 text-xs text-gray-500 truncate">{val.description || ""}</span>
+                    <span className="text-xs font-mono text-gray-800 font-medium">{key}</span>
+                    <span className="text-[9px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{val.type || "string"}</span>
+                    <span className="flex-1 text-[10px] text-gray-500 truncate">{val.description || ""}</span>
                     <button type="button" onClick={() => {
                       const p = JSON.parse(parameters);
                       delete p.properties[key];

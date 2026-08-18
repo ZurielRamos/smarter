@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsObject, IsIn, IsBoolean, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsObject, IsIn, IsBoolean, IsArray, MaxLength } from 'class-validator';
 
 export class CreateBotToolDto {
   @IsString()
@@ -19,19 +19,40 @@ export class CreateBotToolDto {
   @IsIn(['webhook', 'static', 'internal'])
   executionType: string;
 
+  // Webhook
   @IsOptional()
   @IsString()
   webhookUrl?: string;
 
   @IsOptional()
   @IsString()
-  @IsIn(['GET', 'POST', 'PUT'])
   webhookMethod?: string;
 
   @IsOptional()
-  @IsObject()
-  webhookHeaders?: Record<string, string>;
+  @IsArray()
+  webhookHeaders?: { key: string; value: string }[];
 
+  @IsOptional()
+  @IsArray()
+  webhookQueryParams?: { key: string; value: string }[];
+
+  @IsOptional()
+  @IsString()
+  webhookBodyType?: string;
+
+  @IsOptional()
+  @IsArray()
+  webhookBodyFields?: { key: string; value: string }[];
+
+  @IsOptional()
+  @IsString()
+  webhookAuthType?: string;
+
+  @IsOptional()
+  @IsString()
+  webhookAuthValue?: string;
+
+  // Static
   @IsOptional()
   @IsString()
   staticResponse?: string;

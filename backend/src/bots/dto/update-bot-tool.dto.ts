@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsObject, IsIn, IsBoolean, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsObject, IsIn, IsBoolean, IsArray, MaxLength } from 'class-validator';
 
 export class UpdateBotToolDto {
   @IsOptional()
@@ -25,12 +25,31 @@ export class UpdateBotToolDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['GET', 'POST', 'PUT'])
   webhookMethod?: string;
 
   @IsOptional()
-  @IsObject()
-  webhookHeaders?: Record<string, string>;
+  @IsArray()
+  webhookHeaders?: { key: string; value: string }[];
+
+  @IsOptional()
+  @IsArray()
+  webhookQueryParams?: { key: string; value: string }[];
+
+  @IsOptional()
+  @IsString()
+  webhookBodyType?: string;
+
+  @IsOptional()
+  @IsArray()
+  webhookBodyFields?: { key: string; value: string }[];
+
+  @IsOptional()
+  @IsString()
+  webhookAuthType?: string;
+
+  @IsOptional()
+  @IsString()
+  webhookAuthValue?: string;
 
   @IsOptional()
   @IsString()
