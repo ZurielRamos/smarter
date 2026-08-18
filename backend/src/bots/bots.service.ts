@@ -160,6 +160,9 @@ export class BotsService {
     let handedOff = false;
     const toolsExecuted: { name: string; result: string }[] = [];
     let rounds = 0;
+    let totalPromptTokens = response.usage?.prompt_tokens || 0;
+    let totalCompletionTokens = response.usage?.completion_tokens || 0;
+    let totalCost = response.usage?.total_cost ?? 0;
 
     while (response.tool_calls && response.tool_calls.length > 0 && rounds < 3) {
       rounds++;
@@ -199,27 +202,28 @@ export class BotsService {
 
       // Request again with tool results
       response = await this.callOpenRouter(apiKey, requestBody);
+      totalPromptTokens += response.usage?.prompt_tokens || 0;
+      totalCompletionTokens += response.usage?.completion_tokens || 0;
+      totalCost += response.usage?.total_cost ?? 0;
     }
 
     const content = response.content || 'Sin respuesta';
 
     // Accumulate token usage
-    if (response.usage) {
-      bot.totalPromptTokens = (bot.totalPromptTokens || 0) + (response.usage.prompt_tokens || 0);
-      bot.totalCompletionTokens = (bot.totalCompletionTokens || 0) + (response.usage.completion_tokens || 0);
-      bot.totalRequests = (bot.totalRequests || 0) + 1;
-      await this.botRepo.save(bot);
-    }
+    bot.totalPromptTokens = (bot.totalPromptTokens || 0) + totalPromptTokens;
+    bot.totalCompletionTokens = (bot.totalCompletionTokens || 0) + totalCompletionTokens;
+    bot.totalRequests = (bot.totalRequests || 0) + 1;
+    await this.botRepo.save(bot);
 
     return {
       role: 'assistant',
       content,
-      usage: response.usage ? {
-        prompt_tokens: response.usage.prompt_tokens,
-        completion_tokens: response.usage.completion_tokens,
+      usage: {
+        prompt_tokens: totalPromptTokens,
+        completion_tokens: totalCompletionTokens,
         model: bot.model || 'openai/gpt-4o-mini',
-        cost: response.usage.total_cost ?? null,
-      } : undefined,
+        cost: totalCost,
+      },
       extractedData,
       handedOff,
       toolsExecuted: toolsExecuted.length > 0 ? toolsExecuted : undefined,
