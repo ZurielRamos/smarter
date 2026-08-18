@@ -274,6 +274,46 @@ function ModelSelector({ value, onChange }: { value: string; onChange: (v: strin
   );
 }
 
+// ─── Add Parameter Row ────────────────────────────────────────────
+
+function AddParamRow({ onAdd }: { onAdd: (key: string, type: string, desc: string) => void }) {
+  const [key, setKey] = useState("");
+  const [type, setType] = useState("string");
+  const [desc, setDesc] = useState("");
+
+  const handle = () => {
+    if (!key.trim()) return;
+    onAdd(key.trim().replace(/\s+/g, '_').toLowerCase(), type, desc.trim());
+    setKey(""); setDesc("");
+  };
+
+  return (
+    <div className="flex items-end gap-2">
+      <div className="w-28">
+        <label className="block text-[10px] text-gray-400 mb-0.5">Nombre</label>
+        <input type="text" value={key} onChange={(e) => setKey(e.target.value.replace(/\s+/g, '_').toLowerCase())} placeholder="query" className="w-full px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300" onKeyDown={(e) => { if (e.key === "Enter") handle(); }} />
+      </div>
+      <div className="w-20">
+        <label className="block text-[10px] text-gray-400 mb-0.5">Tipo</label>
+        <div className="flex gap-0.5">
+          {["string", "number"].map((t) => (
+            <button key={t} type="button" onClick={() => setType(t)}
+              className={`flex-1 px-1 py-1.5 rounded text-[10px] font-medium border transition-colors ${type === t ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
+            >{t === "string" ? "Texto" : "Número"}</button>
+          ))}
+        </div>
+      </div>
+      <div className="flex-1">
+        <label className="block text-[10px] text-gray-400 mb-0.5">Descripción</label>
+        <input type="text" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Término de búsqueda" className="w-full px-2 py-1.5 rounded border border-gray-200 text-xs focus:outline-none focus:border-brand-300" onKeyDown={(e) => { if (e.key === "Enter") handle(); }} />
+      </div>
+      <button type="button" onClick={handle} disabled={!key.trim()} className="px-2 py-1.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-40">
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
 // ─── Tool Form Modal ─────────────────────────────────────────────
 
 function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; botId: string; onClose: () => void; onSaved: (t: any) => void }) {
@@ -395,11 +435,36 @@ function ToolFormModal({ tool, botId, onClose, onSaved }: { tool: any | null; bo
             </div>
           )}
 
-          {/* Parameters (JSON Schema) */}
+          {/* Parameters builder */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Parámetros (JSON Schema)</label>
-            <p className="text-[10px] text-gray-400 mb-1.5">Define qué argumentos recibe esta función. El modelo los llenará automáticamente.</p>
-            <textarea value={parameters} onChange={(e) => setParameters(e.target.value)} rows={5} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-xs font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-y" />
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Parámetros</label>
+            <p className="text-[10px] text-gray-400 mb-2">Define qué información necesita esta herramienta. El modelo la extraerá automáticamente de la conversación.</p>
+            <div className="space-y-2 mb-2">
+              {(() => {
+                let parsed: any;
+                try { parsed = JSON.parse(parameters); } catch { parsed = { type: "object", properties: {} }; }
+                const props = parsed.properties || {};
+                return Object.entries(props).map(([key, val]: [string, any]) => (
+                  <div key={key} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                    <input type="text" value={key} readOnly className="w-28 px-2 py-1 rounded border border-gray-200 text-xs font-mono text-gray-800 bg-white" />
+                    <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{val.type || "string"}</span>
+                    <span className="flex-1 text-xs text-gray-500 truncate">{val.description || ""}</span>
+                    <button type="button" onClick={() => {
+                      const p = JSON.parse(parameters);
+                      delete p.properties[key];
+                      setParameters(JSON.stringify(p, null, 2));
+                    }} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
+                  </div>
+                ));
+              })()}
+            </div>
+            <AddParamRow onAdd={(key, type, desc) => {
+              let parsed: any;
+              try { parsed = JSON.parse(parameters); } catch { parsed = { type: "object", properties: {} }; }
+              if (!parsed.properties) parsed.properties = {};
+              parsed.properties[key] = { type, description: desc };
+              setParameters(JSON.stringify(parsed, null, 2));
+            }} />
           </div>
         </div>
 
