@@ -823,7 +823,7 @@ export function BotConfig() {
       api.get(`/bots/${botId}/tools`).then(({ data: t }) => setTools(t || [])).catch(() => {});
       setFallbackMessage(data.fallbackMessage || "");
       setSystemPrompt(data.systemPrompt || "");
-      setVariant(data.model?.includes(":") ? data.model.split(":").pop() || "" : "");
+      setVariant(data.model || "");
       setTemperature(Number(data.temperature) || 0.7);
       setMaxTokens(data.maxTokens || 1024);
     } catch { toast.error("Error al cargar el bot"); }
