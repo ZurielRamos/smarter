@@ -1207,14 +1207,16 @@ export class ChatsService {
               if (bot.onResolvedActions.changeStatus) {
                 record.status = bot.onResolvedActions.changeStatus;
               }
-              if (bot.onResolvedActions.addTags && bot.onResolvedActions.addTags.length > 0) {
-                const existing = record.tags || [];
-                record.tags = [...new Set([...existing, ...bot.onResolvedActions.addTags])];
-              }
               if (bot.onResolvedActions.assignTeamId) {
                 record.assignedTeamId = bot.onResolvedActions.assignTeamId;
               }
               await this.clientRecordRepo.save(record);
+            }
+            // Add labels to conversation
+            if (bot.onResolvedActions.addTags && bot.onResolvedActions.addTags.length > 0) {
+              const existingLabels = conversation.labelIds || [];
+              conversation.labelIds = [...new Set([...existingLabels, ...bot.onResolvedActions.addTags])];
+              await this.conversationRepo.save(conversation);
             }
           }
         } else {

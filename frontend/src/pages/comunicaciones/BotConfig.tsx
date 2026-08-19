@@ -771,7 +771,8 @@ export function BotConfig() {
   const [handoffMessage, setHandoffMessage] = useState("");
   const [newKeyword, setNewKeyword] = useState("");
   const [onResolvedStatus, setOnResolvedStatus] = useState("");
-  const [onResolvedTags, setOnResolvedTags] = useState("");
+  const [onResolvedLabelIds, setOnResolvedLabelIds] = useState<string[]>([]);
+  const [availableLabels, setAvailableLabels] = useState<{ id: string; label: string; color: string }[]>([]);
 
   // Tools
   interface BotToolItem { id: string; name: string; description: string; parameters: any; executionType: string; webhookUrl: string | null; webhookMethod: string | null; webhookHeaders: Record<string, string> | null; staticResponse: string | null; isEnabled: boolean }
@@ -810,7 +811,13 @@ export function BotConfig() {
       setHandoffKeywords(data.handoffKeywords || []);
       setHandoffMessage(data.handoffMessage || "");
       setOnResolvedStatus(data.onResolvedActions?.changeStatus || "");
-      setOnResolvedTags(data.onResolvedActions?.addTags?.join(", ") || "");
+      setOnResolvedLabelIds(data.onResolvedActions?.addTags || []);
+      // Load labels
+      if (tenantId) {
+        api.get(`/chats/labels?tenantId=${tenantId}`).then(({ data: labels }) => {
+          setAvailableLabels(labels || []);
+        }).catch(() => {});
+      }
       setWelcomeMessage(data.welcomeMessage || "");
       // Load tools
       api.get(`/bots/${botId}/tools`).then(({ data: t }) => setTools(t || [])).catch(() => {});
@@ -843,9 +850,9 @@ export function BotConfig() {
         maxBotMessages,
         handoffKeywords,
         handoffMessage: handoffMessage.trim() || null,
-        onResolvedActions: (onResolvedStatus || onResolvedTags) ? {
-          changeStatus: onResolvedStatus.trim() || undefined,
-          addTags: onResolvedTags ? onResolvedTags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
+        onResolvedActions: (onResolvedStatus || onResolvedLabelIds.length > 0) ? {
+          changeStatus: onResolvedStatus || undefined,
+          addTags: onResolvedLabelIds.length > 0 ? onResolvedLabelIds : undefined,
         } : null,
         welcomeMessage: welcomeMessage.trim() || null,
         fallbackMessage: fallbackMessage.trim() || null,
@@ -1315,8 +1322,18 @@ export function BotConfig() {
                   <MiniSelect value={onResolvedStatus} onChange={setOnResolvedStatus} options={["", "lead", "contactado", "interesado", "oportunidad", "cliente", "premium", "fidelizado", "inactivo", "perdido"]} labels={{ "": "Sin cambio", lead: "Lead", contactado: "Contactado", interesado: "Interesado", oportunidad: "Oportunidad", cliente: "Cliente", premium: "Premium", fidelizado: "Fidelizado", inactivo: "Inactivo", perdido: "Perdido" }} />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-gray-500 mb-1">Agregar etiquetas:</label>
-                  <input type="text" value={onResolvedTags} onChange={(e) => setOnResolvedTags(e.target.value)} placeholder="bot-completado, calificado (separar por coma)" className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-brand-300" />
+                  <label className="block text-[10px] text-gray-500 mb-1">Agregar etiquetas a la conversación:</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {availableLabels.map((lbl) => (
+                      <button key={lbl.id} type="button" onClick={() => setOnResolvedLabelIds((prev) => prev.includes(lbl.id) ? prev.filter((id) => id !== lbl.id) : [...prev, lbl.id])}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${onResolvedLabelIds.includes(lbl.id) ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}
+                      >
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: lbl.color || '#9ca3af' }} />
+                        {lbl.label}
+                      </button>
+                    ))}
+                    {availableLabels.length === 0 && <p className="text-[10px] text-gray-400">No hay etiquetas creadas</p>}
+                  </div>
                 </div>
               </div>
             </div>
