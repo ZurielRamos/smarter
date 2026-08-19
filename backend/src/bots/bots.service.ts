@@ -146,7 +146,6 @@ export class BotsService {
 
     // Resolve model: tenant config → global config → fallback + variant
     const resolvedModel = await this.resolveModel(bot.tenantId, bot.model);
-    console.log(`[Bot Chat] Using model: ${resolvedModel} (variant: ${bot.model || 'none'})`);
 
     const requestBody: any = {
       model: resolvedModel,
@@ -196,7 +195,6 @@ export class BotsService {
 
         const result = await this.executeTool(bot, fnName, args, collectedData);
         toolsExecuted.push({ name: fnName, result });
-        console.log(`[Bot Tool] ${fnName} args:`, JSON.stringify(args), 'result:', result.substring(0, 200));
 
         // Handle system tools
         if (fnName === 'save_contact_data') {
