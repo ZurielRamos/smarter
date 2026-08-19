@@ -757,8 +757,8 @@ export function BotConfig() {
   const [rules, setRules] = useState<string[]>([]);
   const [newRule, setNewRule] = useState("");
 
-  // Knowledge
-  const [businessContext, setBusinessContext] = useState("");
+  // Knowledge (legacy businessContext kept for compatibility)
+  const [businessContext] = useState("");
 
   // Data Collection
   const [dataCollectionEnabled, setDataCollectionEnabled] = useState(false);
@@ -823,7 +823,6 @@ export function BotConfig() {
       setTone(data.tone || []);
       setLanguages(data.language ? data.language.split(",") : ["es"]);
       setRules(data.rules || []);
-      setBusinessContext(data.businessContext || "");
       setDataCollectionEnabled(data.dataCollectionEnabled || false);
       setDataCollectionIntensity(parseInt(data.dataCollectionMode) || 3);
       setDataCollectionFields(data.dataCollectionFields || []);
@@ -1148,20 +1147,8 @@ export function BotConfig() {
           </div>
         </div>
 
-        {/* 3. Knowledge */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <BookOpen className="h-4 w-4 text-brand-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Conocimiento</h3>
-          </div>
-          <p className="text-xs text-gray-500 mb-3">Información del negocio que el bot usará para responder (productos, servicios, horarios, FAQs).</p>
-          <textarea
-            value={businessContext} onChange={(e) => setBusinessContext(e.target.value)}
-            placeholder="Ej: Somos una tienda de ropa online. Horarios de atención: Lunes a Viernes 8am-6pm. Envíos gratis a partir de $100.000. Política de devolución: 30 días..."
-            rows={6}
-            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-y"
-          />
-        </div>
+        {/* 3. Knowledge Base */}
+        <BotKnowledgePanel botId={botId!} />
 
         {/* 4. Data Collection */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -1505,9 +1492,6 @@ export function BotConfig() {
             }}
           />
         )}
-
-        {/* Knowledge Base */}
-        <BotKnowledgePanel botId={botId!} />
 
         {/* Tool Logs */}
         <BotToolLogsPanel botId={botId!} />
