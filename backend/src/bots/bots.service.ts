@@ -179,9 +179,17 @@ export class BotsService {
         tool_calls: response.tool_calls,
       });
 
-      // Execute each tool call
+      // Execute each tool call (deduplicate by function name within same round)
+      const executedInRound = new Set<string>();
       for (const toolCall of response.tool_calls) {
         const fnName = toolCall.function.name;
+        if (executedInRound.has(fnName)) {
+          // Skip duplicate tool call, but still add a dummy result for the API
+          requestBody.messages.push({ role: 'tool', tool_call_id: toolCall.id, content: '{"skipped": "duplicate"}' });
+          continue;
+        }
+        executedInRound.add(fnName);
+
         let args: Record<string, any> = {};
         try { args = JSON.parse(toolCall.function.arguments); } catch {}
 
