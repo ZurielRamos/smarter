@@ -1031,8 +1031,8 @@ export function BotConfig() {
       )}
 
       {/* Tabs */}
-      <div className="px-6 pt-4 border-b border-gray-100 sticky top-[73px] z-[9] bg-gray-50">
-        <div className="flex gap-1 max-w-3xl overflow-x-auto">
+      <div className="px-6 pt-3 sticky top-[73px] z-[9] bg-gray-50">
+        <div className="flex gap-4 max-w-3xl overflow-x-auto border-b border-gray-200">
           {[
             { id: "personality", label: "Personalidad", icon: <UserCircle className="h-3.5 w-3.5" /> },
             { id: "knowledge", label: "Conocimiento", icon: <BookOpen className="h-3.5 w-3.5" /> },
@@ -1042,7 +1042,7 @@ export function BotConfig() {
             { id: "advanced", label: "Avanzado", icon: <Cpu className="h-3.5 w-3.5" /> },
           ].map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-t-lg text-xs font-medium whitespace-nowrap transition-colors ${activeTab === tab.id ? "bg-white border border-b-0 border-gray-200 text-brand-700 -mb-px" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+              className={`flex items-center gap-1.5 px-1 pb-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${activeTab === tab.id ? "border-brand-600 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}
             >
               {tab.icon}
               {tab.label}
