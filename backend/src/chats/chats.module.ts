@@ -7,6 +7,7 @@ import { InboxCollaborator } from './inbox-collaborator.entity';
 import { ClientRecord } from '../records/record.entity';
 import { Label } from './label.entity';
 import { Tenant } from '../tenants/tenant.entity';
+import { Activity } from '../records/activity.entity';
 import { ChatsService } from './chats.service';
 import { ChatsController, WebhookController } from './chats.controller';
 import { ApiConversationsController } from './api-conversations.controller';
@@ -23,7 +24,7 @@ import { BotsModule } from '../bots/bots.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Inbox, Conversation, Message, InboxCollaborator, ClientRecord, Label, Tenant]),
+    TypeOrmModule.forFeature([Inbox, Conversation, Message, InboxCollaborator, ClientRecord, Label, Tenant, Activity]),
     BillingModule,
     WebhooksModule,
     UsersModule,

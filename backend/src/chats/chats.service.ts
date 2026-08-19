@@ -15,6 +15,7 @@ import { WebhooksService } from '../webhooks/webhooks.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ConversionsService } from '../conversions/conversions.service';
 import { BotsService } from '../bots/bots.service';
+import { Activity } from '../records/activity.entity';
 
 @Injectable()
 export class ChatsService {
@@ -41,6 +42,8 @@ export class ChatsService {
     private readonly notificationsService: NotificationsService,
     private readonly conversionsService: ConversionsService,
     private readonly botsService: BotsService,
+    @InjectRepository(Activity)
+    private readonly activityRepo: Repository<Activity>,
   ) {}
 
   // === INBOXES ===
@@ -1205,7 +1208,16 @@ export class ChatsService {
             const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
             if (record) {
               if (bot.onResolvedActions.changeStatus) {
+                const prevStatus = record.status;
                 record.status = bot.onResolvedActions.changeStatus;
+                // Create timeline activity
+                this.activityRepo.save(this.activityRepo.create({
+                  tenantId: inbox.tenantId,
+                  recordId: record.id,
+                  type: 'status_changed',
+                  description: `Estado cambiado a ${bot.onResolvedActions.changeStatus} (por bot "${bot.name}")`,
+                  metadata: { from: prevStatus, to: bot.onResolvedActions.changeStatus, botId: bot.id, botName: bot.name },
+                })).catch(() => {});
               }
               if (bot.onResolvedActions.assignTeamId) {
                 record.assignedTeamId = bot.onResolvedActions.assignTeamId;
