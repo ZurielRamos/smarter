@@ -1165,6 +1165,15 @@ export class ChatsService {
       const response = await this.botsService.chat(inbox.botId, messages, collectedData);
       if (!response?.content) return;
 
+      // Log tool executions as system notes (before the bot reply)
+      if (response.toolsExecuted && response.toolsExecuted.length > 0) {
+        for (const t of response.toolsExecuted) {
+          if (t.name === 'save_contact_data') continue;
+          if (t.name === 'handoff_to_human' || t.name === 'mark_resolved') continue;
+          await this.createSystemNote(conversation.id, `🔧 Herramienta ejecutada: ${t.name}`, inbox.tenantId);
+        }
+      }
+
       // Send the bot reply through the normal send flow
       const sentMessage = await this.sendMessage(conversation.id, response.content, 'text', undefined);
 
@@ -1181,15 +1190,6 @@ export class ChatsService {
         sentMessage.creditsCost = response.usage.credits ?? 0;
       }
       await this.messageRepo.save(sentMessage);
-
-      // Log tool executions as system notes
-      if (response.toolsExecuted && response.toolsExecuted.length > 0) {
-        for (const t of response.toolsExecuted) {
-          if (t.name === 'save_contact_data') continue; // handled separately below
-          if (t.name === 'handoff_to_human' || t.name === 'mark_resolved') continue; // handled below
-          await this.createSystemNote(conversation.id, `🔧 Herramienta ejecutada: ${t.name}`, inbox.tenantId);
-        }
-      }
 
       // Handle bot self-handoff (bot decided to transfer or resolved)
       if (response.handedOff) {
