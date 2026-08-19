@@ -141,6 +141,54 @@ export class BotsService {
     return chunks;
   }
 
+  private async searchKnowledge(botId: string, query: string): Promise<string> {
+    const entries = await this.knowledgeRepo.find({ where: { botId, isEnabled: true } });
+    if (entries.length === 0) return JSON.stringify({ results: [] });
+
+    // Tokenize query into keywords (lowercase, remove accents, min 3 chars)
+    const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const keywords = normalize(query)
+      .split(/\s+/)
+      .filter((w) => w.length >= 3)
+      .filter((w) => !['que', 'con', 'los', 'las', 'una', 'del', 'para', 'por', 'como', 'mas', 'son', 'hay'].includes(w));
+
+    if (keywords.length === 0) {
+      // No meaningful keywords, return first chunk of each entry as overview
+      const overview = entries.slice(0, 3).map((e) => e.chunks?.[0] || e.content.substring(0, 500));
+      return JSON.stringify({ results: overview });
+    }
+
+    // Score each chunk by keyword matches
+    const scoredChunks: { chunk: string; score: number; title: string }[] = [];
+
+    for (const entry of entries) {
+      const chunks = entry.chunks || [entry.content];
+      for (const chunk of chunks) {
+        const normalizedChunk = normalize(chunk);
+        let score = 0;
+        for (const kw of keywords) {
+          const occurrences = (normalizedChunk.match(new RegExp(kw, 'g')) || []).length;
+          score += occurrences;
+        }
+        if (score > 0) {
+          scoredChunks.push({ chunk, score, title: entry.title });
+        }
+      }
+    }
+
+    // Sort by score, take top 5
+    scoredChunks.sort((a, b) => b.score - a.score);
+    const topResults = scoredChunks.slice(0, 5);
+
+    if (topResults.length === 0) {
+      return JSON.stringify({ results: [], message: 'No se encontró información relevante.' });
+    }
+
+    // Format results for the model
+    const formatted = topResults.map((r) => `[${r.title}]\n${r.chunk}`);
+    return JSON.stringify({ results: formatted });
+  }
+
   async createTool(dto: CreateBotToolDto): Promise<BotTool> {
     const tool = this.botToolRepo.create({
       botId: dto.botId,
@@ -244,8 +292,7 @@ export class BotsService {
     }
 
     // Build system prompt
-    const knowledgeEntries = await this.knowledgeRepo.find({ where: { botId: bot.id, isEnabled: true } });
-    const systemPrompt = this.compileSystemPrompt(bot, collectedData, knowledgeEntries);
+    const systemPrompt = this.compileSystemPrompt(bot, collectedData);
 
     // Build tools array
     const tools = await this.compileTools(bot, collectedData);
@@ -420,6 +467,25 @@ export class BotsService {
       }
     }
 
+    // System tool: search_knowledge (only if bot has knowledge entries)
+    const hasKnowledge = await this.knowledgeRepo.count({ where: { botId: bot.id, isEnabled: true } });
+    if (hasKnowledge > 0) {
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'search_knowledge',
+          description: 'Busca información en la base de conocimiento del negocio (productos, precios, políticas, FAQs, etc). Usar cuando necesites datos específicos para responder al usuario.',
+          parameters: {
+            type: 'object',
+            properties: {
+              query: { type: 'string', description: 'Términos de búsqueda relevantes a la pregunta del usuario' },
+            },
+            required: ['query'],
+          },
+        },
+      });
+    }
+
     // System tool: handoff_to_human
     tools.push({
       type: 'function',
@@ -459,7 +525,7 @@ export class BotsService {
   // ─── Execute Tool ───────────────────────────────────────
 
   private async executeTool(bot: Bot, toolName: string, args: Record<string, any>, contactData?: Record<string, any>): Promise<string> {
-    // System tools return confirmation (no logging needed)
+    // System tools
     if (toolName === 'save_contact_data') {
       return JSON.stringify({ success: true, saved: args });
     }
@@ -468,6 +534,9 @@ export class BotsService {
     }
     if (toolName === 'mark_resolved') {
       return JSON.stringify({ success: true, message: 'Conversación marcada como resuelta.' });
+    }
+    if (toolName === 'search_knowledge') {
+      return this.searchKnowledge(bot.id, args.query || '');
     }
 
     // Custom tools
@@ -735,7 +804,7 @@ export class BotsService {
 
   // ─── Compile System Prompt ──────────────────────────────
 
-  compileSystemPrompt(bot: Bot, collectedData?: Record<string, string>, knowledgeEntries?: BotKnowledge[]): string {
+  compileSystemPrompt(bot: Bot, collectedData?: Record<string, string>): string {
     if (bot.systemPrompt?.trim()) return bot.systemPrompt;
 
     const parts: string[] = [];
@@ -785,19 +854,6 @@ export class BotsService {
     // Business context
     if (bot.businessContext?.trim()) {
       parts.push(`\nCONTEXTO DEL NEGOCIO:\n${bot.businessContext}`);
-    }
-
-    // Knowledge base
-    if (knowledgeEntries && knowledgeEntries.length > 0) {
-      parts.push('\nBASE DE CONOCIMIENTO:');
-      for (const entry of knowledgeEntries) {
-        if (entry.content) {
-          parts.push(`\n--- ${entry.title} ---`);
-          // Limit to ~2000 chars per entry to avoid token overflow
-          parts.push(entry.content.substring(0, 2000));
-        }
-      }
-      parts.push('\nUsa esta información para responder preguntas. Si la respuesta no está en el conocimiento, indícalo.');
     }
 
     // Data collection context (what's already collected)
