@@ -167,7 +167,7 @@ function ModelSelector({ value, onChange }: { value: string; onChange: (v: strin
   const [selectedName, setSelectedName] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -743,6 +743,7 @@ export function BotConfig() {
   const [saving, setSaving] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showPromptPreview, setShowPromptPreview] = useState(false);
+  const [activeTab, setActiveTab] = useState("personality");
 
   // Identity
   const [persona, setPersona] = useState("");
@@ -1029,8 +1030,32 @@ export function BotConfig() {
         </div>
       )}
 
+      {/* Tabs */}
+      <div className="px-6 pt-4 border-b border-gray-100 sticky top-[73px] z-[9] bg-gray-50">
+        <div className="flex gap-1 max-w-3xl overflow-x-auto">
+          {[
+            { id: "personality", label: "Personalidad", icon: "👤" },
+            { id: "knowledge", label: "Conocimiento", icon: "📚" },
+            { id: "data", label: "Datos", icon: "📋" },
+            { id: "tools", label: "Herramientas", icon: "🔧" },
+            { id: "behavior", label: "Comportamiento", icon: "⚙️" },
+            { id: "advanced", label: "Avanzado", icon: "🧪" },
+          ].map((tab) => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-t-lg text-xs font-medium whitespace-nowrap transition-colors ${activeTab === tab.id ? "bg-white border border-b-0 border-gray-200 text-brand-700 -mb-px" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+            >
+              <span>{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Content */}
       <div className="p-6 max-w-3xl space-y-6">
+
+        {/* ─── TAB: Personalidad ─── */}
+        {activeTab === "personality" && (<>
 
         {/* 1. Identity */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -1147,9 +1172,17 @@ export function BotConfig() {
         </div>
 
         {/* 3. Knowledge Base */}
+        </>)}
+
+        {/* ─── TAB: Conocimiento ─── */}
+        {activeTab === "knowledge" && (<>
         <BotKnowledgePanel botId={botId!} />
 
         {/* 4. Data Collection */}
+        </>)}
+
+        {/* ─── TAB: Datos ─── */}
+        {activeTab === "data" && (<>
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -1241,6 +1274,10 @@ export function BotConfig() {
         </div>
 
         {/* 5. Behavior */}
+        </>)}
+
+        {/* ─── TAB: Comportamiento ─── */}
+        {activeTab === "behavior" && (<>
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <MessageSquare className="h-4 w-4 text-brand-600" />
@@ -1428,6 +1465,10 @@ export function BotConfig() {
         </div>
 
         {/* 6. Tools */}
+        </>)}
+
+        {/* ─── TAB: Herramientas ─── */}
+        {activeTab === "tools" && (<>
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -1493,6 +1534,10 @@ export function BotConfig() {
         )}
 
         {/* 7. Model & Parameters */}
+        </>)}
+
+        {/* ─── TAB: Avanzado ─── */}
+        {activeTab === "advanced" && (<>
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Cpu className="h-4 w-4 text-brand-600" />
@@ -1561,6 +1606,8 @@ export function BotConfig() {
             />
           </div>
         </details>
+      </>)}
+
       </div>
 
       {/* Chat modal */}
