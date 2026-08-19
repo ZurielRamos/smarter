@@ -86,10 +86,10 @@ const LANGUAGES = [
 ];
 
 const ROUTING_VARIANTS = [
-  { value: "", label: "Standard", icon: "⚖️", description: "Precio y velocidad" },
-  { value: "nitro", label: "Nitro", icon: "⚡", description: "Máxima velocidad" },
-  { value: "exacto", label: "Exacto", icon: "🎯", description: "Calidad tool-calling" },
-  { value: "floor", label: "Floor", icon: "💰", description: "Precio más bajo" },
+  { value: "", label: "Balanceado", icon: "⚖️", description: "Buen equilibrio" },
+  { value: "nitro", label: "Rápido", icon: "⚡", description: "Responde más rápido" },
+  { value: "exacto", label: "Preciso", icon: "🎯", description: "Mejor calidad" },
+  { value: "floor", label: "Económico", icon: "💰", description: "Menor costo" },
 ];
 
 function AddFieldDropdown({ existingFields, onAdd, tenantId }: { existingFields: string[]; onAdd: (field: string, label: string) => void; tenantId?: string }) {
@@ -1539,15 +1539,16 @@ export function BotConfig() {
         {/* ─── TAB: Avanzado ─── */}
         {activeTab === "advanced" && (<>
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-2">
             <Cpu className="h-4 w-4 text-brand-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Modelo y parámetros</h3>
+            <h3 className="text-sm font-semibold text-gray-900">Ajustes de rendimiento</h3>
           </div>
+          <p className="text-xs text-gray-500 mb-4">Configura cómo responde el bot. Los valores por defecto funcionan bien para la mayoría de casos.</p>
 
           <div className="space-y-4">
             {/* Routing variant */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Modo de enrutamiento</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Velocidad de respuesta</label>
               <div className="grid grid-cols-4 gap-2">
                 {ROUTING_VARIANTS.map((v) => (
                   <button key={v.value} type="button" onClick={() => setVariant(v.value)}
@@ -1563,26 +1564,27 @@ export function BotConfig() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-gray-600">Temperatura</label>
+                <label className="text-xs font-medium text-gray-600">Creatividad de respuestas</label>
                 <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{temperature.toFixed(2)}</span>
               </div>
               <input type="range" min="0" max="2" step="0.05" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full accent-brand-600" />
-              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>Preciso (0)</span><span>Creativo (2)</span></div>
+              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>Respuestas exactas</span><span>Respuestas creativas</span></div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Máximo de tokens por respuesta</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Largo máximo de respuesta</label>
               <input type="number" min={1} max={16384} value={maxTokens} onChange={(e) => setMaxTokens(Math.max(1, Math.min(16384, parseInt(e.target.value) || 1024)))} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200" />
+              <p className="text-[10px] text-gray-400 mt-1">Controla qué tan largas pueden ser las respuestas del bot. Un valor más alto permite respuestas más detalladas.</p>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-gray-600">Mensajes de contexto</label>
-                <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{contextMessages}</span>
+                <label className="text-xs font-medium text-gray-600">Memoria de la conversación</label>
+                <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{contextMessages} mensajes</span>
               </div>
               <input type="range" min="1" max="50" step="1" value={contextMessages} onChange={(e) => setContextMessages(parseInt(e.target.value))} className="w-full accent-brand-600" />
-              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>1 mensaje</span><span>50 mensajes</span></div>
-              <p className="text-[10px] text-gray-400 mt-1">Cantidad de mensajes recientes del historial que el bot recibe como contexto. Más contexto = mejor memoria, más tokens consumidos.</p>
+              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>Poca memoria</span><span>Mucha memoria</span></div>
+              <p className="text-[10px] text-gray-400 mt-1">Cuántos mensajes anteriores recuerda el bot. Más memoria = mejores respuestas pero más costo por mensaje.</p>
             </div>
           </div>
         </div>
@@ -1591,12 +1593,12 @@ export function BotConfig() {
         <details className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <summary className="px-6 py-4 cursor-pointer flex items-center gap-2 hover:bg-gray-50 transition-colors">
             <ChevronDown className="h-4 w-4 text-gray-400" />
-            <span className="text-sm font-semibold text-gray-900">Avanzado</span>
-            <span className="text-xs text-gray-400 ml-2">System prompt manual (sobreescribe la configuración guiada)</span>
+            <span className="text-sm font-semibold text-gray-900">Instrucciones manuales</span>
+            <span className="text-xs text-gray-400 ml-2">Solo para usuarios avanzados</span>
           </summary>
           <div className="px-6 pb-6 pt-2">
             <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg mb-3">
-              ⚠️ Si escribes un prompt aquí, se usará directamente en lugar de la configuración de arriba (identidad, reglas, conocimiento).
+              ⚠️ Si escribes instrucciones aquí, se usarán en lugar de toda la configuración de las otras pestañas (personalidad, reglas, conocimiento).
             </p>
             <textarea
               value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)}
