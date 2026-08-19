@@ -55,6 +55,13 @@ export class BotsController {
     return this.service.remove(id);
   }
 
+  // ─── Metrics ───────────────────────────────────────────
+
+  @Get(':id/metrics')
+  getMetrics(@Param('id') id: string) {
+    return this.service.getMetrics(id);
+  }
+
   // ─── Bot Tools ─────────────────────────────────────────
 
   @Get(':id/tools')

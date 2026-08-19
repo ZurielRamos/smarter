@@ -38,6 +38,7 @@ export function BotDetail() {
   const [bot, setBot] = useState<BotData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [metrics, setMetrics] = useState<any>(null);
 
   useEffect(() => {
     if (!botId) return;
@@ -49,6 +50,8 @@ export function BotDetail() {
     try {
       const { data } = await api.get<BotData>(`/bots/${botId}`);
       setBot(data);
+      // Load metrics
+      api.get(`/bots/${botId}/metrics`).then(({ data: m }) => setMetrics(m)).catch(() => {});
     } catch {
       // handle error
     } finally {
@@ -179,6 +182,33 @@ export function BotDetail() {
               <p className="text-[10px] text-gray-500">{(bot.totalRequests || 0)} requests</p>
             </div>
           </div>
+        </div>
+
+        {/* Metrics */}
+        <div className="mt-4 bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Métricas</h3>
+          {metrics ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <p className="text-lg font-bold text-gray-700">{metrics.totalConversations}</p>
+                <p className="text-[10px] text-gray-500">Conversaciones</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-green-600">{metrics.resolutionRate}%</p>
+                <p className="text-[10px] text-gray-500">Tasa de resolución</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-gray-700">{metrics.messages24h}</p>
+                <p className="text-[10px] text-gray-500">Mensajes (24h)</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-brand-600">{metrics.totalCredits}</p>
+                <p className="text-[10px] text-gray-500">Créditos consumidos</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 text-center">Cargando métricas...</p>
+          )}
         </div>
 
         {/* Actions */}

@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { Bot } from './bot.entity';
 import { BotTool } from './bot-tool.entity';
+import { Message } from '../chats/message.entity';
+import { Conversation } from '../chats/conversation.entity';
 import { CreateBotDto } from './dto/create-bot.dto';
 import { UpdateBotDto } from './dto/update-bot.dto';
 import { CreateBotToolDto } from './dto/create-bot-tool.dto';
@@ -26,6 +28,10 @@ export class BotsService {
     private readonly botRepo: Repository<Bot>,
     @InjectRepository(BotTool)
     private readonly botToolRepo: Repository<BotTool>,
+    @InjectRepository(Message)
+    private readonly messageRepo: Repository<Message>,
+    @InjectRepository(Conversation)
+    private readonly conversationRepo: Repository<Conversation>,
     private readonly configService: ConfigService,
     private readonly billingService: BillingService,
   ) {}
@@ -455,6 +461,81 @@ export class BotsService {
     } catch (err: any) {
       return JSON.stringify({ error: `Webhook failed: ${err.message}` });
     }
+  }
+
+  // ─── Metrics ─────────────────────────────────────────────
+
+  async getMetrics(botId: string) {
+    const bot = await this.findOne(botId);
+
+    // Total messages sent by bot
+    const totalMessages = await this.messageRepo.count({ where: { botId } });
+
+    // Messages in last 24h
+    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const messages24h = await this.messageRepo
+      .createQueryBuilder('m')
+      .where('m.bot_id = :botId', { botId })
+      .andWhere('m.created_at > :since', { since: last24h })
+      .getCount();
+
+    // Messages in last 7 days
+    const last7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const messages7d = await this.messageRepo
+      .createQueryBuilder('m')
+      .where('m.bot_id = :botId', { botId })
+      .andWhere('m.created_at > :since', { since: last7d })
+      .getCount();
+
+    // Total credits consumed
+    const creditsResult = await this.messageRepo
+      .createQueryBuilder('m')
+      .select('SUM(m.credits_cost)', 'total')
+      .where('m.bot_id = :botId', { botId })
+      .getRawOne();
+    const totalCredits = parseFloat(creditsResult?.total || '0');
+
+    // Conversations where bot participated
+    const conversationsResult = await this.messageRepo
+      .createQueryBuilder('m')
+      .select('COUNT(DISTINCT m.conversation_id)', 'total')
+      .where('m.bot_id = :botId', { botId })
+      .getRawOne();
+    const totalConversations = parseInt(conversationsResult?.total || '0');
+
+    // Resolved conversations (bot_status = 'handed_off' and last bot message in conversation)
+    const resolvedResult = await this.conversationRepo
+      .createQueryBuilder('c')
+      .where('c.bot_status = :status', { status: 'handed_off' })
+      .andWhere((qb) => {
+        const sub = qb.subQuery().select('1').from(Message, 'msg').where('msg.conversation_id = c.id').andWhere('msg.bot_id = :botId').getQuery();
+        return `EXISTS ${sub}`;
+      })
+      .setParameter('botId', botId)
+      .getCount();
+
+    // Average tokens per message
+    const avgTokensResult = await this.messageRepo
+      .createQueryBuilder('m')
+      .select("AVG((m.ai_usage->>'promptTokens')::int + (m.ai_usage->>'completionTokens')::int)", 'avg')
+      .where('m.bot_id = :botId', { botId })
+      .andWhere('m.ai_usage IS NOT NULL')
+      .getRawOne();
+    const avgTokensPerMessage = Math.round(parseFloat(avgTokensResult?.avg || '0'));
+
+    return {
+      totalMessages,
+      messages24h,
+      messages7d,
+      totalCredits: Math.round(totalCredits * 100) / 100,
+      totalConversations,
+      resolvedConversations: resolvedResult,
+      resolutionRate: totalConversations > 0 ? Math.round((resolvedResult / totalConversations) * 100) : 0,
+      avgTokensPerMessage,
+      totalPromptTokens: bot.totalPromptTokens,
+      totalCompletionTokens: bot.totalCompletionTokens,
+      totalRequests: bot.totalRequests,
+    };
   }
 
   // ─── Helpers ─────────────────────────────────────────────

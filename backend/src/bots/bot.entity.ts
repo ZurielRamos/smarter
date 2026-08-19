@@ -102,6 +102,14 @@ export class Bot {
   @Column({ name: 'on_resolved_actions', type: 'jsonb', nullable: true })
   onResolvedActions: { changeStatus?: string; addTags?: string[]; assignTeamId?: string } | null;
 
+  // Schedule: when the bot is active
+  @Column({ type: 'jsonb', nullable: true })
+  schedule: { enabled: boolean; timezone: string; days: Record<string, { active: boolean; start: string; end: string }>; offMessage: string } | null;
+
+  // Rate limit per contact
+  @Column({ name: 'rate_limit', type: 'jsonb', nullable: true })
+  rateLimit: { maxMessages: number; windowMinutes: number; limitMessage: string } | null;
+
   // === Usage tracking ===
 
   @Column({ name: 'total_prompt_tokens', type: 'int', default: 0 })

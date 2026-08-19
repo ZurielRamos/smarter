@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, MoreThan } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Inbox } from './inbox.entity';
 import { Conversation } from './conversation.entity';
@@ -1090,6 +1090,48 @@ export class ChatsService {
           return;
         }
       } catch {}
+
+      // Check bot schedule
+      if (bot.schedule?.enabled) {
+        const now = new Date();
+        const tz = bot.schedule.timezone || 'America/Bogota';
+        const localTime = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+        const dayNames = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+        const dayConfig = bot.schedule.days?.[dayNames[localTime.getDay()]];
+
+        if (!dayConfig?.active) {
+          if (bot.schedule.offMessage) await this.sendMessage(conversation.id, bot.schedule.offMessage, 'text', undefined);
+          return;
+        }
+
+        const currentMinutes = localTime.getHours() * 60 + localTime.getMinutes();
+        const [startH, startM] = (dayConfig.start || '00:00').split(':').map(Number);
+        const [endH, endM] = (dayConfig.end || '23:59').split(':').map(Number);
+        const startMinutes = startH * 60 + startM;
+        const endMinutes = endH * 60 + endM;
+
+        if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
+          if (bot.schedule.offMessage) await this.sendMessage(conversation.id, bot.schedule.offMessage, 'text', undefined);
+          return;
+        }
+      }
+
+      // Check rate limit
+      if (bot.rateLimit && bot.rateLimit.maxMessages > 0) {
+        const windowStart = new Date(Date.now() - bot.rateLimit.windowMinutes * 60 * 1000);
+        const recentBotMessages = await this.messageRepo.count({
+          where: {
+            conversationId: conversation.id,
+            direction: 'outbound',
+            botId: inbox.botId,
+            createdAt: MoreThan(windowStart),
+          },
+        });
+        if (recentBotMessages >= bot.rateLimit.maxMessages) {
+          if (bot.rateLimit.limitMessage) await this.sendMessage(conversation.id, bot.rateLimit.limitMessage, 'text', undefined);
+          return;
+        }
+      }
 
       // Check handoff keywords
       if (bot.handoffKeywords && bot.handoffKeywords.length > 0) {

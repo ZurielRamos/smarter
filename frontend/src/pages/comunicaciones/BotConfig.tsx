@@ -39,6 +39,8 @@ interface BotData {
   handoffKeywords: string[];
   handoffMessage: string | null;
   onResolvedActions: { changeStatus?: string; addTags?: string[]; assignTeamId?: string } | null;
+  schedule: { enabled: boolean; timezone: string; days: Record<string, { active: boolean; start: string; end: string }>; offMessage: string } | null;
+  rateLimit: { maxMessages: number; windowMinutes: number; limitMessage: string } | null;
   welcomeMessage: string | null;
   fallbackMessage: string | null;
   systemPrompt: string | null;
@@ -774,6 +776,15 @@ export function BotConfig() {
   const [onResolvedLabelIds, setOnResolvedLabelIds] = useState<string[]>([]);
   const [availableLabels, setAvailableLabels] = useState<{ id: string; label: string; color: string }[]>([]);
 
+  // Schedule
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleOffMessage, setScheduleOffMessage] = useState("");
+
+  // Rate limit
+  const [rateLimitMax, setRateLimitMax] = useState(0);
+  const [rateLimitWindow, setRateLimitWindow] = useState(60);
+  const [rateLimitMessage, setRateLimitMessage] = useState("");
+
   // Tools
   interface BotToolItem { id: string; name: string; description: string; parameters: any; executionType: string; webhookUrl: string | null; webhookMethod: string | null; webhookHeaders: Record<string, string> | null; staticResponse: string | null; isEnabled: boolean }
   const [tools, setTools] = useState<BotToolItem[]>([]);
@@ -812,6 +823,11 @@ export function BotConfig() {
       setHandoffMessage(data.handoffMessage || "");
       setOnResolvedStatus(data.onResolvedActions?.changeStatus || "");
       setOnResolvedLabelIds(data.onResolvedActions?.addTags || []);
+      setScheduleEnabled(data.schedule?.enabled || false);
+      setScheduleOffMessage(data.schedule?.offMessage || "");
+      setRateLimitMax(data.rateLimit?.maxMessages || 0);
+      setRateLimitWindow(data.rateLimit?.windowMinutes || 60);
+      setRateLimitMessage(data.rateLimit?.limitMessage || "");
       // Load labels
       if (tenantId) {
         api.get(`/chats/labels?tenantId=${tenantId}`).then(({ data: labels }) => {
@@ -854,6 +870,13 @@ export function BotConfig() {
           changeStatus: onResolvedStatus || undefined,
           addTags: onResolvedLabelIds.length > 0 ? onResolvedLabelIds : undefined,
         } : null,
+        schedule: scheduleEnabled ? {
+          enabled: true,
+          timezone: 'America/Bogota',
+          days: { lunes: { active: true, start: '08:00', end: '18:00' }, martes: { active: true, start: '08:00', end: '18:00' }, miercoles: { active: true, start: '08:00', end: '18:00' }, jueves: { active: true, start: '08:00', end: '18:00' }, viernes: { active: true, start: '08:00', end: '18:00' }, sabado: { active: false, start: '09:00', end: '13:00' }, domingo: { active: false, start: '00:00', end: '00:00' } },
+          offMessage: scheduleOffMessage || 'Estamos fuera de horario. Te responderemos pronto.',
+        } : null,
+        rateLimit: rateLimitMax > 0 ? { maxMessages: rateLimitMax, windowMinutes: rateLimitWindow, limitMessage: rateLimitMessage || '' } : null,
         welcomeMessage: welcomeMessage.trim() || null,
         fallbackMessage: fallbackMessage.trim() || null,
         systemPrompt: systemPrompt.trim() || null,
@@ -1254,6 +1277,52 @@ export function BotConfig() {
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje de fallback</label>
               <textarea value={fallbackMessage} onChange={(e) => setFallbackMessage(e.target.value)} placeholder="Lo siento, no pude procesar tu mensaje. ¿Puedes intentarlo de nuevo?" rows={2} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
+            </div>
+
+            {/* Schedule */}
+            <div className="border-t border-gray-100 pt-4">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-xs font-medium text-gray-700">Horario de atención</p>
+                  <p className="text-[10px] text-gray-400">Fuera de horario el bot no responde y envía un mensaje automático</p>
+                </div>
+                <button type="button" onClick={() => setScheduleEnabled(!scheduleEnabled)} className={`relative w-9 h-5 rounded-full transition-colors ${scheduleEnabled ? "bg-brand-600" : "bg-gray-300"}`}>
+                  <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${scheduleEnabled ? "translate-x-4" : ""}`} />
+                </button>
+              </div>
+              {scheduleEnabled && (
+                <div className="mt-2">
+                  <label className="block text-[10px] text-gray-500 mb-1">Mensaje fuera de horario</label>
+                  <input type="text" value={scheduleOffMessage} onChange={(e) => setScheduleOffMessage(e.target.value)} placeholder="Estamos fuera de horario. Te responderemos pronto." className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-brand-300" />
+                  <p className="text-[9px] text-gray-400 mt-1">Horario por defecto: Lun-Vie 8:00-18:00. Configurable vía API.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Rate Limit */}
+            <div className="border-t border-gray-100 pt-4">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-xs font-medium text-gray-700">Límite de mensajes por contacto</p>
+                  <p className="text-[10px] text-gray-400">Evita consumo excesivo de créditos por un solo contacto</p>
+                </div>
+              </div>
+              <div className="flex gap-3 items-end">
+                <div className="flex-1">
+                  <label className="block text-[10px] text-gray-500 mb-1">Máximo mensajes</label>
+                  <input type="number" min={0} max={200} value={rateLimitMax} onChange={(e) => setRateLimitMax(parseInt(e.target.value) || 0)} placeholder="0 = sin límite" className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs focus:outline-none focus:border-brand-300" />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-[10px] text-gray-500 mb-1">En ventana de (min)</label>
+                  <input type="number" min={1} max={1440} value={rateLimitWindow} onChange={(e) => setRateLimitWindow(parseInt(e.target.value) || 60)} className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs focus:outline-none focus:border-brand-300" />
+                </div>
+              </div>
+              {rateLimitMax > 0 && (
+                <div className="mt-2">
+                  <label className="block text-[10px] text-gray-500 mb-1">Mensaje cuando se excede el límite</label>
+                  <input type="text" value={rateLimitMessage} onChange={(e) => setRateLimitMessage(e.target.value)} placeholder="Has alcanzado el límite de mensajes. Intenta más tarde." className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-brand-300" />
+                </div>
+              )}
             </div>
           </div>
         </div>

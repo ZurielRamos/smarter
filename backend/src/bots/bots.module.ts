@@ -5,9 +5,11 @@ import { BotTool } from './bot-tool.entity';
 import { BotsService } from './bots.service';
 import { BotsController } from './bots.controller';
 import { BillingModule } from '../billing/billing.module';
+import { Message } from '../chats/message.entity';
+import { Conversation } from '../chats/conversation.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Bot, BotTool]), BillingModule],
+  imports: [TypeOrmModule.forFeature([Bot, BotTool, Message, Conversation]), BillingModule],
   controllers: [BotsController],
   providers: [BotsService],
   exports: [BotsService],

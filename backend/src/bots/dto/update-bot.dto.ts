@@ -118,4 +118,10 @@ export class UpdateBotDto {
 
   @IsOptional()
   onResolvedActions?: { changeStatus?: string; addTags?: string[]; assignTeamId?: string } | null;
+
+  @IsOptional()
+  schedule?: { enabled: boolean; timezone: string; days: Record<string, { active: boolean; start: string; end: string }>; offMessage: string } | null;
+
+  @IsOptional()
+  rateLimit?: { maxMessages: number; windowMinutes: number; limitMessage: string } | null;
 }
