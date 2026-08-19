@@ -76,8 +76,8 @@ export class BotsService {
     return this.botToolRepo.find({ where: { botId }, order: { sortOrder: 'ASC', createdAt: 'ASC' } });
   }
 
-  async getToolLogs(botId: string, limit = 50): Promise<BotToolLog[]> {
-    return this.toolLogRepo.find({ where: { botId }, order: { createdAt: 'DESC' }, take: limit });
+  async getToolLogs(botId: string, limit = 20, offset = 0): Promise<BotToolLog[]> {
+    return this.toolLogRepo.find({ where: { botId }, order: { createdAt: 'DESC' }, take: limit, skip: offset });
   }
 
   // ─── Knowledge Base ─────────────────────────────────────

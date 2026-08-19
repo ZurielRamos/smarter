@@ -8,7 +8,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { BotChatModal } from "@/components/BotChatModal";
 import { BotKnowledgePanel } from "@/components/BotKnowledgePanel";
-import { BotToolLogsPanel } from "@/components/BotToolLogsPanel";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import axios from "axios";
@@ -1492,9 +1491,6 @@ export function BotConfig() {
             }}
           />
         )}
-
-        {/* Tool Logs */}
-        <BotToolLogsPanel botId={botId!} />
 
         {/* 7. Model & Parameters */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">

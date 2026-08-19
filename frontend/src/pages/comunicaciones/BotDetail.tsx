@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Bot, Settings2, Play, Pause, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { BotToolLogsPanel } from "@/components/BotToolLogsPanel";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import axios from "axios";
@@ -210,6 +211,9 @@ export function BotDetail() {
             <p className="text-xs text-gray-400 text-center">Cargando métricas...</p>
           )}
         </div>
+
+        {/* Tool Logs */}
+        <BotToolLogsPanel botId={botId!} />
 
         {/* Actions */}
         <div className="mt-4 flex gap-2">

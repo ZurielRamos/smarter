@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ScrollText, CheckCircle, XCircle, Clock, FlaskConical } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { ScrollText, CheckCircle, XCircle, Loader2, FlaskConical } from "lucide-react";
 import axios from "axios";
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
@@ -23,35 +23,61 @@ interface ToolLog {
 export function BotToolLogsPanel({ botId }: { botId: string }) {
   const [logs, setLogs] = useState<ToolLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const PAGE_SIZE = 20;
 
   useEffect(() => { load(); }, [botId]);
 
   const load = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get(`/bots/${botId}/tool-logs?limit=30`);
+      const { data } = await api.get(`/bots/${botId}/tool-logs?limit=${PAGE_SIZE}`);
       setLogs(data);
+      setHasMore(data.length >= PAGE_SIZE);
     } catch {} finally { setLoading(false); }
   };
 
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const offset = logs.length;
+      const { data } = await api.get(`/bots/${botId}/tool-logs?limit=${PAGE_SIZE}&offset=${offset}`);
+      setLogs((prev) => [...prev, ...data]);
+      setHasMore(data.length >= PAGE_SIZE);
+    } catch {} finally { setLoadingMore(false); }
+  }, [logs.length, loadingMore, hasMore, botId]);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50) {
+      loadMore();
+    }
+  }, [loadMore]);
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <ScrollText className="h-4 w-4 text-brand-600" />
-        <h3 className="text-sm font-semibold text-gray-900">Logs de herramientas</h3>
-        <span className="text-[10px] text-gray-400">Últimas {logs.length} ejecuciones</span>
+    <div className="bg-white rounded-xl border border-gray-200 p-6 mt-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <ScrollText className="h-4 w-4 text-brand-600" />
+          <h3 className="text-sm font-semibold text-gray-900">Logs de herramientas</h3>
+        </div>
+        <span className="text-[10px] text-gray-400">{logs.length} registros</span>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-6"><Clock className="h-4 w-4 animate-spin text-gray-400" /></div>
+        <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-gray-400" /></div>
       ) : logs.length === 0 ? (
         <div className="text-center py-6 border border-dashed border-gray-200 rounded-lg">
           <ScrollText className="h-6 w-6 text-gray-300 mx-auto mb-2" />
           <p className="text-xs text-gray-400">No hay ejecuciones registradas</p>
         </div>
       ) : (
-        <div className="space-y-1.5 max-h-96 overflow-y-auto">
+        <div ref={scrollRef} onScroll={handleScroll} className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
           {logs.map((log) => (
             <div key={log.id} className="border border-gray-100 rounded-lg overflow-hidden">
               <button
@@ -84,6 +110,9 @@ export function BotToolLogsPanel({ botId }: { botId: string }) {
               )}
             </div>
           ))}
+          {loadingMore && (
+            <div className="flex justify-center py-2"><Loader2 className="h-3 w-3 animate-spin text-gray-400" /></div>
+          )}
         </div>
       )}
     </div>

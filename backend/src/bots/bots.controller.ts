@@ -73,8 +73,8 @@ export class BotsController {
   }
 
   @Get(':id/tool-logs')
-  getToolLogs(@Param('id') id: string, @Query('limit') limit?: string) {
-    return this.service.getToolLogs(id, limit ? parseInt(limit) : 50);
+  getToolLogs(@Param('id') id: string, @Query('limit') limit?: string, @Query('offset') offset?: string) {
+    return this.service.getToolLogs(id, limit ? parseInt(limit) : 20, offset ? parseInt(offset) : 0);
   }
 
   // ─── Knowledge Base ────────────────────────────────────
