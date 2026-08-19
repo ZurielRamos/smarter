@@ -146,6 +146,7 @@ export class BotsService {
 
     // Resolve model: tenant config → global config → fallback + variant
     const resolvedModel = await this.resolveModel(bot.tenantId, bot.model);
+    console.log(`[Bot Chat] Using model: ${resolvedModel} (variant: ${bot.model || 'none'})`);
 
     const requestBody: any = {
       model: resolvedModel,
