@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BotChatModal } from "@/components/BotChatModal";
+import { BotKnowledgePanel } from "@/components/BotKnowledgePanel";
+import { BotToolLogsPanel } from "@/components/BotToolLogsPanel";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import axios from "axios";
@@ -1476,6 +1478,7 @@ export function BotConfig() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={async () => { try { const { data } = await api.post(`/bots/tools/${tool.id}/test`, { args: {}, contactData: {} }); toast.success(`✓ ${data.duration}ms${data.success ? '' : ' (error)'}`); } catch { toast.error('Error al probar'); } }} className="p-1.5 rounded-md hover:bg-green-50 text-gray-400 hover:text-green-600" title="Probar"><Play className="h-3 w-3" /></button>
                     <button onClick={() => { setEditingTool(tool); setShowToolForm(true); }} className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil className="h-3 w-3" /></button>
                     <button onClick={async () => { await api.delete(`/bots/tools/${tool.id}`); setTools((prev) => prev.filter((t) => t.id !== tool.id)); }} className="p-1.5 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
                   </div>
@@ -1502,6 +1505,12 @@ export function BotConfig() {
             }}
           />
         )}
+
+        {/* Knowledge Base */}
+        <BotKnowledgePanel botId={botId!} />
+
+        {/* Tool Logs */}
+        <BotToolLogsPanel botId={botId!} />
 
         {/* 7. Model & Parameters */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
