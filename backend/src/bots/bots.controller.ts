@@ -7,7 +7,10 @@ import {
   Param,
   Query,
   Body,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { BotsService } from './bots.service';
 import { CreateBotDto } from './dto/create-bot.dto';
 import { UpdateBotDto } from './dto/update-bot.dto';
@@ -84,6 +87,25 @@ export class BotsController {
   @Post(':id/knowledge')
   addKnowledge(@Param('id') id: string, @Body() body: { title: string; content: string; type?: string }) {
     return this.service.addKnowledge(id, body);
+  }
+
+  @Post(':id/knowledge/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadKnowledge(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
+    const title = file.originalname.replace(/\.[^/.]+$/, '');
+    let content: string;
+
+    if (file.mimetype === 'application/pdf') {
+      // Extract text from PDF
+      const pdfParse = require('pdf-parse');
+      const result = await pdfParse(file.buffer);
+      content = result.text;
+    } else {
+      // Plain text, CSV, etc.
+      content = file.buffer.toString('utf-8');
+    }
+
+    return this.service.addKnowledge(id, { title, content, type: 'file' });
   }
 
   @Put('knowledge/:knowledgeId')

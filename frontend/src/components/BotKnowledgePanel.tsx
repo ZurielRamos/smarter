@@ -71,9 +71,25 @@ export function BotKnowledgePanel({ botId }: { botId: string }) {
           <h3 className="text-sm font-semibold text-gray-900">Base de conocimiento</h3>
           <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">~{totalTokens.toLocaleString()} tokens</span>
         </div>
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors">
-          <Plus className="h-3 w-3" /> Agregar
-        </button>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
+            <Plus className="h-3 w-3" /> Subir archivo
+            <input type="file" accept=".txt,.csv,.pdf,.md,.json" className="hidden" onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const formData = new FormData();
+              formData.append('file', file);
+              try {
+                const { data } = await api.post(`/bots/${botId}/knowledge/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                setEntries((prev) => [...prev, data]);
+              } catch {}
+              e.target.value = '';
+            }} />
+          </label>
+          <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors">
+            <Plus className="h-3 w-3" /> Texto
+          </button>
+        </div>
       </div>
       <p className="text-xs text-gray-500 mb-4">Información que el bot usa para responder preguntas (productos, FAQs, políticas, etc.).</p>
 
