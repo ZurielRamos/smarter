@@ -1034,17 +1034,17 @@ export function BotConfig() {
       <div className="px-6 pt-4 border-b border-gray-100 sticky top-[73px] z-[9] bg-gray-50">
         <div className="flex gap-1 max-w-3xl overflow-x-auto">
           {[
-            { id: "personality", label: "Personalidad", icon: "👤" },
-            { id: "knowledge", label: "Conocimiento", icon: "📚" },
-            { id: "data", label: "Datos", icon: "📋" },
-            { id: "tools", label: "Herramientas", icon: "🔧" },
-            { id: "behavior", label: "Comportamiento", icon: "⚙️" },
-            { id: "advanced", label: "Avanzado", icon: "🧪" },
+            { id: "personality", label: "Personalidad", icon: <UserCircle className="h-3.5 w-3.5" /> },
+            { id: "knowledge", label: "Conocimiento", icon: <BookOpen className="h-3.5 w-3.5" /> },
+            { id: "data", label: "Datos", icon: <ClipboardList className="h-3.5 w-3.5" /> },
+            { id: "tools", label: "Herramientas", icon: <Wrench className="h-3.5 w-3.5" /> },
+            { id: "behavior", label: "Comportamiento", icon: <MessageSquare className="h-3.5 w-3.5" /> },
+            { id: "advanced", label: "Avanzado", icon: <Cpu className="h-3.5 w-3.5" /> },
           ].map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-t-lg text-xs font-medium whitespace-nowrap transition-colors ${activeTab === tab.id ? "bg-white border border-b-0 border-gray-200 text-brand-700 -mb-px" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
             >
-              <span>{tab.icon}</span>
+              {tab.icon}
               {tab.label}
             </button>
           ))}
