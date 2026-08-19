@@ -98,6 +98,10 @@ export class Bot {
   @Column({ name: 'handoff_message', type: 'text', nullable: true })
   handoffMessage: string | null;
 
+  // Actions to execute when bot marks conversation as resolved
+  @Column({ name: 'on_resolved_actions', type: 'jsonb', nullable: true })
+  onResolvedActions: { changeStatus?: string; addTags?: string[]; assignTeamId?: string } | null;
+
   // === Usage tracking ===
 
   @Column({ name: 'total_prompt_tokens', type: 'int', default: 0 })

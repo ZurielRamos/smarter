@@ -38,6 +38,7 @@ interface BotData {
   maxBotMessages: number;
   handoffKeywords: string[];
   handoffMessage: string | null;
+  onResolvedActions: { changeStatus?: string; addTags?: string[]; assignTeamId?: string } | null;
   welcomeMessage: string | null;
   fallbackMessage: string | null;
   systemPrompt: string | null;
@@ -769,6 +770,8 @@ export function BotConfig() {
   const [handoffKeywords, setHandoffKeywords] = useState<string[]>([]);
   const [handoffMessage, setHandoffMessage] = useState("");
   const [newKeyword, setNewKeyword] = useState("");
+  const [onResolvedStatus, setOnResolvedStatus] = useState("");
+  const [onResolvedTags, setOnResolvedTags] = useState("");
 
   // Tools
   interface BotToolItem { id: string; name: string; description: string; parameters: any; executionType: string; webhookUrl: string | null; webhookMethod: string | null; webhookHeaders: Record<string, string> | null; staticResponse: string | null; isEnabled: boolean }
@@ -806,6 +809,8 @@ export function BotConfig() {
       setMaxBotMessages(data.maxBotMessages ?? 0);
       setHandoffKeywords(data.handoffKeywords || []);
       setHandoffMessage(data.handoffMessage || "");
+      setOnResolvedStatus(data.onResolvedActions?.changeStatus || "");
+      setOnResolvedTags(data.onResolvedActions?.addTags?.join(", ") || "");
       setWelcomeMessage(data.welcomeMessage || "");
       // Load tools
       api.get(`/bots/${botId}/tools`).then(({ data: t }) => setTools(t || [])).catch(() => {});
@@ -838,6 +843,10 @@ export function BotConfig() {
         maxBotMessages,
         handoffKeywords,
         handoffMessage: handoffMessage.trim() || null,
+        onResolvedActions: (onResolvedStatus || onResolvedTags) ? {
+          changeStatus: onResolvedStatus.trim() || undefined,
+          addTags: onResolvedTags ? onResolvedTags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
+        } : null,
         welcomeMessage: welcomeMessage.trim() || null,
         fallbackMessage: fallbackMessage.trim() || null,
         systemPrompt: systemPrompt.trim() || null,
@@ -1294,6 +1303,22 @@ export function BotConfig() {
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje al transferir</label>
               <textarea value={handoffMessage} onChange={(e) => setHandoffMessage(e.target.value)} placeholder="Te conecto con un agente humano. Un momento por favor..." rows={2} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
+            </div>
+
+            {/* On resolved actions */}
+            <div className="border-t border-gray-100 pt-4 mt-4">
+              <label className="block text-xs font-medium text-gray-600 mb-2">Al cumplir el objetivo</label>
+              <p className="text-[10px] text-gray-400 mb-3">Acciones automáticas cuando el bot marca la conversación como resuelta.</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] text-gray-500 mb-1">Cambiar estado del contacto a:</label>
+                  <input type="text" value={onResolvedStatus} onChange={(e) => setOnResolvedStatus(e.target.value)} placeholder="Ej: interesado, cliente, oportunidad..." className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-brand-300" />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-gray-500 mb-1">Agregar etiquetas:</label>
+                  <input type="text" value={onResolvedTags} onChange={(e) => setOnResolvedTags(e.target.value)} placeholder="bot-completado, calificado (separar por coma)" className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-brand-300" />
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -115,4 +115,7 @@ export class UpdateBotDto {
   @IsOptional()
   @IsString()
   handoffMessage?: string | null;
+
+  @IsOptional()
+  onResolvedActions?: { changeStatus?: string; addTags?: string[]; assignTeamId?: string } | null;
 }

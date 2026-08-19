@@ -1195,7 +1195,31 @@ export class ChatsService {
       if (response.handedOff) {
         conversation.botStatus = 'handed_off';
         await this.conversationRepo.save(conversation);
-        await this.createSystemNote(conversation.id, '🤖→👤 Bot desactivado: la conversación fue resuelta o transferida.', inbox.tenantId);
+
+        const wasResolved = response.toolsExecuted?.some((t) => t.name === 'mark_resolved');
+        if (wasResolved) {
+          await this.createSystemNote(conversation.id, '✅ Bot: objetivo cumplido, conversación resuelta.', inbox.tenantId);
+
+          // Execute on-resolved actions
+          if (bot.onResolvedActions && conversation.recordId) {
+            const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+            if (record) {
+              if (bot.onResolvedActions.changeStatus) {
+                record.status = bot.onResolvedActions.changeStatus;
+              }
+              if (bot.onResolvedActions.addTags && bot.onResolvedActions.addTags.length > 0) {
+                const existing = record.tags || [];
+                record.tags = [...new Set([...existing, ...bot.onResolvedActions.addTags])];
+              }
+              if (bot.onResolvedActions.assignTeamId) {
+                record.assignedTeamId = bot.onResolvedActions.assignTeamId;
+              }
+              await this.clientRecordRepo.save(record);
+            }
+          }
+        } else {
+          await this.createSystemNote(conversation.id, '🤖→👤 Bot desactivado: transferido a un agente humano.', inbox.tenantId);
+        }
       }
 
       // Handle extracted data — update CRM record and insert system note
