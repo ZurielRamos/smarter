@@ -779,6 +779,15 @@ export function BotConfig() {
   // Schedule
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleOffMessage, setScheduleOffMessage] = useState("");
+  const [scheduleDays, setScheduleDays] = useState<Record<string, { active: boolean; start: string; end: string }>>({
+    lunes: { active: true, start: "08:00", end: "18:00" },
+    martes: { active: true, start: "08:00", end: "18:00" },
+    miercoles: { active: true, start: "08:00", end: "18:00" },
+    jueves: { active: true, start: "08:00", end: "18:00" },
+    viernes: { active: true, start: "08:00", end: "18:00" },
+    sabado: { active: false, start: "09:00", end: "13:00" },
+    domingo: { active: false, start: "00:00", end: "00:00" },
+  });
 
   // Rate limit
   const [rateLimitMax, setRateLimitMax] = useState(0);
@@ -825,6 +834,7 @@ export function BotConfig() {
       setOnResolvedLabelIds(data.onResolvedActions?.addTags || []);
       setScheduleEnabled(data.schedule?.enabled || false);
       setScheduleOffMessage(data.schedule?.offMessage || "");
+      if (data.schedule?.days) setScheduleDays(data.schedule.days);
       setRateLimitMax(data.rateLimit?.maxMessages || 0);
       setRateLimitWindow(data.rateLimit?.windowMinutes || 60);
       setRateLimitMessage(data.rateLimit?.limitMessage || "");
@@ -873,7 +883,7 @@ export function BotConfig() {
         schedule: scheduleEnabled ? {
           enabled: true,
           timezone: 'America/Bogota',
-          days: { lunes: { active: true, start: '08:00', end: '18:00' }, martes: { active: true, start: '08:00', end: '18:00' }, miercoles: { active: true, start: '08:00', end: '18:00' }, jueves: { active: true, start: '08:00', end: '18:00' }, viernes: { active: true, start: '08:00', end: '18:00' }, sabado: { active: false, start: '09:00', end: '13:00' }, domingo: { active: false, start: '00:00', end: '00:00' } },
+          days: scheduleDays,
           offMessage: scheduleOffMessage || 'Estamos fuera de horario. Te responderemos pronto.',
         } : null,
         rateLimit: rateLimitMax > 0 ? { maxMessages: rateLimitMax, windowMinutes: rateLimitWindow, limitMessage: rateLimitMessage || '' } : null,
@@ -1291,10 +1301,30 @@ export function BotConfig() {
                 </button>
               </div>
               {scheduleEnabled && (
-                <div className="mt-2">
+                <div className="mt-3 space-y-3">
                   <label className="block text-[10px] text-gray-500 mb-1">Mensaje fuera de horario</label>
                   <input type="text" value={scheduleOffMessage} onChange={(e) => setScheduleOffMessage(e.target.value)} placeholder="Estamos fuera de horario. Te responderemos pronto." className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-brand-300" />
-                  <p className="text-[9px] text-gray-400 mt-1">Horario por defecto: Lun-Vie 8:00-18:00. Configurable vía API.</p>
+
+                  <div className="space-y-1.5">
+                    {Object.entries(scheduleDays).map(([day, config]) => (
+                      <div key={day} className="flex items-center gap-2">
+                        <button type="button" onClick={() => setScheduleDays((prev) => ({ ...prev, [day]: { ...prev[day], active: !prev[day].active } }))}
+                          className={`relative w-7 h-4 rounded-full transition-colors shrink-0 ${config.active ? "bg-brand-600" : "bg-gray-300"}`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${config.active ? "translate-x-3" : ""}`} />
+                        </button>
+                        <span className="text-xs text-gray-700 w-20 capitalize">{day}</span>
+                        {config.active && (
+                          <>
+                            <input type="time" value={config.start} onChange={(e) => setScheduleDays((prev) => ({ ...prev, [day]: { ...prev[day], start: e.target.value } }))} className="px-1.5 py-1 rounded border border-gray-200 text-[10px] focus:outline-none focus:border-brand-300" />
+                            <span className="text-[10px] text-gray-400">a</span>
+                            <input type="time" value={config.end} onChange={(e) => setScheduleDays((prev) => ({ ...prev, [day]: { ...prev[day], end: e.target.value } }))} className="px-1.5 py-1 rounded border border-gray-200 text-[10px] focus:outline-none focus:border-brand-300" />
+                          </>
+                        )}
+                        {!config.active && <span className="text-[10px] text-gray-400">Inactivo</span>}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
