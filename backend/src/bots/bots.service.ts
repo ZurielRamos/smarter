@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { Bot } from './bot.entity';
 import { BotTool } from './bot-tool.entity';
+import { BotToolLog } from './bot-tool-log.entity';
+import { BotKnowledge } from './bot-knowledge.entity';
 import { Message } from '../chats/message.entity';
 import { Conversation } from '../chats/conversation.entity';
 import { CreateBotDto } from './dto/create-bot.dto';
@@ -28,6 +30,10 @@ export class BotsService {
     private readonly botRepo: Repository<Bot>,
     @InjectRepository(BotTool)
     private readonly botToolRepo: Repository<BotTool>,
+    @InjectRepository(BotToolLog)
+    private readonly toolLogRepo: Repository<BotToolLog>,
+    @InjectRepository(BotKnowledge)
+    private readonly knowledgeRepo: Repository<BotKnowledge>,
     @InjectRepository(Message)
     private readonly messageRepo: Repository<Message>,
     @InjectRepository(Conversation)
@@ -70,6 +76,71 @@ export class BotsService {
     return this.botToolRepo.find({ where: { botId }, order: { sortOrder: 'ASC', createdAt: 'ASC' } });
   }
 
+  async getToolLogs(botId: string, limit = 50): Promise<BotToolLog[]> {
+    return this.toolLogRepo.find({ where: { botId }, order: { createdAt: 'DESC' }, take: limit });
+  }
+
+  // ─── Knowledge Base ─────────────────────────────────────
+
+  async getKnowledge(botId: string): Promise<BotKnowledge[]> {
+    return this.knowledgeRepo.find({ where: { botId }, order: { createdAt: 'ASC' } });
+  }
+
+  async addKnowledge(botId: string, data: { title: string; content: string; type?: string }): Promise<BotKnowledge> {
+    // Split content into chunks (approx 500 chars each for context injection)
+    const chunks = this.chunkText(data.content, 500);
+    const tokenCount = Math.ceil(data.content.length / 4); // rough estimate: 4 chars per token
+
+    const entry = this.knowledgeRepo.create({
+      botId,
+      title: data.title,
+      content: data.content,
+      type: data.type || 'text',
+      chunks,
+      tokenCount,
+      isEnabled: true,
+    });
+    return this.knowledgeRepo.save(entry);
+  }
+
+  async updateKnowledge(id: string, data: Partial<{ title: string; content: string; isEnabled: boolean }>): Promise<BotKnowledge> {
+    const entry = await this.knowledgeRepo.findOne({ where: { id } });
+    if (!entry) throw new NotFoundException('Knowledge entry not found');
+
+    if (data.content) {
+      entry.content = data.content;
+      entry.chunks = this.chunkText(data.content, 500);
+      entry.tokenCount = Math.ceil(data.content.length / 4);
+    }
+    if (data.title !== undefined) entry.title = data.title;
+    if (data.isEnabled !== undefined) entry.isEnabled = data.isEnabled;
+
+    return this.knowledgeRepo.save(entry);
+  }
+
+  async removeKnowledge(id: string): Promise<void> {
+    const entry = await this.knowledgeRepo.findOne({ where: { id } });
+    if (!entry) throw new NotFoundException('Knowledge entry not found');
+    await this.knowledgeRepo.remove(entry);
+  }
+
+  private chunkText(text: string, maxChars: number): string[] {
+    const paragraphs = text.split(/\n\n+/);
+    const chunks: string[] = [];
+    let current = '';
+
+    for (const para of paragraphs) {
+      if ((current + para).length > maxChars && current) {
+        chunks.push(current.trim());
+        current = para;
+      } else {
+        current += (current ? '\n\n' : '') + para;
+      }
+    }
+    if (current.trim()) chunks.push(current.trim());
+    return chunks;
+  }
+
   async createTool(dto: CreateBotToolDto): Promise<BotTool> {
     const tool = this.botToolRepo.create({
       botId: dto.botId,
@@ -98,6 +169,39 @@ export class BotsService {
     const tool = await this.botToolRepo.findOne({ where: { id } });
     if (!tool) throw new NotFoundException('Tool no encontrada');
     await this.botToolRepo.remove(tool);
+  }
+
+  async testTool(toolId: string, args: Record<string, any>, contactData: Record<string, string>): Promise<{ success: boolean; response: string; duration: number }> {
+    const tool = await this.botToolRepo.findOne({ where: { id: toolId } });
+    if (!tool) throw new NotFoundException('Tool no encontrada');
+
+    const start = Date.now();
+    let response: string;
+
+    if (tool.executionType === 'static') {
+      response = tool.staticResponse || '{"result": "No response configured"}';
+    } else if (tool.executionType === 'webhook') {
+      response = await this.executeWebhook(tool, args, contactData);
+    } else {
+      response = JSON.stringify({ error: 'Unknown execution type' });
+    }
+
+    const duration = Date.now() - start;
+    const success = !response.includes('"error"');
+
+    // Log test execution
+    this.toolLogRepo.save(this.toolLogRepo.create({
+      botId: tool.botId,
+      toolId: tool.id,
+      toolName: tool.name,
+      args,
+      response: response.substring(0, 5000),
+      success,
+      durationMs: duration,
+      isTest: true,
+    })).catch(() => {});
+
+    return { success, response, duration };
   }
 
   // ─── Models Search ──────────────────────────────────────
@@ -140,7 +244,8 @@ export class BotsService {
     }
 
     // Build system prompt
-    const systemPrompt = this.compileSystemPrompt(bot, collectedData);
+    const knowledgeEntries = await this.knowledgeRepo.find({ where: { botId: bot.id, isEnabled: true } });
+    const systemPrompt = this.compileSystemPrompt(bot, collectedData, knowledgeEntries);
 
     // Build tools array
     const tools = await this.compileTools(bot, collectedData);
@@ -354,7 +459,7 @@ export class BotsService {
   // ─── Execute Tool ───────────────────────────────────────
 
   private async executeTool(bot: Bot, toolName: string, args: Record<string, any>, contactData?: Record<string, any>): Promise<string> {
-    // System tools return confirmation
+    // System tools return confirmation (no logging needed)
     if (toolName === 'save_contact_data') {
       return JSON.stringify({ success: true, saved: args });
     }
@@ -369,15 +474,32 @@ export class BotsService {
     const tool = await this.botToolRepo.findOne({ where: { botId: bot.id, name: toolName, isEnabled: true } });
     if (!tool) return JSON.stringify({ error: 'Tool not found' });
 
+    const start = Date.now();
+    let result: string;
+
     if (tool.executionType === 'static') {
-      return tool.staticResponse || JSON.stringify({ result: 'No response configured' });
+      result = tool.staticResponse || JSON.stringify({ result: 'No response configured' });
+    } else if (tool.executionType === 'webhook') {
+      result = await this.executeWebhook(tool, args, contactData);
+    } else {
+      result = JSON.stringify({ error: 'Unknown execution type' });
     }
 
-    if (tool.executionType === 'webhook') {
-      return this.executeWebhook(tool, args, contactData);
-    }
+    const duration = Date.now() - start;
 
-    return JSON.stringify({ error: 'Unknown execution type' });
+    // Log execution
+    this.toolLogRepo.save(this.toolLogRepo.create({
+      botId: bot.id,
+      toolId: tool.id,
+      toolName,
+      args,
+      response: result.substring(0, 5000),
+      success: !result.includes('"error"'),
+      durationMs: duration,
+      isTest: false,
+    })).catch(() => {});
+
+    return result;
   }
 
   private async executeWebhook(tool: BotTool, args: Record<string, any>, contactData?: Record<string, any>): Promise<string> {
@@ -613,7 +735,7 @@ export class BotsService {
 
   // ─── Compile System Prompt ──────────────────────────────
 
-  compileSystemPrompt(bot: Bot, collectedData?: Record<string, string>): string {
+  compileSystemPrompt(bot: Bot, collectedData?: Record<string, string>, knowledgeEntries?: BotKnowledge[]): string {
     if (bot.systemPrompt?.trim()) return bot.systemPrompt;
 
     const parts: string[] = [];
@@ -663,6 +785,19 @@ export class BotsService {
     // Business context
     if (bot.businessContext?.trim()) {
       parts.push(`\nCONTEXTO DEL NEGOCIO:\n${bot.businessContext}`);
+    }
+
+    // Knowledge base
+    if (knowledgeEntries && knowledgeEntries.length > 0) {
+      parts.push('\nBASE DE CONOCIMIENTO:');
+      for (const entry of knowledgeEntries) {
+        if (entry.content) {
+          parts.push(`\n--- ${entry.title} ---`);
+          // Limit to ~2000 chars per entry to avoid token overflow
+          parts.push(entry.content.substring(0, 2000));
+        }
+      }
+      parts.push('\nUsa esta información para responder preguntas. Si la respuesta no está en el conocimiento, indícalo.');
     }
 
     // Data collection context (what's already collected)

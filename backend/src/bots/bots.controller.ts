@@ -69,6 +69,33 @@ export class BotsController {
     return this.service.getTools(id);
   }
 
+  @Get(':id/tool-logs')
+  getToolLogs(@Param('id') id: string, @Query('limit') limit?: string) {
+    return this.service.getToolLogs(id, limit ? parseInt(limit) : 50);
+  }
+
+  // ─── Knowledge Base ────────────────────────────────────
+
+  @Get(':id/knowledge')
+  getKnowledge(@Param('id') id: string) {
+    return this.service.getKnowledge(id);
+  }
+
+  @Post(':id/knowledge')
+  addKnowledge(@Param('id') id: string, @Body() body: { title: string; content: string; type?: string }) {
+    return this.service.addKnowledge(id, body);
+  }
+
+  @Put('knowledge/:knowledgeId')
+  updateKnowledge(@Param('knowledgeId') knowledgeId: string, @Body() body: Partial<{ title: string; content: string; isEnabled: boolean }>) {
+    return this.service.updateKnowledge(knowledgeId, body);
+  }
+
+  @Delete('knowledge/:knowledgeId')
+  removeKnowledge(@Param('knowledgeId') knowledgeId: string) {
+    return this.service.removeKnowledge(knowledgeId);
+  }
+
   @Post(':id/tools')
   createTool(@Param('id') id: string, @Body() dto: CreateBotToolDto) {
     dto.botId = id;
@@ -78,6 +105,11 @@ export class BotsController {
   @Put('tools/:toolId')
   updateTool(@Param('toolId') toolId: string, @Body() dto: UpdateBotToolDto) {
     return this.service.updateTool(toolId, dto);
+  }
+
+  @Post('tools/:toolId/test')
+  testTool(@Param('toolId') toolId: string, @Body() body: { args?: Record<string, any>; contactData?: Record<string, string> }) {
+    return this.service.testTool(toolId, body.args || {}, body.contactData || {});
   }
 
   @Delete('tools/:toolId')
