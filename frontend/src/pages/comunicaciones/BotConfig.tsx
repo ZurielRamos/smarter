@@ -1312,7 +1312,7 @@ export function BotConfig() {
               <div className="space-y-3">
                 <div>
                   <label className="block text-[10px] text-gray-500 mb-1">Cambiar estado del contacto a:</label>
-                  <input type="text" value={onResolvedStatus} onChange={(e) => setOnResolvedStatus(e.target.value)} placeholder="Ej: interesado, cliente, oportunidad..." className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-brand-300" />
+                  <MiniSelect value={onResolvedStatus} onChange={setOnResolvedStatus} options={["", "lead", "contactado", "interesado", "oportunidad", "cliente", "premium", "fidelizado", "inactivo", "perdido"]} labels={{ "": "Sin cambio", lead: "Lead", contactado: "Contactado", interesado: "Interesado", oportunidad: "Oportunidad", cliente: "Cliente", premium: "Premium", fidelizado: "Fidelizado", inactivo: "Inactivo", perdido: "Perdido" }} />
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-500 mb-1">Agregar etiquetas:</label>
