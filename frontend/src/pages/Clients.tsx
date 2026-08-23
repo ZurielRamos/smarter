@@ -177,7 +177,7 @@ export function Clients() {
       setAllColumns([...SYSTEM_COLUMNS, ...customCols]);
     }).catch(() => {});
     // Load table config from tenant (DB is source of truth)
-    tenantApi.get(`/tenants/${tenantId}`).then(({ data }) => {
+    tenantApi.get(`/account/${slug}`).then(({ data }) => {
       if (data.tableConfig) {
         if (data.tableConfig.columns && Array.isArray(data.tableConfig.columns)) {
           const valid = data.tableConfig.columns.filter((c: any) => c && c.key && c.label);
@@ -200,7 +200,7 @@ export function Clients() {
       setInboxMap(map);
     }).catch(() => {});
     // Load agents for assignment
-    tenantApi.get(`/tenants/${tenantId}/members`).then(({ data }) => setAgents(data)).catch(() => {});
+    tenantApi.get(`/account/${slug}/members`).then(({ data }) => setAgents(data)).catch(() => {});
     // Load teams for assignment
     tenantApi.get(`/teams`, { params: { tenantId } }).then(({ data }) => setTeams(data)).catch(() => {});
   }, [tenantId, mounted]);
@@ -324,7 +324,7 @@ export function Clients() {
       if (tenantId) {
         setColumnWidths((current) => {
           const validCols = (columnsRef.current || []).filter((c: any) => c != null && c.key);
-          tenantApi.put(`/tenants/${tenantId}`, { tableConfig: { columns: validCols, columnWidths: current } }).catch(() => {});
+          tenantApi.put(`/account/${slug}`, { tableConfig: { columns: validCols, columnWidths: current } }).catch(() => {});
           return current;
         });
       }
@@ -845,7 +845,7 @@ export function Clients() {
                                 const updated = columns.filter((c) => c.key !== col.key);
                                 setColumns(updated);
                                 if (tenantId) {
-                                  tenantApi.put(`/tenants/${tenantId}`, { tableConfig: { columns: updated, columnWidths } }).catch(() => {});
+                                  tenantApi.put(`/account/${slug}`, { tableConfig: { columns: updated, columnWidths } }).catch(() => {});
                                 }
                               }}
                               className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
@@ -884,7 +884,7 @@ export function Clients() {
                                 Gestionar columnas
                               </button>
                               <button
-                                onClick={() => { setTableMenuOpen(false); setColumnWidths({}); if (tenantId) tenantApi.put(`/tenants/${tenantId}`, { tableConfig: { columns, columnWidths: {} } }).catch(() => {}); }}
+                                onClick={() => { setTableMenuOpen(false); setColumnWidths({}); if (tenantId) tenantApi.put(`/account/${slug}`, { tableConfig: { columns, columnWidths: {} } }).catch(() => {}); }}
                                 className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                               >
                                 <RotateCcw className="h-4 w-4 text-gray-400" />
@@ -1008,7 +1008,7 @@ export function Clients() {
               // Save to DB
               if (tenantId) {
                 localStorage.setItem(`columns_${slug}`, JSON.stringify(newCols));
-                tenantApi.put(`/tenants/${tenantId}`, { tableConfig: { columns: newCols, columnWidths } }).catch(() => {});
+                tenantApi.put(`/account/${slug}`, { tableConfig: { columns: newCols, columnWidths } }).catch(() => {});
               }
             }}
             onCancel={() => setShowColumnConfig(false)}

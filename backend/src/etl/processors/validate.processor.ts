@@ -89,13 +89,14 @@ export class ValidateProcessor {
     }
 
     // At least one identifier should be present
-    const identifiers = ['phone', 'email', 'firstName'].filter((f) => mappedFields.includes(f));
-    if (identifiers.length > 0) {
-      // Require at least phone OR email
-      if (mappedFields.includes('phone')) {
-        rules.push({ field: 'phone', type: 'required', message: 'Se requiere al menos un teléfono' });
-      }
+    const hasPhone = mappedFields.includes('phone');
+    const hasEmail = mappedFields.includes('email');
+    if (hasPhone && !hasEmail) {
+      rules.push({ field: 'phone', type: 'required', message: 'Se requiere al menos un teléfono o email' });
+    } else if (hasEmail && !hasPhone) {
+      rules.push({ field: 'email', type: 'required', message: 'Se requiere al menos un teléfono o email' });
     }
+    // If both are mapped, neither is strictly required (one or the other suffices)
 
     return rules;
   }

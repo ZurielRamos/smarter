@@ -468,7 +468,10 @@ export function Import() {
               <div className="flex-1 min-h-0 overflow-auto">
                 <DataPreview headers={parseResult.headers} preview={parseResult.preview} totalRows={parseResult.totalRows} />
               </div>
-              <div className="flex justify-end px-4 py-3 shrink-0 border-t border-gray-100">
+              <div className="flex justify-between px-4 py-3 shrink-0 border-t border-gray-100">
+                <Button onClick={handleReset} variant="outline" size="lg" className="gap-2">
+                  <Upload className="h-4 w-4" /> Subir otro archivo
+                </Button>
                 <Button onClick={handleGoToMapping} size="lg" className="gap-2 bg-brand-800 hover:bg-brand-700 text-white">
                   Continuar al mapeo <ArrowRight className="h-4 w-4" />
                 </Button>
