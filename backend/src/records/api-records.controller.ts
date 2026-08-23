@@ -17,6 +17,7 @@ import { RecordsService } from './records.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tenant } from '../tenants/tenant.entity';
+import { TenantRole, isAdminRole } from '../users/enums/tenant-role.enum';
 
 /**
  * API pública de contactos.
@@ -37,12 +38,12 @@ export class ApiRecordsController {
    * Resuelve el slug a un tenantId y verifica que el usuario tiene acceso.
    * Retorna { tenantId, role }.
    */
-  private async resolveTenant(user: any, slug: string): Promise<{ tenantId: string; role: string }> {
+  private async resolveTenant(user: any, slug: string): Promise<{ tenantId: string; role: TenantRole }> {
     // SuperAdmin puede acceder a cualquier tenant
     if (user.isSuperAdmin) {
       const tenant = await this.tenantRepo.findOne({ where: { slug } });
       if (!tenant) throw new NotFoundException('Cuenta no encontrada');
-      return { tenantId: tenant.id, role: 'admin' };
+      return { tenantId: tenant.id, role: TenantRole.ADMIN };
     }
 
     // Buscar en los roles activos del usuario
@@ -55,10 +56,10 @@ export class ApiRecordsController {
   }
 
   /**
-   * Verifica que el usuario tenga rol de admin. Los agentes solo tienen acceso de lectura.
+   * Verifica que el usuario tenga rol de admin. Los agentes y viewers solo tienen acceso de lectura.
    */
   private requireAdmin(role: string): void {
-    if (role !== 'admin') {
+    if (!isAdminRole(role)) {
       throw new ForbiddenException('Los agentes solo tienen acceso de lectura. Necesitas permisos de administrador para esta acción.');
     }
   }

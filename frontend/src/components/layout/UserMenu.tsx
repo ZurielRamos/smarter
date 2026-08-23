@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { User, LogOut, Settings2, Coins } from "lucide-react";
+import { User, LogOut, Settings2, Coins, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/services/api";
 import { PresenceIndicator } from "@/components/ui/PresenceIndicator";
@@ -103,9 +103,9 @@ export function UserMenu() {
                 if (!currentRole) return null;
                 return (
                   <span className={`inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                    currentRole.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"
+                    currentRole.role === "owner" ? "bg-amber-100 text-amber-700" : currentRole.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"
                   }`}>
-                    {currentRole.role === "admin" ? "Administrador" : "Agente"}
+                    {currentRole.role === "owner" ? "Propietario" : currentRole.role === "admin" ? "Administrador" : "Agente"}
                   </span>
                 );
               })()}
@@ -132,7 +132,7 @@ export function UserMenu() {
                 <User className="h-4 w-4 text-gray-400" />
                 Perfil
               </button>
-              {isOnTenant && isAdmin && (
+              {isOnTenant && (currentRole?.role === "owner" || currentRole?.role === "admin" || isAdmin) && (
                 <button
                   onClick={() => {
                     setOpen(false);
@@ -142,6 +142,18 @@ export function UserMenu() {
                 >
                   <Settings2 className="h-4 w-4 text-gray-400" />
                   Configurar cuenta
+                </button>
+              )}
+              {isOnTenant && (currentRole?.role === "owner" || currentRole?.role === "admin" || isAdmin) && (
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    navigate(`/${slug}/team`);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Users className="h-4 w-4 text-gray-400" />
+                  Administrar equipo
                 </button>
               )}
               {isOnAdmin && (

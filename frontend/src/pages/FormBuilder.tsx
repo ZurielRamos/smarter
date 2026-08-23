@@ -40,6 +40,7 @@ interface Form {
   status: string;
   slug: string | null;
   submissionCount: number;
+  inboxId: string | null;
 }
 
 const FIELD_TYPES = [
@@ -70,14 +71,30 @@ export function FormBuilder() {
   const [previewMode, setPreviewMode] = useState(false);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [customFields, setCustomFields] = useState<{ value: string; label: string }[]>([]);
 
   useEffect(() => {
     if (!id) return;
     api.get<Form>(`/forms/${id}`)
-      .then(({ data }) => setForm(data))
+      .then(({ data }) => {
+        setForm(data);
+      })
       .catch(() => navigate(`/${slug}/inboxes`))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Load custom fields for the tenant
+  useEffect(() => {
+    const tenantRole = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
+    const tenantId = tenantRole?.tenantId;
+    if (!tenantId) return;
+    api.get(`/custom-fields/${tenantId}`).then(({ data: fields }) => {
+      const custom = fields
+        .filter((f: any) => !f.isSystem)
+        .map((f: any) => ({ value: `custom:${f.fieldKey}`, label: f.fieldLabel }));
+      setCustomFields(custom);
+    }).catch(() => {});
+  }, [user, slug]);
 
   const save = async () => {
     if (!form) return;
@@ -156,7 +173,7 @@ export function FormBuilder() {
       <div className="px-8 pt-16 pb-4 shrink-0 rounded-b-2xl" style={{ backgroundImage: `url(${headerBg})`, backgroundSize: "cover", backgroundPosition: "center" }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate(`/${slug}/inboxes`)} className="p-1.5 rounded-lg hover:bg-white/10 text-white transition-colors">
+            <button onClick={() => navigate(form.inboxId ? `/${slug}/comunicaciones/canales/${form.inboxId}` : `/${slug}/inboxes`)} className="p-1.5 rounded-lg hover:bg-white/10 text-white transition-colors">
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div>
@@ -361,6 +378,7 @@ export function FormBuilder() {
                     <MapToSelector
                       value={activeFieldData.mapTo || ""}
                       onChange={(val) => updateField(activeFieldData.id, { mapTo: val || undefined })}
+                      extraOptions={customFields}
                     />
                     <p className="text-[10px] text-gray-400 mt-1">Vincula este campo a un dato del contacto</p>
                   </div>
@@ -506,14 +524,33 @@ const MAP_OPTIONS = [
   { value: "lastName", label: "Apellido", group: "Contacto" },
   { value: "email", label: "Email", group: "Contacto" },
   { value: "phone", label: "Teléfono", group: "Contacto" },
+  { value: "company", label: "Empresa", group: "Contacto" },
+  { value: "jobTitle", label: "Cargo", group: "Contacto" },
+  { value: "documentType", label: "Tipo de documento", group: "Contacto" },
+  { value: "documentNumber", label: "Número de documento", group: "Contacto" },
+  { value: "website", label: "Sitio web", group: "Contacto" },
+  { value: "gender", label: "Género", group: "Contacto" },
+  { value: "birthDate", label: "Fecha de nacimiento", group: "Contacto" },
+  { value: "city", label: "Ciudad", group: "Ubicación" },
+  { value: "region", label: "Departamento / Región", group: "Ubicación" },
+  { value: "address", label: "Dirección", group: "Ubicación" },
+  { value: "notes", label: "Notas", group: "Otros" },
+  { value: "source", label: "Fuente", group: "Otros" },
   { value: "message", label: "Mensaje (conversación)", group: "Otros" },
-  { value: "custom", label: "Campo personalizado", group: "Otros" },
 ];
 
-function MapToSelector({ value, onChange }: { value: string; onChange: (val: string) => void }) {
+function MapToSelector({ value, onChange, extraOptions }: { value: string; onChange: (val: string) => void; extraOptions?: { value: string; label: string }[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const selected = MAP_OPTIONS.find((o) => o.value === value);
+
+  const allOptions = [
+    ...MAP_OPTIONS,
+    ...(extraOptions && extraOptions.length > 0 ? [
+      ...extraOptions.map((o, i) => ({ value: o.value, label: o.label, group: i === 0 ? "Campos personalizados" : "Campos personalizados" })),
+    ] : []),
+  ];
+
+  const selected = allOptions.find((o) => o.value === value);
 
   useEffect(() => {
     if (!open) return;
@@ -537,7 +574,7 @@ function MapToSelector({ value, onChange }: { value: string; onChange: (val: str
         <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 max-h-52 overflow-y-auto">
           {(() => {
             let lastGroup: string | null = null;
-            return MAP_OPTIONS.map((opt) => {
+            return allOptions.map((opt) => {
               const showGroup = opt.group && opt.group !== lastGroup;
               lastGroup = opt.group;
               return (

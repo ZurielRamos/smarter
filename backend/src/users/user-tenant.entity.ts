@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { User } from './user.entity';
 import { Tenant } from '../tenants/tenant.entity';
+import { TenantRole } from './enums/tenant-role.enum';
 
 @Entity('user_tenants')
 @Unique(['userId', 'tenantId'])
@@ -22,8 +23,8 @@ export class UserTenant {
   @Column({ name: 'tenant_id', type: 'uuid' })
   tenantId: string;
 
-  @Column({ type: 'varchar', length: 30, default: 'agent' })
-  role: string; // admin | agent
+  @Column({ type: 'varchar', length: 30, default: TenantRole.AGENT })
+  role: TenantRole;
 
   /** pending = invitado, no ha aceptado | active = confirmado | removed = desvinculado */
   @Column({ type: 'varchar', length: 20, default: 'active' })

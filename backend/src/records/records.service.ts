@@ -44,6 +44,8 @@ export class RecordsService {
       channelSource: data.channelSource || 'manual',
       tags: data.tags || null,
       customData: data.customData || null,
+      optInWhatsapp: true,
+      optInEmail: true,
     } as Partial<ClientRecord>);
     const saved = await this.recordRepository.save(record) as ClientRecord;
     this.webhooksService.dispatch(data.tenantId, 'contact_created', saved).catch(() => {});

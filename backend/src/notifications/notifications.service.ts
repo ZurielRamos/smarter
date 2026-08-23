@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Notification } from './notification.entity';
 import { NotificationsGateway } from './notifications.gateway';
 import { User } from '../users/user.entity';
+import { ADMIN_ROLES } from '../users/enums/tenant-role.enum';
 
 export interface NotifyParams {
   tenantId: string;
@@ -163,10 +164,11 @@ export class NotificationsService {
    * Get admin/owner user IDs for a tenant.
    */
   async getTenantAdminUserIds(tenantId: string): Promise<string[]> {
+    const adminRolesStr = ADMIN_ROLES.map((r) => `'${r}'`).join(', ');
     const results = await this.notificationRepo.query(
       `SELECT u.id FROM users u
        JOIN tenant_users tu ON tu.user_id = u.id
-       WHERE tu.tenant_id = $1 AND tu.role IN ('admin', 'owner')`,
+       WHERE tu.tenant_id = $1 AND tu.role IN (${adminRolesStr})`,
       [tenantId],
     );
     return results.map((r: { id: string }) => r.id);

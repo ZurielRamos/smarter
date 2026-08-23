@@ -35,6 +35,7 @@ const CHANNEL_META: Record<string, { label: string; icon: typeof MessageSquare; 
   sms: { label: "SMS", icon: MessageSquare, color: "text-sky-600", bg: "bg-sky-50" },
   llamada: { label: "Llamada", icon: Phone, color: "text-purple-600", bg: "bg-purple-50" },
   email: { label: "Email", icon: Mail, color: "text-orange-600", bg: "bg-orange-50" },
+  chat: { label: "Chat", icon: MessageCircle, color: "text-teal-600", bg: "bg-teal-50" },
 };
 
 export function InboxSettings() {
@@ -284,6 +285,19 @@ export function InboxSettings() {
                 className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-brand-800 hover:bg-brand-700 text-white font-medium transition-colors"
               >
                 Editar formulario
+              </button>
+            </div>
+          ) : inbox.channel === "chat" ? (
+            <div className="bg-white rounded-xl border border-teal-200 p-6">
+              <h2 className="text-sm font-semibold text-gray-900 mb-4">Chat Widget</h2>
+              <p className="text-xs text-gray-500 mb-4">
+                Configura la apariencia del widget de chat y obtén el código para instalarlo en tu sitio web.
+              </p>
+              <button
+                onClick={() => navigate(`/${slug}/chat-widget/${inbox.id}`)}
+                className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-brand-800 hover:bg-brand-700 text-white font-medium transition-colors"
+              >
+                Configurar widget
               </button>
             </div>
           ) : inbox.channel === "email" ? (

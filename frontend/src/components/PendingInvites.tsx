@@ -22,7 +22,7 @@ export function PendingInvites() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900">Invitación pendiente</p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Te han invitado como <strong>{invite.role === "admin" ? "Administrador" : "Agente"}</strong> a <strong>{invite.tenant.name}</strong>
+                Te han invitado como <strong>{invite.role === "owner" ? "Propietario" : invite.role === "admin" ? "Administrador" : "Agente"}</strong> a <strong>{invite.tenant.name}</strong>
               </p>
               <div className="flex items-center gap-2 mt-3">
                 <button

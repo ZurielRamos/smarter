@@ -14,6 +14,7 @@ import { ClientSchema } from "./pages/ClientSchema";
 import { Campaigns } from "./pages/Campaigns";
 import { CampaignDetail } from "./pages/CampaignDetail";
 import { Settings } from "./pages/Settings";
+import { Team } from "./pages/Team";
 import { Profile } from "./pages/Profile";
 import { Integraciones } from "./pages/Integraciones";
 import { Webhooks } from "./pages/Webhooks";
@@ -41,6 +42,7 @@ import { NewInbox } from "./pages/NewInbox";
 import { Inboxes } from "./pages/Inboxes";
 import { InboxSettings } from "./pages/InboxSettings";
 import { FormBuilder } from "./pages/FormBuilder";
+import { ChatWidgetBuilder } from "./pages/ChatWidgetBuilder";
 import { EmailBuilderPage } from "./pages/EmailBuilderPage";
 import { PublicForm } from "./pages/PublicForm";
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
@@ -165,7 +167,9 @@ function App() {
             <Route path="/:slug/inboxes/new" element={<NewInbox />} />
             <Route path="/:slug/inboxes/:id/settings" element={<InboxSettings />} />
             <Route path="/:slug/forms/:id" element={<FormBuilder />} />
+            <Route path="/:slug/chat-widget/:inboxId" element={<ChatWidgetBuilder />} />
             <Route path="/:slug/settings" element={<Settings />} />
+            <Route path="/:slug/team" element={<Team />} />
             <Route path="/:slug/profile" element={<Profile />} />
             <Route path="/:slug/integraciones" element={<Integraciones />} />
             <Route path="/:slug/integraciones/webhooks" element={<Webhooks />} />

@@ -248,6 +248,42 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
           </div>
         )}
 
+        {inbox.channel === "form" && (
+          <div className="bg-white rounded-xl border border-violet-200 p-5">
+            <h2 className="text-sm font-semibold text-gray-900 mb-2">Formulario</h2>
+            <p className="text-[11px] text-gray-500 mb-4">
+              Configura los campos y apariencia del formulario público vinculado a esta bandeja.
+            </p>
+            <button
+              onClick={async () => {
+                try {
+                  const { data: forms } = await api.get("/forms", { params: { tenantId: inbox.tenantId } });
+                  const linked = forms.find((f: any) => f.inboxId === inbox.id);
+                  if (linked) navigate(`/${slug}/forms/${linked.id}`);
+                } catch {}
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-xs font-medium"
+            >
+              Editar formulario
+            </button>
+          </div>
+        )}
+
+        {inbox.channel === "chat" && (
+          <div className="bg-white rounded-xl border border-teal-200 p-5">
+            <h2 className="text-sm font-semibold text-gray-900 mb-2">Chat Widget</h2>
+            <p className="text-[11px] text-gray-500 mb-4">
+              Configura la apariencia del widget y obtén el código para instalarlo en tu sitio web.
+            </p>
+            <button
+              onClick={() => navigate(`/${slug}/chat-widget/${inbox.id}`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-xs font-medium"
+            >
+              Configurar widget
+            </button>
+          </div>
+        )}
+
         {inbox.channel === "email" && (
           <div className="bg-white rounded-xl border border-orange-200 p-5">
             <h2 className="text-sm font-semibold text-gray-900 mb-3">Configuración SMTP</h2>
@@ -330,7 +366,7 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
         )}
 
         {/* Connection status (WhatsApp, Messenger, Instagram) */}
-        {!["sms", "email", "llamada", "form"].includes(inbox.channel) && (
+        {!["sms", "email", "llamada", "form", "chat"].includes(inbox.channel) && (
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="text-sm font-semibold text-gray-900 mb-3">Conexión</h2>
             <div className="flex items-center gap-3">

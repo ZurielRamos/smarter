@@ -269,7 +269,7 @@ export function AdminUsers() {
                                 className="inline-flex items-center gap-1 text-xs bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full"
                               >
                                 <Building2 className="h-3 w-3" />
-                                {tr.tenant?.name || "—"} · {tr.role === "admin" ? "Administrador" : "Agente"}
+                                {tr.tenant?.name || "—"} · {tr.role === "owner" ? "Propietario" : tr.role === "admin" ? "Administrador" : "Agente"}
                               </span>
                             ))}
                           </div>

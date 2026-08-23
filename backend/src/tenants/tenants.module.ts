@@ -8,6 +8,7 @@ import { ChannelConfigsService } from './channel-configs.service';
 import { ChannelConfigsController } from './channel-configs.controller';
 import { ConversionEvent } from '../conversions/conversion-event.entity';
 import { InviteAgentController } from './invite-agent.controller';
+import { AccountController } from './account.controller';
 import { UserTenant } from '../users/user-tenant.entity';
 import { User } from '../users/user.entity';
 import { CustomField } from '../records/custom-field.entity';
@@ -22,7 +23,7 @@ import { AuthModule } from '../auth/auth.module';
     MailModule,
     AuthModule,
   ],
-  controllers: [InviteAgentController, TenantsController, ChannelConfigsController],
+  controllers: [InviteAgentController, AccountController, TenantsController, ChannelConfigsController],
   providers: [TenantsService, ChannelConfigsService],
   exports: [TenantsService, ChannelConfigsService],
 })

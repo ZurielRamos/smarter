@@ -14,6 +14,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tenant } from '../tenants/tenant.entity';
 import { Campaign } from './campaign.entity';
+import { TenantRole, isAdminRole } from '../users/enums/tenant-role.enum';
 
 /**
  * API pública de campañas (solo lectura).
@@ -31,11 +32,11 @@ export class ApiCampaignsController {
     private readonly campaignRepo: Repository<Campaign>,
   ) {}
 
-  private async resolveTenant(user: any, slug: string): Promise<{ tenantId: string; role: string }> {
+  private async resolveTenant(user: any, slug: string): Promise<{ tenantId: string; role: TenantRole }> {
     if (user.isSuperAdmin) {
       const tenant = await this.tenantRepo.findOne({ where: { slug } });
       if (!tenant) throw new NotFoundException('Cuenta no encontrada');
-      return { tenantId: tenant.id, role: 'admin' };
+      return { tenantId: tenant.id, role: TenantRole.ADMIN };
     }
 
     const tenantRole = user.tenantRoles?.find((tr: any) => tr.tenant.slug === slug);
@@ -47,7 +48,7 @@ export class ApiCampaignsController {
   }
 
   private requireAdmin(role: string): void {
-    if (role !== 'admin') {
+    if (!isAdminRole(role)) {
       throw new ForbiddenException('Necesitas permisos de administrador para ejecutar campañas.');
     }
   }

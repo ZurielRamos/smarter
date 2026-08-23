@@ -110,7 +110,20 @@ export class EtlService {
       .andWhere('job.created_at > :since', { since: sixHoursAgo })
       .orderBy('job.created_at', 'DESC')
       .getOne();
-    return job || null;
+
+    if (!job) return null;
+
+    // If the job needs its file and the file has expired, auto-cancel it
+    if (job.status === 'awaiting_mapping' && job.fileId && !this.fileStore.exists(job.fileId)) {
+      job.status = 'cancelled' as any;
+      job.errorMessage = 'Archivo expiró. Sube el archivo nuevamente.';
+      job.completedAt = new Date();
+      job.currentPhase = null;
+      await this.jobRepo.save(job);
+      return null;
+    }
+
+    return job;
   }
 
   /** Mark a parse job as failed */

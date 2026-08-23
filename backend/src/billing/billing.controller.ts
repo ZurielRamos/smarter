@@ -15,11 +15,15 @@ import { SuperAdminGuard } from '../auth/super-admin.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { BillingService } from './billing.service';
 import { CreatePlanDto, RechargeDto } from './dto';
+import { AuditService } from '../audit/audit.service';
 
 @Controller('billing')
 @UseGuards(JwtAuthGuard)
 export class BillingController {
-  constructor(private readonly billingService: BillingService) {}
+  constructor(
+    private readonly billingService: BillingService,
+    private readonly auditService: AuditService,
+  ) {}
 
   // ─── COSTOS (rutas estáticas primero) ───────────────
 
@@ -31,8 +35,20 @@ export class BillingController {
 
   @Post('config/costs')
   @UseGuards(SuperAdminGuard)
-  upsertCost(@Body() body: { action: string; label: string; cost: number }) {
-    return this.billingService.upsertCost(body.action, body.label, body.cost);
+  async upsertCost(@Body() body: { action: string; label: string; cost: number }, @Req() req: any) {
+    const result = await this.billingService.upsertCost(body.action, body.label, body.cost);
+
+    await this.auditService.log({
+      adminUserId: req.user.id,
+      adminEmail: req.user.email,
+      action: 'billing.global_costs.update',
+      targetType: 'platform',
+      targetId: null,
+      targetLabel: null,
+      metadata: { costAction: body.action, label: body.label, cost: body.cost },
+    });
+
+    return result;
   }
 
   @Get('config/default-model')
@@ -57,14 +73,29 @@ export class BillingController {
 
   @Post('config/tenant-costs/:tenantId')
   @UseGuards(SuperAdminGuard)
-  upsertTenantCost(
+  async upsertTenantCost(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Body() body: { action: string; cost: number | null },
+    @Req() req: any,
   ) {
+    let result;
     if (body.cost === null || body.cost === 0) {
-      return this.billingService.deleteTenantCost(tenantId, body.action);
+      result = await this.billingService.deleteTenantCost(tenantId, body.action);
+    } else {
+      result = await this.billingService.upsertTenantCost(tenantId, body.action, body.cost);
     }
-    return this.billingService.upsertTenantCost(tenantId, body.action, body.cost);
+
+    await this.auditService.log({
+      adminUserId: req.user.id,
+      adminEmail: req.user.email,
+      action: 'billing.costs.update',
+      targetType: 'tenant',
+      targetId: tenantId,
+      targetLabel: null,
+      metadata: { costAction: body.action, cost: body.cost },
+    });
+
+    return result;
   }
 
   @Get('config/tenant-costs/:tenantId/default-model')
@@ -75,11 +106,24 @@ export class BillingController {
 
   @Post('config/tenant-costs/:tenantId/default-model')
   @UseGuards(SuperAdminGuard)
-  setTenantDefaultModel(
+  async setTenantDefaultModel(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Body() body: { model: string },
+    @Req() req: any,
   ) {
-    return this.billingService.setTenantDefaultModel(tenantId, body.model);
+    const result = await this.billingService.setTenantDefaultModel(tenantId, body.model);
+
+    await this.auditService.log({
+      adminUserId: req.user.id,
+      adminEmail: req.user.email,
+      action: 'billing.model.update',
+      targetType: 'tenant',
+      targetId: tenantId,
+      targetLabel: null,
+      metadata: { model: body.model },
+    });
+
+    return result;
   }
 
   // ─── HISTORIAL GLOBAL ──────────────────────────────

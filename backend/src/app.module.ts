@@ -23,6 +23,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ConversionsModule } from './conversions/conversions.module';
 import { TemplatesModule } from './templates/templates.module';
 import { BotsModule } from './bots/bots.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { BotsModule } from './bots/bots.module';
     ConversionsModule,
     TemplatesModule,
     BotsModule,
+    AuditModule,
   ],
   providers: [
     {

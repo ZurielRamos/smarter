@@ -44,13 +44,13 @@ export function GeneralCard() {
   const [cropperFileName, setCropperFileName] = useState("");
 
   useEffect(() => {
-    if (tenantId) loadTenant();
-  }, [tenantId]);
+    if (slug) loadTenant();
+  }, [slug]);
 
   async function loadTenant() {
     setLoading(true);
     try {
-      const { data } = await api.get<TenantData>(`/tenants/${tenantId}`);
+      const { data } = await api.get<TenantData>(`/account/${slug}`);
       setTenant(data);
     } catch {
       // silently fail
@@ -140,12 +140,12 @@ export function GeneralCard() {
         if (!selectedFile) return;
         const formData = new FormData();
         formData.append("icon", selectedFile);
-        await api.put(`/tenants/${tenant.id}`, formData, {
+        await api.put(`/account/${slug}`, formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       } else if (editField === "name") {
         const newSlug = derivedSlug || generateSlug(editValue);
-        await api.put(`/tenants/${tenant.id}`, { name: editValue, slug: newSlug });
+        await api.put(`/account/${slug}`, { name: editValue, slug: newSlug });
       }
       await loadTenant();
       closeEdit();

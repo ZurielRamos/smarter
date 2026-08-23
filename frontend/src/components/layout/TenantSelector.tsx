@@ -137,7 +137,7 @@ export function TenantSelector() {
                   )}
                   <div className="flex-1 text-left">
                     <p className="text-sm font-medium text-gray-900">{tr.tenant.name}</p>
-                    <p className="text-xs text-gray-400">{tr.role === "admin" ? "Administrador" : "Agente"}</p>
+                    <p className="text-xs text-gray-400">{tr.role === "owner" ? "Propietario" : tr.role === "admin" ? "Administrador" : "Agente"}</p>
                   </div>
                   {tr.tenant.slug === slug && !isOnAdmin && (
                     <Check className="h-4 w-4 text-accent-500" />

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Check, MessageSquare, Phone } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { WhatsAppIcon, MessengerIcon, InstagramIcon, EmailIcon, FormIcon } from "@/components/ChannelIcons";
+import { WhatsAppIcon, MessengerIcon, InstagramIcon, EmailIcon, FormIcon, ChatIcon } from "@/components/ChannelIcons";
 import headerBg from "@/assets/header-background.jpg";
 import axios from "axios";
 
@@ -35,6 +35,7 @@ const CHANNELS = [
   { value: "llamada", label: "Llamada", description: "Realiza llamadas automáticas a tus contactos", color: "text-purple-600", bg: "bg-purple-50" },
   { value: "email", label: "Email", description: "Envía correos desde tu propio dominio", color: "text-orange-600", bg: "bg-orange-50" },
   { value: "form", label: "Formulario", description: "Recibe mensajes desde un formulario web", color: "text-violet-600", bg: "bg-violet-50" },
+  { value: "chat", label: "Chat", description: "Chat en vivo para tu sitio web", color: "text-teal-600", bg: "bg-teal-50" },
 ];
 
 const STEPS = [
@@ -86,6 +87,12 @@ export function NewInbox() {
       if (channel === "form") {
         const { data: form } = await api.post("/forms", { tenantId, inboxId: data.id, name: name.trim() });
         navigate(`/${slug}/forms/${form.id}`);
+        return;
+      }
+
+      // For chat channel, navigate to widget builder
+      if (channel === "chat") {
+        navigate(`/${slug}/chat-widget/${data.id}`);
         return;
       }
 
@@ -205,6 +212,7 @@ export function NewInbox() {
                           {ch.value === "llamada" && <Phone className={`h-5 w-5 ${ch.color}`} />}
                           {ch.value === "email" && <EmailIcon className={`h-5 w-5 ${ch.color}`} />}
                           {ch.value === "form" && <FormIcon className={`h-5 w-5 ${ch.color}`} />}
+                          {ch.value === "chat" && <ChatIcon className={`h-5 w-5 ${ch.color}`} />}
                         </div>
                         <p className="text-sm font-semibold text-gray-900">{ch.label}</p>
                         <p className="text-xs text-gray-500 mt-1">{ch.description}</p>
@@ -285,7 +293,7 @@ export function NewInbox() {
                   )}
                 </div>
                 <div className="flex gap-3 pt-4 mt-4">
-                  {(channel === "sms" || channel === "email" || channel === "llamada") ? (
+                  {(channel === "sms" || channel === "email" || channel === "llamada" || channel === "chat") ? (
                     <button
                       onClick={() => setStep(4)}
                       className="px-5 py-2 text-sm rounded-lg bg-brand-800 hover:bg-brand-700 text-white font-medium"

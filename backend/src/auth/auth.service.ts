@@ -71,8 +71,8 @@ export class AuthService {
 
     // Determine redirect path
     let redirectTo = '/';
-    const activeRoles = user.tenantRoles?.filter((tr) => tr.status === 'active') || [];
-    const pendingInvites = user.tenantRoles?.filter((tr) => tr.status === 'pending') || [];
+    const activeRoles = user.tenantRoles?.filter((tr) => tr.status === 'active' && tr.tenant && tr.tenant.isActive) || [];
+    const pendingInvites = user.tenantRoles?.filter((tr) => tr.status === 'pending' && tr.tenant && tr.tenant.isActive) || [];
 
     if (user.isSuperAdmin) {
       redirectTo = '/admin';
@@ -170,8 +170,8 @@ export class AuthService {
 
     const token = this.jwtService.sign(payload);
 
-    const activeRoles = user.tenantRoles?.filter((tr) => tr.status === 'active') || [];
-    const pendingInvites = user.tenantRoles?.filter((tr) => tr.status === 'pending') || [];
+    const activeRoles = user.tenantRoles?.filter((tr) => tr.status === 'active' && tr.tenant && tr.tenant.isActive) || [];
+    const pendingInvites = user.tenantRoles?.filter((tr) => tr.status === 'pending' && tr.tenant && tr.tenant.isActive) || [];
 
     let redirectTo = '/';
     if (user.isSuperAdmin) {
@@ -231,8 +231,8 @@ export class AuthService {
       await this.userRepo.save(user);
     }
 
-    const activeRoles = user.tenantRoles?.filter((tr) => tr.status === 'active') || [];
-    const pendingInvites = user.tenantRoles?.filter((tr) => tr.status === 'pending') || [];
+    const activeRoles = user.tenantRoles?.filter((tr) => tr.status === 'active' && tr.tenant && tr.tenant.isActive) || [];
+    const pendingInvites = user.tenantRoles?.filter((tr) => tr.status === 'pending' && tr.tenant && tr.tenant.isActive) || [];
 
     return {
       id: user.id,

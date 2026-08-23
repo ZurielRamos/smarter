@@ -81,6 +81,8 @@ export class TenantsService {
       name: dto.name,
       slug: dto.slug,
       iconPath,
+      ...(dto.maxAgents != null && { maxAgents: dto.maxAgents }),
+      ...(dto.isDev != null && { isDev: dto.isDev }),
     } as Partial<Tenant>);
     const saved = await this.tenantRepo.save(tenant);
 
@@ -132,7 +134,7 @@ export class TenantsService {
 
   async remove(id: string): Promise<void> {
     const tenant = await this.findOne(id);
-    await this.tenantRepo.remove(tenant);
+    await this.tenantRepo.softRemove(tenant);
   }
 
   async getStats() {

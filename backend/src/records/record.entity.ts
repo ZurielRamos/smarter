@@ -106,10 +106,10 @@ export class ClientRecord {
   language: string; // ISO 639-1: es, en, pt, fr, de...
 
   // === CONSENTIMIENTO ===
-  @Column({ name: 'opt_in_whatsapp', type: 'boolean', default: false })
+  @Column({ name: 'opt_in_whatsapp', type: 'boolean', default: true })
   optInWhatsapp: boolean;
 
-  @Column({ name: 'opt_in_email', type: 'boolean', default: false })
+  @Column({ name: 'opt_in_email', type: 'boolean', default: true })
   optInEmail: boolean;
 
   // === ASIGNACIÓN ===

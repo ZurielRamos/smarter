@@ -18,6 +18,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tenant } from '../tenants/tenant.entity';
 import { Inbox } from './inbox.entity';
+import { TenantRole, isAdminRole } from '../users/enums/tenant-role.enum';
 
 /**
  * API pública de conversaciones.
@@ -35,11 +36,11 @@ export class ApiConversationsController {
     private readonly inboxRepo: Repository<Inbox>,
   ) {}
 
-  private async resolveTenant(user: any, slug: string): Promise<{ tenantId: string; role: string }> {
+  private async resolveTenant(user: any, slug: string): Promise<{ tenantId: string; role: TenantRole }> {
     if (user.isSuperAdmin) {
       const tenant = await this.tenantRepo.findOne({ where: { slug } });
       if (!tenant) throw new NotFoundException('Cuenta no encontrada');
-      return { tenantId: tenant.id, role: 'admin' };
+      return { tenantId: tenant.id, role: TenantRole.ADMIN };
     }
 
     const tenantRole = user.tenantRoles?.find((tr: any) => tr.tenant.slug === slug);
@@ -51,7 +52,7 @@ export class ApiConversationsController {
   }
 
   private requireAdmin(role: string): void {
-    if (role !== 'admin') {
+    if (!isAdminRole(role)) {
       throw new ForbiddenException('Los agentes solo tienen acceso de lectura. Necesitas permisos de administrador para esta acción.');
     }
   }

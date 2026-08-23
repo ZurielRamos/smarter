@@ -148,7 +148,7 @@ export class ParseProcessor {
             ? val.toString()
             : val.toFixed(10).replace(/\.?0+$/, '');
         } else if (val instanceof Date) {
-          result[key] = val.toISOString().split('T')[0];
+          result[key] = val.toISOString();
         } else {
           result[key] = String(val);
         }

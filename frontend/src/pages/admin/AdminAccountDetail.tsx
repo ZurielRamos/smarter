@@ -10,6 +10,7 @@ import {
   Loader2,
   MoreVertical,
   Settings2,
+  Wrench,
   X,
   Save,
   MessageSquare,
@@ -105,6 +106,11 @@ export function AdminAccountDetail() {
   const [savingCosts, setSavingCosts] = useState(false);
   const [tenantModel, setTenantModel] = useState("");
 
+  // Config modal
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [configForm, setConfigForm] = useState({ name: "", maxAgents: 5, isDev: false, monthlyCredits: 0, rollover: false });
+  const [configLoading, setConfigLoading] = useState(false);
+
   // Transactions (infinite scroll)
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [txTotal, setTxTotal] = useState(0);
@@ -112,6 +118,11 @@ export function AdminAccountDetail() {
   const [txOffset, setTxOffset] = useState(0);
   const txContainerRef = useRef<HTMLDivElement>(null);
   const TX_LIMIT = 20;
+
+  // Audit logs
+  const [auditLogs, setAuditLogs] = useState<{ id: string; action: string; adminEmail: string; metadata: any; createdAt: string }[]>([]);
+  const [auditTotal, setAuditTotal] = useState(0);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -131,6 +142,12 @@ export function AdminAccountDetail() {
       .finally(() => setLoading(false));
     // Load initial transactions
     fetchTransactions(0, true);
+    // Load audit logs
+    setAuditLoading(true);
+    api.get<{ data: typeof auditLogs; total: number }>(`/audit/target/${tenantId}?limit=20`)
+      .then(({ data }) => { setAuditLogs(data.data); setAuditTotal(data.total); })
+      .catch(() => {})
+      .finally(() => setAuditLoading(false));
   }, [tenantId]);
 
   const fetchTransactions = useCallback(async (offset: number, reset = false) => {
@@ -167,6 +184,42 @@ export function AdminAccountDetail() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showMore]);
+
+  const openConfigModal = () => {
+    setShowMore(false);
+    if (tenant) {
+      setConfigForm({
+        name: tenant.name,
+        maxAgents: tenant.maxAgents,
+        isDev: tenant.isDev,
+        monthlyCredits: plan?.monthlyCredits ?? 0,
+        rollover: plan?.rollover ?? false,
+      });
+    }
+    setShowConfigModal(true);
+  };
+
+  const handleSaveConfig = async () => {
+    if (!tenantId) return;
+    setConfigLoading(true);
+    try {
+      const { data } = await api.patch<TenantDetail>(`/tenants/${tenantId}`, {
+        name: configForm.name,
+        maxAgents: configForm.maxAgents,
+        isDev: configForm.isDev,
+      });
+      setTenant(data);
+      // Update billing plan
+      await api.patch(`/tenants/${tenantId}/billing/plan`, {
+        type: "monthly",
+        monthlyCredits: configForm.monthlyCredits,
+        rollover: configForm.rollover,
+      });
+      setPlan({ type: "monthly", monthlyCredits: configForm.monthlyCredits, rollover: configForm.rollover });
+      setShowConfigModal(false);
+    } catch {}
+    setConfigLoading(false);
+  };
 
   const openCostModal = async () => {
     setShowMore(false);
@@ -215,6 +268,55 @@ export function AdminAccountDetail() {
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" });
+
+  const formatRelativeDate = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "Ahora";
+    if (mins < 60) return `hace ${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `hace ${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `hace ${days}d`;
+    return new Date(iso).toLocaleDateString("es-CO", { day: "2-digit", month: "short" });
+  };
+
+  const AUDIT_ACTION_LABELS: Record<string, string> = {
+    'tenant.create': 'creó la cuenta',
+    'tenant.update': 'actualizó la configuración',
+    'tenant.delete': 'eliminó la cuenta',
+    'billing.plan.create': 'creó el plan de créditos',
+    'billing.plan.update': 'actualizó el plan de créditos',
+    'billing.recharge': 'recargó créditos',
+    'billing.costs.update': 'actualizó costos por consumo',
+    'billing.model.update': 'cambió el modelo por defecto',
+    'billing.global_costs.update': 'actualizó costos globales',
+  };
+
+  const formatAuditAction = (action: string) => AUDIT_ACTION_LABELS[action] || action;
+
+  const formatAuditMetadata = (action: string, metadata: any): string => {
+    if (!metadata) return '';
+    if (action === 'tenant.create') {
+      return `Slug: ${metadata.slug}${metadata.ownerEmail ? ` · Owner: ${metadata.ownerEmail}` : ''}`;
+    }
+    if (action === 'tenant.update' && metadata.changes) {
+      return Object.entries(metadata.changes).map(([k, v]) => `${k}: ${v}`).join(', ');
+    }
+    if (action === 'billing.plan.update' && metadata.changes) {
+      return Object.entries(metadata.changes).map(([k, v]) => `${k}: ${v}`).join(', ');
+    }
+    if (action === 'billing.recharge') {
+      return `+${Number(metadata.amount).toLocaleString()} créditos`;
+    }
+    if (action === 'billing.costs.update') {
+      return `${metadata.costAction}: ${metadata.cost ?? 'eliminado'}`;
+    }
+    if (action === 'billing.model.update') {
+      return `Modelo: ${metadata.model}`;
+    }
+    return '';
+  };
 
   if (loading) {
     return (
@@ -282,6 +384,13 @@ export function AdminAccountDetail() {
             </button>
             {showMore && (
               <div className="absolute right-0 top-11 w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <button
+                  onClick={openConfigModal}
+                  className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Wrench className="h-4 w-4 text-gray-400" />
+                  Configurar cuenta
+                </button>
                 <button
                   onClick={openCostModal}
                   className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
@@ -363,9 +472,9 @@ export function AdminAccountDetail() {
                     <p className="text-xs text-gray-400 truncate">{m.user.email}</p>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    m.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"
+                    m.role === "owner" ? "bg-amber-100 text-amber-700" : m.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"
                   }`}>
-                    {m.role === "admin" ? "Administrador" : "Agente"}
+                    {m.role === "owner" ? "Propietario" : m.role === "admin" ? "Administrador" : "Agente"}
                   </span>
                 </div>
               ))}
@@ -447,7 +556,189 @@ export function AdminAccountDetail() {
             </div>
           </div>
         </div>
+
+        {/* Audit Log */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Activity className="h-4 w-4 text-gray-400" />
+            Registro de actividad
+            {auditTotal > 0 && (
+              <span className="text-xs text-gray-400 font-normal">({auditTotal})</span>
+            )}
+          </h3>
+          {auditLoading ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+            </div>
+          ) : auditLogs.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">Sin actividad registrada</p>
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {auditLogs.map((log) => (
+                <div key={log.id} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
+                  <div className="h-7 w-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0 mt-0.5">
+                    <Activity className="h-3.5 w-3.5 text-gray-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-700">
+                      <span className="font-medium">{log.adminEmail}</span>
+                      {' '}
+                      <span className="text-gray-500">{formatAuditAction(log.action)}</span>
+                    </p>
+                    {log.metadata && (
+                      <p className="text-xs text-gray-400 mt-0.5 truncate">
+                        {formatAuditMetadata(log.action, log.metadata)}
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 shrink-0 mt-0.5">{formatRelativeDate(log.createdAt)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </motion.div>
+
+      {/* Config Modal */}
+      <AnimatePresence>
+        {showConfigModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4"
+            onClick={() => setShowConfigModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="rounded-2xl w-full max-w-md border border-white/15 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+              style={{
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.6) 100%)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Configurar cuenta</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">Editar configuración de la cuenta</p>
+                </div>
+                <button onClick={() => setShowConfigModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {/* Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre de la cuenta</label>
+                  <input
+                    type="text"
+                    value={configForm.name}
+                    onChange={(e) => setConfigForm({ ...configForm, name: e.target.value })}
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Max agents */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Máximo de agentes</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={configForm.maxAgents}
+                    onChange={(e) => setConfigForm({ ...configForm, maxAgents: parseInt(e.target.value) || 1 })}
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Número máximo de usuarios permitidos</p>
+                </div>
+
+                {/* isDev toggle */}
+                <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Cuenta de desarrollo</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Webhooks al entorno de desarrollo</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setConfigForm({ ...configForm, isDev: !configForm.isDev })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      configForm.isDev ? 'bg-brand-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                        configForm.isDev ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Plan de créditos */}
+                <div className="pt-4 border-t border-gray-200">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Plan de créditos</p>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Créditos mensuales</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={configForm.monthlyCredits}
+                        onChange={(e) => setConfigForm({ ...configForm, monthlyCredits: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Créditos otorgados al inicio de cada mes</p>
+                    </div>
+
+                    {/* Rollover toggle */}
+                    <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">Acumular créditos</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Los créditos no usados se acumulan al renovar</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setConfigForm({ ...configForm, rollover: !configForm.rollover })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          configForm.rollover ? 'bg-brand-600' : 'bg-gray-300'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                            configForm.rollover ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => setShowConfigModal(false)}
+                    className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSaveConfig}
+                    disabled={configLoading || !configForm.name.trim()}
+                    className="relative px-6 py-2.5 rounded-lg text-white font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden bg-brand-800 hover:bg-brand-700 shadow-lg border border-white/10"
+                  >
+                    <span className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/20 via-white/5 to-transparent pointer-events-none" />
+                    <span className="relative">{configLoading ? "Guardando..." : "Guardar"}</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Cost Config Modal */}
       <AnimatePresence>

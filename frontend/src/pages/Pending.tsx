@@ -82,7 +82,7 @@ export function Pending() {
                   <div>
                     <p className="text-sm font-semibold text-gray-900">{invite.tenant.name}</p>
                     <p className="text-xs text-gray-500">
-                      Rol: {invite.role === "admin" ? "Administrador" : "Agente"}
+                      Rol: {invite.role === "owner" ? "Propietario" : invite.role === "admin" ? "Administrador" : "Agente"}
                     </p>
                   </div>
                 </div>

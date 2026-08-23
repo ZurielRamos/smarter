@@ -9,9 +9,11 @@ import { InboxCollaborator } from './inbox-collaborator.entity';
 import { ClientRecord } from '../records/record.entity';
 import { Label } from './label.entity';
 import { ChatsGateway } from './chats.gateway';
+import { ChatWidgetGateway } from './chat-widget.gateway';
 import { MediaStorageService } from '../media/media-storage.service';
 import { BillingService } from '../billing/billing.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { isAdminRole } from '../users/enums/tenant-role.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ConversionsService } from '../conversions/conversions.service';
 import { BotsService } from '../bots/bots.service';
@@ -35,6 +37,7 @@ export class ChatsService {
     @InjectRepository(InboxCollaborator)
     private readonly collaboratorRepo: Repository<InboxCollaborator>,
     private readonly chatsGateway: ChatsGateway,
+    private readonly chatWidgetGateway: ChatWidgetGateway,
     private readonly mediaStorageService: MediaStorageService,
     private readonly configService: ConfigService,
     private readonly billingService: BillingService,
@@ -63,7 +66,7 @@ export class ChatsService {
       domingo: { enabled: false, start: '09:00', end: '13:00' },
       festivos: { enabled: false, start: '09:00', end: '13:00' },
     };
-    const alwaysConnected = ['sms', 'llamada', 'form', 'email'];
+    const alwaysConnected = ['sms', 'llamada', 'form', 'email', 'chat'];
     const status = alwaysConnected.includes(data.channel) ? 'connected' : 'disconnected';
     const inbox = this.inboxRepo.create({ ...data, status, metadata: { schedule: defaultSchedule } });
     return this.inboxRepo.save(inbox);
@@ -1359,8 +1362,8 @@ export class ChatsService {
   }
 
   async getUnreadCount(tenantId: string, userId?: string, role?: string): Promise<{ count: number }> {
-    // Admin sees all unread for the tenant
-    if (role === 'admin' || role === 'owner' || !userId) {
+    // Admin/Owner sees all unread for the tenant
+    if (isAdminRole(role) || !userId) {
       const result = await this.conversationRepo.query(
         `SELECT COALESCE(SUM(conv.unread_count), 0) as count
          FROM conversations conv
@@ -1510,11 +1513,7 @@ export class ChatsService {
   }
 
   async markAsRead(conversationId: string): Promise<void> {
-    const conversation = await this.conversationRepo.findOne({ where: { id: conversationId } });
-    if (conversation) {
-      conversation.unreadCount = 0;
-      await this.conversationRepo.save(conversation);
-    }
+    await this.conversationRepo.update(conversationId, { unreadCount: 0 });
   }
 
   async reactivateBot(conversationId: string, agentName?: string): Promise<{ botStatus: string }> {
@@ -1679,6 +1678,9 @@ export class ChatsService {
         console.error(`[Chat] ${inbox.channel} send error:`, err);
         sendError = err.message || `Error de conexión con ${inbox.channel} API`;
       }
+    } else if (inbox.channel === 'chat') {
+      // Chat widget — no external API needed, message will be pushed via WebSocket
+      externalId = `chat_${Date.now()}`;
     }
 
     // Save outbound message
@@ -1713,6 +1715,16 @@ export class ChatsService {
     // Emit real-time events
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversationId, saved);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
+
+    // Send to chat widget visitor via WebSocket
+    if (inbox.channel === 'chat') {
+      this.chatWidgetGateway.sendToVisitor(conversationId, {
+        type: 'message',
+        content,
+        direction: 'out',
+        messageId: saved.id,
+      });
+    }
 
     // Dispatch webhooks with full context
     const contactRecord = conversation.recordId ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } }) : null;
@@ -2506,5 +2518,176 @@ export class ChatsService {
     await this.messageRepo.save(message);
 
     return { labelIds };
+  }
+
+  // === CHAT WIDGET ===
+
+  async getOrCreateChatWidgetSession(
+    inbox: Inbox,
+    visitorId?: string,
+    name?: string,
+    email?: string,
+    attribution?: Record<string, string>,
+  ): Promise<{ conversationId: string; messages: any[] }> {
+    const contactId = visitorId || `visitor_${Date.now()}`;
+
+    // Find existing conversation
+    let conversation = await this.conversationRepo.findOne({
+      where: { inboxId: inbox.id, contactId },
+    });
+
+    let isNewConversation = false;
+
+    if (!conversation) {
+      isNewConversation = true;
+      conversation = this.conversationRepo.create({
+        inboxId: inbox.id,
+        contactId,
+        contactName: name || 'Visitante',
+        status: 'open',
+      });
+      conversation = await this.conversationRepo.save(conversation);
+
+      // Link to client record
+      const record = await this.findOrCreateRecordForWidget(inbox.tenantId, contactId, name, email);
+      conversation.recordId = record.id;
+      await this.conversationRepo.save(conversation);
+
+      // Emit conversation update to agents
+      this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
+
+      // Track ad attribution from URL params
+      if (attribution && conversation.recordId) {
+        const hasAttribution = attribution.fbclid || attribution.gclid || attribution.ttclid || attribution.li_fat_id || attribution.twclid || attribution.utm_source;
+        if (hasAttribution) {
+          this.conversionsService.trackFromUrlParams(
+            inbox.tenantId,
+            attribution,
+            {
+              recordId: conversation.recordId,
+              referrer: attribution.referrer,
+              landingPage: attribution.landingPage,
+              sessionId: `chat_${conversation.id}`,
+            },
+          ).then((adEvent) => {
+            if (adEvent) {
+              // Mark conversation with ad tracking
+              conversation!.hasAdTracking = true;
+              conversation!.adPlatform = adEvent.platform;
+              this.conversationRepo.save(conversation!).catch(() => {});
+
+              // Also mark the client record
+              if (conversation!.recordId) {
+                this.clientRecordRepo.query(
+                  `UPDATE clients SET
+                    has_ad_tracking = true,
+                    ad_first_platform = COALESCE(ad_first_platform, $2),
+                    ad_last_platform = $2,
+                    ad_touchpoints = COALESCE(ad_touchpoints, 0) + 1
+                  WHERE id = $1`,
+                  [conversation!.recordId, adEvent.platform],
+                ).catch(() => {});
+              }
+            }
+          }).catch((err) => {
+            console.warn('[ChatWidget] Failed to track attribution:', err?.message || err);
+          });
+        }
+      }
+    }
+
+    // Load recent messages
+    const messages = await this.messageRepo.find({
+      where: { conversationId: conversation.id },
+      order: { createdAt: 'ASC' },
+      take: 50,
+    });
+
+    return {
+      conversationId: conversation.id,
+      messages: messages.map((m) => ({
+        id: m.id,
+        content: m.content,
+        direction: m.direction === 'inbound' ? 'in' : 'out',
+        createdAt: m.createdAt,
+      })),
+    };
+  }
+
+  async createChatWidgetMessage(
+    inbox: Inbox,
+    conversationId: string,
+    visitorId: string,
+    content: string,
+  ): Promise<{ id: string; content: string; direction: string; createdAt: Date }> {
+    const conversation = await this.conversationRepo.findOne({
+      where: { id: conversationId, inboxId: inbox.id },
+    });
+    if (!conversation) throw new NotFoundException('Conversation not found');
+
+    // Save the inbound message
+    const message = this.messageRepo.create({
+      conversationId,
+      direction: 'inbound',
+      messageType: 'text',
+      content,
+      status: 'delivered',
+    });
+    await this.messageRepo.save(message);
+
+    // Update conversation
+    conversation.lastMessage = content;
+    conversation.lastMessageAt = new Date();
+    conversation.unreadCount = (conversation.unreadCount || 0) + 1;
+    await this.conversationRepo.save(conversation);
+
+    // Emit to agents via main gateway
+    this.chatsGateway.emitNewMessage(inbox.tenantId, conversationId, message);
+    this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
+
+    // Trigger bot auto-reply if configured
+    this.scheduleBotReply(inbox, conversation, content).catch(() => {});
+
+    return {
+      id: message.id,
+      content: message.content!,
+      direction: 'in',
+      createdAt: message.createdAt,
+    };
+  }
+
+  private async findOrCreateRecordForWidget(
+    tenantId: string,
+    visitorId: string,
+    name?: string,
+    email?: string,
+  ): Promise<ClientRecord> {
+    // Try to find by visitorId in customData
+    let record = await this.clientRecordRepo
+      .createQueryBuilder('client')
+      .where('client.tenant_id = :tenantId', { tenantId })
+      .andWhere("client.custom_data ->> 'chatVisitorId' = :visitorId", { visitorId })
+      .getOne();
+
+    if (!record && email) {
+      record = await this.clientRecordRepo.findOne({ where: { tenantId, email } });
+    }
+
+    if (!record) {
+      const nameParts = (name || 'Visitante').split(' ');
+      record = this.clientRecordRepo.create({
+        tenantId,
+        firstName: nameParts[0] || null,
+        lastName: nameParts.slice(1).join(' ') || null,
+        email: email || null,
+        status: 'active',
+        channelSource: 'chat',
+        lastContactAt: new Date(),
+        customData: { chatVisitorId: visitorId },
+      } as Partial<ClientRecord>);
+      record = await this.clientRecordRepo.save(record);
+    }
+
+    return record;
   }
 }

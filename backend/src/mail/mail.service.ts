@@ -48,7 +48,7 @@ export class MailService {
             Hola <strong>${name}</strong>,
           </p>
           <p style="color: #4b5563; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
-            Has sido invitado como <strong>${role === 'admin' ? 'Administrador' : 'Agente'}</strong> 
+            Has sido invitado como <strong>${role === 'owner' ? 'Propietario' : role === 'admin' ? 'Administrador' : role === 'viewer' ? 'Visualizador' : 'Agente'}</strong> 
             a la cuenta <strong>${tenantName}</strong> en Smarter.
           </p>
           
@@ -104,7 +104,7 @@ export class MailService {
             Hola <strong>${name}</strong>,
           </p>
           <p style="color: #4b5563; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
-            Se te ha otorgado acceso como <strong>${role === 'admin' ? 'Administrador' : 'Agente'}</strong> 
+            Se te ha otorgado acceso como <strong>${role === 'owner' ? 'Propietario' : role === 'admin' ? 'Administrador' : role === 'viewer' ? 'Visualizador' : 'Agente'}</strong> 
             a la cuenta <strong>${tenantName}</strong> en Smarter.
           </p>
           
@@ -116,7 +116,7 @@ export class MailService {
               </tr>
               <tr>
                 <td style="padding: 4px 0; color: #6b7280; font-size: 13px;">Rol:</td>
-                <td style="padding: 4px 0; color: #1f2937; font-size: 13px; font-weight: 600; text-align: right;">${role === 'admin' ? 'Administrador' : 'Agente'}</td>
+                <td style="padding: 4px 0; color: #1f2937; font-size: 13px; font-weight: 600; text-align: right;">${role === 'owner' ? 'Propietario' : role === 'admin' ? 'Administrador' : role === 'viewer' ? 'Visualizador' : 'Agente'}</td>
               </tr>
             </table>
           </div>

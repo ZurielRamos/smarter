@@ -13,7 +13,9 @@ import { ChatsController, WebhookController } from './chats.controller';
 import { ApiConversationsController } from './api-conversations.controller';
 import { ApiMessagesController } from './api-messages.controller';
 import { ApiInboxesController } from './api-inboxes.controller';
+import { ChatWidgetController } from './chat-widget.controller';
 import { ChatsGateway } from './chats.gateway';
+import { ChatWidgetGateway } from './chat-widget.gateway';
 import { WebhookForwarderService } from './webhook-forwarder.service';
 import { BillingModule } from '../billing/billing.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
@@ -32,8 +34,8 @@ import { BotsModule } from '../bots/bots.module';
     ConversionsModule,
     BotsModule,
   ],
-  providers: [ChatsService, ChatsGateway, WebhookForwarderService],
-  controllers: [ChatsController, ApiConversationsController, ApiMessagesController, ApiInboxesController, WebhookController],
-  exports: [ChatsService, ChatsGateway],
+  providers: [ChatsService, ChatsGateway, ChatWidgetGateway, WebhookForwarderService],
+  controllers: [ChatsController, ApiConversationsController, ApiMessagesController, ApiInboxesController, ChatWidgetController, WebhookController],
+  exports: [ChatsService, ChatsGateway, ChatWidgetGateway],
 })
 export class ChatsModule {}

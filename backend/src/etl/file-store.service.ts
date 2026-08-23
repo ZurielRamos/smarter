@@ -53,8 +53,8 @@ export class FileStoreService implements OnModuleDestroy {
     const lines = data.map((row) => JSON.stringify(row));
     writeFileSync(filePath, lines.join('\n'), 'utf-8');
 
-    // TTL: 3 hours for large files, 2 hours for small
-    const ttlMs = data.length > 50000 ? 3 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000;
+    // TTL: 12 hours for large files, 6 hours for small
+    const ttlMs = data.length > 50000 ? 12 * 60 * 60 * 1000 : 6 * 60 * 60 * 1000;
 
     const entry = {
       ...meta,

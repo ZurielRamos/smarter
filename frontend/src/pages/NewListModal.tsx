@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Plus, Trash2, ChevronDown, Users, Layers } from "lucide-react";
 import { motion } from "framer-motion";
 import { createRecordList, getCustomFields } from "@/services/api";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import axios from "axios";
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
@@ -130,6 +131,8 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
     return [{ logic: "and", conditions: [{ field: "status", operator: "equals", value: "" }] }];
   });
   const [saving, setSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const [allFields, setAllFields] = useState<FieldOption[]>(SYSTEM_FIELDS);
   const [previewCount, setPreviewCount] = useState<number | null>(null);
@@ -440,13 +443,7 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
             {isEdit ? (
               <button
                 type="button"
-                onClick={async () => {
-                  if (!editData || !confirm("¿Estás seguro de eliminar esta lista? Esta acción no se puede deshacer.")) return;
-                  try {
-                    await api.delete(`/record-lists/${editData.id}`);
-                    onCreated();
-                  } catch {}
-                }}
+                onClick={() => setShowDeleteConfirm(true)}
                 className="px-3 py-2 text-sm text-red-600 rounded-lg hover:bg-red-50 font-medium transition-colors"
               >
                 Eliminar lista
@@ -467,6 +464,26 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
           </div>
         </div>
       </motion.div>
+
+      <ConfirmModal
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={async () => {
+          if (!editData) return;
+          setDeleting(true);
+          try {
+            await api.delete(`/record-lists/${editData.id}`);
+            setShowDeleteConfirm(false);
+            onCreated();
+          } catch {}
+          setDeleting(false);
+        }}
+        title="Eliminar lista"
+        description="¿Estás seguro de eliminar esta lista? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        variant="danger"
+        loading={deleting}
+      />
     </motion.div>
   );
 }

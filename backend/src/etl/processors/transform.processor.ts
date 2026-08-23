@@ -17,7 +17,6 @@ export interface TargetFieldDefinition {
 export class TransformProcessor {
   private readonly targetFields: TargetFieldDefinition[] = [
     // Identificación
-    { field: 'id', label: 'ID del cliente', required: false, type: 'text', allowMultiple: false, category: 'Identificación' },
     { field: 'firstName', label: 'Nombre', required: false, type: 'text', allowMultiple: false, category: 'Identificación' },
     { field: 'lastName', label: 'Apellido', required: false, type: 'text', allowMultiple: false, category: 'Identificación' },
     { field: 'fullName', label: 'Nombre completo', required: false, type: 'text', allowMultiple: true, category: 'Identificación' },
@@ -178,7 +177,7 @@ export class TransformProcessor {
         try {
           const date = new Date(value);
           if (!isNaN(date.getTime())) {
-            return date.toISOString().split('T')[0];
+            return date.toISOString();
           }
         } catch { /* noop */ }
         return value;

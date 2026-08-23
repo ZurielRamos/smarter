@@ -148,8 +148,8 @@ export function Agentes() {
               </div>
               <p className="text-[11px] text-gray-400 truncate">{agent.user.email}</p>
             </div>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${agent.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"}`}>
-              {agent.role === "admin" ? "Administrador" : "Agente"}
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${agent.role === "owner" ? "bg-amber-100 text-amber-700" : agent.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"}`}>
+              {agent.role === "owner" ? "Propietario" : agent.role === "admin" ? "Administrador" : "Agente"}
             </span>
           </div>
         ))}

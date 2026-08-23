@@ -19,6 +19,7 @@ import {
   executeImport,
   getImportJob,
   getImportHistory,
+  cancelImportJob,
 } from "@/services/api";
 import type {
   TargetField,
@@ -181,6 +182,12 @@ export function Import() {
   const handleFileSelected = async (file: File) => {
     setIsLoading(true);
     setError(null);
+    // Cancel any previous active job
+    if (activeJob && !['completed', 'failed', 'cancelled'].includes(activeJob.status)) {
+      try { await cancelImportJob(activeJob.id); } catch {}
+    }
+    setActiveJob(null);
+    setImportJob(null);
     try {
       // For files > 5MB, use async parse (queued in background)
       if (file.size > 5 * 1024 * 1024 && tenantId) {
@@ -268,9 +275,13 @@ export function Import() {
       });
       setValidationResult(result);
       setStep("validate");
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Error en la validación";
-      setError(message);
+    } catch (err: any) {
+      const message = err?.response?.data?.message || err?.message || "Error en la validación";
+      if (message.includes("expirado") || message.includes("no encontrado")) {
+        setError("El archivo expiró. Sube el archivo nuevamente.");
+      } else {
+        setError(message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -347,18 +358,23 @@ export function Import() {
     }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    // Cancel active job in backend if one exists
+    if (activeJob && !['completed', 'failed', 'cancelled'].includes(activeJob.status)) {
+      try { await cancelImportJob(activeJob.id); } catch {}
+    }
     setStep("upload");
     setParseResult(null);
     setMapping({});
     setImportJob(null);
+    setActiveJob(null);
     setValidationResult(null);
     setDeduplicateResult(null);
     setError(null);
     setPreloadedFields(0);
     setMatchFields([]);
     setCurrentTransforms({});
-    if (pollRef.current) clearInterval(pollRef.current);
   };
 
   const steps = [
@@ -428,7 +444,12 @@ export function Import() {
           {error && (
             <div className="flex items-center gap-2 p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm shrink-0 mx-4 mt-4">
               <AlertCircle className="h-4 w-4 shrink-0" />
-              {error}
+              <span className="flex-1">{error}</span>
+              {step !== "upload" && (
+                <button onClick={handleReset} className="text-xs font-medium text-red-800 hover:text-red-900 underline shrink-0">
+                  Comenzar de nuevo
+                </button>
+              )}
             </div>
           )}
 
@@ -472,8 +493,6 @@ export function Import() {
                   onMappingChange={setMapping}
                   onSubmit={handleSubmitMapping}
                   isLoading={isLoading}
-                  matchField={matchFields[0] || "none"}
-                  onMatchFieldChange={(field) => setMatchFields(field === "none" ? [] : [field])}
                   initialTransforms={initialTransforms}
                 />
               </div>

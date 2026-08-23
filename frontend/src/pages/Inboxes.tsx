@@ -30,6 +30,7 @@ const CHANNEL_META: Record<string, { label: string; icon: typeof MessageSquare; 
   sms: { label: "SMS", icon: MessageSquare, color: "text-sky-600", bg: "bg-sky-50" },
   llamada: { label: "Llamada", icon: Phone, color: "text-purple-600", bg: "bg-purple-50" },
   email: { label: "Email", icon: Mail, color: "text-orange-600", bg: "bg-orange-50" },
+  chat: { label: "Chat", icon: MessageCircle, color: "text-teal-600", bg: "bg-teal-50" },
 };
 
 export function Inboxes() {

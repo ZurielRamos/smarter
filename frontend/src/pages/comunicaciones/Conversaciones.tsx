@@ -10,6 +10,7 @@ import { ChatEmpty } from "./ChatEmpty";
 import { formatWhatsAppText } from "@/utils/whatsapp-format";
 import { createContactEvent } from "@/services/api";
 import { toast } from "sonner";
+import bgChat from "@/assets/bg-chat.png";
 import axios from "axios";
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
@@ -193,12 +194,15 @@ export function Conversaciones() {
   useEffect(() => {
     if (!messages.length) return;
     if (isInitialLoad.current) {
-      // Jump instantly to bottom without animation
-      requestAnimationFrame(() => {
+      // Jump instantly to bottom — use setTimeout to ensure DOM has fully rendered
+      const scrollToEnd = () => {
         if (messagesContainerRef.current) {
           messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
         }
-      });
+      };
+      scrollToEnd();
+      requestAnimationFrame(scrollToEnd);
+      setTimeout(scrollToEnd, 50);
       isInitialLoad.current = false;
     } else if (!loadingMore && isNearBottom.current) {
       // For new messages, smooth scroll only if user is near bottom
@@ -313,9 +317,8 @@ export function Conversaciones() {
 
   const handleMarkAsRead = () => {
     if (!contextMenu) return;
-    api.post(`/chats/conversations/${contextMenu.conversation.id}/read`).then(() => {
-      loadConversations();
-    }).catch(() => {});
+    api.post(`/chats/conversations/${contextMenu.conversation.id}/read`).catch(() => {});
+    setConversations((prev) => prev.map((c) => c.id === contextMenu.conversation.id ? { ...c, unreadCount: 0 } : c));
     setContextMenu(null);
   };
 
@@ -392,10 +395,10 @@ export function Conversaciones() {
   const loadMessages = (conversationId: string) => {
     setLoadingMessages(true);
     setHasMoreMessages(true);
-    api.get<Message[]>(`/chats/conversations/${conversationId}/messages`, { params: { limit: 10 } })
+    api.get<Message[]>(`/chats/conversations/${conversationId}/messages`, { params: { limit: 30 } })
       .then(({ data }) => {
         setMessages(data);
-        if (data.length < 10) setHasMoreMessages(false);
+        if (data.length < 30) setHasMoreMessages(false);
       })
       .catch(() => {})
       .finally(() => setLoadingMessages(false));
@@ -1117,19 +1120,26 @@ export function Conversaciones() {
               <div
                 ref={messagesContainerRef}
                 className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 space-y-2"
+                style={{ backgroundImage: `url(${bgChat})`, backgroundRepeat: 'repeat', backgroundSize: '400px', backgroundAttachment: 'local', backgroundColor: 'rgba(249,250,251,0.92)', backgroundBlendMode: 'lighten' }}
                 onScroll={(e) => {
                   const el = e.currentTarget;
                   // Track if user is near bottom
                   isNearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-                  // Load older messages when scrolled to top
-                  if (el.scrollTop < 50 && hasMoreMessages && !loadingMore) loadOlderMessages();
+                  // Load older messages when scrolled to top (but not during initial load)
+                  if (el.scrollTop < 50 && hasMoreMessages && !loadingMore && !loadingMessages) loadOlderMessages();
                 }}
               >
+                {/* Chat background pattern */}
                 {loadingMessages ? (
-                  <div className="flex-1 flex items-center justify-center h-full">
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="h-6 w-6 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
-                    </div>
+                  <div className="flex-1 flex flex-col justify-end gap-3 py-4">
+                    {/* Skeleton messages simulating a chat */}
+                    <div className="flex justify-start"><div className="h-12 w-48 bg-gray-200/60 rounded-xl animate-pulse" /></div>
+                    <div className="flex justify-end"><div className="h-16 w-56 bg-brand-100/60 rounded-xl animate-pulse" /></div>
+                    <div className="flex justify-start"><div className="h-10 w-36 bg-gray-200/60 rounded-xl animate-pulse" /></div>
+                    <div className="flex justify-end"><div className="h-20 w-64 bg-brand-100/60 rounded-xl animate-pulse" /></div>
+                    <div className="flex justify-start"><div className="h-12 w-52 bg-gray-200/60 rounded-xl animate-pulse" /></div>
+                    <div className="flex justify-end"><div className="h-14 w-44 bg-brand-100/60 rounded-xl animate-pulse" /></div>
+                    <div className="flex justify-start"><div className="h-10 w-40 bg-gray-200/60 rounded-xl animate-pulse" /></div>
                   </div>
                 ) : (
                 <>
@@ -1167,7 +1177,7 @@ export function Conversaciones() {
                         </div>
                       </div>
                     )}
-                    <div className={`${msg.messageType === "template" ? "max-w-[320px]" : msg.direction === "outbound" ? "max-w-[min(70%,400px)]" : "max-w-[min(40%,300px)]"} px-4 py-2.5 rounded-2xl text-sm break-words ${msg.messageType === "template" ? "bg-green-50 border border-green-200 text-gray-800 rounded-br-md" : msg.messageType === "note" ? "bg-yellow-100 border border-yellow-200 text-yellow-900 rounded-br-md" : msg.direction === "outbound" ? "bg-brand-600 text-white rounded-br-md" : "bg-white border border-gray-200 text-gray-800 rounded-bl-md"}`}>
+                    <div className={`${msg.messageType === "template" ? "max-w-[320px]" : msg.direction === "outbound" ? "max-w-[min(70%,400px)]" : "max-w-[min(40%,300px)]"} px-4 py-2.5 rounded-2xl text-sm break-words ${msg.messageType === "template" ? "bg-green-50/90 border border-green-200 text-gray-800 rounded-br-md backdrop-blur-sm" : msg.messageType === "note" ? "bg-yellow-100/90 border border-yellow-200 text-yellow-900 rounded-br-md backdrop-blur-sm" : msg.direction === "outbound" ? "bg-brand-600/90 text-white rounded-br-md backdrop-blur-sm" : "bg-white/90 border border-gray-200 text-gray-800 rounded-bl-md backdrop-blur-sm"}`}>
                       {msg.messageType === "template" && (
                         <TemplateBubble msg={msg} />
                       )}

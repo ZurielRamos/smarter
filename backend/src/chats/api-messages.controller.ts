@@ -17,6 +17,7 @@ import { Repository } from 'typeorm';
 import { Tenant } from '../tenants/tenant.entity';
 import { Inbox } from './inbox.entity';
 import { Message } from './message.entity';
+import { TenantRole, isAdminRole } from '../users/enums/tenant-role.enum';
 
 /**
  * API pública de mensajes.
@@ -36,11 +37,11 @@ export class ApiMessagesController {
     private readonly messageRepo: Repository<Message>,
   ) {}
 
-  private async resolveTenant(user: any, slug: string): Promise<{ tenantId: string; role: string }> {
+  private async resolveTenant(user: any, slug: string): Promise<{ tenantId: string; role: TenantRole }> {
     if (user.isSuperAdmin) {
       const tenant = await this.tenantRepo.findOne({ where: { slug } });
       if (!tenant) throw new NotFoundException('Cuenta no encontrada');
-      return { tenantId: tenant.id, role: 'admin' };
+      return { tenantId: tenant.id, role: TenantRole.ADMIN };
     }
 
     const tenantRole = user.tenantRoles?.find((tr: any) => tr.tenant.slug === slug);
@@ -52,7 +53,7 @@ export class ApiMessagesController {
   }
 
   private requireAdmin(role: string): void {
-    if (role !== 'admin') {
+    if (!isAdminRole(role)) {
       throw new ForbiddenException('Los agentes solo tienen acceso de lectura. Necesitas permisos de administrador para esta acción.');
     }
   }

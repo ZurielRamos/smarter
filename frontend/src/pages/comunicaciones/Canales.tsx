@@ -22,6 +22,7 @@ const CHANNEL_ICONS: Record<string, { icon: any; color: string; bg: string }> = 
   llamada: { icon: Phone, color: "text-purple-600", bg: "bg-purple-50" },
   email: { icon: Mail, color: "text-orange-600", bg: "bg-orange-50" },
   form: { icon: FormIcon, color: "text-violet-600", bg: "bg-violet-50" },
+  chat: { icon: MessageCircle, color: "text-teal-600", bg: "bg-teal-50" },
 };
 
 export function Canales() {

@@ -29,8 +29,8 @@ export function TrackingConfigCard() {
   const [verifyResult, setVerifyResult] = useState<{ installed: boolean; error?: string; lastPingAt?: string; lastPingOrigin?: string } | null>(null);
 
   useEffect(() => {
-    if (!tenantId) return;
-    api.get(`/tenants/${tenantId}`).then(({ data }) => {
+    if (!slug) return;
+    api.get(`/account/${slug}`).then(({ data }) => {
       if (data.trackingConfig) {
         setConfig(data.trackingConfig);
       }
@@ -41,7 +41,7 @@ export function TrackingConfigCard() {
     if (!tenantId) return;
     setSaving(true);
     try {
-      await api.put(`/tenants/${tenantId}`, { trackingConfig: config });
+      await api.put(`/account/${slug}`, { trackingConfig: config });
       toast.success("Configuración guardada");
     } catch {
       toast.error("Error al guardar");

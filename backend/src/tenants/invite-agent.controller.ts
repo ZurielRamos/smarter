@@ -18,6 +18,7 @@ import { UserTenant } from '../users/user-tenant.entity';
 import { Tenant } from './tenant.entity';
 import { MailService } from '../mail/mail.service';
 import { ConfigService } from '@nestjs/config';
+import { TenantRole } from '../users/enums/tenant-role.enum';
 
 @Controller('tenants')
 @UseGuards(JwtAuthGuard, TenantAccessGuard)
@@ -52,12 +53,20 @@ export class InviteAgentController {
   @Post(':tenantId/invite')
   async inviteAgent(
     @Param('tenantId') tenantId: string,
-    @Body() body: { name: string; email: string; role: string },
+    @Body() body: { name: string; email: string; role: TenantRole },
   ) {
     const { name, email, role } = body;
 
     if (!name || !email || !role) {
       throw new BadRequestException('name, email y role son requeridos');
+    }
+
+    // Validar que el rol sea válido y no sea 'owner' (owner se asigna automáticamente)
+    const allowedInviteRoles: TenantRole[] = [TenantRole.ADMIN, TenantRole.AGENT, TenantRole.VIEWER];
+    if (!allowedInviteRoles.includes(role)) {
+      throw new BadRequestException(
+        `Rol inválido: "${role}". Roles permitidos para invitación: ${allowedInviteRoles.join(', ')}`,
+      );
     }
 
     const tenant = await this.tenantRepo.findOne({ where: { id: tenantId } });

@@ -120,7 +120,8 @@ export function Clients() {
   const [noteClient, setNoteClient] = useState<ClientRecord | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSelectAll, setBulkSelectAll] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false); // true = all matching filter are selected
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [singleDeleteId, setSingleDeleteId] = useState<string | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const tableMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -211,6 +212,20 @@ export function Clients() {
   }, [tenantId, page, limit, sortBy, sortOrder, mounted, activeList, ownerFilter, advancedFilters]);
 
   useEffect(() => { setSelectedIds(new Set()); setBulkSelectAll(false); }, [page, ownerFilter, advancedFilters, activeList]);
+
+  // Keyboard shortcut: "N" to open new contact form
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "n" || e.key === "N") {
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target as HTMLElement)?.isContentEditable) return;
+        e.preventDefault();
+        setShowNewRecord(true);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -415,6 +430,10 @@ export function Clients() {
         return inboxMap[client.channelSource] || client.channelSource || "—";
       case "lastContactAt":
         return client.lastContactAt ? new Date(client.lastContactAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "—";
+      case "lastActivityAt":
+        return (client as any).lastActivityAt ? new Date((client as any).lastActivityAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "—";
+      case "createdAt":
+        return client.createdAt ? new Date(client.createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "—";
       case "tags":
         return client.tags && client.tags.length > 0
           ? client.tags.map((tag) => (
@@ -425,7 +444,10 @@ export function Clients() {
         const val = (client as any)[key];
         if (val === null || val === undefined || val === "") return "—";
         if (typeof val === "boolean") return val ? "Sí" : "No";
-        if (val instanceof Date || (typeof val === "string" && /^\d{4}-\d{2}-\d{2}/.test(val) && key.toLowerCase().includes("date"))) {
+        if (val instanceof Date || (typeof val === "string" && /^\d{4}-\d{2}-\d{2}(T|\s)/.test(val))) {
+          return new Date(val).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+        }
+        if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
           return new Date(val).toLocaleDateString([], { dateStyle: "short" });
         }
         return String(val);
@@ -1096,7 +1118,7 @@ export function Clients() {
             )}
           </div>
           <div className="border-t border-gray-100 my-1" />
-          <button onClick={async () => { if (confirm("¿Eliminar este contacto?")) { await tenantApi.delete(`/records/${contextMenu.client.id}`); setContextMenu(null); loadClients(); toast.success("Contacto eliminado"); } }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+          <button onClick={() => { setSingleDeleteId(contextMenu.client.id); setContextMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
             <Trash2 className="h-3.5 w-3.5" /> Eliminar
           </button>
         </div>
@@ -1165,20 +1187,28 @@ export function Clients() {
 
       {/* Delete Confirm Modal */}
       <DeleteConfirmModal
-        open={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        payload={bulkSelectAll
-          ? { tenantId, filters: advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined }
-          : { ids: [...selectedIds] }
+        open={deleteModalOpen || !!singleDeleteId}
+        onClose={() => { setDeleteModalOpen(false); setSingleDeleteId(null); }}
+        payload={singleDeleteId
+          ? { ids: [singleDeleteId] }
+          : bulkSelectAll
+            ? { tenantId, filters: advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined }
+            : { ids: [...selectedIds] }
         }
         onConfirm={async () => {
-          const payload = bulkSelectAll
-            ? { tenantId, filters: advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined }
-            : { ids: [...selectedIds] };
-          await tenantApi.delete("/records/bulk", { data: payload });
-          toast.success("Contactos eliminados");
-          setSelectedIds(new Set()); setBulkSelectAll(false);
-          setDeleteModalOpen(false);
+          if (singleDeleteId) {
+            await tenantApi.delete("/records/bulk", { data: { ids: [singleDeleteId] } });
+            toast.success("Contacto eliminado");
+            setSingleDeleteId(null);
+          } else {
+            const payload = bulkSelectAll
+              ? { tenantId, filters: advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined }
+              : { ids: [...selectedIds] };
+            await tenantApi.delete("/records/bulk", { data: payload });
+            toast.success("Contactos eliminados");
+            setSelectedIds(new Set()); setBulkSelectAll(false);
+            setDeleteModalOpen(false);
+          }
           loadClients();
         }}
       />

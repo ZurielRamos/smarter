@@ -28,12 +28,12 @@ export class TenantAccessGuard implements CanActivate {
       return true;
     }
 
-    // Verificar que el usuario pertenezca a este tenant
-    const hasAccess = user?.tenantRoles?.some(
+    // Verificar que el usuario pertenezca a este tenant y que el tenant no esté eliminado
+    const membership = user?.tenantRoles?.find(
       (tr: any) => tr.tenantId === tenantId,
     );
 
-    if (!hasAccess) {
+    if (!membership || !membership.tenant) {
       throw new ForbiddenException('No tienes acceso a esta cuenta');
     }
 

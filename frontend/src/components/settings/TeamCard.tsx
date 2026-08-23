@@ -74,8 +74,8 @@ export function TeamCard() {
     setLoading(true);
     try {
       const [tenantRes, membersRes] = await Promise.all([
-        api.get<TenantData>(`/tenants/${tenantId}`),
-        api.get<UserTenantMember[]>(`/tenants/${tenantId}/members`),
+        api.get<TenantData>(`/account/${slug}`),
+        api.get<UserTenantMember[]>(`/account/${slug}/members`),
       ]);
       setMaxUsers(tenantRes.data.maxUsers);
       setMembers(membersRes.data);
@@ -147,8 +147,8 @@ export function TeamCard() {
     if (!foundUser || !tenantId) return;
     setSaving(true);
     try {
-      await api.post(`/users/${foundUser.id}/tenants`, {
-        tenantId,
+      await api.post(`/account/${slug}/members`, {
+        userId: foundUser.id,
         role: selectedRole,
       });
       setAddStep("done");
@@ -164,11 +164,11 @@ export function TeamCard() {
     if (!tenantId || !newName.trim() || !newPassword.trim()) return;
     setSaving(true);
     try {
-      const { data } = await api.post<{ id: string }>("/users", {
+      const { data } = await api.post<{ id: string }>(`/account/${slug}/members/create`, {
         name: newName,
         email,
         password: newPassword,
-        tenantRoles: [{ tenantId, role: selectedRole }],
+        role: selectedRole,
       });
       setFoundUser({ id: data.id, name: newName, email });
       setAddStep("done");
@@ -184,8 +184,8 @@ export function TeamCard() {
     if (!editingMember || !tenantId) return;
     setSaving(true);
     try {
-      await api.post(`/users/${editingMember.userId}/tenants`, {
-        tenantId,
+      await api.post(`/account/${slug}/members`, {
+        userId: editingMember.userId,
         role: selectedRole,
       });
       await loadData();
@@ -201,7 +201,7 @@ export function TeamCard() {
     if (!editingMember || !tenantId) return;
     setSaving(true);
     try {
-      await api.delete(`/users/${editingMember.userId}/tenants/${tenantId}`);
+      await api.delete(`/account/${slug}/members/${editingMember.userId}`);
       await loadData();
       closeModal();
     } catch {
@@ -290,10 +290,11 @@ export function TeamCard() {
                   </div>
                   <span className={cn(
                     "text-xs font-medium px-2 py-0.5 rounded-full",
+                    member.role === "owner" ? "bg-amber-100 text-amber-700" :
                     member.role === "admin" ? "bg-brand-100 text-brand-700" :
                     "bg-gray-100 text-gray-600"
                   )}>
-                    {member.role === "admin" ? "Administrador" : "Agente"}
+                    {member.role === "owner" ? "Propietario" : member.role === "admin" ? "Administrador" : "Agente"}
                   </span>
                 </button>
               ))}
