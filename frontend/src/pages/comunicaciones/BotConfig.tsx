@@ -1061,7 +1061,12 @@ export function BotConfig() {
               <Bot className="h-5 w-5 text-brand-600" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Configurar Bot</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-gray-900">Configurar Bot</h2>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${botType === "sequential" ? "bg-blue-100 text-blue-700" : botType === "hybrid" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"}`}>
+                  {botType === "sequential" ? "Secuencial" : botType === "hybrid" ? "Híbrido" : "Conversación libre"}
+                </span>
+              </div>
               <p className="text-sm text-gray-500">{bot.name}</p>
             </div>
           </div>

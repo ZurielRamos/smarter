@@ -19,6 +19,7 @@ interface BotItem {
   name: string;
   description: string | null;
   status: string;
+  type: string;
   createdAt: string;
 }
 
@@ -151,9 +152,14 @@ export function Bots() {
                       {statusLabels[bot.status] || bot.status}
                     </span>
                   </div>
-                  {bot.description && (
-                    <p className="text-xs text-gray-500 mt-0.5 truncate">{bot.description}</p>
-                  )}
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-medium", bot.type === "sequential" ? "bg-blue-50 text-blue-600" : bot.type === "hybrid" ? "bg-purple-50 text-purple-600" : "bg-gray-50 text-gray-500")}>
+                      {bot.type === "sequential" ? "Secuencial" : bot.type === "hybrid" ? "Híbrido" : "Libre"}
+                    </span>
+                    {bot.description && (
+                      <p className="text-[10px] text-gray-400 truncate">{bot.description}</p>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>
