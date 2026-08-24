@@ -1508,6 +1508,13 @@ export class ChatsService {
               }
               if (bot.onResolvedActions.assignTeamId) {
                 record.assignedTeamId = bot.onResolvedActions.assignTeamId;
+                this.activityRepo.save(this.activityRepo.create({
+                  tenantId: inbox.tenantId,
+                  recordId: record.id,
+                  type: 'assigned',
+                  description: `Equipo asignado por bot "${bot.name}" al resolver`,
+                  metadata: { assignedTeamId: bot.onResolvedActions.assignTeamId, botId: bot.id, botName: bot.name, trigger: 'bot_resolved' },
+                })).catch(() => {});
               }
               await this.clientRecordRepo.save(record);
             }
@@ -2062,6 +2069,14 @@ export class ChatsService {
       if (record && !record.assignedTo) {
         record.assignedTo = senderId;
         await this.clientRecordRepo.save(record);
+        // Log assignment to timeline
+        this.activityRepo.save(this.activityRepo.create({
+          tenantId: inbox.tenantId,
+          recordId: record.id,
+          type: 'assigned',
+          description: 'Agente asignado automáticamente al responder',
+          metadata: { assignedTo: senderId, trigger: 'auto_reply' },
+        })).catch(() => {});
       }
     }
 
