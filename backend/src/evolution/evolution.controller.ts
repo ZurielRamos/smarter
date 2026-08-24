@@ -45,7 +45,7 @@ export class EvolutionController {
     const inbox = await this.chatsService.findInboxById(body.inboxId);
     const baseUrl = this.configService.get<string>('META_BASE_URL') || 'http://localhost:3001';
     const instanceName = `inbox_${inbox.id.replace(/-/g, '')}`;
-    const webhookUrl = `${baseUrl}/api/evolution/webhook/${inbox.id}`;
+    const webhookUrl = `${baseUrl}/webhooks/evolution/${inbox.id}`;
 
     const result = await this.evolutionService.createInstance(instanceName, webhookUrl);
 
@@ -192,7 +192,7 @@ export class EvolutionController {
 
 @Public()
 @SkipThrottle()
-@Controller('evolution/webhook')
+@Controller('webhooks/evolution')
 export class EvolutionWebhookController {
   private readonly logger = new Logger(EvolutionWebhookController.name);
 
