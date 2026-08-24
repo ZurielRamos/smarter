@@ -1716,6 +1716,59 @@ export function Conversaciones() {
               </div>
             </div>
           )}
+          {/* Asignar a - hover submenu */}
+          <div className="relative group/assign">
+            <button className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+              <UserPlus className="h-4 w-4 text-gray-400" />
+              <span className="flex-1 text-left">Asignar a</span>
+              <svg className="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+            </button>
+            <div className="absolute left-full top-0 ml-1 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 opacity-0 invisible group-hover/assign:opacity-100 group-hover/assign:visible transition-all z-[110] max-h-60 overflow-y-auto">
+              {contextMenu?.conversation.record?.assignedTo && (
+                <button
+                  onClick={() => {
+                    if (!contextMenu) return;
+                    const recordId = contextMenu.conversation.record?.id;
+                    if (!recordId) return;
+                    api.put(`/records/${recordId}`, { assignedTo: null }).then(() => {
+                      setConversations((prev) => prev.map((c) => c.id !== contextMenu.conversation.id ? c : { ...c, record: c.record ? { ...c.record, assignedTo: null } : c.record }));
+                      toast.success("Asignación removida");
+                    }).catch(() => toast.error("Error"));
+                    setContextMenu(null);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors border-b border-gray-100"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Quitar asignación
+                </button>
+              )}
+              {tenantMembers.map((member) => (
+                <button
+                  key={member.userId}
+                  onClick={() => {
+                    if (!contextMenu) return;
+                    const recordId = contextMenu.conversation.record?.id;
+                    if (!recordId) return;
+                    api.put(`/records/${recordId}`, { assignedTo: member.userId }).then(() => {
+                      setConversations((prev) => prev.map((c) => c.id !== contextMenu.conversation.id ? c : { ...c, record: c.record ? { ...c.record, assignedTo: member.userId } : c.record }));
+                      toast.success(`Asignado a ${member.user.name}`);
+                    }).catch(() => toast.error("Error al asignar"));
+                    setContextMenu(null);
+                  }}
+                  className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs transition-colors ${contextMenu?.conversation.record?.assignedTo === member.userId ? "bg-brand-50 text-brand-700" : "text-gray-700 hover:bg-gray-50"}`}
+                >
+                  <span className="h-5 w-5 rounded-full bg-brand-100 text-brand-700 text-[8px] font-bold flex items-center justify-center shrink-0">
+                    {member.user.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()}
+                  </span>
+                  <span className="truncate">{member.user.name}</span>
+                  {contextMenu?.conversation.record?.assignedTo === member.userId && <CheckCheck className="h-3 w-3 ml-auto shrink-0 text-brand-600" />}
+                </button>
+              ))}
+              {tenantMembers.length === 0 && (
+                <p className="px-3 py-2 text-[10px] text-gray-400">No hay agentes</p>
+              )}
+            </div>
+          </div>
           <div className="my-1 border-t border-gray-100" />
           <button
             onClick={handleDeleteConversation}
