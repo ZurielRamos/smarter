@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { EtlService } from './etl.service';
@@ -33,6 +34,7 @@ export class EtlController {
   @Post('parse')
   @UseInterceptors(
     FileInterceptor('file', {
+      storage: memoryStorage(),
       limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
     }),
   )
@@ -44,6 +46,7 @@ export class EtlController {
   @Post('parse-async')
   @UseInterceptors(
     FileInterceptor('file', {
+      storage: memoryStorage(),
       limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
     }),
   )

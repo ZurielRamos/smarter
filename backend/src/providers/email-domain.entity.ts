@@ -34,6 +34,10 @@ export class EmailDomainConfig {
   @Column({ name: 'inbox_id', type: 'uuid', unique: true })
   inboxId: string;
 
+  /** Provider: mandrill | mailgun */
+  @Column({ type: 'varchar', length: 30, default: 'mandrill' })
+  provider: string;
+
   @Column({ name: 'from_email', type: 'varchar', length: 255 })
   fromEmail: string;
 

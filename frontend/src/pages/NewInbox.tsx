@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Check, MessageSquare, Phone } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { WhatsAppIcon, MessengerIcon, InstagramIcon, EmailIcon, FormIcon, ChatIcon } from "@/components/ChannelIcons";
+import { WhatsAppIcon, MessengerIcon, InstagramIcon, EmailIcon, FormIcon, ChatIcon, GenericChatIcon } from "@/components/ChannelIcons";
+import { EvolutionQrConnect } from "@/components/EvolutionQrConnect";
 import headerBg from "@/assets/header-background.jpg";
 import axios from "axios";
 
@@ -34,8 +35,10 @@ const CHANNELS = [
   { value: "sms", label: "SMS", description: "Envía mensajes de texto a tus contactos", color: "text-sky-600", bg: "bg-sky-50" },
   { value: "llamada", label: "Llamada", description: "Realiza llamadas automáticas a tus contactos", color: "text-purple-600", bg: "bg-purple-50" },
   { value: "email", label: "Email", description: "Envía correos desde tu propio dominio", color: "text-orange-600", bg: "bg-orange-50" },
+  { value: "email_transaccional", label: "Email Transaccional", description: "Envía correos transaccionales vía Mailgun", color: "text-red-600", bg: "bg-red-50" },
   { value: "form", label: "Formulario", description: "Recibe mensajes desde un formulario web", color: "text-violet-600", bg: "bg-violet-50" },
   { value: "chat", label: "Chat", description: "Chat en vivo para tu sitio web", color: "text-teal-600", bg: "bg-teal-50" },
+  { value: "evolution", label: "Chat Genérico", description: "Conecta un número de WhatsApp vía QR", color: "text-emerald-600", bg: "bg-emerald-50" },
 ];
 
 const STEPS = [
@@ -211,8 +214,10 @@ export function NewInbox() {
                           {ch.value === "sms" && <MessageSquare className={`h-5 w-5 ${ch.color}`} />}
                           {ch.value === "llamada" && <Phone className={`h-5 w-5 ${ch.color}`} />}
                           {ch.value === "email" && <EmailIcon className={`h-5 w-5 ${ch.color}`} />}
+                          {ch.value === "email_transaccional" && <EmailIcon className={`h-5 w-5 ${ch.color}`} />}
                           {ch.value === "form" && <FormIcon className={`h-5 w-5 ${ch.color}`} />}
                           {ch.value === "chat" && <ChatIcon className={`h-5 w-5 ${ch.color}`} />}
+                          {ch.value === "evolution" && <GenericChatIcon className={`h-5 w-5 ${ch.color}`} />}
                         </div>
                         <p className="text-sm font-semibold text-gray-900">{ch.label}</p>
                         <p className="text-xs text-gray-500 mt-1">{ch.description}</p>
@@ -293,13 +298,25 @@ export function NewInbox() {
                   )}
                 </div>
                 <div className="flex gap-3 pt-4 mt-4">
-                  {(channel === "sms" || channel === "email" || channel === "llamada" || channel === "chat") ? (
+                  {(channel === "sms" || channel === "email" || channel === "email_transaccional" || channel === "llamada" || channel === "chat") ? (
                     <button
                       onClick={() => setStep(4)}
                       className="px-5 py-2 text-sm rounded-lg bg-brand-800 hover:bg-brand-700 text-white font-medium"
                     >
                       Continuar
                     </button>
+                  ) : channel === "evolution" && createdInbox ? (
+                    <div className="w-full">
+                      <EvolutionQrConnect
+                        inboxId={createdInbox.id}
+                        onConnected={() => setStep(4)}
+                      />
+                      <div className="flex justify-center mt-4">
+                        <button onClick={() => setStep(4)} className="px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 font-medium">
+                          Omitir por ahora
+                        </button>
+                      </div>
+                    </div>
                   ) : (
                     <>
                       <button
@@ -325,7 +342,7 @@ export function NewInbox() {
                 </div>
                 <h2 className="text-lg font-semibold text-gray-900 mb-2">¡Bandeja creada!</h2>
                 <p className="text-sm text-gray-500 mb-6 max-w-sm mx-auto">
-                  {(channel === "sms" || channel === "email" || channel === "llamada")
+                  {(channel === "sms" || channel === "email" || channel === "email_transaccional" || channel === "llamada")
                     ? <>Tu bandeja <strong>{createdInbox?.name}</strong> fue creada. Ahora configura los datos del canal.</>
                     : <>Tu bandeja <strong>{createdInbox?.name}</strong> está lista. Ahora conecta tu cuenta.</>
                   }

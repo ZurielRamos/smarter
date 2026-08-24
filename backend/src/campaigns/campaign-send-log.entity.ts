@@ -77,6 +77,18 @@ export class CampaignSendLog {
   @Column({ name: 'delivered_at', type: 'timestamptz', nullable: true })
   deliveredAt: Date | null;
 
+  /** Timestamp de primera apertura (email) */
+  @Column({ name: 'opened_at', type: 'timestamptz', nullable: true })
+  openedAt: Date | null;
+
+  /** Timestamp de primer click (email) */
+  @Column({ name: 'clicked_at', type: 'timestamptz', nullable: true })
+  clickedAt: Date | null;
+
+  /** Timestamp de queja de spam (email) */
+  @Column({ name: 'complained_at', type: 'timestamptz', nullable: true })
+  complainedAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

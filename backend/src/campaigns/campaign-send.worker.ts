@@ -20,6 +20,9 @@ import { ConfigService } from '@nestjs/config';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TemplatesService } from '../templates/templates.service';
+import { MailgunService } from '../providers/mailgun.service';
+import { EmailDomainService } from '../providers/email-domain.service';
+import { EmailUnsubscribeService } from '../providers/email-unsubscribe.service';
 
 export interface CampaignSendJobData {
   sendId: string;
@@ -62,6 +65,9 @@ export class CampaignSendWorker extends WorkerHost {
     private readonly webhooksService: WebhooksService,
     private readonly notificationsService: NotificationsService,
     private readonly templatesService: TemplatesService,
+    private readonly mailgunService: MailgunService,
+    private readonly emailDomainService: EmailDomainService,
+    private readonly emailUnsubscribeService: EmailUnsubscribeService,
   ) {
     super();
   }
@@ -103,6 +109,18 @@ export class CampaignSendWorker extends WorkerHost {
       const smtpConfig = inbox.metadata?.smtp;
       if (!smtpConfig?.host || !smtpConfig?.user || !smtpConfig?.pass) {
         await this.failSend(sendId, 'La bandeja de email no tiene SMTP configurado');
+        return;
+      }
+    }
+    // Email Transaccional requires Mailgun + domain config
+    if (campaign.channel === 'email_transaccional') {
+      if (!this.mailgunService.isConfigured()) {
+        await this.failSend(sendId, 'Mailgun no está configurado a nivel global');
+        return;
+      }
+      const emailConfig = await this.emailDomainService.findByInbox(inbox.id);
+      if (!emailConfig || !emailConfig.domain) {
+        await this.failSend(sendId, 'La bandeja de email transaccional no tiene dominio configurado');
         return;
       }
     }
@@ -163,7 +181,7 @@ export class CampaignSendWorker extends WorkerHost {
         const logs: Partial<CampaignSendLog>[] = [];
 
         for (const client of clients) {
-          if (campaign.channel === 'email') {
+          if (campaign.channel === 'email' || campaign.channel === 'email_transaccional') {
             // Email channel: validate email instead of phone
             if (!client.email) {
               totalFailed++;
@@ -340,6 +358,100 @@ export class CampaignSendWorker extends WorkerHost {
                 channel: 'email',
                 status: 'failed',
                 errorCode: (result.error || 'unknown').substring(0, 50),
+              });
+            }
+          } else if (campaign.channel === 'email_transaccional') {
+            // === Email Transaccional via Mailgun API ===
+            const emailAddress = client.email;
+            if (!emailAddress) {
+              totalFailed++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone || '',
+                channel: 'email_transaccional',
+                status: 'failed',
+                errorCode: 'no_email',
+              });
+              continue;
+            }
+
+            // Check if unsubscribed
+            const isUnsub = await this.emailUnsubscribeService.isUnsubscribed(campaign.tenantId, emailAddress);
+            if (isUnsub) {
+              totalFailed++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone || '',
+                channel: 'email_transaccional',
+                status: 'failed',
+                errorCode: 'unsubscribed',
+              });
+              continue;
+            }
+
+            const emailConfig = await this.emailDomainService.findByInbox(inbox.id);
+            if (!emailConfig) {
+              totalFailed++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone || '',
+                channel: 'email_transaccional',
+                status: 'failed',
+                errorCode: 'mailgun_not_configured',
+              });
+              continue;
+            }
+
+            const emailContent = await this.resolveEmailContent(campaign, client);
+            const emailSubject = this.interpolateMessage(emailContent.subject, client);
+            const emailHtml = this.interpolateMessage(emailContent.html, client);
+
+            try {
+              const mgResult = await this.mailgunService.sendEmail({
+                domain: emailConfig.domain,
+                from: `"${emailConfig.fromName}" <${emailConfig.fromEmail}>`,
+                to: emailAddress,
+                subject: emailSubject,
+                html: emailHtml.replace(/\n/g, '<br>'),
+                text: emailHtml.replace(/<[^>]+>/g, ''),
+                variables: { campaignId, sendId, recordId: client.id },
+                tags: ['campaign', `campaign:${campaignId}`],
+                tracking: true,
+                unsubscribeUrl: this.emailUnsubscribeService.getUnsubscribeUrl(campaign.tenantId, emailAddress),
+              });
+
+              totalSent++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone || '',
+                channel: 'email_transaccional',
+                status: 'sent',
+                providerMessageId: mgResult.id?.substring(0, 100) ?? null,
+                sentAt: new Date(),
+              });
+            } catch (err: any) {
+              totalFailed++;
+              logs.push({
+                sendId,
+                campaignId,
+                tenantId: campaign.tenantId,
+                recordId: client.id,
+                phone: client.phone || '',
+                channel: 'email_transaccional',
+                status: 'failed',
+                errorCode: (err.message || 'unknown').substring(0, 50),
               });
             }
           } else {
@@ -700,7 +812,7 @@ export class CampaignSendWorker extends WorkerHost {
   ): Promise<void> {
     try {
       // For email campaigns, use email as contact identifier; otherwise use phone
-      const isEmail = campaign.channel === 'email';
+      const isEmail = campaign.channel === 'email' || campaign.channel === 'email_transaccional';
       const contactIdentifiers = isEmail
         ? successfulLogs.map((l) => {
             const client = clients.find((c) => c.id === l.recordId);
@@ -720,7 +832,7 @@ export class CampaignSendWorker extends WorkerHost {
       const convByContact = new Map(existingConvs.map((c) => [c.contactId, c]));
       const now = new Date();
       let lastMessageText: string;
-      if (campaign.channel === 'email') {
+      if (campaign.channel === 'email' || campaign.channel === 'email_transaccional') {
         lastMessageText = `📧 ${campaign.emailSubject || 'Email'}`.substring(0, 100);
       } else if (campaign.channel === 'sms') {
         lastMessageText = (campaign.messageTemplate || 'SMS').substring(0, 100);
@@ -777,7 +889,7 @@ export class CampaignSendWorker extends WorkerHost {
         let messageType: string;
         let templateMeta: string | null = null;
 
-        if (campaign.channel === 'email') {
+        if (campaign.channel === 'email' || campaign.channel === 'email_transaccional') {
           // Email: resolve from template or inline
           const emailContent = await this.resolveEmailContent(campaign, client!);
           renderedContent = this.interpolateMessage(emailContent.html, client!);

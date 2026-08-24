@@ -7,6 +7,7 @@ import { CampaignsService } from './campaigns.service';
 import { WhatsAppService } from './whatsapp.service';
 import { SegmentGroup } from './campaign.entity';
 import { CustomField } from '../records/custom-field.entity';
+import { CampaignSendLog } from './campaign-send-log.entity';
 
 @Controller('campaigns')
 @UseGuards(JwtAuthGuard, TenantAccessGuard)
@@ -16,6 +17,8 @@ export class CampaignsController {
     private readonly whatsappService: WhatsAppService,
     @InjectRepository(CustomField)
     private readonly customFieldRepo: Repository<CustomField>,
+    @InjectRepository(CampaignSendLog)
+    private readonly campaignSendLogRepo: Repository<CampaignSendLog>,
   ) {}
 
   @Get()
@@ -142,5 +145,62 @@ export class CampaignsController {
   @Post(':id/send')
   sendCampaign(@Param('id') id: string) {
     return this.campaignsService.sendCampaign(id);
+  }
+
+  /**
+   * GET /campaigns/:id/stats
+   * Email campaign metrics: open rate, click rate, bounce rate, unsubscribe rate.
+   * Optionally filter by sendId with ?sendId=xxx
+   */
+  @Get(':id/stats')
+  async getStats(@Param('id') id: string, @Query('sendId') sendId?: string) {
+    const where: any = { campaignId: id };
+    if (sendId) where.sendId = sendId;
+
+    const logs = await this.campaignSendLogRepo
+      .createQueryBuilder('log')
+      .select([
+        'COUNT(*)::int AS "total"',
+        'COUNT(*) FILTER (WHERE log.status = \'sent\' OR log.status = \'delivered\')::int AS "sent"',
+        'COUNT(*) FILTER (WHERE log.status = \'delivered\')::int AS "delivered"',
+        'COUNT(*) FILTER (WHERE log.status = \'failed\')::int AS "failed"',
+        'COUNT(*) FILTER (WHERE log.opened_at IS NOT NULL)::int AS "opened"',
+        'COUNT(*) FILTER (WHERE log.clicked_at IS NOT NULL)::int AS "clicked"',
+        'COUNT(*) FILTER (WHERE log.complained_at IS NOT NULL)::int AS "complained"',
+        'COUNT(*) FILTER (WHERE log.error_code = \'unsubscribed\')::int AS "unsubscribed"',
+        'COUNT(*) FILTER (WHERE log.error_code IN (\'no_email\', \'unsubscribed\', \'mailgun_not_configured\'))::int AS "skipped"',
+      ])
+      .where(sendId ? 'log.send_id = :sendId' : 'log.campaign_id = :campaignId', { sendId, campaignId: id })
+      .getRawOne();
+
+    const total = logs.total || 0;
+    const sent = logs.sent || 0;
+    const delivered = logs.delivered || 0;
+    const failed = logs.failed || 0;
+    const opened = logs.opened || 0;
+    const clicked = logs.clicked || 0;
+    const complained = logs.complained || 0;
+    const unsubscribed = logs.unsubscribed || 0;
+    const skipped = logs.skipped || 0;
+
+    return {
+      total,
+      sent,
+      delivered,
+      failed,
+      skipped,
+      opened,
+      clicked,
+      complained,
+      unsubscribed,
+      rates: {
+        deliveryRate: sent > 0 ? Math.round((delivered / sent) * 10000) / 100 : 0,
+        openRate: delivered > 0 ? Math.round((opened / delivered) * 10000) / 100 : 0,
+        clickRate: delivered > 0 ? Math.round((clicked / delivered) * 10000) / 100 : 0,
+        bounceRate: sent > 0 ? Math.round((failed / sent) * 10000) / 100 : 0,
+        complaintRate: delivered > 0 ? Math.round((complained / delivered) * 10000) / 100 : 0,
+        unsubscribeRate: delivered > 0 ? Math.round((unsubscribed / delivered) * 10000) / 100 : 0,
+      },
+    };
   }
 }

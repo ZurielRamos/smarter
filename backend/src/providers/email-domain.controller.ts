@@ -25,7 +25,7 @@ export class EmailDomainController {
   @Post('inbox/:inboxId')
   upsertConfig(
     @Param('inboxId') inboxId: string,
-    @Body() body: { tenantId: string; fromEmail: string; fromName: string },
+    @Body() body: { tenantId: string; fromEmail: string; fromName: string; provider?: string },
   ) {
     return this.emailDomainService.upsert(inboxId, body.tenantId, body);
   }
@@ -37,7 +37,7 @@ export class EmailDomainController {
     if (!config) return { records: [], domain: null };
     return {
       domain: config.domain,
-      records: this.emailDomainService.getDnsRecords(config.domain),
+      records: await this.emailDomainService.getDnsRecords(config.domain, config.provider),
     };
   }
 

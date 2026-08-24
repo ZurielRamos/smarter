@@ -36,12 +36,20 @@ export class EtlWorker extends WorkerHost {
   }
 
   private async handleParseFile(job: Job): Promise<void> {
-    const { jobId, buffer, originalname, size } = job.data;
+    const { jobId, rawFileId, originalname, size } = job.data;
     this.logger.log(`Parsing file for job ${jobId}: ${originalname}`);
 
     try {
-      const fileBuffer = Buffer.from(buffer, 'base64');
+      const fileBuffer = this.fileStore.readRawFile(rawFileId);
+      if (!fileBuffer) {
+        await this.etlService.failParseJob(jobId, 'Archivo raw no encontrado en disco');
+        return;
+      }
+
       const result = this.parseProcessor.parseFile(fileBuffer, originalname);
+
+      // Clean up raw file — no longer needed after parsing
+      this.fileStore.deleteRawFile(rawFileId);
 
       // Store parsed data to disk
       const fileId = this.fileStore.store(result.data, {
@@ -63,7 +71,7 @@ export class EtlWorker extends WorkerHost {
       this.logger.log(`Parse completed for job ${jobId}: ${result.totalRows} rows`);
     } catch (error: any) {
       this.logger.error(`Parse failed for job ${jobId}: ${error.message}`, error.stack);
-      // Mark job as failed
+      this.fileStore.deleteRawFile(rawFileId);
       await this.etlService.failParseJob(jobId, error.message);
       throw error;
     }

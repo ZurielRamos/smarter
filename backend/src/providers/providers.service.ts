@@ -72,6 +72,27 @@ export class ProvidersService {
           { key: 'OPENROUTER_API_KEY', label: 'API Key', set: !!this.configService.get('OPENROUTER_API_KEY') },
         ],
       },
+      {
+        channel: 'email_transaccional',
+        provider: 'mailgun',
+        name: 'Mailgun',
+        configured: !!this.configService.get('MAILGUN_API_KEY'),
+        keys: [
+          { key: 'MAILGUN_API_KEY', label: 'API Key', set: !!this.configService.get('MAILGUN_API_KEY') },
+          { key: 'MAILGUN_WEBHOOK_SIGNING_KEY', label: 'Webhook Signing Key', set: !!this.configService.get('MAILGUN_WEBHOOK_SIGNING_KEY') },
+          { key: 'MAILGUN_REGION', label: 'Región (us/eu)', set: !!this.configService.get('MAILGUN_REGION') },
+        ],
+      },
+      {
+        channel: 'evolution',
+        provider: 'evolution',
+        name: 'Evolution API',
+        configured: !!this.configService.get('EVOLUTION_API_URL') && !!this.configService.get('EVOLUTION_API_KEY'),
+        keys: [
+          { key: 'EVOLUTION_API_URL', label: 'URL del servidor', set: !!this.configService.get('EVOLUTION_API_URL') },
+          { key: 'EVOLUTION_API_KEY', label: 'API Key (Global)', set: !!this.configService.get('EVOLUTION_API_KEY') },
+        ],
+      },
     ];
   }
 

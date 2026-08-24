@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -18,6 +18,10 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ConversionsService } from '../conversions/conversions.service';
 import { BotsService } from '../bots/bots.service';
 import { Activity } from '../records/activity.entity';
+import { EvolutionService } from '../evolution/evolution.service';
+import { MailgunService } from '../providers/mailgun.service';
+import { EmailDomainService } from '../providers/email-domain.service';
+import { EmailUnsubscribeService } from '../providers/email-unsubscribe.service';
 
 @Injectable()
 export class ChatsService {
@@ -47,6 +51,11 @@ export class ChatsService {
     private readonly botsService: BotsService,
     @InjectRepository(Activity)
     private readonly activityRepo: Repository<Activity>,
+    @Inject(forwardRef(() => EvolutionService))
+    private readonly evolutionService: EvolutionService,
+    private readonly mailgunService: MailgunService,
+    private readonly emailDomainService: EmailDomainService,
+    private readonly emailUnsubscribeService: EmailUnsubscribeService,
   ) {}
 
   // === INBOXES ===
@@ -1616,6 +1625,46 @@ export class ChatsService {
         console.error('[Chat] Email send failed:', err);
         sendError = err.message || 'Error desconocido al enviar email';
       }
+    } else if (inbox.channel === 'email_transaccional') {
+      // Send via Mailgun API
+      const emailConfig = await this.emailDomainService.findByInbox(inbox.id);
+      if (!emailConfig || !emailConfig.domain) {
+        throw new Error('Dominio de email no configurado para esta bandeja');
+      }
+
+      // Get contact email from record
+      const record = conversation.recordId
+        ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } })
+        : null;
+      const toEmail = record?.email || conversation.contactId;
+      if (!toEmail || !toEmail.includes('@')) {
+        throw new Error('El contacto no tiene email configurado');
+      }
+
+      const from = `"${emailConfig.fromName}" <${emailConfig.fromEmail}>`;
+      const subject = inbox.metadata?.defaultSubject || 'Mensaje de ' + emailConfig.fromName;
+
+      try {
+        const result = await this.mailgunService.sendEmail({
+          domain: emailConfig.domain,
+          from,
+          to: toEmail,
+          subject,
+          html: content.replace(/\n/g, '<br>'),
+          text: content,
+          variables: {
+            conversationId: conversation.id,
+            inboxId: inbox.id,
+          },
+          tags: ['transactional', `inbox:${inbox.id}`],
+          tracking: true,
+          unsubscribeUrl: this.emailUnsubscribeService.getUnsubscribeUrl(inbox.tenantId, toEmail),
+        });
+        externalId = result.id || null;
+      } catch (err: any) {
+        console.error('[Chat] Mailgun email send failed:', err);
+        sendError = err.message || 'Error desconocido al enviar email vía Mailgun';
+      }
     } else if (inbox.channel === 'whatsapp') {
       if (!inbox.accessToken) throw new Error('Inbox not connected');
       // Send via WhatsApp Cloud API
@@ -1681,6 +1730,22 @@ export class ChatsService {
     } else if (inbox.channel === 'chat') {
       // Chat widget — no external API needed, message will be pushed via WebSocket
       externalId = `chat_${Date.now()}`;
+    } else if (inbox.channel === 'evolution') {
+      // Evolution API (Chat Genérico / WhatsApp no oficial)
+      const instanceName = inbox.metadata?.evolutionInstanceName;
+      if (!instanceName) throw new Error('Evolution instance not configured');
+      try {
+        const result = await this.evolutionService.sendText(
+          instanceName,
+          conversation.contactId,
+          content,
+          inbox.accessToken || undefined,
+        );
+        externalId = result?.key?.id || null;
+      } catch (err: any) {
+        console.error('[Chat] Evolution send error:', err);
+        sendError = err.message || 'Error de conexión con Evolution API';
+      }
     }
 
     // Save outbound message
@@ -1946,6 +2011,28 @@ export class ChatsService {
       } catch (err: any) {
         console.error(`[Chat] Failed to send media via ${inbox.channel}:`, err);
         sendError = err.message || `Error de conexión con ${inbox.channel} API`;
+      }
+    } else if (inbox.channel === 'evolution' && inbox.metadata?.evolutionInstanceName) {
+      // Evolution API — send media via URL
+      const instanceName = inbox.metadata.evolutionInstanceName;
+      try {
+        const evoMediaType = messageType === 'image' ? 'image'
+          : messageType === 'video' ? 'video'
+          : messageType === 'audio' ? 'audio'
+          : 'document';
+        const result = await this.evolutionService.sendMedia(
+          instanceName,
+          conversation.contactId,
+          stored?.url || '',
+          evoMediaType,
+          caption || undefined,
+          file.originalname,
+          inbox.accessToken || undefined,
+        );
+        externalId = result?.key?.id || null;
+      } catch (err: any) {
+        console.error('[Chat] Evolution media send error:', err);
+        sendError = err.message || 'Error de conexión con Evolution API';
       }
     }
 
@@ -2689,5 +2776,160 @@ export class ChatsService {
     }
 
     return record;
+  }
+
+  // === EVOLUTION API (Chat Genérico) ===
+
+  /**
+   * Procesa un mensaje entrante de Evolution API.
+   * Crea o actualiza la conversación y guarda el mensaje.
+   */
+  async handleEvolutionInboundMessage(
+    inboxId: string,
+    data: {
+      contactPhone: string;
+      contactName: string;
+      messageType: string;
+      content: string | null;
+      mediaUrl: string | null;
+      mediaMimeType: string | null;
+      externalId: string | null;
+      replyToExternalId: string | null;
+    },
+  ): Promise<void> {
+    const inbox = await this.inboxRepo.findOne({ where: { id: inboxId } });
+    if (!inbox) {
+      console.warn(`[Evolution Webhook] No inbox found: ${inboxId}`);
+      return;
+    }
+
+    const { contactPhone, contactName, messageType, content, mediaUrl, mediaMimeType, externalId, replyToExternalId } = data;
+
+    // Buscar o crear conversación
+    let conversation = await this.conversationRepo.findOne({
+      where: { inboxId: inbox.id, contactId: contactPhone },
+    });
+
+    if (!conversation) {
+      conversation = this.conversationRepo.create({
+        inboxId: inbox.id,
+        contactId: contactPhone,
+        contactName,
+        status: 'open',
+      });
+      conversation = await this.conversationRepo.save(conversation);
+    }
+
+    // Guardar media en storage si viene como base64 data URL
+    let storedMediaUrl = mediaUrl;
+    if (mediaUrl && mediaUrl.startsWith('data:')) {
+      try {
+        const matches = mediaUrl.match(/^data:(.+);base64,(.+)$/);
+        if (matches) {
+          const mimeType = matches[1];
+          const base64Data = matches[2];
+          const buffer = Buffer.from(base64Data, 'base64');
+          const stored = await this.mediaStorageService.uploadBuffer(buffer, {
+            channel: 'evolution',
+            tenantId: inbox.tenantId,
+            conversationId: conversation.id,
+            messageId: externalId || `evo-${Date.now()}`,
+            mimeType,
+            filename: `media_${Date.now()}`,
+          });
+          storedMediaUrl = stored?.url || null;
+        }
+      } catch (err) {
+        console.error('[Evolution] Failed to store media:', err);
+        storedMediaUrl = null;
+      }
+    }
+
+    // Guardar mensaje
+    const message = this.messageRepo.create({
+      conversationId: conversation.id,
+      direction: 'inbound',
+      messageType,
+      content,
+      mediaUrl: storedMediaUrl,
+      mediaMimeType,
+      externalId,
+      replyToExternalId,
+      status: 'delivered',
+    });
+    await this.messageRepo.save(message);
+
+    // Actualizar conversación
+    conversation.lastMessage = content || `[${messageType}]`;
+    conversation.lastMessageAt = new Date();
+    conversation.lastMessageSource = null;
+    conversation.unreadCount = (conversation.unreadCount || 0) + 1;
+    if (contactName && !conversation.contactName) conversation.contactName = contactName;
+
+    // Vincular a registro de contacto
+    if (!conversation.recordId) {
+      const record = await this.findOrCreateRecordByPhone(contactPhone, inbox.tenantId, contactName, inbox.id);
+      conversation.recordId = record.id;
+    } else {
+      await this.clientRecordRepo.update(conversation.recordId, { lastContactAt: new Date() });
+    }
+
+    await this.conversationRepo.save(conversation);
+
+    // Emitir eventos en tiempo real
+    this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
+    this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
+
+    // Notificar colaboradores del inbox
+    this.notificationsService.getInboxCollaboratorUserIds(inbox.id).then(async (userIds) => {
+      let contactLabel = conversation!.contactName || contactPhone || 'Contacto';
+      if (conversation!.recordId) {
+        const record = await this.clientRecordRepo.findOne({ where: { id: conversation!.recordId! } });
+        if (record) {
+          contactLabel = record.fullName || record.firstName || contactLabel;
+        }
+      }
+      for (const uid of userIds) {
+        this.notificationsService.findUnreadByConversation(uid, conversation!.id).then((existing) => {
+          if (!existing) {
+            this.notificationsService.notify({
+              tenantId: inbox.tenantId,
+              userId: uid,
+              type: 'message_received',
+              title: `Nuevo mensaje de ${contactLabel}`,
+              body: (content || `[${messageType}]`).substring(0, 120),
+              link: `/${inbox.tenantId}/comunicaciones/conversaciones/${conversation!.id}`,
+              metadata: { conversationId: conversation!.id, inboxId: inbox.id, messageType },
+            }).catch(() => {});
+          } else {
+            this.notificationsService.updateBody(existing.id, (content || `[${messageType}]`).substring(0, 120)).catch(() => {});
+          }
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+
+    // Dispatch webhooks
+    const contactRecord = conversation.recordId ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } }) : null;
+    this.webhooksService.dispatch(inbox.tenantId, 'message_created', {
+      message,
+      conversation: { id: conversation.id, contactId: conversation.contactId, contactName: conversation.contactName, status: conversation.status, recordId: conversation.recordId, inboxId: conversation.inboxId, lastMessage: conversation.lastMessage, lastMessageAt: conversation.lastMessageAt },
+      contact: contactRecord,
+      inbox: { id: inbox.id, name: inbox.name, channel: inbox.channel },
+    }).catch(() => {});
+
+    // Trigger bot auto-reply si hay bot asignado
+    this.scheduleBotReply(inbox, conversation, content).catch((err) => {
+      console.error('[Evolution Bot Auto-Reply] Failed:', err?.message || err);
+    });
+  }
+
+  /**
+   * Actualiza el status de un mensaje por su externalId.
+   */
+  async updateMessageStatus(externalId: string, status: string): Promise<void> {
+    const message = await this.messageRepo.findOne({ where: { externalId } });
+    if (!message) return;
+    message.status = status;
+    await this.messageRepo.save(message);
   }
 }

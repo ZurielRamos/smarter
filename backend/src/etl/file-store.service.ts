@@ -71,6 +71,33 @@ export class FileStoreService implements OnModuleDestroy {
   }
 
   /**
+   * Stores a raw file buffer to disk (for async parsing). Returns a rawFileId.
+   */
+  storeRawFile(buffer: Buffer, fileName: string): string {
+    const rawFileId = uuidv4();
+    const filePath = join(this.cacheDir, `${rawFileId}.raw`);
+    writeFileSync(filePath, buffer);
+    return rawFileId;
+  }
+
+  /**
+   * Reads a raw file buffer from disk.
+   */
+  readRawFile(rawFileId: string): Buffer | null {
+    const filePath = join(this.cacheDir, `${rawFileId}.raw`);
+    if (!existsSync(filePath)) return null;
+    return readFileSync(filePath);
+  }
+
+  /**
+   * Deletes a raw file from disk.
+   */
+  deleteRawFile(rawFileId: string): void {
+    const filePath = join(this.cacheDir, `${rawFileId}.raw`);
+    try { if (existsSync(filePath)) unlinkSync(filePath); } catch {}
+  }
+
+  /**
    * Gets metadata without loading the full data.
    */
   getMeta(fileId: string): StoredFile | null {

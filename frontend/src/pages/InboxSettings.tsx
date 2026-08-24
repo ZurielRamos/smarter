@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Trash2, Wifi, WifiOff, Phone, MessageCircle, Camera, MessageSquare, Mail, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Wifi, WifiOff, Phone, MessageCircle, Camera, MessageSquare, Mail, CheckCircle2, XCircle, Loader2, Smartphone } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { EvolutionQrConnect } from "@/components/EvolutionQrConnect";
 import headerBg from "@/assets/header-background.jpg";
 import axios from "axios";
 
@@ -36,6 +37,7 @@ const CHANNEL_META: Record<string, { label: string; icon: typeof MessageSquare; 
   llamada: { label: "Llamada", icon: Phone, color: "text-purple-600", bg: "bg-purple-50" },
   email: { label: "Email", icon: Mail, color: "text-orange-600", bg: "bg-orange-50" },
   chat: { label: "Chat", icon: MessageCircle, color: "text-teal-600", bg: "bg-teal-50" },
+  evolution: { label: "Chat Genérico", icon: Smartphone, color: "text-emerald-600", bg: "bg-emerald-50" },
 };
 
 export function InboxSettings() {
@@ -62,10 +64,22 @@ export function InboxSettings() {
   const [smsSaving, setSmsSaving] = useState(false);
   const [smsSaved, setSmsSaved] = useState(false);
 
+  // Mailgun (Email Transaccional) config state
+  const [mailgunForm, setMailgunForm] = useState({ fromName: "", fromEmail: "", defaultSubject: "" });
+  const [mailgunSaving, setMailgunSaving] = useState(false);
+  const [mailgunSaved, setMailgunSaved] = useState(false);
+  const [mailgunDomain, setMailgunDomain] = useState("");
+  const [mailgunDnsRecords, setMailgunDnsRecords] = useState<{ type: string; name: string; value: string; purpose: string; valid?: boolean }[]>([]);
+  const [mailgunVerifying, setMailgunVerifying] = useState(false);
+  const [mailgunVerifyResult, setMailgunVerifyResult] = useState<{ verified: boolean; results?: any[] } | null>(null);
+
   // Llamada config state
   const [callVoice, setCallVoice] = useState("Mariana");
   const [callSaving, setCallSaving] = useState(false);
   const [callSaved, setCallSaved] = useState(false);
+
+  // Evolution (Chat Genérico) state
+  const [showEvolutionQr, setShowEvolutionQr] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -86,6 +100,19 @@ export function InboxSettings() {
             fromEmail: smtp.fromEmail || "",
             defaultSubject: smtp.defaultSubject || "",
           });
+        }
+        if (data.channel === "email_transaccional") {
+          // Load email domain config from API
+          api.get(`/email-config/inbox/${data.id}`).then(({ data: cfg }) => {
+            if (cfg) {
+              setMailgunForm({ fromName: cfg.fromName || "", fromEmail: cfg.fromEmail || "", defaultSubject: data.metadata?.defaultSubject || "" });
+              setMailgunDomain(cfg.domain || "");
+            }
+          }).catch(() => {});
+          // Load DNS records
+          api.get(`/email-config/inbox/${data.id}/dns-records`).then(({ data: dns }) => {
+            if (dns?.records) setMailgunDnsRecords(dns.records);
+          }).catch(() => {});
         }
         if (data.channel === "sms") {
           setSmsSender(data.metadata?.sender || "");
@@ -121,6 +148,44 @@ export function InboxSettings() {
     } catch {
       setSmtpTestResult({ success: false, error: "Error de conexión" });
     } finally { setSmtpTesting(false); }
+  };
+
+  const handleMailgunSave = async () => {
+    if (!inbox || !mailgunForm.fromEmail || !mailgunForm.fromName) return;
+    setMailgunSaving(true);
+    try {
+      const tenantId = inbox.tenantId;
+      await api.post(`/email-config/inbox/${inbox.id}`, {
+        tenantId,
+        fromEmail: mailgunForm.fromEmail,
+        fromName: mailgunForm.fromName,
+        provider: "mailgun",
+      });
+      // Save defaultSubject in inbox metadata
+      await api.put(`/chats/inboxes/${inbox.id}`, { metadata: { ...inbox.metadata, defaultSubject: mailgunForm.defaultSubject } });
+      setMailgunSaved(true);
+      setTimeout(() => setMailgunSaved(false), 2000);
+      // Refresh domain and DNS records
+      const domain = mailgunForm.fromEmail.split("@")[1];
+      setMailgunDomain(domain);
+      const { data: dns } = await api.get(`/email-config/inbox/${inbox.id}/dns-records`);
+      if (dns?.records) setMailgunDnsRecords(dns.records);
+    } catch {} finally { setMailgunSaving(false); }
+  };
+
+  const handleVerifyDomain = async () => {
+    if (!inbox) return;
+    setMailgunVerifying(true);
+    setMailgunVerifyResult(null);
+    try {
+      const { data } = await api.post(`/email-config/inbox/${inbox.id}/verify`);
+      setMailgunVerifyResult(data);
+      // Refresh DNS records after verify
+      const { data: dns } = await api.get(`/email-config/inbox/${inbox.id}/dns-records`);
+      if (dns?.records) setMailgunDnsRecords(dns.records);
+    } catch {
+      setMailgunVerifyResult({ verified: false, results: [{ record: "Error", status: "error", detail: "No se pudo verificar" }] });
+    } finally { setMailgunVerifying(false); }
   };
 
   const handleSmsSave = async () => {
@@ -372,6 +437,86 @@ export function InboxSettings() {
               </div>
             )}
           </div>
+          ) : inbox.channel === "email_transaccional" ? (
+          <div className="bg-white rounded-xl border border-red-200 p-6">
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">Email Transaccional — Mailgun</h2>
+            <p className="text-[11px] text-gray-500 mb-4">Configura tu dominio de envío. Los correos se envían vía Mailgun API.</p>
+
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Nombre remitente</label>
+                  <input type="text" value={mailgunForm.fromName} onChange={(e) => setMailgunForm({ ...mailgunForm, fromName: e.target.value })} placeholder="Mi Empresa" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Email remitente</label>
+                  <input type="email" value={mailgunForm.fromEmail} onChange={(e) => setMailgunForm({ ...mailgunForm, fromEmail: e.target.value })} placeholder="noreply@tu-dominio.com" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Asunto por defecto</label>
+                <input type="text" value={mailgunForm.defaultSubject} onChange={(e) => setMailgunForm({ ...mailgunForm, defaultSubject: e.target.value })} placeholder="Nuevo mensaje" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 mt-4">
+              <button onClick={handleMailgunSave} disabled={mailgunSaving || !mailgunForm.fromEmail || !mailgunForm.fromName} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-xs font-medium disabled:opacity-50">
+                {mailgunSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : mailgunSaved ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
+                {mailgunSaved ? "Guardado" : "Guardar configuración"}
+              </button>
+              {mailgunDomain && (
+                <button onClick={handleVerifyDomain} disabled={mailgunVerifying} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 text-xs font-medium disabled:opacity-50">
+                  {mailgunVerifying ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wifi className="h-3 w-3" />}
+                  Verificar dominio
+                </button>
+              )}
+            </div>
+
+            {/* Domain DNS records */}
+            {mailgunDomain && (
+              <div className="mt-4 border border-gray-200 rounded-lg p-4">
+                <h3 className="text-xs font-semibold text-gray-800 mb-2">Registros DNS para: <span className="text-red-600">{mailgunDomain}</span></h3>
+                <p className="text-[10px] text-gray-500 mb-3">Agrega estos registros en tu proveedor de DNS para verificar tu dominio.</p>
+
+                {mailgunDnsRecords.length > 0 ? (
+                  <div className="space-y-2">
+                    {mailgunDnsRecords.map((record, idx) => (
+                      <div key={idx} className={`p-2.5 rounded-lg border text-[11px] ${record.valid ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-gray-700">{record.type}</span>
+                          {record.valid !== undefined && (
+                            <span className={`text-[10px] font-medium ${record.valid ? "text-green-600" : "text-amber-600"}`}>
+                              {record.valid ? "✓ Verificado" : "⚠ Pendiente"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-gray-600"><span className="font-medium">Name:</span> {record.name}</div>
+                        <div className="text-gray-600 break-all"><span className="font-medium">Value:</span> {record.value}</div>
+                        {record.purpose && <div className="text-gray-400 mt-1">{record.purpose}</div>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-400">Guarda la configuración para ver los registros DNS requeridos.</p>
+                )}
+
+                {mailgunVerifyResult && (
+                  <div className={`mt-3 p-2.5 rounded-lg border text-xs ${mailgunVerifyResult.verified ? "bg-green-50 border-green-200 text-green-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+                    {mailgunVerifyResult.verified ? (
+                      <div className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3" /> Dominio verificado correctamente</div>
+                    ) : (
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1"><XCircle className="h-3 w-3" /> Dominio no verificado</div>
+                        {mailgunVerifyResult.results?.map((r: any, i: number) => (
+                          <div key={i} className="ml-4 text-[10px]">{r.record}: {r.status === "ok" ? "✓" : `✗ ${r.detail || ""}`}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           ) : inbox.channel === "sms" ? (
           <div className="bg-white rounded-xl border border-sky-200 p-6">
             <h2 className="text-sm font-semibold text-gray-900 mb-4">Configuración SMS</h2>
@@ -446,6 +591,100 @@ export function InboxSettings() {
                 {callSaved ? "Guardado" : "Guardar"}
               </button>
             </div>
+          </div>
+          ) : inbox.channel === "evolution" ? (
+          <div className="bg-white rounded-xl border border-emerald-200 p-6">
+            <h2 className="text-sm font-semibold text-gray-900 mb-4">Chat Genérico — Estado de conexión</h2>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {inbox.status === "connected" ? (
+                  <div className="flex items-center gap-2 text-green-600">
+                    <Wifi className="h-4 w-4" />
+                    <span className="text-sm font-medium">Conectado</span>
+                  </div>
+                ) : inbox.status === "pending" ? (
+                  <div className="flex items-center gap-2 text-yellow-600">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm font-medium">Conectando...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-red-500">
+                    <WifiOff className="h-4 w-4" />
+                    <span className="text-sm font-medium">Desconectado</span>
+                  </div>
+                )}
+                {inbox.channelName && (
+                  <span className="text-xs text-gray-400">· +{inbox.channelName}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {inbox.status === "connected" && (
+                  <>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await api.post(`/evolution/instances/${inbox.id}/restart`);
+                          const { data } = await api.get<Inbox>(`/chats/inboxes/${inbox.id}`);
+                          setInbox(data);
+                        } catch {}
+                      }}
+                      className="px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Reconectar
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await api.post(`/evolution/instances/${inbox.id}/logout`);
+                          const { data } = await api.get<Inbox>(`/chats/inboxes/${inbox.id}`);
+                          setInbox(data);
+                        } catch {}
+                      }}
+                      className="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                    >
+                      Desconectar
+                    </button>
+                  </>
+                )}
+                {inbox.status === "disconnected" && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api.post("/evolution/instances", { inboxId: inbox.id });
+                        const { data } = await api.get<Inbox>(`/chats/inboxes/${inbox.id}`);
+                        setInbox(data);
+                        setShowEvolutionQr(true);
+                      } catch {}
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors"
+                  >
+                    Conectar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {inbox.status === "connected" && inbox.metadata?.evolutionInstanceName && (
+              <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500">Instancia</span>
+                  <span className="text-gray-700 font-mono">{inbox.metadata.evolutionInstanceName}</span>
+                </div>
+              </div>
+            )}
+
+            {(inbox.status === "pending" || showEvolutionQr) && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <EvolutionQrConnect
+                  inboxId={inbox.id}
+                  onConnected={async () => {
+                    setShowEvolutionQr(false);
+                    const { data } = await api.get<Inbox>(`/chats/inboxes/${inbox.id}`);
+                    setInbox(data);
+                  }}
+                />
+              </div>
+            )}
           </div>
           ) : (
           <div className="bg-white rounded-xl border border-gray-200 p-6">

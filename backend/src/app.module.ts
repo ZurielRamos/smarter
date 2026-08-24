@@ -24,6 +24,7 @@ import { ConversionsModule } from './conversions/conversions.module';
 import { TemplatesModule } from './templates/templates.module';
 import { BotsModule } from './bots/bots.module';
 import { AuditModule } from './audit/audit.module';
+import { EvolutionModule } from './evolution/evolution.module';
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { AuditModule } from './audit/audit.module';
     TemplatesModule,
     BotsModule,
     AuditModule,
+    EvolutionModule,
   ],
   providers: [
     {

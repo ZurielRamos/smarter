@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Plus, Settings2, Trash2, MessageCircle, Phone, Camera, MessageSquare, Mail, Wifi, WifiOff, ArrowLeft } from "lucide-react";
+import { Plus, Settings2, Trash2, MessageCircle, Phone, Camera, MessageSquare, Mail, Wifi, WifiOff, ArrowLeft, Smartphone } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import headerBg from "@/assets/header-background.jpg";
 import axios from "axios";
@@ -31,6 +31,7 @@ const CHANNEL_META: Record<string, { label: string; icon: typeof MessageSquare; 
   llamada: { label: "Llamada", icon: Phone, color: "text-purple-600", bg: "bg-purple-50" },
   email: { label: "Email", icon: Mail, color: "text-orange-600", bg: "bg-orange-50" },
   chat: { label: "Chat", icon: MessageCircle, color: "text-teal-600", bg: "bg-teal-50" },
+  evolution: { label: "Chat Genérico", icon: Smartphone, color: "text-emerald-600", bg: "bg-emerald-50" },
 };
 
 export function Inboxes() {

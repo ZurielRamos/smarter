@@ -22,8 +22,6 @@ import { WooCommerceIntegration } from "./pages/WooCommerceIntegration";
 import { ApiReference } from "./pages/ApiReference";
 import { ComunicacionesLayout } from "./pages/comunicaciones/ComunicacionesLayout";
 import { Conversaciones } from "./pages/comunicaciones/Conversaciones";
-import { Agentes } from "./pages/comunicaciones/Agentes";
-import { Equipos } from "./pages/comunicaciones/Equipos";
 import { Etiquetas } from "./pages/comunicaciones/Etiquetas";
 import { Campanas } from "./pages/comunicaciones/Campanas";
 import { CampanaEmpty } from "./pages/comunicaciones/CampanaEmpty";
@@ -142,8 +140,6 @@ function App() {
               <Route index element={<Navigate to="conversaciones" replace />} />
               <Route path="conversaciones" element={<Conversaciones />} />
               <Route path="conversaciones/:conversationId" element={<Conversaciones />} />
-              <Route path="agentes" element={<Agentes />} />
-              <Route path="equipos" element={<Equipos />} />
               <Route path="etiquetas" element={<Etiquetas />} />
               <Route path="campanas" element={<Campanas />}>
                 <Route index element={<CampanaEmpty />} />

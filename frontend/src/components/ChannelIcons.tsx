@@ -50,6 +50,17 @@ export function ChatIcon({ className = "h-3 w-3" }: { className?: string }) {
   );
 }
 
+export function GenericChatIcon({ className = "h-3 w-3" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10a9.95 9.95 0 0 1-4.644-1.142L2 22l1.142-5.356A9.95 9.95 0 0 1 2 12C2 6.477 6.477 2 12 2z" />
+      <path d="M8 12h.01" />
+      <path d="M12 12h.01" />
+      <path d="M16 12h.01" />
+    </svg>
+  );
+}
+
 export function EmailIcon({ className = "h-3 w-3" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

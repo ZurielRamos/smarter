@@ -28,6 +28,7 @@ import { WebhooksModule } from '../webhooks/webhooks.module';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { TemplatesModule } from '../templates/templates.module';
+import { ProvidersModule } from '../providers/providers.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { TemplatesModule } from '../templates/templates.module';
     UsersModule,
     NotificationsModule,
     TemplatesModule,
+    ProvidersModule,
   ],
   providers: [CampaignsService, WhatsAppService, CallService, SmsService, EmailService, CampaignsGateway, CampaignSendWorker, CampaignSchedulerService],
   controllers: [CampaignsController, ApiCampaignsController],

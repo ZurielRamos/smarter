@@ -57,7 +57,14 @@ export class EtlService {
 
   /** Async parse: saves raw file to disk, creates a job, and queues parsing */
   async parseFileAsync(file: Express.Multer.File, tenantId?: string): Promise<ImportJob> {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('No se recibió el archivo o excede el tamaño máximo permitido (50MB)');
+    }
+
     const fileType = file.originalname.split('.').pop()?.toLowerCase() || 'csv';
+
+    // Save raw file to disk to avoid sending large buffers through Redis
+    const rawFileId = this.fileStore.storeRawFile(file.buffer, file.originalname);
 
     // Create job in 'parsing' state
     const job = this.jobRepo.create({
@@ -72,10 +79,10 @@ export class EtlService {
     });
     const savedJob = await this.jobRepo.save(job);
 
-    // Queue the parse work
+    // Queue the parse work — only pass file reference, not the buffer
     await this.etlQueue.add('parse-file', {
       jobId: savedJob.id,
-      buffer: file.buffer.toString('base64'),
+      rawFileId,
       originalname: file.originalname,
       size: file.size,
     }, { attempts: 1, removeOnComplete: true, removeOnFail: false });
