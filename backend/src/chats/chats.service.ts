@@ -1541,6 +1541,10 @@ export class ChatsService {
 
           const newData: Record<string, string> = {};
 
+          // Sequential bots can overwrite existing data (except phone on WA/evolution channels)
+          const isSequential = bot.type === 'sequential';
+          const isPhoneChannel = inbox.channel === 'whatsapp' || inbox.channel === 'evolution';
+
           for (const [key, value] of Object.entries(response.extractedData)) {
             if (!value) continue;
 
@@ -1548,14 +1552,19 @@ export class ChatsService {
               // Custom field — store in customData jsonb
               const customKey = key.replace('custom:', '');
               if (!record.customData) record.customData = {};
-              if (!record.customData[customKey]) {
+              if (isSequential || !record.customData[customKey]) {
                 record.customData[customKey] = value;
                 newData[key] = value;
               }
             } else {
               // Standard field
               const recordField = standardFieldMap[key];
-              if (recordField && !record[recordField]) {
+              if (!recordField) continue;
+
+              // Never overwrite phone on WhatsApp/Evolution (it's the contact identifier)
+              if (recordField === 'phone' && isPhoneChannel) continue;
+
+              if (isSequential || !record[recordField]) {
                 record[recordField] = value;
                 newData[key] = value;
               }
