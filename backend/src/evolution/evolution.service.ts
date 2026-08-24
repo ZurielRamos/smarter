@@ -176,18 +176,29 @@ export class EvolutionService {
    * @param to Número con código de país (ej: 573001234567)
    * @param text Contenido del mensaje
    * @param instanceToken Token específico de la instancia (opcional, usa global si no se provee)
+   * @param quoted Mensaje al que se responde (opcional)
    */
   async sendText(
     instanceName: string,
     to: string,
     text: string,
     instanceToken?: string,
+    quoted?: { key: { remoteJid: string; fromMe: boolean; id: string }; message?: any },
   ): Promise<EvolutionSendResult> {
     const number = this.formatNumber(to);
+    const body: Record<string, any> = { number, text };
+
+    if (quoted) {
+      body.quoted = {
+        key: quoted.key,
+        message: quoted.message || {},
+      };
+    }
+
     const data = await this.request<any>(
       'POST',
       `/message/sendText/${instanceName}`,
-      { number, text },
+      body,
       instanceToken,
     );
     return data;
@@ -202,6 +213,7 @@ export class EvolutionService {
    * @param caption Texto opcional
    * @param fileName Nombre del archivo (para documentos)
    * @param instanceToken Token de la instancia
+   * @param quoted Mensaje al que se responde (opcional)
    */
   async sendMedia(
     instanceName: string,
@@ -211,8 +223,23 @@ export class EvolutionService {
     caption?: string,
     fileName?: string,
     instanceToken?: string,
+    quoted?: { key: { remoteJid: string; fromMe: boolean; id: string }; message?: any },
   ): Promise<EvolutionSendResult> {
     const number = this.formatNumber(to);
+
+    // Audio usa un endpoint específico en Evolution API
+    if (mediaType === 'audio') {
+      const body: Record<string, any> = { number, audio: mediaUrl };
+      if (quoted) body.quoted = { key: quoted.key, message: quoted.message || {} };
+      const data = await this.request<any>(
+        'POST',
+        `/message/sendWhatsAppAudio/${instanceName}`,
+        body,
+        instanceToken,
+      );
+      return data;
+    }
+
     const body: Record<string, any> = {
       number,
       mediatype: mediaType,
@@ -221,12 +248,7 @@ export class EvolutionService {
 
     if (caption) body.caption = caption;
     if (fileName) body.fileName = fileName;
-
-    // Audio se envía como PTT (push-to-talk) para que aparezca como nota de voz
-    if (mediaType === 'audio') {
-      body.mediatype = 'audio';
-      // Evolution espera audio como media con mimetype
-    }
+    if (quoted) body.quoted = { key: quoted.key, message: quoted.message || {} };
 
     const data = await this.request<any>(
       'POST',

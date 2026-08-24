@@ -1746,11 +1746,25 @@ export class ChatsService {
       const instanceName = inbox.metadata?.evolutionInstanceName;
       if (!instanceName) throw new Error('Evolution instance not configured');
       try {
+        // Construir quoted si es una respuesta a otro mensaje
+        let quoted: { key: { remoteJid: string; fromMe: boolean; id: string }; message?: any } | undefined;
+        if (replyToExternalId) {
+          const replyMsg = await this.messageRepo.findOne({ where: { externalId: replyToExternalId } });
+          quoted = {
+            key: {
+              remoteJid: `${conversation.contactId}@s.whatsapp.net`,
+              fromMe: replyMsg?.direction === 'outbound',
+              id: replyToExternalId,
+            },
+          };
+        }
+
         const result = await this.evolutionService.sendText(
           instanceName,
           conversation.contactId,
           content,
           inbox.accessToken || undefined,
+          quoted,
         );
         externalId = result?.key?.id || null;
       } catch (err: any) {
