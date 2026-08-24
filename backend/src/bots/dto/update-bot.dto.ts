@@ -124,4 +124,13 @@ export class UpdateBotDto {
 
   @IsOptional()
   rateLimit?: { maxMessages: number; windowMinutes: number; limitMessage: string } | null;
+
+  @IsOptional()
+  mediaHandling?: {
+    image: 'ignore' | 'acknowledge' | 'describe' | 'forward';
+    audio: 'ignore' | 'acknowledge' | 'transcribe' | 'forward';
+    document: 'ignore' | 'acknowledge' | 'forward';
+    acknowledgeMessage?: string;
+    forwardMessage?: string;
+  } | null;
 }

@@ -32,7 +32,32 @@ export class EmailDomainService {
     }
 
     const provider = data.provider || 'mandrill';
+
+    // If Mailgun, validate/create domain BEFORE saving to DB
+    if (provider === 'mailgun' && this.mailgunService.isConfigured()) {
+      try {
+        const result = await this.mailgunService.addDomain(domain);
+        if (!result) {
+          throw new BadRequestException('No se pudo configurar el dominio en Mailgun.');
+        }
+      } catch (err: any) {
+        if (err instanceof BadRequestException) throw err;
+        throw new BadRequestException(err.message || 'Error al configurar dominio en Mailgun');
+      }
+    }
+
     let config = await this.repo.findOne({ where: { inboxId } });
+
+    // If Mailgun provider, validate domain in Mailgun BEFORE saving
+    if (provider === 'mailgun' && this.mailgunService.isConfigured()) {
+      const result = await this.mailgunService.addDomain(domain);
+      if (!result) {
+        throw new BadRequestException(
+          `El dominio "${domain}" ya está registrado en otra cuenta de Mailgun y no es accesible. ` +
+          `Usa un subdominio como mail.${domain} o email.${domain}.`
+        );
+      }
+    }
 
     if (config) {
       config.fromEmail = data.fromEmail;
@@ -56,15 +81,6 @@ export class EmailDomainService {
     }
 
     const saved = await this.repo.save(config);
-
-    // If Mailgun provider, register domain in Mailgun
-    if (provider === 'mailgun' && this.mailgunService.isConfigured()) {
-      try {
-        await this.mailgunService.addDomain(domain);
-      } catch {
-        // Non-blocking: domain may already exist or API may be temporarily unavailable
-      }
-    }
 
     return saved;
   }

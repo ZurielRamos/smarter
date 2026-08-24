@@ -121,6 +121,17 @@ export class Bot {
   @Column({ name: 'total_requests', type: 'int', default: 0 })
   totalRequests: number;
 
+  // === Media Handling ===
+
+  @Column({ name: 'media_handling', type: 'jsonb', nullable: true })
+  mediaHandling: {
+    image: 'ignore' | 'acknowledge' | 'describe' | 'forward';
+    audio: 'ignore' | 'acknowledge' | 'transcribe' | 'forward';
+    document: 'ignore' | 'acknowledge' | 'forward';
+    acknowledgeMessage?: string;
+    forwardMessage?: string;
+  } | null;
+
   // === Data Collection ===
 
   @Column({ name: 'data_collection_enabled', type: 'boolean', default: false })

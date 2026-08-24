@@ -871,4 +871,130 @@ export class BotsService {
 
     return parts.join('\n');
   }
+
+  // ─── Media Processing ───────────────────────────────────
+
+  /**
+   * Uses a vision-capable model to describe an image.
+   * Sends the image URL to the model and returns a textual description.
+   */
+  async describeImage(imageUrl: string, tenantId: string): Promise<{ text: string; usage: { prompt_tokens: number; completion_tokens: number } | null }> {
+    const apiKey = this.configService.get<string>('OPENROUTER_API_KEY');
+    if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured');
+
+    // Use a vision-capable model
+    const visionModel = this.configService.get<string>('VISION_MODEL') || 'openai/gpt-4o-mini';
+
+    const requestBody = {
+      model: visionModel,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Describe esta imagen de forma clara y concisa en español. Si contiene texto, transcríbelo. Si es un recibo, factura o documento, extrae la información relevante. Máximo 300 palabras.',
+            },
+            {
+              type: 'image_url',
+              image_url: { url: imageUrl },
+            },
+          ],
+        },
+      ],
+      max_tokens: 500,
+      temperature: 0.3,
+    };
+
+    const response = await this.callOpenRouter(apiKey, requestBody);
+
+    return {
+      text: response.content || 'No se pudo obtener una descripción de la imagen.',
+      usage: response.usage ? { prompt_tokens: response.usage.prompt_tokens || 0, completion_tokens: response.usage.completion_tokens || 0 } : null,
+    };
+  }
+
+  /**
+   * Transcribes audio using OpenAI's Whisper API.
+   * Downloads the audio file and sends it to OpenRouter for transcription.
+   */
+  async transcribeAudio(audioUrl: string, tenantId: string): Promise<{ text: string; usage: { prompt_tokens: number; completion_tokens: number } | null }> {
+    const apiKey = this.configService.get<string>('OPENROUTER_API_KEY');
+    if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured');
+
+    // Download the audio file
+    const audioResponse = await fetch(audioUrl);
+    if (!audioResponse.ok) {
+      throw new Error(`Failed to download audio: ${audioResponse.status}`);
+    }
+    const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+    const base64Audio = audioBuffer.toString('base64');
+
+    // Determine MIME type from URL
+    const urlPath = new URL(audioUrl).pathname;
+    const ext = urlPath.split('.').pop() || 'ogg';
+    const mimeMap: Record<string, string> = { ogg: 'audio/ogg', mp3: 'audio/mpeg', mp4: 'audio/mp4', m4a: 'audio/mp4', wav: 'audio/wav', webm: 'audio/webm' };
+    const mimeType = mimeMap[ext] || 'audio/ogg';
+
+    // Use OpenRouter chat completions with audio input (same API key, same pattern)
+    const sttModel = this.configService.get<string>('STT_MODEL') || 'openai/whisper-large-v3';
+
+    const requestBody = {
+      model: sttModel,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Transcribe este audio en español. Devuelve SOLO el texto transcrito, sin comentarios adicionales.',
+            },
+            {
+              type: 'input_audio',
+              input_audio: { data: base64Audio, format: ext === 'mp3' ? 'mp3' : 'wav' },
+            },
+          ],
+        },
+      ],
+      max_tokens: 1000,
+      temperature: 0,
+    };
+
+    try {
+      const response = await this.callOpenRouter(apiKey, requestBody);
+      return {
+        text: response.content?.trim() || 'No se pudo transcribir el audio.',
+        usage: response.usage ? { prompt_tokens: response.usage.prompt_tokens || 0, completion_tokens: response.usage.completion_tokens || 0 } : null,
+      };
+    } catch (err) {
+      // Fallback: try with a multimodal model that supports audio
+      const fallbackModel = 'google/gemini-2.0-flash-001';
+      const fallbackBody = {
+        model: fallbackModel,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Transcribe este audio en español. Devuelve SOLO la transcripción textual exacta, sin comentarios ni explicaciones.',
+              },
+              {
+                type: 'input_audio',
+                input_audio: { data: base64Audio, format: ext === 'mp3' ? 'mp3' : 'wav' },
+              },
+            ],
+          },
+        ],
+        max_tokens: 1000,
+        temperature: 0,
+      };
+
+      const fallbackResponse = await this.callOpenRouter(apiKey, fallbackBody);
+      return {
+        text: fallbackResponse.content?.trim() || 'No se pudo transcribir el audio.',
+        usage: fallbackResponse.usage ? { prompt_tokens: fallbackResponse.usage.prompt_tokens || 0, completion_tokens: fallbackResponse.usage.completion_tokens || 0 } : null,
+      };
+    }
+  }
 }

@@ -4,6 +4,7 @@ import {
   ArrowLeft, Bot, Save, Loader2, Cpu, MessageSquare,
   Search, Check, X, Play, Plus, Trash2, UserCircle,
   BookOpen, Shield, ChevronDown, Eye, ClipboardList, RefreshCw, Wrench, Globe, FileText, Pencil,
+  Image as ImageIcon, AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BotChatModal } from "@/components/BotChatModal";
@@ -90,6 +91,26 @@ const ROUTING_VARIANTS = [
   { value: "nitro", label: "Rápido", icon: "⚡", description: "Responde más rápido" },
   { value: "exacto", label: "Preciso", icon: "🎯", description: "Mejor calidad" },
   { value: "floor", label: "Económico", icon: "💰", description: "Menor costo" },
+];
+
+const MEDIA_MODES_IMAGE = [
+  { value: "ignore", label: "Ignorar", icon: "🚫", description: "No hacer nada" },
+  { value: "acknowledge", label: "Responder", icon: "💬", description: "Enviar mensaje" },
+  { value: "describe", label: "Analizar", icon: "👁️", description: "IA describe la imagen" },
+  { value: "forward", label: "Transferir", icon: "👤", description: "Pasar a humano" },
+];
+
+const MEDIA_MODES_AUDIO = [
+  { value: "ignore", label: "Ignorar", icon: "🚫", description: "No hacer nada" },
+  { value: "acknowledge", label: "Responder", icon: "💬", description: "Enviar mensaje" },
+  { value: "transcribe", label: "Transcribir", icon: "📝", description: "Convertir a texto" },
+  { value: "forward", label: "Transferir", icon: "👤", description: "Pasar a humano" },
+];
+
+const MEDIA_MODES_DOCUMENT = [
+  { value: "ignore", label: "Ignorar", icon: "🚫", description: "No hacer nada" },
+  { value: "acknowledge", label: "Responder", icon: "💬", description: "Enviar mensaje" },
+  { value: "forward", label: "Transferir", icon: "👤", description: "Pasar a humano" },
 ];
 
 function AddFieldDropdown({ existingFields, onAdd, tenantId }: { existingFields: string[]; onAdd: (field: string, label: string) => void; tenantId?: string }) {
@@ -796,6 +817,15 @@ export function BotConfig() {
   const [rateLimitWindow, setRateLimitWindow] = useState(60);
   const [rateLimitMessage, setRateLimitMessage] = useState("");
 
+  // Media handling
+  const [mediaHandling, setMediaHandling] = useState<{
+    image: 'ignore' | 'acknowledge' | 'describe' | 'forward';
+    audio: 'ignore' | 'acknowledge' | 'transcribe' | 'forward';
+    document: 'ignore' | 'acknowledge' | 'forward';
+    acknowledgeMessage?: string;
+    forwardMessage?: string;
+  }>({ image: 'ignore', audio: 'ignore', document: 'ignore' });
+
   // Tools
   interface BotToolItem { id: string; name: string; description: string; parameters: any; executionType: string; webhookUrl: string | null; webhookMethod: string | null; webhookHeaders: Record<string, string> | null; staticResponse: string | null; isEnabled: boolean }
   const [tools, setTools] = useState<BotToolItem[]>([]);
@@ -839,6 +869,15 @@ export function BotConfig() {
       setRateLimitMax(data.rateLimit?.maxMessages || 0);
       setRateLimitWindow(data.rateLimit?.windowMinutes || 60);
       setRateLimitMessage(data.rateLimit?.limitMessage || "");
+      if (data.mediaHandling) {
+        setMediaHandling({
+          image: data.mediaHandling.image || 'ignore',
+          audio: data.mediaHandling.audio || 'ignore',
+          document: data.mediaHandling.document || 'ignore',
+          acknowledgeMessage: data.mediaHandling.acknowledgeMessage || '',
+          forwardMessage: data.mediaHandling.forwardMessage || '',
+        });
+      }
       // Load labels
       if (tenantId) {
         api.get(`/chats/labels?tenantId=${tenantId}`).then(({ data: labels }) => {
@@ -888,6 +927,15 @@ export function BotConfig() {
           offMessage: scheduleOffMessage || 'Estamos fuera de horario. Te responderemos pronto.',
         } : null,
         rateLimit: rateLimitMax > 0 ? { maxMessages: rateLimitMax, windowMinutes: rateLimitWindow, limitMessage: rateLimitMessage || '' } : null,
+        mediaHandling: (mediaHandling.image !== 'ignore' || mediaHandling.audio !== 'ignore' || mediaHandling.document !== 'ignore')
+          ? {
+            image: mediaHandling.image,
+            audio: mediaHandling.audio,
+            document: mediaHandling.document,
+            ...(mediaHandling.acknowledgeMessage ? { acknowledgeMessage: mediaHandling.acknowledgeMessage } : {}),
+            ...(mediaHandling.forwardMessage ? { forwardMessage: mediaHandling.forwardMessage } : {}),
+          }
+          : null,
         welcomeMessage: welcomeMessage.trim() || null,
         fallbackMessage: fallbackMessage.trim() || null,
         systemPrompt: systemPrompt.trim() || null,
@@ -1461,6 +1509,107 @@ export function BotConfig() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Media Handling */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <ImageIcon className="h-4 w-4 text-brand-600" />
+            <h3 className="text-sm font-semibold text-gray-900">Manejo de archivos multimedia</h3>
+          </div>
+          <p className="text-xs text-gray-500 mb-4">Define qué hace el bot cuando recibe imágenes, audios o documentos.</p>
+
+          <div className="space-y-4">
+            {/* Image handling */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Cuando recibe una imagen</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {MEDIA_MODES_IMAGE.map((m) => (
+                  <button key={m.value} type="button" onClick={() => setMediaHandling((prev) => ({ ...prev, image: m.value as any }))}
+                    className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-center transition-colors ${mediaHandling.image === m.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}
+                  >
+                    <span className="text-sm">{m.icon}</span>
+                    <span className={`text-xs font-medium ${mediaHandling.image === m.value ? "text-brand-700" : "text-gray-700"}`}>{m.label}</span>
+                    <span className="text-[10px] text-gray-400 leading-tight">{m.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Audio handling */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Cuando recibe un audio</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {MEDIA_MODES_AUDIO.map((m) => (
+                  <button key={m.value} type="button" onClick={() => setMediaHandling((prev) => ({ ...prev, audio: m.value as any }))}
+                    className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-center transition-colors ${mediaHandling.audio === m.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}
+                  >
+                    <span className="text-sm">{m.icon}</span>
+                    <span className={`text-xs font-medium ${mediaHandling.audio === m.value ? "text-brand-700" : "text-gray-700"}`}>{m.label}</span>
+                    <span className="text-[10px] text-gray-400 leading-tight">{m.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Document handling */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Cuando recibe un documento</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {MEDIA_MODES_DOCUMENT.map((m) => (
+                  <button key={m.value} type="button" onClick={() => setMediaHandling((prev) => ({ ...prev, document: m.value as any }))}
+                    className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-center transition-colors ${mediaHandling.document === m.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}
+                  >
+                    <span className="text-sm">{m.icon}</span>
+                    <span className={`text-xs font-medium ${mediaHandling.document === m.value ? "text-brand-700" : "text-gray-700"}`}>{m.label}</span>
+                    <span className="text-[10px] text-gray-400 leading-tight">{m.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom messages */}
+            {(mediaHandling.image === "acknowledge" || mediaHandling.audio === "acknowledge" || mediaHandling.document === "acknowledge") && (
+              <div className="border-t border-gray-100 pt-4">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje al recibir archivo (modo Responder)</label>
+                <textarea
+                  value={mediaHandling.acknowledgeMessage || ""}
+                  onChange={(e) => setMediaHandling((prev) => ({ ...prev, acknowledgeMessage: e.target.value }))}
+                  placeholder="Recibí tu archivo, pero no puedo procesarlo. ¿Puedes describirme de qué se trata?"
+                  rows={2}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
+                />
+              </div>
+            )}
+
+            {(mediaHandling.image === "forward" || mediaHandling.audio === "forward" || mediaHandling.document === "forward") && (
+              <div className="border-t border-gray-100 pt-4">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje al transferir (modo Transferir)</label>
+                <textarea
+                  value={mediaHandling.forwardMessage || ""}
+                  onChange={(e) => setMediaHandling((prev) => ({ ...prev, forwardMessage: e.target.value }))}
+                  placeholder="Te conecto con un agente para que pueda revisar tu archivo."
+                  rows={2}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
+                />
+              </div>
+            )}
+
+            {/* Cost warning for describe/transcribe */}
+            {(mediaHandling.image === "describe" || mediaHandling.audio === "transcribe") && (
+              <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs text-amber-700 font-medium">Consumo adicional de créditos</p>
+                  <p className="text-[10px] text-amber-600 mt-0.5">
+                    {mediaHandling.image === "describe" && "Analizar imágenes consume créditos adicionales por cada imagen recibida (modelo con visión)."}
+                    {mediaHandling.audio === "transcribe" && "Transcribir audios consume créditos adicionales por cada audio recibido (Whisper API)."}
+                    {mediaHandling.image === "describe" && mediaHandling.audio === "transcribe" && " Ambas opciones activas incrementan el consumo."}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

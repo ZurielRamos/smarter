@@ -89,22 +89,39 @@ export class MailgunService {
   // ─── Domain Management ─────────────────────────────────────────────
 
   /**
-   * Add a new sending domain to Mailgun.
+   * Ensure a domain exists in Mailgun. Gets it if it exists, creates it if not.
    */
   async addDomain(domain: string): Promise<MailgunDomainInfo | null> {
     if (!this.mg) return null;
+
+    // First try to get the domain — if it already exists in our account, use it
+    const existing = await this.getDomain(domain);
+    if (existing) {
+      this.logger.log(`Domain already exists in Mailgun: ${domain}`);
+      return existing;
+    }
+
+    // Domain doesn't exist in our account — try to create it
     try {
       const result = await this.mg.domains.create({ name: domain });
       this.logger.log(`Domain added to Mailgun: ${domain}`);
       return result;
     } catch (err: any) {
-      // If domain already exists, treat as success
-      if (err?.status === 400 && err?.message?.includes('already exists')) {
-        this.logger.log(`Domain already exists in Mailgun: ${domain}`);
-        return this.getDomain(domain);
+      const errMsg = err?.details || err?.message || '';
+      this.logger.error(`Failed to add domain ${domain}`, errMsg);
+
+      // Provide clear error messages
+      if (errMsg.includes('already exists')) {
+        throw new Error(
+          `El dominio "${domain}" está registrado en otra cuenta de Mailgun. Usa un subdominio como mail.${domain}`,
+        );
       }
-      this.logger.error(`Failed to add domain ${domain}`, err?.message || err);
-      throw err;
+      if (errMsg.includes('limit') || errMsg.includes('exceeded')) {
+        throw new Error(
+          `Se alcanzó el límite de dominios en Mailgun. Elimina un dominio existente o mejora tu plan.`,
+        );
+      }
+      throw new Error(`Error al registrar dominio en Mailgun: ${errMsg}`);
     }
   }
 

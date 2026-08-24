@@ -787,7 +787,7 @@ export class ChatsService {
       }).catch(() => {});
 
       // Trigger bot auto-reply if a bot is assigned
-      this.scheduleBotReply(inbox, conversation, content).catch((err) => {
+      this.scheduleBotReply(inbox, conversation, content, { messageType, mediaUrl, mediaMimeType }).catch((err) => {
         console.error('[Bot Auto-Reply] Failed:', err?.message || err);
       });
     }
@@ -975,7 +975,7 @@ export class ChatsService {
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
     // Trigger bot auto-reply if a bot is assigned
-    this.scheduleBotReply(inbox, conversation, content).catch(() => {});
+    this.scheduleBotReply(inbox, conversation, content, { messageType, mediaUrl }).catch(() => {});
   }
 
   private async handleInstagramMessage(igAccountId: string, value: any): Promise<void> {
@@ -1057,22 +1057,38 @@ export class ChatsService {
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
     // Trigger bot auto-reply if a bot is assigned
-    this.scheduleBotReply(inbox, conversation, content).catch(() => {});
+    this.scheduleBotReply(inbox, conversation, content, { messageType, mediaUrl }).catch(() => {});
   }
 
   // === BOT AUTO-REPLY ===
 
-  private async scheduleBotReply(inbox: Inbox, conversation: any, content: string | null): Promise<void> {
-    if (!inbox.botId || !content) return;
+  private async scheduleBotReply(inbox: Inbox, conversation: any, content: string | null, mediaInfo?: { messageType?: string; mediaUrl?: string | null; mediaMimeType?: string | null }): Promise<void> {
+    if (!inbox.botId) return;
+
+    // Allow through if there's text content OR if there's media
+    const hasMedia = mediaInfo?.messageType && mediaInfo.messageType !== 'text' && mediaInfo.mediaUrl;
+    if (!content && !hasMedia) return;
 
     const bot = await this.botsService.findOne(inbox.botId);
     if (!bot || bot.status !== 'active') return;
+
+    // If it's a media-only message (no text), check if bot has media handling configured
+    if (!content && hasMedia) {
+      const mediaHandling = bot.mediaHandling;
+      if (!mediaHandling) return; // No media config = ignore
+      const mType = mediaInfo!.messageType!;
+      const mode = mType === 'image' ? mediaHandling.image
+        : (mType === 'audio' || mType === 'ptt') ? mediaHandling.audio
+        : (mType === 'document' || mType === 'video') ? mediaHandling.document
+        : null;
+      if (!mode || mode === 'ignore') return;
+    }
 
     const delay = (bot.replyDelay ?? 4) * 1000; // default 4 seconds
 
     // If delay is 0, respond immediately
     if (delay <= 0) {
-      return this.triggerBotReply(inbox, conversation, content);
+      return this.triggerBotReply(inbox, conversation, content, mediaInfo);
     }
 
     const conversationId = conversation.id;
@@ -1084,7 +1100,7 @@ export class ChatsService {
     // Set new timer
     const timer = setTimeout(() => {
       this.botReplyTimers.delete(conversationId);
-      this.triggerBotReply(inbox, conversation, content).catch((err) => {
+      this.triggerBotReply(inbox, conversation, content, mediaInfo).catch((err) => {
         console.error('[Bot Auto-Reply] Debounced reply failed:', err?.message || err);
       });
     }, delay);
@@ -1092,8 +1108,11 @@ export class ChatsService {
     this.botReplyTimers.set(conversationId, timer);
   }
 
-  private async triggerBotReply(inbox: Inbox, conversation: any, inboundContent: string | null): Promise<void> {
-    if (!inbox.botId || !inboundContent) return;
+  private async triggerBotReply(inbox: Inbox, conversation: any, inboundContent: string | null, mediaInfo?: { messageType?: string; mediaUrl?: string | null; mediaMimeType?: string | null }): Promise<void> {
+    if (!inbox.botId) return;
+    // Allow through if there's content OR media
+    const hasMedia = mediaInfo?.messageType && mediaInfo.messageType !== 'text' && mediaInfo.mediaUrl;
+    if (!inboundContent && !hasMedia) return;
 
     try {
       // Verify bot exists and is active
@@ -1157,7 +1176,7 @@ export class ChatsService {
       }
 
       // Check handoff keywords
-      if (bot.handoffKeywords && bot.handoffKeywords.length > 0) {
+      if (bot.handoffKeywords && bot.handoffKeywords.length > 0 && inboundContent) {
         const lowerContent = inboundContent.toLowerCase();
         const triggered = bot.handoffKeywords.some((kw) => lowerContent.includes(kw.toLowerCase()));
         if (triggered) {
@@ -1185,6 +1204,71 @@ export class ChatsService {
         }
       }
 
+      // === MEDIA HANDLING ===
+      const hasMediaMsg = mediaInfo?.messageType && mediaInfo.messageType !== 'text' && mediaInfo.mediaUrl;
+      let mediaContentForBot: string | null = null;
+      let mediaUsage: { prompt_tokens: number; completion_tokens: number } | null = null;
+
+      if (hasMediaMsg && bot.mediaHandling) {
+        const mType = mediaInfo!.messageType!;
+        const mode = mType === 'image' ? bot.mediaHandling.image
+          : (mType === 'audio' || mType === 'ptt') ? bot.mediaHandling.audio
+          : (mType === 'document' || mType === 'video') ? bot.mediaHandling.document
+          : 'ignore';
+
+        if (mode === 'ignore') {
+          // Do nothing for this media type
+          if (!inboundContent) return;
+        } else if (mode === 'acknowledge') {
+          // Send a canned response and stop
+          const ackMsg = bot.mediaHandling.acknowledgeMessage || this.getDefaultAcknowledgeMessage(mType);
+          await this.sendMessage(conversation.id, ackMsg, 'text', undefined);
+          return;
+        } else if (mode === 'forward') {
+          // Hand off to a human agent
+          conversation.botStatus = 'handed_off';
+          await this.conversationRepo.save(conversation);
+          const fwdMsg = bot.mediaHandling.forwardMessage || 'Te conecto con un agente para que pueda revisar tu archivo.';
+          await this.sendMessage(conversation.id, fwdMsg, 'text', undefined);
+          await this.createSystemNote(conversation.id, `🤖→👤 Bot desactivado: se recibió un archivo (${mType}) que requiere atención humana.`, inbox.tenantId);
+          return;
+        } else if (mode === 'describe' && mType === 'image') {
+          // Use vision model to describe the image
+          try {
+            const result = await this.botsService.describeImage(mediaInfo!.mediaUrl!, bot.tenantId);
+            mediaContentForBot = result.text;
+            mediaUsage = result.usage;
+          } catch (err) {
+            console.error('[Bot Media] Failed to describe image:', err);
+            mediaContentForBot = '[El usuario envió una imagen que no pudo ser analizada]';
+          }
+        } else if (mode === 'transcribe' && (mType === 'audio' || mType === 'ptt')) {
+          // Transcribe audio to text
+          try {
+            const result = await this.botsService.transcribeAudio(mediaInfo!.mediaUrl!, bot.tenantId);
+            mediaContentForBot = result.text;
+            mediaUsage = result.usage;
+          } catch (err) {
+            console.error('[Bot Media] Failed to transcribe audio:', err);
+            mediaContentForBot = '[El usuario envió un audio que no pudo ser transcrito]';
+          }
+        }
+      }
+
+      // Build effective inbound content (text + media context)
+      let effectiveContent = inboundContent || '';
+      if (mediaContentForBot) {
+        const prefix = mediaInfo?.messageType === 'image'
+          ? '[Imagen enviada por el usuario - Descripción: '
+          : '[Audio enviado por el usuario - Transcripción: ';
+        effectiveContent = effectiveContent
+          ? `${effectiveContent}\n\n${prefix}${mediaContentForBot}]`
+          : `${prefix}${mediaContentForBot}]`;
+      }
+
+      // If after all processing we still have no content, bail out
+      if (!effectiveContent.trim()) return;
+
       // Load recent messages for context (last N messages, ordered chronologically)
       const contextLimit = bot.contextMessages || 20;
       const recentMessages = await this.messageRepo.find({
@@ -1199,6 +1283,22 @@ export class ChatsService {
         role: m.direction === 'inbound' ? 'user' : 'assistant',
         content: m.content || '',
       })).filter((m) => m.content);
+
+      // If we enriched the last inbound message with media context, replace it
+      if (mediaContentForBot && messages.length > 0) {
+        const lastIdx = messages.length - 1;
+        if (messages[lastIdx].role === 'user') {
+          messages[lastIdx].content = effectiveContent;
+        } else {
+          // Last message in context was from assistant, append user message with media
+          messages.push({ role: 'user', content: effectiveContent });
+        }
+      } else if (!inboundContent && effectiveContent) {
+        // Pure media message that was processed - ensure it's in context
+        if (messages.length === 0 || messages[messages.length - 1].role !== 'user') {
+          messages.push({ role: 'user', content: effectiveContent });
+        }
+      }
 
       // Build collectedData from existing record to avoid re-asking
       let collectedData: Record<string, string> | undefined;
@@ -1248,14 +1348,24 @@ export class ChatsService {
       // Attach bot metadata to the saved message
       sentMessage.botId = inbox.botId;
       if (response.usage) {
+        const totalPromptTokens = (response.usage.prompt_tokens || 0) + (mediaUsage?.prompt_tokens || 0);
+        const totalCompletionTokens = (response.usage.completion_tokens || 0) + (mediaUsage?.completion_tokens || 0);
         sentMessage.aiUsage = {
-          promptTokens: response.usage.prompt_tokens,
-          completionTokens: response.usage.completion_tokens,
+          promptTokens: totalPromptTokens,
+          completionTokens: totalCompletionTokens,
           model: response.usage.model || 'unknown',
           cost: response.usage.cost ?? 0,
           credits: response.usage.credits ?? 0,
         };
         sentMessage.creditsCost = response.usage.credits ?? 0;
+      } else if (mediaUsage) {
+        sentMessage.aiUsage = {
+          promptTokens: mediaUsage.prompt_tokens,
+          completionTokens: mediaUsage.completion_tokens,
+          model: 'media-processing',
+          cost: 0,
+          credits: 0,
+        };
       }
       await this.messageRepo.save(sentMessage);
 
@@ -1361,6 +1471,22 @@ export class ChatsService {
       }
     } catch (err) {
       console.error(`[Bot Auto-Reply] Error for inbox ${inbox.id}:`, err?.message || err);
+    }
+  }
+
+  private getDefaultAcknowledgeMessage(messageType: string): string {
+    switch (messageType) {
+      case 'image':
+        return 'Recibí tu imagen. Sin embargo, no puedo analizarla directamente. ¿Puedes describirme lo que contiene?';
+      case 'audio':
+      case 'ptt':
+        return 'Recibí tu mensaje de voz. Por el momento no puedo escuchar audios. ¿Podrías escribirme tu mensaje?';
+      case 'document':
+        return 'Recibí tu documento. No puedo procesarlo directamente. ¿Puedes indicarme de qué se trata o qué necesitas?';
+      case 'video':
+        return 'Recibí tu video. No puedo reproducirlo, pero dime en qué puedo ayudarte.';
+      default:
+        return 'Recibí tu archivo. ¿Puedes indicarme en qué puedo ayudarte?';
     }
   }
 
@@ -2943,7 +3069,7 @@ export class ChatsService {
     }).catch(() => {});
 
     // Trigger bot auto-reply si hay bot asignado
-    this.scheduleBotReply(inbox, conversation, content).catch((err) => {
+    this.scheduleBotReply(inbox, conversation, content, { messageType, mediaUrl: storedMediaUrl, mediaMimeType }).catch((err) => {
       console.error('[Evolution Bot Auto-Reply] Failed:', err?.message || err);
     });
   }

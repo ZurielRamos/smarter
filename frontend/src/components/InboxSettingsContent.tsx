@@ -52,6 +52,15 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
   const [callSaving, setCallSaving] = useState(false);
   const [callSaved, setCallSaved] = useState(false);
 
+  // Mailgun (Email Transaccional)
+  const [mailgunForm, setMailgunForm] = useState({ fromName: "", fromEmail: "", defaultSubject: "" });
+  const [mailgunSaving, setMailgunSaving] = useState(false);
+  const [mailgunSaved, setMailgunSaved] = useState(false);
+  const [mailgunDomain, setMailgunDomain] = useState("");
+  const [mailgunDnsRecords, setMailgunDnsRecords] = useState<{ type: string; name: string; value: string; purpose: string; valid?: boolean }[]>([]);
+  const [mailgunVerifying, setMailgunVerifying] = useState(false);
+  const [mailgunVerifyResult, setMailgunVerifyResult] = useState<{ verified: boolean; results?: any[] } | null>(null);
+
   useEffect(() => {
     setLoading(true);
     api.get<Inbox>(`/chats/inboxes/${inboxId}`)
@@ -73,6 +82,17 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
         }
         if (data.channel === "sms") setSmsSender(data.metadata?.sender || "");
         if (data.channel === "llamada") setCallVoice(data.metadata?.voice || "Mariana");
+        if (data.channel === "email_transaccional") {
+          api.get(`/email-config/inbox/${data.id}`).then(({ data: cfg }) => {
+            if (cfg) {
+              setMailgunForm({ fromName: cfg.fromName || "", fromEmail: cfg.fromEmail || "", defaultSubject: data.metadata?.defaultSubject || "" });
+              setMailgunDomain(cfg.domain || "");
+            }
+          }).catch(() => {});
+          api.get(`/email-config/inbox/${data.id}/dns-records`).then(({ data: dns }) => {
+            if (dns?.records) setMailgunDnsRecords(dns.records);
+          }).catch(() => {});
+        }
         if (data.channel === "whatsapp" && data.status !== "connected") preloadWaConfig();
       })
       .finally(() => setLoading(false));
@@ -173,6 +193,40 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
       setCallSaved(true);
       setTimeout(() => setCallSaved(false), 2000);
     } catch {} finally { setCallSaving(false); }
+  };
+
+  const handleMailgunSave = async () => {
+    if (!inbox || !mailgunForm.fromEmail || !mailgunForm.fromName) return;
+    setMailgunSaving(true);
+    try {
+      await api.post(`/email-config/inbox/${inbox.id}`, {
+        tenantId: inbox.tenantId,
+        fromEmail: mailgunForm.fromEmail,
+        fromName: mailgunForm.fromName,
+        provider: "mailgun",
+      });
+      await api.put(`/chats/inboxes/${inbox.id}`, { metadata: { ...inbox.metadata, defaultSubject: mailgunForm.defaultSubject } });
+      setMailgunSaved(true);
+      setTimeout(() => setMailgunSaved(false), 2000);
+      const domain = mailgunForm.fromEmail.split("@")[1];
+      setMailgunDomain(domain);
+      const { data: dns } = await api.get(`/email-config/inbox/${inbox.id}/dns-records`);
+      if (dns?.records) setMailgunDnsRecords(dns.records);
+    } catch {} finally { setMailgunSaving(false); }
+  };
+
+  const handleVerifyDomain = async () => {
+    if (!inbox) return;
+    setMailgunVerifying(true);
+    setMailgunVerifyResult(null);
+    try {
+      const { data } = await api.post(`/email-config/inbox/${inbox.id}/verify`);
+      setMailgunVerifyResult(data);
+      const { data: dns } = await api.get(`/email-config/inbox/${inbox.id}/dns-records`);
+      if (dns?.records) setMailgunDnsRecords(dns.records);
+    } catch {
+      setMailgunVerifyResult({ verified: false, results: [{ record: "Error", status: "error", detail: "No se pudo verificar" }] });
+    } finally { setMailgunVerifying(false); }
   };
 
   // Delete modal
@@ -365,8 +419,89 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
           </div>
         )}
 
+        {inbox.channel === "email_transaccional" && (
+          <div className="bg-white rounded-xl border border-red-200 p-5">
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">Email Transaccional — Mailgun</h2>
+            <p className="text-[11px] text-gray-500 mb-4">Configura tu dominio de envío. Los correos se envían vía Mailgun API.</p>
+
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Nombre remitente</label>
+                  <input type="text" value={mailgunForm.fromName} onChange={(e) => setMailgunForm({ ...mailgunForm, fromName: e.target.value })} placeholder="Mi Empresa" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Email remitente</label>
+                  <input type="email" value={mailgunForm.fromEmail} onChange={(e) => setMailgunForm({ ...mailgunForm, fromEmail: e.target.value })} placeholder="noreply@tu-dominio.com" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Asunto por defecto</label>
+                <input type="text" value={mailgunForm.defaultSubject} onChange={(e) => setMailgunForm({ ...mailgunForm, defaultSubject: e.target.value })} placeholder="Nuevo mensaje" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 mt-4">
+              <button onClick={handleMailgunSave} disabled={mailgunSaving || !mailgunForm.fromEmail || !mailgunForm.fromName} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-xs font-medium disabled:opacity-50">
+                {mailgunSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : mailgunSaved ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
+                {mailgunSaved ? "Guardado" : "Guardar configuración"}
+              </button>
+              {mailgunDomain && (
+                <button onClick={handleVerifyDomain} disabled={mailgunVerifying} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 text-xs font-medium disabled:opacity-50">
+                  {mailgunVerifying ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wifi className="h-3 w-3" />}
+                  Verificar dominio
+                </button>
+              )}
+            </div>
+
+            {mailgunDomain && (
+              <div className="mt-4 border border-gray-200 rounded-lg p-4">
+                <h3 className="text-xs font-semibold text-gray-800 mb-2">Registros DNS para: <span className="text-red-600">{mailgunDomain}</span></h3>
+                <p className="text-[10px] text-gray-500 mb-3">Agrega estos registros en tu proveedor de DNS para verificar tu dominio.</p>
+
+                {mailgunDnsRecords.length > 0 ? (
+                  <div className="space-y-2">
+                    {mailgunDnsRecords.map((record, idx) => (
+                      <div key={idx} className={`p-2.5 rounded-lg border text-[11px] ${record.valid ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-gray-700">{record.type}</span>
+                          {record.valid !== undefined && (
+                            <span className={`text-[10px] font-medium ${record.valid ? "text-green-600" : "text-amber-600"}`}>
+                              {record.valid ? "✓ Verificado" : "⚠ Pendiente"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-gray-600"><span className="font-medium">Name:</span> {record.name}</div>
+                        <div className="text-gray-600 break-all"><span className="font-medium">Value:</span> {record.value}</div>
+                        {record.purpose && <div className="text-gray-400 mt-1">{record.purpose}</div>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-400">Guarda la configuración para ver los registros DNS requeridos.</p>
+                )}
+
+                {mailgunVerifyResult && (
+                  <div className={`mt-3 p-2.5 rounded-lg border text-xs ${mailgunVerifyResult.verified ? "bg-green-50 border-green-200 text-green-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+                    {mailgunVerifyResult.verified ? (
+                      <div className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3" /> Dominio verificado correctamente</div>
+                    ) : (
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1"><XCircle className="h-3 w-3" /> Dominio no verificado</div>
+                        {mailgunVerifyResult.results?.map((r: any, i: number) => (
+                          <div key={i} className="ml-4 text-[10px]">{r.record}: {r.status === "ok" ? "✓" : `✗ ${r.detail || ""}`}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Connection status (WhatsApp, Messenger, Instagram) */}
-        {!["sms", "email", "llamada", "form", "chat"].includes(inbox.channel) && (
+        {!["sms", "email", "email_transaccional", "llamada", "form", "chat"].includes(inbox.channel) && (
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="text-sm font-semibold text-gray-900 mb-3">Conexión</h2>
             <div className="flex items-center gap-3">
