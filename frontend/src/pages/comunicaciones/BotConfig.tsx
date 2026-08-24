@@ -1100,10 +1100,10 @@ export function BotConfig() {
         <div className="flex gap-4 max-w-3xl overflow-x-auto border-b border-gray-200">
           {[
             { id: "personality", label: "Personalidad", icon: <UserCircle className="h-3.5 w-3.5" /> },
-            { id: "flow", label: "Flujo", icon: <GitBranch className="h-3.5 w-3.5" /> },
-            { id: "knowledge", label: "Conocimiento", icon: <BookOpen className="h-3.5 w-3.5" /> },
-            { id: "data", label: "Datos", icon: <ClipboardList className="h-3.5 w-3.5" /> },
-            { id: "tools", label: "Herramientas", icon: <Wrench className="h-3.5 w-3.5" /> },
+            ...(botType === "sequential" ? [{ id: "flow", label: "Flujo", icon: <GitBranch className="h-3.5 w-3.5" /> }] : []),
+            ...(botType !== "sequential" ? [{ id: "knowledge", label: "Conocimiento", icon: <BookOpen className="h-3.5 w-3.5" /> }] : []),
+            ...(botType !== "sequential" ? [{ id: "data", label: "Datos", icon: <ClipboardList className="h-3.5 w-3.5" /> }] : []),
+            ...(botType !== "sequential" ? [{ id: "tools", label: "Herramientas", icon: <Wrench className="h-3.5 w-3.5" /> }] : []),
             { id: "behavior", label: "Comportamiento", icon: <MessageSquare className="h-3.5 w-3.5" /> },
             { id: "advanced", label: "Avanzado", icon: <Cpu className="h-3.5 w-3.5" /> },
           ].map((tab) => (
@@ -1125,10 +1125,8 @@ export function BotConfig() {
           <BotFlowEditor
             steps={flowSteps}
             config={flowConfig}
-            botType={botType}
             onStepsChange={setFlowSteps}
             onConfigChange={setFlowConfig}
-            onTypeChange={setBotType}
             tenantId={tenantId}
           />
         )}

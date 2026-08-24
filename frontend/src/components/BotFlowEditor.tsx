@@ -469,14 +469,12 @@ function SortableStepItem({
 interface BotFlowEditorProps {
   steps: FlowStep[];
   config: FlowConfig;
-  botType: string;
   onStepsChange: (steps: FlowStep[]) => void;
   onConfigChange: (config: FlowConfig) => void;
-  onTypeChange: (type: string) => void;
   tenantId?: string;
 }
 
-export function BotFlowEditor({ steps, config, botType, onStepsChange, onConfigChange, onTypeChange, tenantId }: BotFlowEditorProps) {
+export function BotFlowEditor({ steps, config, onStepsChange, onConfigChange, tenantId }: BotFlowEditorProps) {
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [fieldsAvailable, setFieldsAvailable] = useState<{ field: string; label: string }[]>([]);
@@ -546,46 +544,8 @@ export function BotFlowEditor({ steps, config, botType, onStepsChange, onConfigC
 
   return (
     <div className="space-y-6">
-      {/* Bot Type Selector */}
+      {/* Flow Steps List */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <MessageCircle className="h-4 w-4 text-brand-600" />
-          <h3 className="text-sm font-semibold text-gray-900">Tipo de bot</h3>
-        </div>
-        <p className="text-xs text-gray-500 mb-4">Define como el bot interactua con los usuarios.</p>
-
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { value: "freeform", label: "Conversacion libre", icon: "💬", description: "IA responde naturalmente, recopila datos de forma oportunista" },
-            { value: "sequential", label: "Flujo secuencial", icon: "📋", description: "Sigue un script paso a paso. Ideal para formularios y encuestas" },
-            { value: "hybrid", label: "Hibrido", icon: "🔀", description: "IA conversa libre pero con checkpoints obligatorios (proximamente)" },
-          ].map((t) => (
-            <button
-              key={t.value}
-              type="button"
-              onClick={() => onTypeChange(t.value)}
-              disabled={t.value === "hybrid"}
-              className={`flex flex-col items-start gap-1.5 p-4 rounded-xl border text-left transition-all ${
-                botType === t.value
-                  ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200 shadow-sm"
-                  : t.value === "hybrid"
-                  ? "border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed"
-                  : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              <span className="text-xl">{t.icon}</span>
-              <span className={`text-xs font-semibold ${botType === t.value ? "text-brand-700" : "text-gray-800"}`}>{t.label}</span>
-              <span className="text-[10px] text-gray-500 leading-relaxed">{t.description}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Flow Steps — only for sequential type */}
-      {botType === "sequential" && (
-        <>
-          {/* Flow Steps List */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="flex items-center gap-2">
@@ -791,8 +751,6 @@ export function BotFlowEditor({ steps, config, botType, onStepsChange, onConfigC
               </div>
             </div>
           </div>
-        </>
-      )}
 
       {/* Confirm delete modal */}
       <ConfirmModal

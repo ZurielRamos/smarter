@@ -64,7 +64,7 @@ export function Bots() {
     }
   };
 
-  const handleCreateBot = async (data: { name: string; description: string }) => {
+  const handleCreateBot = async (data: { name: string; description: string; type: string }) => {
     if (!tenantId) return;
     setCreating(true);
     try {
@@ -72,6 +72,7 @@ export function Bots() {
         tenantId,
         name: data.name,
         description: data.description || null,
+        type: data.type,
       });
       setBots((prev) => [newBot, ...prev]);
       setShowCreateModal(false);
