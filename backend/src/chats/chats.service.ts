@@ -1812,8 +1812,13 @@ export class ChatsService {
 
   async clearMessages(conversationId: string): Promise<void> {
     await this.messageRepo.delete({ conversationId });
-    // Update conversation to clear last message
-    await this.conversationRepo.update(conversationId, { lastMessage: null, lastMessageAt: null } as any);
+    // Update conversation to clear last message and reset bot flow state
+    await this.conversationRepo.update(conversationId, {
+      lastMessage: null,
+      lastMessageAt: null,
+      botFlowState: null,
+      botConsentGiven: false,
+    } as any);
   }
 
   // === SEND MESSAGE ===
