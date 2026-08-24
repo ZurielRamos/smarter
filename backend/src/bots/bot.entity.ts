@@ -10,6 +10,48 @@ import {
 } from 'typeorm';
 import { Tenant } from '../tenants/tenant.entity';
 
+// === Flow Step Types ===
+
+export interface FlowStepValidation {
+  pattern?: string;          // regex for validation
+  options?: string[];        // valid options (for select type)
+  min?: number;
+  max?: number;
+  errorMessage: string;      // message to send when validation fails
+}
+
+export interface FlowStep {
+  id: string;
+  order: number;
+  field: string;               // target CRM field (firstName, custom:cedula, etc.)
+  question: string;            // exact message to send
+  type: 'text' | 'number' | 'email' | 'phone' | 'date' | 'select' | 'regex' | 'boolean';
+  validation?: FlowStepValidation;
+  aiInterpretation?: boolean;  // use AI to parse free-form response into structured data
+  skipIf?: string;             // condition to skip this step (e.g. "collectedData.phone")
+  retries?: number;            // max retries before escalating (default 2)
+  required?: boolean;          // whether this step is mandatory (default true)
+}
+
+export interface FlowConfig {
+  completionMessage?: string;     // message sent when all steps are completed
+  completionAction?: 'handoff' | 'resolve' | 'none'; // what to do after completion
+  useAiForGreeting?: boolean;     // use AI model for initial greeting (otherwise send welcomeMessage)
+  allowSkip?: boolean;            // allow user to skip non-required steps
+  skipKeyword?: string;           // keyword to skip (default: "omitir")
+  maxGlobalRetries?: number;      // max total retries across all steps before handoff
+}
+
+export interface BotFlowState {
+  currentStepIndex: number;
+  completedSteps: string[];       // IDs of completed steps
+  collectedData: Record<string, string>;
+  retryCount: number;
+  globalRetryCount: number;
+  startedAt: string;
+  lastStepAt: string;
+}
+
 @Entity('bots')
 @Index(['tenantId'])
 export class Bot {
@@ -31,6 +73,11 @@ export class Bot {
 
   @Column({ type: 'varchar', length: 20, default: 'draft' })
   status: string; // draft, active, inactive
+
+  // === Bot Type ===
+
+  @Column({ type: 'varchar', length: 20, default: 'freeform' })
+  type: string; // freeform, sequential, hybrid
 
   // === Identity ===
 
@@ -142,6 +189,14 @@ export class Bot {
 
   @Column({ name: 'data_collection_fields', type: 'jsonb', nullable: true, default: '[]' })
   dataCollectionFields: { field: string; label: string; instructions: string; priority: number }[];
+
+  // === Sequential Flow ===
+
+  @Column({ name: 'flow_steps', type: 'jsonb', nullable: true, default: '[]' })
+  flowSteps: FlowStep[];
+
+  @Column({ name: 'flow_config', type: 'jsonb', nullable: true })
+  flowConfig: FlowConfig | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

@@ -1,4 +1,4 @@
-import { IsString, IsUUID, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsUUID, IsOptional, MaxLength, IsIn } from 'class-validator';
 
 export class CreateBotDto {
   @IsUUID()
@@ -11,4 +11,9 @@ export class CreateBotDto {
   @IsOptional()
   @IsString()
   description?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['freeform', 'sequential', 'hybrid'])
+  type?: string;
 }

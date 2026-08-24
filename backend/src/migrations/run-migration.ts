@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import { formalizeTenantRoles } from './001-formalize-tenant-roles.migration';
 import { addBotMediaHandling } from './002-add-bot-media-handling.migration';
+import { addBotTypeAndFlow } from './003-add-bot-type-and-flow.migration';
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ async function run() {
   try {
     await formalizeTenantRoles(dataSource);
     await addBotMediaHandling(dataSource);
+    await addBotTypeAndFlow(dataSource);
   } finally {
     await dataSource.destroy();
     console.log('[Runner] Conexión cerrada');

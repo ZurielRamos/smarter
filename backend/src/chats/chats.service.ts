@@ -17,6 +17,7 @@ import { isAdminRole } from '../users/enums/tenant-role.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ConversionsService } from '../conversions/conversions.service';
 import { BotsService } from '../bots/bots.service';
+import { SequentialFlowEngine } from '../bots/sequential-flow.engine';
 import { Activity } from '../records/activity.entity';
 import { EvolutionService } from '../evolution/evolution.service';
 import { MailgunService } from '../providers/mailgun.service';
@@ -49,6 +50,7 @@ export class ChatsService {
     private readonly notificationsService: NotificationsService,
     private readonly conversionsService: ConversionsService,
     private readonly botsService: BotsService,
+    private readonly sequentialFlowEngine: SequentialFlowEngine,
     @InjectRepository(Activity)
     private readonly activityRepo: Repository<Activity>,
     @Inject(forwardRef(() => EvolutionService))
@@ -1329,8 +1331,27 @@ export class ChatsService {
         }
       }
 
-      // Get bot response
-      const response = await this.botsService.chat(inbox.botId, messages, collectedData);
+      // Get bot response — route by bot type
+      let response: { content: string; usage?: any; extractedData?: Record<string, string>; handedOff?: boolean; toolsExecuted?: { name: string; result: string }[]; flowCompleted?: boolean } | null = null;
+
+      if (bot.type === 'sequential') {
+        // Sequential flow: deterministic step-by-step data collection
+        const flowResponse = conversation.botFlowState
+          ? await this.sequentialFlowEngine.processMessage(bot, conversation, effectiveContent)
+          : await this.sequentialFlowEngine.startFlow(bot, conversation);
+
+        response = flowResponse ? {
+          content: flowResponse.content,
+          usage: flowResponse.usage,
+          extractedData: flowResponse.extractedData,
+          handedOff: flowResponse.handedOff || false,
+          flowCompleted: flowResponse.flowCompleted,
+        } : null;
+      } else {
+        // Freeform (default) and hybrid: AI-driven conversation
+        response = await this.botsService.chat(inbox.botId, messages, collectedData);
+      }
+
       if (!response?.content) return;
 
       // Log tool executions as system notes (before the bot reply)
@@ -1374,7 +1395,7 @@ export class ChatsService {
         conversation.botStatus = 'handed_off';
         await this.conversationRepo.save(conversation);
 
-        const wasResolved = response.toolsExecuted?.some((t) => t.name === 'mark_resolved');
+        const wasResolved = response.toolsExecuted?.some((t) => t.name === 'mark_resolved') || (response as any).flowCompleted;
         if (wasResolved) {
           await this.createSystemNote(conversation.id, '✅ Bot: objetivo cumplido, conversación resuelta.', inbox.tenantId);
 
@@ -1458,9 +1479,11 @@ export class ChatsService {
           if (Object.keys(newData).length > 0) {
             await this.clientRecordRepo.save(record);
 
-            // Insert system note in conversation
+            // Insert system note in conversation — use flow steps labels if sequential, otherwise dataCollectionFields
             const fieldLabelMap = Object.fromEntries(
-              (bot.dataCollectionFields || []).map((f) => [f.field, f.label]),
+              bot.type === 'sequential'
+                ? (bot.flowSteps || []).map((f) => [f.field, f.question?.substring(0, 30) || f.field])
+                : (bot.dataCollectionFields || []).map((f) => [f.field, f.label]),
             );
             const collected = Object.entries(newData)
               .map(([k, v]) => `${fieldLabelMap[k] || k}: ${v}`)

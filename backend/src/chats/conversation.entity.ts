@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Inbox } from './inbox.entity';
 import { ClientRecord } from '../records/record.entity';
+import { BotFlowState } from '../bots/bot.entity';
 
 @Entity('conversations')
 @Index(['inboxId'])
@@ -76,6 +77,10 @@ export class Conversation {
   // Bot control: active | paused | handed_off
   @Column({ name: 'bot_status', type: 'varchar', length: 20, default: 'active' })
   botStatus: string;
+
+  // Sequential flow state tracking
+  @Column({ name: 'bot_flow_state', type: 'jsonb', nullable: true })
+  botFlowState: BotFlowState | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

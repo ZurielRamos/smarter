@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsArray, MaxLength, IsIn, IsNumber, Min, Max } from 'class-validator';
+import { FlowStep, FlowConfig } from '../bot.entity';
 
 export class UpdateBotDto {
   @IsOptional()
@@ -14,6 +15,11 @@ export class UpdateBotDto {
   @IsString()
   @IsIn(['draft', 'active', 'inactive'])
   status?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['freeform', 'sequential', 'hybrid'])
+  type?: string;
 
   // Identity
   @IsOptional()
@@ -133,4 +139,12 @@ export class UpdateBotDto {
     acknowledgeMessage?: string;
     forwardMessage?: string;
   } | null;
+
+  // Sequential Flow
+  @IsOptional()
+  @IsArray()
+  flowSteps?: FlowStep[];
+
+  @IsOptional()
+  flowConfig?: FlowConfig | null;
 }

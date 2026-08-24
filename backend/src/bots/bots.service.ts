@@ -55,7 +55,7 @@ export class BotsService {
   }
 
   async create(dto: CreateBotDto): Promise<Bot> {
-    const bot = this.botRepo.create({ tenantId: dto.tenantId, name: dto.name, description: dto.description || null, status: 'draft' });
+    const bot = this.botRepo.create({ tenantId: dto.tenantId, name: dto.name, description: dto.description || null, type: dto.type || 'freeform', status: 'draft' });
     return this.botRepo.save(bot);
   }
 
@@ -68,6 +68,12 @@ export class BotsService {
   async remove(id: string): Promise<void> {
     const bot = await this.findOne(id);
     await this.botRepo.remove(bot);
+  }
+
+  async getConversation(conversationId: string): Promise<Conversation> {
+    const conversation = await this.conversationRepo.findOne({ where: { id: conversationId } });
+    if (!conversation) throw new NotFoundException('Conversación no encontrada');
+    return conversation;
   }
 
   // ─── CRUD BotTool ───────────────────────────────────────

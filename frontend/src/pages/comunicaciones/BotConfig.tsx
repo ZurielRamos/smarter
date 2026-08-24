@@ -4,11 +4,12 @@ import {
   ArrowLeft, Bot, Save, Loader2, Cpu, MessageSquare,
   Search, Check, X, Play, Plus, Trash2, UserCircle,
   BookOpen, Shield, ChevronDown, Eye, ClipboardList, RefreshCw, Wrench, Globe, FileText, Pencil,
-  Image as ImageIcon, AlertCircle,
+  Image as ImageIcon, AlertCircle, GitBranch,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BotChatModal } from "@/components/BotChatModal";
 import { BotKnowledgePanel } from "@/components/BotKnowledgePanel";
+import { BotFlowEditor, type FlowStep, type FlowConfig } from "@/components/BotFlowEditor";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import axios from "axios";
@@ -25,6 +26,7 @@ interface BotData {
   name: string;
   description: string | null;
   status: string;
+  type: string;
   persona: string | null;
   role: string | null;
   objective: string | null;
@@ -35,6 +37,8 @@ interface BotData {
   dataCollectionEnabled: boolean;
   dataCollectionMode: string;
   dataCollectionFields: { field: string; label: string; instructions: string; priority: number }[];
+  flowSteps: any[];
+  flowConfig: any | null;
   replyDelay: number;
   contextMessages: number;
   maxBotMessages: number;
@@ -838,6 +842,11 @@ export function BotConfig() {
   const [temperature, setTemperature] = useState(0.7);
   const [maxTokens, setMaxTokens] = useState(1024);
 
+  // Flow (sequential bot)
+  const [botType, setBotType] = useState("freeform");
+  const [flowSteps, setFlowSteps] = useState<FlowStep[]>([]);
+  const [flowConfig, setFlowConfig] = useState<FlowConfig>({});
+
   useEffect(() => { if (botId) loadBot(); }, [botId]);
 
   const loadBot = async () => {
@@ -892,6 +901,10 @@ export function BotConfig() {
       setVariant(data.model || "");
       setTemperature(Number(data.temperature) || 0.7);
       setMaxTokens(data.maxTokens || 1024);
+      // Flow
+      setBotType((data as any).type || "freeform");
+      setFlowSteps((data as any).flowSteps || []);
+      setFlowConfig((data as any).flowConfig || {});
     } catch { toast.error("Error al cargar el bot"); }
     finally { setLoading(false); }
   };
@@ -942,6 +955,10 @@ export function BotConfig() {
         model: variant || null,
         temperature,
         maxTokens,
+        // Flow
+        type: botType,
+        flowSteps: botType === "sequential" ? flowSteps : undefined,
+        flowConfig: botType === "sequential" ? (Object.keys(flowConfig).length > 0 ? flowConfig : null) : undefined,
       });
       setBot(data);
       toast.success("Configuración guardada");
@@ -1083,6 +1100,7 @@ export function BotConfig() {
         <div className="flex gap-4 max-w-3xl overflow-x-auto border-b border-gray-200">
           {[
             { id: "personality", label: "Personalidad", icon: <UserCircle className="h-3.5 w-3.5" /> },
+            { id: "flow", label: "Flujo", icon: <GitBranch className="h-3.5 w-3.5" /> },
             { id: "knowledge", label: "Conocimiento", icon: <BookOpen className="h-3.5 w-3.5" /> },
             { id: "data", label: "Datos", icon: <ClipboardList className="h-3.5 w-3.5" /> },
             { id: "tools", label: "Herramientas", icon: <Wrench className="h-3.5 w-3.5" /> },
@@ -1101,6 +1119,19 @@ export function BotConfig() {
 
       {/* Content */}
       <div className="p-6 max-w-3xl space-y-6">
+
+        {/* ─── TAB: Flujo ─── */}
+        {activeTab === "flow" && (
+          <BotFlowEditor
+            steps={flowSteps}
+            config={flowConfig}
+            botType={botType}
+            onStepsChange={setFlowSteps}
+            onConfigChange={setFlowConfig}
+            onTypeChange={setBotType}
+            tenantId={tenantId}
+          />
+        )}
 
         {/* ─── TAB: Personalidad ─── */}
         {activeTab === "personality" && (<>

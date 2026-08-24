@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { BotsService } from './bots.service';
+import { SequentialFlowEngine } from './sequential-flow.engine';
 import { CreateBotDto } from './dto/create-bot.dto';
 import { UpdateBotDto } from './dto/update-bot.dto';
 import { CreateBotToolDto } from './dto/create-bot-tool.dto';
@@ -19,7 +20,10 @@ import { UpdateBotToolDto } from './dto/update-bot-tool.dto';
 
 @Controller('bots')
 export class BotsController {
-  constructor(private readonly service: BotsService) {}
+  constructor(
+    private readonly service: BotsService,
+    private readonly sequentialFlowEngine: SequentialFlowEngine,
+  ) {}
 
   @Get('models/search')
   searchModels(@Query('q') q: string) {
@@ -137,5 +141,34 @@ export class BotsController {
   @Delete('tools/:toolId')
   removeTool(@Param('toolId') toolId: string) {
     return this.service.removeTool(toolId);
+  }
+
+  // ─── Sequential Flow ───────────────────────────────────
+
+  @Get(':id/flow/progress/:conversationId')
+  async getFlowProgress(@Param('id') id: string, @Param('conversationId') conversationId: string) {
+    const bot = await this.service.findOne(id);
+    const conversation = await this.service.getConversation(conversationId);
+    return this.sequentialFlowEngine.getFlowProgress(bot, conversation);
+  }
+
+  @Post(':id/flow/reset/:conversationId')
+  async resetFlowState(@Param('id') id: string, @Param('conversationId') conversationId: string) {
+    await this.sequentialFlowEngine.resetFlowState(conversationId);
+    return { success: true, message: 'Flow state reset successfully' };
+  }
+
+  @Post(':id/flow/test')
+  async testFlow(@Param('id') id: string, @Body() body: { message: string; conversationId?: string }) {
+    const bot = await this.service.findOne(id);
+    // For testing, we create a mock conversation state or use an existing one
+    const conversation = body.conversationId
+      ? await this.service.getConversation(body.conversationId)
+      : { id: 'test', botFlowState: null } as any;
+
+    if (!conversation.botFlowState) {
+      return this.sequentialFlowEngine.startFlow(bot, conversation);
+    }
+    return this.sequentialFlowEngine.processMessage(bot, conversation, body.message);
   }
 }
