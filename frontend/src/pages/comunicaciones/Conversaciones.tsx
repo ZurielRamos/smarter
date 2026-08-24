@@ -935,37 +935,35 @@ export function Conversaciones() {
                         {conv.adPlatform === 'organic' && <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>}
                       </span>
                     )}
+                    {(() => {
+                      const assignedTo = conv.record?.assignedTo;
+                      if (!assignedTo) return null;
+                      const member = tenantMembers.find((m) => m.userId === assignedTo);
+                      if (!member) return null;
+                      const initials = member.user.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase();
+                      return (
+                        <span className="absolute -top-1 -left-1 h-4.5 w-4.5 rounded-full bg-brand-600 text-white text-[8px] font-bold flex items-center justify-center border-2 border-white shadow-sm" title={member.user.name}>
+                          {initials}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    {/* Channel name + agent avatar */}
+                    {/* Channel name */}
                     {conv.inbox && (
-                      <div className="flex items-center justify-between mb-0.5">
-                        <p className="text-[10px] text-gray-400 flex items-center gap-1">
-                          {conv.inbox.channel === "whatsapp" && <WhatsAppIcon className="h-2.5 w-2.5 text-green-500" />}
-                          {conv.inbox.channel === "messenger" && <MessengerIcon className="h-2.5 w-2.5 text-blue-500" />}
-                          {conv.inbox.channel === "instagram" && <InstagramIcon className="h-2.5 w-2.5 text-pink-500" />}
-                          {conv.inbox.channel === "form" && <FormIcon className="h-2.5 w-2.5 text-purple-500" />}
-                          {conv.inbox.name}
-                          {conv.lastMessageSource === "campaign" && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full bg-emerald-50 text-emerald-600 text-[9px] font-medium ml-1">
-                              <Megaphone className="h-2.5 w-2.5" />
-                              Campaña
-                            </span>
-                          )}
-                        </p>
-                        {(() => {
-                          const assignedTo = conv.record?.assignedTo;
-                          if (!assignedTo) return null;
-                          const member = tenantMembers.find((m) => m.userId === assignedTo);
-                          if (!member) return null;
-                          const initials = member.user.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase();
-                          return (
-                            <span className="h-5 w-5 rounded-full bg-brand-100 text-brand-700 text-[9px] font-bold flex items-center justify-center shrink-0" title={member.user.name}>
-                              {initials}
-                            </span>
-                          );
-                        })()}
-                      </div>
+                      <p className="text-[10px] text-gray-400 flex items-center gap-1 mb-0.5">
+                        {conv.inbox.channel === "whatsapp" && <WhatsAppIcon className="h-2.5 w-2.5 text-green-500" />}
+                        {conv.inbox.channel === "messenger" && <MessengerIcon className="h-2.5 w-2.5 text-blue-500" />}
+                        {conv.inbox.channel === "instagram" && <InstagramIcon className="h-2.5 w-2.5 text-pink-500" />}
+                        {conv.inbox.channel === "form" && <FormIcon className="h-2.5 w-2.5 text-purple-500" />}
+                        {conv.inbox.name}
+                        {conv.lastMessageSource === "campaign" && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full bg-emerald-50 text-emerald-600 text-[9px] font-medium ml-1">
+                            <Megaphone className="h-2.5 w-2.5" />
+                            Campaña
+                          </span>
+                        )}
+                      </p>
                     )}
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium text-gray-900 truncate">{getDisplayName(conv)}</p>
