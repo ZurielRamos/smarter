@@ -2056,9 +2056,20 @@ export class ChatsService {
 
     await this.conversationRepo.save(conversation);
 
+    // Auto-assign agent to record if not already assigned
+    if (senderId && senderId !== 'bot' && conversation.recordId) {
+      const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+      if (record && !record.assignedTo) {
+        record.assignedTo = senderId;
+        await this.clientRecordRepo.save(record);
+      }
+    }
+
     // Emit real-time events
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversationId, saved);
-    this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
+    // Load record for the conversation update event
+    const convForEmit = await this.conversationRepo.findOne({ where: { id: conversationId }, relations: { inbox: true, record: true } });
+    this.chatsGateway.emitConversationUpdate(inbox.tenantId, convForEmit || conversation);
 
     // Send to chat widget visitor via WebSocket
     if (inbox.channel === 'chat') {
