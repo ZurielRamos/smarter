@@ -366,6 +366,65 @@ export class BotsService {
       }
     }
 
+    // === SEQUENTIAL BOT: step-by-step flow in test mode ===
+    if (bot.type === 'sequential') {
+      const steps = (bot.flowSteps || []).sort((a, b) => a.order - b.order);
+      if (steps.length === 0) {
+        return { role: 'assistant', content: bot.fallbackMessage || 'No hay pasos configurados en el flujo.', prefixMessages: consentDisclaimer ? [consentDisclaimer] : undefined };
+      }
+
+      // Determine how many steps have been completed by counting bot flow questions already asked
+      // Filter messages to only those after consent (if any)
+      const consentSnippet = bot.consentConfig?.enabled ? (bot.consentConfig.message || '').substring(0, 40) : '';
+      const consentMsgIdx = consentSnippet ? messages.findIndex((m) => m.role === 'assistant' && m.content.includes(consentSnippet)) : -1;
+      const flowMessages = consentMsgIdx >= 0 ? messages.slice(consentMsgIdx + 1) : messages;
+
+      // Count assistant messages that are flow questions (not consent, not system)
+      const botFlowReplies = flowMessages.filter((m) => m.role === 'assistant');
+      const userFlowReplies = flowMessages.filter((m) => m.role === 'user');
+
+      // If no flow questions have been sent yet, send the first step
+      if (botFlowReplies.length === 0) {
+        const firstStep = steps[0];
+        let question = firstStep.question;
+        if (firstStep.type === 'select' && firstStep.validation?.options?.length) {
+          question += '\n\n' + firstStep.validation.options.map((o, i) => `${i + 1}. ${o}`).join('\n');
+        }
+        if (firstStep.type === 'consent' && firstStep.consent) {
+          question = firstStep.question || firstStep.consent.legalText || '';
+          if (firstStep.consent.termsUrl) question += `\n\n📎 Términos: ${firstStep.consent.termsUrl}`;
+          question += '\n\nResponde "Acepto" o "No acepto".';
+        }
+        const greeting = bot.welcomeMessage ? `${bot.welcomeMessage}\n\n${question}` : question;
+        return { role: 'assistant', content: greeting, prefixMessages: consentDisclaimer ? [consentDisclaimer] : undefined };
+      }
+
+      // Determine current step index: number of completed exchanges
+      // Each step = one bot question + one user answer
+      const completedSteps = Math.min(userFlowReplies.length, steps.length);
+
+      if (completedSteps >= steps.length) {
+        // All steps done
+        const config = bot.flowConfig || {};
+        const completionMsg = config.completionMessage || 'Gracias, hemos recopilado toda la información necesaria.';
+        return { role: 'assistant', content: completionMsg, handedOff: config.completionAction === 'handoff' || config.completionAction === 'resolve' };
+      }
+
+      // Send the next step question
+      const nextStep = steps[completedSteps];
+      let question = nextStep.question;
+      if (nextStep.type === 'select' && nextStep.validation?.options?.length) {
+        question += '\n\n' + nextStep.validation.options.map((o, i) => `${i + 1}. ${o}`).join('\n');
+      }
+      if (nextStep.type === 'consent' && nextStep.consent) {
+        question = nextStep.question || nextStep.consent.legalText || '';
+        if (nextStep.consent.termsUrl) question += `\n\n📎 Términos: ${nextStep.consent.termsUrl}`;
+        question += '\n\nResponde "Acepto" o "No acepto".';
+      }
+
+      return { role: 'assistant', content: question };
+    }
+
     // Build system prompt
     const systemPrompt = this.compileSystemPrompt(bot, collectedData);
 
