@@ -118,6 +118,7 @@ export function Conversaciones() {
   const [showEventForm, setShowEventForm] = useState(false);
   const [eventForm, setEventForm] = useState({ type: 'purchase', name: '', value: '', currency: 'COP' });
   const [showStatusSubmenu, setShowStatusSubmenu] = useState(false);
+  const [showAssignSubmenu, setShowAssignSubmenu] = useState(false);
   const [showClearChatConfirm, setShowClearChatConfirm] = useState(false);
   const [selectedInboxFilter, setSelectedInboxFilter] = useState<Set<string>>(new Set());
   const [conversationsTotal, setConversationsTotal] = useState(0);
@@ -302,6 +303,7 @@ export function Conversaciones() {
       if (chatHeaderMenuRef.current && !chatHeaderMenuRef.current.contains(e.target as Node)) {
         setChatHeaderMenuOpen(false);
         setShowStatusSubmenu(false);
+        setShowAssignSubmenu(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -695,6 +697,25 @@ export function Conversaciones() {
       setShowStatusSubmenu(false);
     } catch {
       toast.error("Error al cambiar estado");
+    }
+  };
+
+  const handleAssignTo = async (userId: string | null) => {
+    const recordId = activeConversation?.record?.id;
+    if (!recordId) return;
+    try {
+      await api.put(`/records/${recordId}`, { assignedTo: userId });
+      // Update local state
+      setConversations((prev) => prev.map((c) => {
+        if (c.id !== activeConversation?.id) return c;
+        return { ...c, record: c.record ? { ...c.record, assignedTo: userId } : c.record };
+      }));
+      const member = userId ? tenantMembers.find((m) => m.userId === userId) : null;
+      toast.success(userId ? `Asignado a ${member?.user.name || 'agente'}` : 'Asignación removida');
+      setChatHeaderMenuOpen(false);
+      setShowAssignSubmenu(false);
+    } catch {
+      toast.error("Error al asignar");
     }
   };
 
@@ -1115,6 +1136,53 @@ export function Conversaciones() {
                                 {status.label}
                               </button>
                             ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* Asignar a - con submenu */}
+                      <div
+                        className="relative"
+                        onMouseEnter={() => setShowAssignSubmenu(true)}
+                        onMouseLeave={() => setShowAssignSubmenu(false)}
+                      >
+                        <button
+                          className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <span className="flex items-center gap-2">
+                            <UserPlus className="h-4 w-4 text-gray-400" />
+                            Asignar a
+                          </span>
+                          <ChevronLeft className="h-3.5 w-3.5 text-gray-400" />
+                        </button>
+                        {showAssignSubmenu && (
+                          <div className="absolute right-full top-0 mr-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-60 overflow-y-auto">
+                            {activeConversation?.record?.assignedTo && (
+                              <button
+                                onClick={() => handleAssignTo(null)}
+                                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors border-b border-gray-100"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                                Quitar asignación
+                              </button>
+                            )}
+                            {tenantMembers.map((member) => (
+                              <button
+                                key={member.userId}
+                                onClick={() => handleAssignTo(member.userId)}
+                                className={`flex items-center gap-2.5 w-full px-3 py-2 text-sm transition-colors ${activeConversation?.record?.assignedTo === member.userId ? "bg-brand-50 text-brand-700" : "text-gray-700 hover:bg-gray-50"}`}
+                              >
+                                <span className="h-5 w-5 rounded-full bg-brand-100 text-brand-700 text-[9px] font-bold flex items-center justify-center shrink-0">
+                                  {member.user.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()}
+                                </span>
+                                <span className="truncate">{member.user.name}</span>
+                                {activeConversation?.record?.assignedTo === member.userId && (
+                                  <CheckCheck className="h-3.5 w-3.5 ml-auto shrink-0 text-brand-600" />
+                                )}
+                              </button>
+                            ))}
+                            {tenantMembers.length === 0 && (
+                              <p className="px-3 py-2 text-xs text-gray-400">No hay agentes disponibles</p>
+                            )}
                           </div>
                         )}
                       </div>
