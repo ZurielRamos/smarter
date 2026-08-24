@@ -412,7 +412,13 @@ export class BotsService {
       const completedSteps = Math.min(userFlowReplies.length, steps.length);
 
       if (completedSteps >= steps.length) {
-        // All steps done — include the last step's data
+        // Check if flow was already completed previously (user is writing AFTER completion)
+        if (userFlowReplies.length > steps.length) {
+          // Flow already done — don't respond again
+          return { role: 'assistant', content: '', handedOff: true };
+        }
+
+        // All steps just completed — send completion message with last step's data
         const config = bot.flowConfig || {};
         const completionMsg = config.completionMessage || 'Gracias, hemos recopilado toda la información necesaria.';
         let extractedData: Record<string, string> | undefined;
