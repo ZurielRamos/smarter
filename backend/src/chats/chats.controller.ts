@@ -374,4 +374,110 @@ export class WebhookController {
       console.error('[Webhook] Processing error:', error);
     }
   }
+
+  // Evolution API webhook events
+  @Post('evolution/:inboxId')
+  async handleEvolutionWebhook(@Param('inboxId') inboxId: string, @Body() body: any, @Res() res: Response) {
+    res.status(200).send('OK');
+    try {
+      const eventType = body.event;
+      console.log(`[Evolution Webhook] Event: ${eventType} for inbox: ${inboxId}`);
+
+      if (eventType === 'connection.update') {
+        const state = body.data?.state || body.data?.instance?.state;
+        if (state) {
+          const mappedStatus = state === 'open' ? 'connected' : state === 'connecting' ? 'pending' : 'disconnected';
+          const updateData: any = { status: mappedStatus };
+          if (state === 'open' && body.data?.wuid) {
+            updateData.channelName = body.data.wuid.split('@')[0];
+          }
+          await this.chatsService.updateInbox(inboxId, updateData);
+        }
+      } else if (eventType === 'messages.upsert') {
+        const messages = body.data || [];
+        for (const msgData of Array.isArray(messages) ? messages : [messages]) {
+          const key = msgData.key;
+          if (!key || key.fromMe) continue;
+          const remoteJid = key.remoteJid || '';
+          if (remoteJid === 'status@broadcast' || remoteJid.endsWith('@g.us')) continue;
+          const contactPhone = remoteJid.split('@')[0];
+          if (!contactPhone) continue;
+          const message = msgData.message;
+          if (!message) continue;
+
+          const contactName = msgData.pushName || contactPhone;
+          let messageType = 'text';
+          let content: string | null = null;
+          let mediaUrl: string | null = null;
+          let mediaMimeType: string | null = null;
+
+          if (message.conversation) {
+            content = message.conversation;
+          } else if (message.extendedTextMessage) {
+            content = message.extendedTextMessage.text || '';
+          } else if (message.imageMessage) {
+            messageType = 'image';
+            content = message.imageMessage.caption || null;
+            mediaMimeType = message.imageMessage.mimetype || 'image/jpeg';
+            mediaUrl = message.imageMessage.url || null;
+            if (!mediaUrl && msgData.base64) mediaUrl = `data:${mediaMimeType};base64,${msgData.base64}`;
+          } else if (message.videoMessage) {
+            messageType = 'video';
+            content = message.videoMessage.caption || null;
+            mediaMimeType = message.videoMessage.mimetype || 'video/mp4';
+            mediaUrl = message.videoMessage.url || null;
+            if (!mediaUrl && msgData.base64) mediaUrl = `data:${mediaMimeType};base64,${msgData.base64}`;
+          } else if (message.audioMessage) {
+            messageType = 'audio';
+            mediaMimeType = message.audioMessage.mimetype || 'audio/ogg';
+            mediaUrl = message.audioMessage.url || null;
+            if (!mediaUrl && msgData.base64) mediaUrl = `data:${mediaMimeType};base64,${msgData.base64}`;
+          } else if (message.documentMessage) {
+            messageType = 'document';
+            content = message.documentMessage.fileName || null;
+            mediaMimeType = message.documentMessage.mimetype || 'application/octet-stream';
+            mediaUrl = message.documentMessage.url || null;
+            if (!mediaUrl && msgData.base64) mediaUrl = `data:${mediaMimeType};base64,${msgData.base64}`;
+          } else if (message.stickerMessage) {
+            messageType = 'sticker';
+            mediaMimeType = message.stickerMessage.mimetype || 'image/webp';
+          } else if (message.locationMessage) {
+            content = `📍 ${message.locationMessage.degreesLatitude}, ${message.locationMessage.degreesLongitude}`;
+          } else if (message.contactMessage) {
+            content = `👤 ${message.contactMessage.displayName || 'Contacto'}`;
+          } else if (message.buttonsResponseMessage) {
+            content = message.buttonsResponseMessage.selectedDisplayText || '[button]';
+          } else if (message.listResponseMessage) {
+            content = message.listResponseMessage.title || '[list]';
+          } else {
+            content = '[mensaje no soportado]';
+          }
+
+          await this.chatsService.handleEvolutionInboundMessage(inboxId, {
+            contactPhone,
+            contactName,
+            messageType,
+            content,
+            mediaUrl,
+            mediaMimeType,
+            externalId: key.id || null,
+            replyToExternalId: msgData.contextInfo?.stanzaId || message.extendedTextMessage?.contextInfo?.stanzaId || null,
+          });
+        }
+      } else if (eventType === 'messages.update') {
+        const updates = body.data || [];
+        for (const update of Array.isArray(updates) ? updates : [updates]) {
+          const messageId = update.key?.id;
+          const status = update.update?.status;
+          if (!messageId || !status) continue;
+          let mappedStatus: string | null = null;
+          if (status === 'DELIVERY_ACK' || status === 3) mappedStatus = 'delivered';
+          else if (status === 'READ' || status === 4 || status === 'PLAYED' || status === 5) mappedStatus = 'read';
+          if (mappedStatus) await this.chatsService.updateMessageStatus(messageId, mappedStatus);
+        }
+      }
+    } catch (error) {
+      console.error(`[Evolution Webhook] Error processing event for inbox ${inboxId}:`, error);
+    }
+  }
 }

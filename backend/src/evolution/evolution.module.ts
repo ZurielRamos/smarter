@@ -1,7 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EvolutionService } from './evolution.service';
-import { EvolutionController, EvolutionWebhookController } from './evolution.controller';
+import { EvolutionController } from './evolution.controller';
 import { ChatsModule } from '../chats/chats.module';
 
 @Module({
@@ -10,7 +10,7 @@ import { ChatsModule } from '../chats/chats.module';
     forwardRef(() => ChatsModule),
   ],
   providers: [EvolutionService],
-  controllers: [EvolutionController, EvolutionWebhookController],
+  controllers: [EvolutionController],
   exports: [EvolutionService],
 })
 export class EvolutionModule {}
