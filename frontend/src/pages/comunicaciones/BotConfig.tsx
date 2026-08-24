@@ -867,6 +867,8 @@ export function BotConfig() {
   const [consentAgeMessage, setConsentAgeMessage] = useState("");
   const [consentRejectMessage, setConsentRejectMessage] = useState("");
   const [consentRejectAction, setConsentRejectAction] = useState<"end" | "handoff">("end");
+  const [consentAcceptKeyword, setConsentAcceptKeyword] = useState("acepto");
+  const [consentRejectKeyword, setConsentRejectKeyword] = useState("no acepto");
 
   useEffect(() => { if (botId) loadBot(); }, [botId]);
 
@@ -937,6 +939,8 @@ export function BotConfig() {
         setConsentAgeMessage(cc.ageMessage || "");
         setConsentRejectMessage(cc.rejectMessage || "");
         setConsentRejectAction(cc.rejectAction || "end");
+        setConsentAcceptKeyword(cc.acceptKeywords?.[0] || "acepto");
+        setConsentRejectKeyword(cc.rejectKeywords?.[0] || "no acepto");
       }
     } catch { toast.error("Error al cargar el bot"); }
     finally { setLoading(false); }
@@ -1001,6 +1005,8 @@ export function BotConfig() {
           ageMessage: consentAgeMessage.trim() || undefined,
           rejectMessage: consentRejectMessage.trim() || undefined,
           rejectAction: consentRejectAction,
+          acceptKeywords: consentMode === "explicit" && consentAcceptKeyword.trim() ? [consentAcceptKeyword.trim()] : undefined,
+          rejectKeywords: consentRejectKeyword.trim() ? [consentRejectKeyword.trim()] : undefined,
         } : null,
       });
       setBot(data);
@@ -1275,6 +1281,34 @@ export function BotConfig() {
 
               {/* Reject behavior */}
               <div className="pt-3 border-t border-gray-100">
+                {/* Keywords */}
+                <div className="space-y-3 mb-4">
+                  {consentMode === "explicit" && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Palabra de aprobacion</label>
+                      <input
+                        type="text"
+                        value={consentAcceptKeyword}
+                        onChange={(e) => setConsentAcceptKeyword(e.target.value)}
+                        placeholder="acepto"
+                        className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">El usuario debe escribir esta palabra para aceptar el consentimiento.</p>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Palabra de negacion</label>
+                    <input
+                      type="text"
+                      value={consentRejectKeyword}
+                      onChange={(e) => setConsentRejectKeyword(e.target.value)}
+                      placeholder="no acepto"
+                      className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1">Si el usuario escribe esta palabra, se rechaza el consentimiento{consentMode === "implicit" ? " (en cualquier momento de la conversacion)" : ""}.</p>
+                  </div>
+                </div>
+
                 <label className="block text-xs font-medium text-gray-600 mb-1.5">Si el usuario rechaza</label>
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <button type="button" onClick={() => setConsentRejectAction("end")}
