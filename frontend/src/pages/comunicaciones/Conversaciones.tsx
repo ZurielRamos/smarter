@@ -63,6 +63,7 @@ interface Conversation {
     firstName: string | null;
     lastName: string | null;
     phone: string | null;
+    assignedTo?: string | null;
   } | null;
 }
 
@@ -124,6 +125,7 @@ export function Conversaciones() {
   const [hasMoreConversations, setHasMoreConversations] = useState(true);
   const conversationListRef = useRef<HTMLDivElement>(null);
   const [labels, setLabels] = useState<Array<{ id: string; slug: string; label: string; description: string | null; color: string; showInSidebar: boolean }>>([]);
+  const [tenantMembers, setTenantMembers] = useState<Array<{ userId: string; user: { id: string; name: string; email: string } }>>([]);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
   const [selectedLabelFilters, setSelectedLabelFilters] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('chat_filter_labels');
@@ -158,6 +160,7 @@ export function Conversaciones() {
     loadInboxes();
     loadConversations();
     loadLabels();
+    loadMembers();
   }, [tenantId]);
 
   // Reload conversations when filter changes
@@ -390,6 +393,11 @@ export function Conversaciones() {
 
   const loadLabels = () => {
     api.get("/chats/labels", { params: { tenantId } }).then(({ data }) => setLabels(data)).catch(() => {});
+  };
+
+  const loadMembers = () => {
+    if (!tenantId) return;
+    api.get(`/tenants/${tenantId}/members`).then(({ data }) => setTenantMembers(data)).catch(() => {});
   };
 
   const loadMessages = (conversationId: string) => {
@@ -929,21 +937,35 @@ export function Conversaciones() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    {/* Channel name */}
+                    {/* Channel name + agent avatar */}
                     {conv.inbox && (
-                      <p className="text-[10px] text-gray-400 flex items-center gap-1 mb-0.5">
-                        {conv.inbox.channel === "whatsapp" && <WhatsAppIcon className="h-2.5 w-2.5 text-green-500" />}
-                        {conv.inbox.channel === "messenger" && <MessengerIcon className="h-2.5 w-2.5 text-blue-500" />}
-                        {conv.inbox.channel === "instagram" && <InstagramIcon className="h-2.5 w-2.5 text-pink-500" />}
-                        {conv.inbox.channel === "form" && <FormIcon className="h-2.5 w-2.5 text-purple-500" />}
-                        {conv.inbox.name}
-                        {conv.lastMessageSource === "campaign" && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full bg-emerald-50 text-emerald-600 text-[9px] font-medium ml-1">
-                            <Megaphone className="h-2.5 w-2.5" />
-                            Campaña
-                          </span>
-                        )}
-                      </p>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                          {conv.inbox.channel === "whatsapp" && <WhatsAppIcon className="h-2.5 w-2.5 text-green-500" />}
+                          {conv.inbox.channel === "messenger" && <MessengerIcon className="h-2.5 w-2.5 text-blue-500" />}
+                          {conv.inbox.channel === "instagram" && <InstagramIcon className="h-2.5 w-2.5 text-pink-500" />}
+                          {conv.inbox.channel === "form" && <FormIcon className="h-2.5 w-2.5 text-purple-500" />}
+                          {conv.inbox.name}
+                          {conv.lastMessageSource === "campaign" && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full bg-emerald-50 text-emerald-600 text-[9px] font-medium ml-1">
+                              <Megaphone className="h-2.5 w-2.5" />
+                              Campaña
+                            </span>
+                          )}
+                        </p>
+                        {(() => {
+                          const assignedTo = conv.record?.assignedTo;
+                          if (!assignedTo) return null;
+                          const member = tenantMembers.find((m) => m.userId === assignedTo);
+                          if (!member) return null;
+                          const initials = member.user.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase();
+                          return (
+                            <span className="h-5 w-5 rounded-full bg-brand-100 text-brand-700 text-[9px] font-bold flex items-center justify-center shrink-0" title={member.user.name}>
+                              {initials}
+                            </span>
+                          );
+                        })()}
+                      </div>
                     )}
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium text-gray-900 truncate">{getDisplayName(conv)}</p>
