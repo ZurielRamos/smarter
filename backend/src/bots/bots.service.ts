@@ -289,51 +289,69 @@ export class BotsService {
     // === CONSENT GATE (for test chat) ===
     if (bot.consentConfig?.enabled) {
       const consent = bot.consentConfig;
-      // Check if consent has been given in this conversation (look at message history)
-      const consentGiven = messages.some((m) => {
-        if (m.role !== 'assistant') return false;
-        // If bot has already responded with something other than the consent message, consent was given
-        const isConsentMsg = m.content.includes(consent.message?.substring(0, 30) || '___no_match___');
-        return !isConsentMsg && messages.indexOf(m) > 0;
-      });
 
-      if (!consentGiven) {
-        const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
-        if (lastUserMsg) {
-          const lower = lastUserMsg.content.toLowerCase().trim();
-          const acceptWords = consent.acceptKeywords?.length
-            ? consent.acceptKeywords.map((k) => k.toLowerCase())
-            : ['si', 'sí', 'acepto', 'autorizo', 'ok', 'dale', 'de acuerdo'];
-          const rejectWords = consent.rejectKeywords?.length
-            ? consent.rejectKeywords.map((k) => k.toLowerCase())
-            : ['no', 'rechazo', 'no acepto', 'no autorizo'];
+      // Check if consent message was already sent (exists in history)
+      const consentSnippet = (consent.message || '').substring(0, 40);
+      const consentAlreadySent = consentSnippet && messages.some(
+        (m) => m.role === 'assistant' && m.content.includes(consentSnippet),
+      );
 
-          const accepted = acceptWords.some((w) => lower.includes(w));
-          const rejected = rejectWords.some((w) => lower.includes(w));
-
-          if (rejected) {
-            const rejectMsg = consent.rejectMessage || 'Entendido. Sin tu autorización no podemos continuar.';
-            return { role: 'assistant', content: rejectMsg, handedOff: consent.rejectAction === 'handoff' };
-          }
-
-          if (!accepted) {
-            // First message or ambiguous — send consent message
-            let consentText = consent.message || 'Necesito tu autorización para continuar.';
-            if (consent.termsUrl) consentText += `\n\n📎 Términos y condiciones: ${consent.termsUrl}`;
-            if (consent.ageVerification) consentText += `\n\n${consent.ageMessage || '⚠️ Declaro ser mayor de edad.'}`;
-            consentText += '\n\nResponde "Acepto" o "No acepto".';
-            return { role: 'assistant', content: consentText };
-          }
-          // accepted — fall through to normal chat
-        } else {
-          // No user message yet — send consent
-          let consentText = consent.message || 'Necesito tu autorización para continuar.';
-          if (consent.termsUrl) consentText += `\n\n📎 Términos y condiciones: ${consent.termsUrl}`;
-          if (consent.ageVerification) consentText += `\n\n${consent.ageMessage || '⚠️ Declaro ser mayor de edad.'}`;
+      if (!consentAlreadySent) {
+        // First interaction — build consent text + normal response
+        let consentText = consent.message || '';
+        if (consent.termsUrl) consentText += `\n\n📎 Términos y condiciones: ${consent.termsUrl}`;
+        if (consent.ageVerification) consentText += `\n\n${consent.ageMessage || '⚠️ Al continuar, declaro ser mayor de edad.'}`;
+        if (consent.mode !== 'implicit') {
           consentText += '\n\nResponde "Acepto" o "No acepto".';
+          // Explicit mode: only send consent, wait for response
+          return { role: 'assistant', content: consentText };
+        } else {
+          consentText += '\n\nAl continuar la conversación, aceptas estos términos.';
+          // Implicit mode: send consent + proceed with normal response below
+          // We prepend consent to the response at the end
+          // For now, just return consent — the normal flow continues on next message
           return { role: 'assistant', content: consentText };
         }
       }
+
+      // Consent was sent — check for rejection in user messages after consent
+      const consentIdx = messages.findIndex(
+        (m) => m.role === 'assistant' && m.content.includes(consentSnippet),
+      );
+      const messagesAfterConsent = messages.slice(consentIdx + 1);
+      const userMsgsAfterConsent = messagesAfterConsent.filter((m) => m.role === 'user');
+
+      if (userMsgsAfterConsent.length > 0) {
+        const rejectWords = consent.rejectKeywords?.length
+          ? consent.rejectKeywords.map((k) => k.toLowerCase())
+          : ['no acepto', 'no autorizo', 'rechazo'];
+
+        // Check only the first user message after consent for rejection
+        const firstReply = userMsgsAfterConsent[0].content.toLowerCase().trim();
+        const rejected = rejectWords.some((w) => firstReply.includes(w));
+
+        if (rejected) {
+          const rejectMsg = consent.rejectMessage || 'Entendido. Sin tu autorización no podemos continuar.';
+          return { role: 'assistant', content: rejectMsg, handedOff: consent.rejectAction === 'handoff' };
+        }
+
+        if (consent.mode !== 'implicit') {
+          // Explicit mode — check acceptance
+          const acceptWords = consent.acceptKeywords?.length
+            ? consent.acceptKeywords.map((k) => k.toLowerCase())
+            : ['si', 'sí', 'acepto', 'autorizo', 'ok', 'dale', 'de acuerdo'];
+          const accepted = acceptWords.some((w) => firstReply.includes(w));
+
+          if (!accepted && userMsgsAfterConsent.length === 1) {
+            // First reply after consent isn't acceptance — re-ask
+            let consentText = consent.message || 'Necesito tu autorización para continuar.';
+            if (consent.termsUrl) consentText += `\n\n📎 Términos y condiciones: ${consent.termsUrl}`;
+            consentText += '\n\nResponde "Acepto" o "No acepto".';
+            return { role: 'assistant', content: consentText };
+          }
+        }
+      }
+      // Consent given (implicit by continuing, or explicit by acceptance) — proceed normally
     }
 
     // Check handoff keywords first (no tokens spent)

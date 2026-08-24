@@ -1336,40 +1336,12 @@ export class ChatsService {
         const consent = bot.consentConfig;
         const lower = effectiveContent.toLowerCase().trim();
 
-        const acceptWords = consent.acceptKeywords?.length
-          ? consent.acceptKeywords.map((k) => k.toLowerCase())
-          : ['si', 'sí', 'acepto', 'autorizo', 'ok', 'dale', 'de acuerdo'];
-
+        // Check for explicit rejection keywords
         const rejectWords = consent.rejectKeywords?.length
           ? consent.rejectKeywords.map((k) => k.toLowerCase())
-          : ['no', 'rechazo', 'no acepto', 'no autorizo'];
+          : ['no acepto', 'no autorizo', 'rechazo'];
 
-        const accepted = acceptWords.some((w) => lower.includes(w));
         const rejected = rejectWords.some((w) => lower.includes(w));
-
-        if (accepted) {
-          // Mark consent as given
-          conversation.botConsentGiven = true;
-          await this.conversationRepo.save(conversation);
-          await this.createSystemNote(conversation.id, '✅ Consentimiento otorgado por el contacto.', inbox.tenantId);
-          // Continue to normal bot flow — send welcome or first step
-          if (bot.type === 'sequential') {
-            const flowResponse = await this.sequentialFlowEngine.startFlow(bot, conversation);
-            if (flowResponse?.content) {
-              const sentMessage = await this.sendMessage(conversation.id, flowResponse.content, 'text', undefined);
-              sentMessage.botId = inbox.botId;
-              await this.messageRepo.save(sentMessage);
-            }
-            return;
-          }
-          // For freeform, just let the next message trigger the bot normally
-          if (bot.welcomeMessage) {
-            const sentMessage = await this.sendMessage(conversation.id, bot.welcomeMessage, 'text', undefined);
-            sentMessage.botId = inbox.botId;
-            await this.messageRepo.save(sentMessage);
-          }
-          return;
-        }
 
         if (rejected) {
           const rejectMsg = consent.rejectMessage || 'Entendido. Sin tu autorización no podemos continuar.';
@@ -1388,22 +1360,66 @@ export class ChatsService {
           return;
         }
 
-        // Ambiguous — re-send consent message
-        let consentText = consent.message;
-        if (consent.termsUrl) consentText += `\n\n📎 Términos y condiciones: ${consent.termsUrl}`;
-        if (consent.ageVerification) consentText += `\n\n${consent.ageMessage || '⚠️ Declaro ser mayor de edad.'}`;
-        consentText += '\n\nResponde "Acepto" o "No acepto".';
+        // Not a rejection — check if this is the very first bot interaction (consent not yet sent)
+        // We detect this by checking if there are any outbound bot messages in this conversation
+        const botMessageCount = await this.messageRepo.count({
+          where: { conversationId: conversation.id, direction: 'outbound', botId: inbox.botId },
+        });
 
-        const sentMessage = await this.sendMessage(conversation.id, consentText, 'text', undefined);
-        sentMessage.botId = inbox.botId;
-        await this.messageRepo.save(sentMessage);
-        return;
-      }
+        if (botMessageCount === 0) {
+          // First interaction — send consent message as a separate message first
+          let consentText = consent.message || '';
+          if (consent.termsUrl) consentText += `\n\n📎 Términos y condiciones: ${consent.termsUrl}`;
+          if (consent.ageVerification) consentText += `\n\n${consent.ageMessage || '⚠️ Al continuar, declaro ser mayor de edad.'}`;
+          if (consent.mode !== 'implicit') {
+            consentText += '\n\nResponde "Acepto" o "No acepto".';
+          } else {
+            consentText += '\n\nAl continuar la conversación, aceptas estos términos.';
+          }
 
-      // If consent is required but this is first interaction, send consent message
-      if (bot.consentConfig?.enabled && !conversation.botConsentGiven) {
-        // This shouldn't be reached but as a safety net
-        return;
+          const consentMsg = await this.sendMessage(conversation.id, consentText, 'text', undefined);
+          consentMsg.botId = inbox.botId;
+          await this.messageRepo.save(consentMsg);
+
+          if (consent.mode === 'implicit') {
+            // Implicit: mark consent as given immediately and continue to normal response
+            conversation.botConsentGiven = true;
+            await this.conversationRepo.save(conversation);
+            // Fall through to normal bot response below
+          } else {
+            // Explicit: wait for acceptance, don't respond yet
+            return;
+          }
+        } else {
+          // Consent was already sent previously but user hasn't accepted yet (explicit mode)
+          if (consent.mode !== 'implicit') {
+            // Check for acceptance
+            const acceptWords = consent.acceptKeywords?.length
+              ? consent.acceptKeywords.map((k) => k.toLowerCase())
+              : ['si', 'sí', 'acepto', 'autorizo', 'ok', 'dale', 'de acuerdo'];
+            const accepted = acceptWords.some((w) => lower.includes(w));
+
+            if (accepted) {
+              conversation.botConsentGiven = true;
+              await this.conversationRepo.save(conversation);
+              await this.createSystemNote(conversation.id, '✅ Consentimiento otorgado por el contacto.', inbox.tenantId);
+              // Fall through to normal bot response
+            } else {
+              // Re-ask
+              let consentText = consent.message || 'Necesito tu autorización para continuar.';
+              if (consent.termsUrl) consentText += `\n\n📎 Términos y condiciones: ${consent.termsUrl}`;
+              consentText += '\n\nResponde "Acepto" o "No acepto".';
+              const sentMessage = await this.sendMessage(conversation.id, consentText, 'text', undefined);
+              sentMessage.botId = inbox.botId;
+              await this.messageRepo.save(sentMessage);
+              return;
+            }
+          } else {
+            // Implicit mode and not first message — consent already given
+            conversation.botConsentGiven = true;
+            await this.conversationRepo.save(conversation);
+          }
+        }
       }
 
       // Get bot response — route by bot type

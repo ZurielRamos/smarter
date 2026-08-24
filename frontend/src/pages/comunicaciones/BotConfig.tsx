@@ -860,6 +860,7 @@ export function BotConfig() {
 
   // Consent
   const [consentEnabled, setConsentEnabled] = useState(false);
+  const [consentMode, setConsentMode] = useState<"explicit" | "implicit">("implicit");
   const [consentMessage, setConsentMessage] = useState("");
   const [consentTermsUrl, setConsentTermsUrl] = useState("");
   const [consentAgeVerification, setConsentAgeVerification] = useState(false);
@@ -929,6 +930,7 @@ export function BotConfig() {
       const cc = (data as any).consentConfig;
       if (cc) {
         setConsentEnabled(cc.enabled || false);
+        setConsentMode(cc.mode || "implicit");
         setConsentMessage(cc.message || "");
         setConsentTermsUrl(cc.termsUrl || "");
         setConsentAgeVerification(cc.ageVerification || false);
@@ -992,6 +994,7 @@ export function BotConfig() {
         flowConfig: botType === "sequential" ? (Object.keys(flowConfig).length > 0 ? flowConfig : null) : undefined,
         consentConfig: consentEnabled ? {
           enabled: true,
+          mode: consentMode,
           message: consentMessage.trim(),
           termsUrl: consentTermsUrl.trim() || undefined,
           ageVerification: consentAgeVerification || undefined,
@@ -1197,6 +1200,25 @@ export function BotConfig() {
 
           {consentEnabled && (
             <div className="space-y-4 pt-3 border-t border-gray-100">
+              {/* Mode selector */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Modo de consentimiento</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setConsentMode("implicit")}
+                    className={`p-3 rounded-lg border text-left transition-colors ${consentMode === "implicit" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+                  >
+                    <span className={`text-xs font-medium ${consentMode === "implicit" ? "text-brand-700" : "text-gray-700"}`}>Implicito</span>
+                    <p className="text-[10px] text-gray-400 mt-0.5">El bot envia el aviso y responde normalmente. Continuar chateando = aceptar.</p>
+                  </button>
+                  <button type="button" onClick={() => setConsentMode("explicit")}
+                    className={`p-3 rounded-lg border text-left transition-colors ${consentMode === "explicit" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+                  >
+                    <span className={`text-xs font-medium ${consentMode === "explicit" ? "text-brand-700" : "text-gray-700"}`}>Explicito</span>
+                    <p className="text-[10px] text-gray-400 mt-0.5">El bot se detiene hasta que el usuario diga "Acepto" explicitamente.</p>
+                  </button>
+                </div>
+              </div>
+
               {/* Consent message */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje de consentimiento</label>

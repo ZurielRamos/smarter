@@ -65,6 +65,7 @@ export interface FlowConfig {
 
 export interface BotConsentConfig {
   enabled: boolean;
+  mode: 'explicit' | 'implicit';      // explicit = must say "acepto"; implicit = any reply (except rejection) = acceptance
   message: string;                    // consent message sent to user
   termsUrl?: string;                  // link to terms & conditions
   ageVerification?: boolean;          // require age declaration
