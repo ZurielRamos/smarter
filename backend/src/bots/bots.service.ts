@@ -404,10 +404,18 @@ export class BotsService {
       const completedSteps = Math.min(userFlowReplies.length, steps.length);
 
       if (completedSteps >= steps.length) {
-        // All steps done
+        // All steps done — include the last step's data
         const config = bot.flowConfig || {};
         const completionMsg = config.completionMessage || 'Gracias, hemos recopilado toda la información necesaria.';
-        return { role: 'assistant', content: completionMsg, handedOff: config.completionAction === 'handoff' || config.completionAction === 'resolve' };
+        let extractedData: Record<string, string> | undefined;
+        if (userFlowReplies.length > 0) {
+          const lastStep = steps[steps.length - 1];
+          const lastAnswer = userFlowReplies[userFlowReplies.length - 1]?.content || '';
+          if (lastStep.field && lastAnswer) {
+            extractedData = { [lastStep.field]: lastAnswer.trim() };
+          }
+        }
+        return { role: 'assistant', content: completionMsg, handedOff: config.completionAction === 'handoff' || config.completionAction === 'resolve', extractedData };
       }
 
       // Send the next step question
@@ -422,7 +430,17 @@ export class BotsService {
         question += '\n\nResponde "Acepto" o "No acepto".';
       }
 
-      return { role: 'assistant', content: question };
+      // Build extractedData from the step that was just answered
+      let extractedData: Record<string, string> | undefined;
+      if (completedSteps > 0 && userFlowReplies.length > 0) {
+        const justCompletedStep = steps[completedSteps - 1];
+        const userAnswer = userFlowReplies[userFlowReplies.length - 1]?.content || '';
+        if (justCompletedStep.field && userAnswer) {
+          extractedData = { [justCompletedStep.field]: userAnswer.trim() };
+        }
+      }
+
+      return { role: 'assistant', content: question, extractedData };
     }
 
     // Build system prompt
