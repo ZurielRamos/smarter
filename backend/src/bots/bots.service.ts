@@ -420,7 +420,28 @@ export class BotsService {
           const lastStep = steps[steps.length - 1];
           const lastAnswer = userFlowReplies[userFlowReplies.length - 1]?.content || '';
           if (lastStep.field && lastAnswer) {
-            extractedData = { [lastStep.field]: lastAnswer.trim() };
+            let parsedValue = lastAnswer.trim();
+
+            if (lastStep.aiInterpretation && apiKey) {
+              try {
+                const parsePrompt = `Eres un parser de datos. El usuario respondió a la pregunta: "${lastStep.question}".
+El campo esperado es: "${lastStep.field}" (${lastStep.type}).
+Extrae SOLO el dato relevante de la respuesta del usuario. Devuelve únicamente el valor extraído, sin explicaciones.`;
+                const resolvedModel = await this.resolveModel(bot.tenantId, bot.model);
+                const parseRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                  body: JSON.stringify({ model: resolvedModel, messages: [{ role: 'system', content: parsePrompt }, { role: 'user', content: lastAnswer }], temperature: 0.1, max_tokens: 100 }),
+                });
+                if (parseRes.ok) {
+                  const parseJson = await parseRes.json();
+                  const parsed = parseJson.choices?.[0]?.message?.content?.trim();
+                  if (parsed) parsedValue = parsed;
+                }
+              } catch {}
+            }
+
+            extractedData = { [lastStep.field]: parsedValue };
           }
         }
         return { role: 'assistant', content: completionMsg, handedOff: config.completionAction === 'handoff' || config.completionAction === 'resolve', extractedData };
@@ -444,7 +465,44 @@ export class BotsService {
         const justCompletedStep = steps[completedSteps - 1];
         const userAnswer = userFlowReplies[userFlowReplies.length - 1]?.content || '';
         if (justCompletedStep.field && userAnswer) {
-          extractedData = { [justCompletedStep.field]: userAnswer.trim() };
+          let parsedValue = userAnswer.trim();
+
+          // If AI interpretation is enabled, parse the response
+          if (justCompletedStep.aiInterpretation && apiKey) {
+            try {
+              const parsePrompt = `Eres un parser de datos. El usuario respondió a la pregunta: "${justCompletedStep.question}".
+El campo esperado es: "${justCompletedStep.field}" (${justCompletedStep.type}).
+Extrae SOLO el dato relevante de la respuesta del usuario. Devuelve únicamente el valor extraído, sin explicaciones ni formato adicional.
+
+Ejemplos:
+- Pregunta: "¿Cuál es tu nombre?" / Respuesta: "mi nombre es victor Ramos" → Victor Ramos
+- Pregunta: "¿Cuál es tu empresa?" / Respuesta: "la empresa es strategee LLC" → Strategee LLC
+- Pregunta: "¿Cuál es tu email?" / Respuesta: "mi correo es test@mail.com" → test@mail.com`;
+
+              const resolvedModel = await this.resolveModel(bot.tenantId, bot.model);
+              const parseRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                  model: resolvedModel,
+                  messages: [
+                    { role: 'system', content: parsePrompt },
+                    { role: 'user', content: userAnswer },
+                  ],
+                  temperature: 0.1,
+                  max_tokens: 100,
+                }),
+              });
+
+              if (parseRes.ok) {
+                const parseJson = await parseRes.json();
+                const parsed = parseJson.choices?.[0]?.message?.content?.trim();
+                if (parsed) parsedValue = parsed;
+              }
+            } catch {}
+          }
+
+          extractedData = { [justCompletedStep.field]: parsedValue };
         }
       }
 
