@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   Plus, Trash2, GripVertical, ChevronDown, ChevronUp,
   MessageCircle, Hash, Mail, Phone, Calendar, List, ToggleLeft, Code, Sparkles, X, AlertCircle,
+  Shield, Globe, Link,
 } from "lucide-react";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { toast } from "sonner";
@@ -32,17 +33,35 @@ export interface FlowStepValidation {
   errorMessage: string;
 }
 
+export interface FlowStepWebhook {
+  url: string;
+  method?: "GET" | "POST" | "PUT" | "PATCH";
+  headers?: Record<string, string>;
+}
+
+export interface FlowConsentConfig {
+  legalText: string;
+  termsUrl?: string;
+  acceptKeywords?: string[];
+  rejectKeywords?: string[];
+  rejectAction?: "handoff" | "end";
+  rejectMessage?: string;
+  consentType?: "data_collection" | "age_verification" | "terms" | "custom";
+}
+
 export interface FlowStep {
   id: string;
   order: number;
   field: string;
   question: string;
-  type: "text" | "number" | "email" | "phone" | "date" | "select" | "regex" | "boolean";
+  type: "text" | "number" | "email" | "phone" | "date" | "select" | "regex" | "boolean" | "consent";
   validation?: FlowStepValidation;
+  consent?: FlowConsentConfig;
   aiInterpretation?: boolean;
   skipIf?: string;
   retries?: number;
   required?: boolean;
+  onCollected?: FlowStepWebhook;
 }
 
 export interface FlowConfig {
@@ -52,6 +71,9 @@ export interface FlowConfig {
   allowSkip?: boolean;
   skipKeyword?: string;
   maxGlobalRetries?: number;
+  offTopicBehavior?: "ignore" | "ai_respond" | "redirect";
+  offTopicMessage?: string;
+  onCompletionWebhook?: FlowStepWebhook;
 }
 
 // ─── Constants ──────────────────────────────────────────────
@@ -65,6 +87,7 @@ const STEP_TYPES: { value: FlowStep["type"]; label: string; icon: React.ReactNod
   { value: "select", label: "Opciones", icon: <List className="h-3.5 w-3.5" />, description: "Seleccion multiple" },
   { value: "boolean", label: "Si/No", icon: <ToggleLeft className="h-3.5 w-3.5" />, description: "Respuesta binaria" },
   { value: "regex", label: "Patron", icon: <Code className="h-3.5 w-3.5" />, description: "Expresion regular" },
+  { value: "consent", label: "Consentimiento", icon: <Shield className="h-3.5 w-3.5" />, description: "Autorizacion legal" },
 ];
 
 const COMPLETION_ACTIONS = [
@@ -253,7 +276,85 @@ function SortableStepItem({
             </div>
           )}
 
-          {/* Validation error message */}
+          {/* Consent configuration */}
+          {step.type === "consent" && (
+            <div className="space-y-3 border border-purple-100 rounded-lg p-4 bg-purple-50/30">
+              <div className="flex items-center gap-2 mb-2">
+                <Shield className="h-3.5 w-3.5 text-purple-600" />
+                <span className="text-xs font-semibold text-purple-800">Configuracion de consentimiento</span>
+              </div>
+
+              {/* Consent type */}
+              <div>
+                <label className="block text-[10px] font-medium text-gray-600 mb-1">Tipo de consentimiento</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { value: "data_collection", label: "Recoleccion de datos" },
+                    { value: "age_verification", label: "Mayoria de edad" },
+                    { value: "terms", label: "Terminos y condiciones" },
+                    { value: "custom", label: "Personalizado" },
+                  ].map((ct) => (
+                    <button key={ct.value} type="button"
+                      onClick={() => onUpdate({ consent: { ...step.consent, consentType: ct.value as any, legalText: step.consent?.legalText || "" } })}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-medium border transition-colors ${(step.consent?.consentType || "custom") === ct.value ? "border-purple-300 bg-purple-100 text-purple-700" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}
+                    >{ct.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Legal text */}
+              <div>
+                <label className="block text-[10px] font-medium text-gray-600 mb-1">Texto legal / Autorizacion</label>
+                <textarea
+                  value={step.consent?.legalText || ""}
+                  onChange={(e) => onUpdate({ consent: { ...step.consent, legalText: e.target.value } })}
+                  placeholder="Ej: Autorizo el tratamiento de mis datos personales conforme a la politica de privacidad..."
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
+                />
+              </div>
+
+              {/* Terms URL */}
+              <div>
+                <label className="block text-[10px] font-medium text-gray-600 mb-1 flex items-center gap-1"><Link className="h-2.5 w-2.5" />Enlace a terminos y condiciones</label>
+                <input
+                  type="url"
+                  value={step.consent?.termsUrl || ""}
+                  onChange={(e) => onUpdate({ consent: { ...step.consent, legalText: step.consent?.legalText || "", termsUrl: e.target.value } })}
+                  placeholder="https://tu-sitio.com/terminos"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                />
+              </div>
+
+              {/* Reject action */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-medium text-gray-600 mb-1">Si rechaza</label>
+                  <select
+                    value={step.consent?.rejectAction || "end"}
+                    onChange={(e) => onUpdate({ consent: { ...step.consent, legalText: step.consent?.legalText || "", rejectAction: e.target.value as any } })}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                  >
+                    <option value="end">Finalizar conversacion</option>
+                    <option value="handoff">Transferir a agente</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-gray-600 mb-1">Mensaje al rechazar</label>
+                  <input
+                    type="text"
+                    value={step.consent?.rejectMessage || ""}
+                    onChange={(e) => onUpdate({ consent: { ...step.consent, legalText: step.consent?.legalText || "", rejectMessage: e.target.value } })}
+                    placeholder="Entendido. Sin tu autorizacion no podemos continuar."
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Validation error message (not for consent) */}
+          {step.type !== "consent" && (
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Mensaje de error</label>
             <input
@@ -264,6 +365,7 @@ function SortableStepItem({
               className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
             />
           </div>
+          )}
 
           {/* Options row */}
           <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-gray-100">
@@ -309,6 +411,36 @@ function SortableStepItem({
               <Trash2 className="h-3 w-3" /> Eliminar
             </button>
           </div>
+
+          {/* onCollected webhook */}
+          <details className="group">
+            <summary className="text-[10px] text-gray-400 cursor-pointer hover:text-gray-600 flex items-center gap-1">
+              <ChevronDown className="h-2.5 w-2.5 group-open:rotate-180 transition-transform" />
+              <Globe className="h-2.5 w-2.5" /> Webhook al recolectar (avanzado)
+            </summary>
+            <div className="mt-2 space-y-2 p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <p className="text-[9px] text-gray-400">Se ejecuta despues de validar el dato de este paso. Recibe el valor y datos acumulados.</p>
+              <div className="flex gap-2">
+                <select
+                  value={step.onCollected?.method || "POST"}
+                  onChange={(e) => onUpdate({ onCollected: { ...step.onCollected, url: step.onCollected?.url || "", method: e.target.value as any } })}
+                  className="w-20 px-2 py-1.5 rounded border border-gray-200 text-[10px] focus:outline-none focus:border-brand-300"
+                >
+                  <option value="POST">POST</option>
+                  <option value="GET">GET</option>
+                  <option value="PUT">PUT</option>
+                  <option value="PATCH">PATCH</option>
+                </select>
+                <input
+                  type="url"
+                  value={step.onCollected?.url || ""}
+                  onChange={(e) => onUpdate({ onCollected: e.target.value ? { ...step.onCollected, url: e.target.value, method: step.onCollected?.method || "POST" } : undefined })}
+                  placeholder="https://api.example.com/webhook"
+                  className="flex-1 px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300"
+                />
+              </div>
+            </div>
+          </details>
 
           {/* Skip condition */}
           <details className="group">
@@ -595,6 +727,67 @@ export function BotFlowEditor({ steps, config, botType, onStepsChange, onConfigC
                   className="w-32 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                 />
                 <p className="text-[10px] text-gray-400 mt-1">Si el usuario acumula este numero de respuestas invalidas en total, el bot transferira a un agente.</p>
+              </div>
+
+              {/* Off-topic behavior */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensajes fuera de tema</label>
+                <p className="text-[10px] text-gray-400 mb-2">Que hacer cuando el usuario envia un mensaje que no responde a la pregunta actual (ej: hace una pregunta).</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: "ignore", label: "Ignorar", description: "Tratar como respuesta invalida" },
+                    { value: "ai_respond", label: "Responder con IA", description: "Usar IA + knowledge base para responder y re-preguntar" },
+                    { value: "redirect", label: "Redirigir", description: "Enviar mensaje y re-preguntar" },
+                  ].map((b) => (
+                    <button key={b.value} type="button"
+                      onClick={() => onConfigChange({ ...config, offTopicBehavior: b.value as any })}
+                      className={`flex flex-col items-start gap-0.5 p-3 rounded-lg border text-left transition-colors ${(config.offTopicBehavior || "ignore") === b.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+                    >
+                      <span className={`text-[10px] font-medium ${(config.offTopicBehavior || "ignore") === b.value ? "text-brand-700" : "text-gray-700"}`}>{b.label}</span>
+                      <span className="text-[9px] text-gray-400 leading-tight">{b.description}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {config.offTopicBehavior === "redirect" && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Mensaje de redireccion</label>
+                  <input
+                    type="text"
+                    value={config.offTopicMessage || ""}
+                    onChange={(e) => onConfigChange({ ...config, offTopicMessage: e.target.value })}
+                    placeholder="Ej: Entiendo, pero necesito que respondas la pregunta para continuar."
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                  />
+                </div>
+              )}
+
+              {/* Completion webhook */}
+              <div className="pt-3 border-t border-gray-100">
+                <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1.5">
+                  <Globe className="h-3 w-3 text-gray-500" /> Webhook al completar flujo
+                </label>
+                <p className="text-[10px] text-gray-400 mb-2">Se ejecuta cuando todos los pasos se completan. Recibe todos los datos recopilados.</p>
+                <div className="flex gap-2">
+                  <select
+                    value={config.onCompletionWebhook?.method || "POST"}
+                    onChange={(e) => onConfigChange({ ...config, onCompletionWebhook: { ...config.onCompletionWebhook, url: config.onCompletionWebhook?.url || "", method: e.target.value as any } })}
+                    className="w-20 px-2 py-1.5 rounded border border-gray-200 text-[10px] focus:outline-none focus:border-brand-300"
+                  >
+                    <option value="POST">POST</option>
+                    <option value="GET">GET</option>
+                    <option value="PUT">PUT</option>
+                    <option value="PATCH">PATCH</option>
+                  </select>
+                  <input
+                    type="url"
+                    value={config.onCompletionWebhook?.url || ""}
+                    onChange={(e) => onConfigChange({ ...config, onCompletionWebhook: e.target.value ? { url: e.target.value, method: config.onCompletionWebhook?.method || "POST" } : undefined })}
+                    placeholder="https://api.example.com/flow-completed"
+                    className="flex-1 px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300"
+                  />
+                </div>
               </div>
             </div>
           </div>

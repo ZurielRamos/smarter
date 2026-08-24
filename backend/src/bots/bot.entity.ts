@@ -20,17 +20,35 @@ export interface FlowStepValidation {
   errorMessage: string;      // message to send when validation fails
 }
 
+export interface FlowStepWebhook {
+  url: string;
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH';
+  headers?: Record<string, string>;
+}
+
+export interface FlowConsentConfig {
+  legalText: string;            // texto legal / autorización que se muestra
+  termsUrl?: string;            // enlace a términos y condiciones
+  acceptKeywords?: string[];    // palabras que indican aceptación (default: ["si", "acepto", "autorizo"])
+  rejectKeywords?: string[];    // palabras que indican rechazo (default: ["no", "rechazo"])
+  rejectAction?: 'handoff' | 'end'; // qué hacer si rechaza
+  rejectMessage?: string;       // mensaje al rechazar
+  consentType?: 'data_collection' | 'age_verification' | 'terms' | 'custom'; // tipo de consentimiento
+}
+
 export interface FlowStep {
   id: string;
   order: number;
   field: string;               // target CRM field (firstName, custom:cedula, etc.)
   question: string;            // exact message to send
-  type: 'text' | 'number' | 'email' | 'phone' | 'date' | 'select' | 'regex' | 'boolean';
+  type: 'text' | 'number' | 'email' | 'phone' | 'date' | 'select' | 'regex' | 'boolean' | 'consent';
   validation?: FlowStepValidation;
+  consent?: FlowConsentConfig; // config for consent-type steps
   aiInterpretation?: boolean;  // use AI to parse free-form response into structured data
   skipIf?: string;             // condition to skip this step (e.g. "collectedData.phone")
   retries?: number;            // max retries before escalating (default 2)
   required?: boolean;          // whether this step is mandatory (default true)
+  onCollected?: FlowStepWebhook; // webhook to fire after this step's data is validated
 }
 
 export interface FlowConfig {
@@ -40,6 +58,9 @@ export interface FlowConfig {
   allowSkip?: boolean;            // allow user to skip non-required steps
   skipKeyword?: string;           // keyword to skip (default: "omitir")
   maxGlobalRetries?: number;      // max total retries across all steps before handoff
+  offTopicBehavior?: 'ignore' | 'ai_respond' | 'redirect'; // what to do with off-topic messages
+  offTopicMessage?: string;       // message to show when redirecting back to the flow
+  onCompletionWebhook?: FlowStepWebhook; // webhook to fire when the entire flow completes
 }
 
 export interface BotFlowState {
