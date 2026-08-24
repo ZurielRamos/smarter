@@ -840,7 +840,7 @@ export function CanalDetail() {
     { key: "horarios", label: "Horarios", icon: Clock },
     ...(inboxChannel === "whatsapp" ? [{ key: "plantillas" as Tab, label: "Plantillas", icon: MessageSquare }] : []),
     ...(inboxChannel === "email" ? [{ key: "plantillas" as Tab, label: "Plantillas", icon: MailIcon }] : []),
-    ...(["whatsapp", "instagram", "messenger", "chat"].includes(inboxChannel || "") ? [{ key: "bots" as Tab, label: "Bots", icon: Bot }] : []),
+    ...(["whatsapp", "instagram", "messenger", "chat", "evolution"].includes(inboxChannel || "") ? [{ key: "bots" as Tab, label: "Bots", icon: Bot }] : []),
   ];
 
   return (
