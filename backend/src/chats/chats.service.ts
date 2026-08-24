@@ -82,6 +82,17 @@ export class ChatsService {
   }
 
   async deleteInbox(id: string): Promise<{ softDeleted: boolean }> {
+    const inbox = await this.inboxRepo.findOne({ where: { id } });
+
+    // Si es un inbox de Evolution, eliminar la instancia en Evolution API
+    if (inbox && inbox.channel === 'evolution' && inbox.metadata?.evolutionInstanceName) {
+      try {
+        await this.evolutionService.deleteInstance(inbox.metadata.evolutionInstanceName);
+      } catch (err: any) {
+        console.warn(`[DeleteInbox] Failed to delete Evolution instance: ${err.message}`);
+      }
+    }
+
     const conversationCount = await this.conversationRepo.count({ where: { inboxId: id } });
     if (conversationCount > 0) {
       // Soft delete — inbox has conversations
