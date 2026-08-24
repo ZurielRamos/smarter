@@ -377,9 +377,17 @@ export class BotsService {
       // Filter messages to only those after consent (if any)
       const consentSnippet = bot.consentConfig?.enabled ? (bot.consentConfig.message || '').substring(0, 40) : '';
       const consentMsgIdx = consentSnippet ? messages.findIndex((m) => m.role === 'assistant' && m.content.includes(consentSnippet)) : -1;
-      const flowMessages = consentMsgIdx >= 0 ? messages.slice(consentMsgIdx + 1) : messages;
+      let flowMessages = consentMsgIdx >= 0 ? messages.slice(consentMsgIdx + 1) : messages;
 
-      // Count assistant messages that are flow questions (not consent, not system)
+      // If consent was explicit, skip the user's acceptance message (first user msg after consent)
+      if (consentMsgIdx >= 0 && bot.consentConfig?.mode !== 'implicit' && flowMessages.length > 0) {
+        const firstUserIdx = flowMessages.findIndex((m) => m.role === 'user');
+        if (firstUserIdx >= 0) {
+          flowMessages = flowMessages.slice(firstUserIdx + 1);
+        }
+      }
+
+      // Count assistant messages that are flow questions and user answers
       const botFlowReplies = flowMessages.filter((m) => m.role === 'assistant');
       const userFlowReplies = flowMessages.filter((m) => m.role === 'user');
 
