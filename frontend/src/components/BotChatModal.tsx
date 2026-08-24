@@ -61,12 +61,21 @@ export function BotChatModal({ open, onClose, botId, botName }: BotChatModalProp
     setSending(true);
 
     try {
-      const { data } = await api.post<{ role: string; content: string; extractedData?: Record<string, string>; handedOff?: boolean; toolsExecuted?: { name: string; result: string }[] }>(`/bots/${botId}/chat`, {
+      const { data } = await api.post<{ role: string; content: string; extractedData?: Record<string, string>; handedOff?: boolean; toolsExecuted?: { name: string; result: string }[]; prefixMessages?: string[] }>(`/bots/${botId}/chat`, {
         messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
         collectedData,
         mockContact: MOCK_CONTACT,
       });
-      const newMessages: Message[] = [{ role: "assistant", content: data.content }];
+      const newMessages: Message[] = [];
+
+      // Add prefix messages (e.g. consent disclaimer) as separate bot bubbles
+      if (data.prefixMessages) {
+        for (const pm of data.prefixMessages) {
+          newMessages.push({ role: "assistant", content: pm });
+        }
+      }
+
+      newMessages.push({ role: "assistant", content: data.content });
 
       // Show system note if handed off
       if (data.handedOff) {

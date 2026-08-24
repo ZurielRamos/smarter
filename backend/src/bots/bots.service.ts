@@ -21,6 +21,7 @@ export interface ChatResponse {
   extractedData?: Record<string, string>;
   handedOff?: boolean;
   toolsExecuted?: { name: string; result: string }[];
+  prefixMessages?: string[]; // additional messages to show before the main content (e.g. consent disclaimer)
 }
 
 @Injectable()
@@ -453,7 +454,7 @@ export class BotsService {
     }
 
     const content = response.content || 'Sin respuesta';
-    const finalContent = consentDisclaimer ? `${consentDisclaimer}\n\n---\n\n${content}` : content;
+    const finalContent = content;
 
     // Accumulate token usage
     bot.totalPromptTokens = (bot.totalPromptTokens || 0) + totalPromptTokens;
@@ -496,6 +497,7 @@ export class BotsService {
       extractedData,
       handedOff,
       toolsExecuted: toolsExecuted.length > 0 ? toolsExecuted : undefined,
+      prefixMessages: consentDisclaimer ? [consentDisclaimer] : undefined,
     };
   }
 
