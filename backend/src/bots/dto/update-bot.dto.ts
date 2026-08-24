@@ -1,5 +1,5 @@
 import { IsString, IsOptional, IsArray, MaxLength, IsIn, IsNumber, Min, Max } from 'class-validator';
-import { FlowStep, FlowConfig } from '../bot.entity';
+import { FlowStep, FlowConfig, BotConsentConfig } from '../bot.entity';
 
 export class UpdateBotDto {
   @IsOptional()
@@ -147,4 +147,8 @@ export class UpdateBotDto {
 
   @IsOptional()
   flowConfig?: FlowConfig | null;
+
+  // Consent
+  @IsOptional()
+  consentConfig?: BotConsentConfig | null;
 }

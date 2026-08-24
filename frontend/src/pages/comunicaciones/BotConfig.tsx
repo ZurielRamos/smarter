@@ -39,6 +39,17 @@ interface BotData {
   dataCollectionFields: { field: string; label: string; instructions: string; priority: number }[];
   flowSteps: any[];
   flowConfig: any | null;
+  consentConfig: {
+    enabled: boolean;
+    message: string;
+    termsUrl?: string;
+    ageVerification?: boolean;
+    ageMessage?: string;
+    acceptKeywords?: string[];
+    rejectKeywords?: string[];
+    rejectMessage?: string;
+    rejectAction?: 'end' | 'handoff';
+  } | null;
   replyDelay: number;
   contextMessages: number;
   maxBotMessages: number;
@@ -847,6 +858,15 @@ export function BotConfig() {
   const [flowSteps, setFlowSteps] = useState<FlowStep[]>([]);
   const [flowConfig, setFlowConfig] = useState<FlowConfig>({});
 
+  // Consent
+  const [consentEnabled, setConsentEnabled] = useState(false);
+  const [consentMessage, setConsentMessage] = useState("");
+  const [consentTermsUrl, setConsentTermsUrl] = useState("");
+  const [consentAgeVerification, setConsentAgeVerification] = useState(false);
+  const [consentAgeMessage, setConsentAgeMessage] = useState("");
+  const [consentRejectMessage, setConsentRejectMessage] = useState("");
+  const [consentRejectAction, setConsentRejectAction] = useState<"end" | "handoff">("end");
+
   useEffect(() => { if (botId) loadBot(); }, [botId]);
 
   const loadBot = async () => {
@@ -905,6 +925,17 @@ export function BotConfig() {
       setBotType((data as any).type || "freeform");
       setFlowSteps((data as any).flowSteps || []);
       setFlowConfig((data as any).flowConfig || {});
+      // Consent
+      const cc = (data as any).consentConfig;
+      if (cc) {
+        setConsentEnabled(cc.enabled || false);
+        setConsentMessage(cc.message || "");
+        setConsentTermsUrl(cc.termsUrl || "");
+        setConsentAgeVerification(cc.ageVerification || false);
+        setConsentAgeMessage(cc.ageMessage || "");
+        setConsentRejectMessage(cc.rejectMessage || "");
+        setConsentRejectAction(cc.rejectAction || "end");
+      }
     } catch { toast.error("Error al cargar el bot"); }
     finally { setLoading(false); }
   };
@@ -959,6 +990,15 @@ export function BotConfig() {
         type: botType,
         flowSteps: botType === "sequential" ? flowSteps : undefined,
         flowConfig: botType === "sequential" ? (Object.keys(flowConfig).length > 0 ? flowConfig : null) : undefined,
+        consentConfig: consentEnabled ? {
+          enabled: true,
+          message: consentMessage.trim(),
+          termsUrl: consentTermsUrl.trim() || undefined,
+          ageVerification: consentAgeVerification || undefined,
+          ageMessage: consentAgeMessage.trim() || undefined,
+          rejectMessage: consentRejectMessage.trim() || undefined,
+          rejectAction: consentRejectAction,
+        } : null,
       });
       setBot(data);
       toast.success("Configuración guardada");
@@ -1106,6 +1146,7 @@ export function BotConfig() {
           {[
             { id: "personality", label: "Personalidad", icon: <UserCircle className="h-3.5 w-3.5" /> },
             ...(botType === "sequential" ? [{ id: "flow", label: "Flujo", icon: <GitBranch className="h-3.5 w-3.5" /> }] : []),
+            { id: "consent", label: "Consentimiento", icon: <Shield className="h-3.5 w-3.5" /> },
             ...(botType !== "sequential" ? [{ id: "knowledge", label: "Conocimiento", icon: <BookOpen className="h-3.5 w-3.5" /> }] : []),
             ...(botType !== "sequential" ? [{ id: "data", label: "Datos", icon: <ClipboardList className="h-3.5 w-3.5" /> }] : []),
             ...(botType !== "sequential" ? [{ id: "tools", label: "Herramientas", icon: <Wrench className="h-3.5 w-3.5" /> }] : []),
@@ -1135,6 +1176,114 @@ export function BotConfig() {
             tenantId={tenantId}
           />
         )}
+
+        {/* ─── TAB: Consentimiento ─── */}
+        {activeTab === "consent" && (<>
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-brand-600" />
+              <h3 className="text-sm font-semibold text-gray-900">Consentimiento y autorizacion</h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setConsentEnabled(!consentEnabled)}
+              className={`relative w-9 h-5 rounded-full transition-colors ${consentEnabled ? "bg-brand-600" : "bg-gray-300"}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${consentEnabled ? "translate-x-4" : ""}`} />
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mb-4">Cuando esta activo, el bot solicitara autorizacion del usuario antes de iniciar la conversacion. El bot no procedera hasta obtener el consentimiento.</p>
+
+          {consentEnabled && (
+            <div className="space-y-4 pt-3 border-t border-gray-100">
+              {/* Consent message */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje de consentimiento</label>
+                <textarea
+                  value={consentMessage}
+                  onChange={(e) => setConsentMessage(e.target.value)}
+                  placeholder="Ej: Para continuar, necesito tu autorizacion para el tratamiento de tus datos personales conforme a nuestra politica de privacidad."
+                  rows={4}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
+                />
+                <p className="text-[10px] text-gray-400 mt-1">Este mensaje se envia al inicio de cada nueva conversacion. El usuario debe aceptar para que el bot continue.</p>
+              </div>
+
+              {/* Terms URL */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Enlace a terminos y condiciones</label>
+                <input
+                  type="url"
+                  value={consentTermsUrl}
+                  onChange={(e) => setConsentTermsUrl(e.target.value)}
+                  placeholder="https://tu-sitio.com/terminos-y-condiciones"
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                />
+                <p className="text-[10px] text-gray-400 mt-1">Se adjuntara como enlace al final del mensaje de consentimiento.</p>
+              </div>
+
+              {/* Age verification */}
+              <div className="flex items-center justify-between py-3 border-t border-gray-100">
+                <div>
+                  <p className="text-xs font-medium text-gray-700">Declaracion de mayoria de edad</p>
+                  <p className="text-[10px] text-gray-400">Requiere que el usuario confirme ser mayor de edad</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConsentAgeVerification(!consentAgeVerification)}
+                  className={`relative w-9 h-5 rounded-full transition-colors ${consentAgeVerification ? "bg-brand-600" : "bg-gray-300"}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${consentAgeVerification ? "translate-x-4" : ""}`} />
+                </button>
+              </div>
+
+              {consentAgeVerification && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje de mayoria de edad</label>
+                  <input
+                    type="text"
+                    value={consentAgeMessage}
+                    onChange={(e) => setConsentAgeMessage(e.target.value)}
+                    placeholder="Declaro ser mayor de 18 anos."
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                  />
+                </div>
+              )}
+
+              {/* Reject behavior */}
+              <div className="pt-3 border-t border-gray-100">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Si el usuario rechaza</label>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <button type="button" onClick={() => setConsentRejectAction("end")}
+                    className={`p-3 rounded-lg border text-left transition-colors ${consentRejectAction === "end" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+                  >
+                    <span className={`text-xs font-medium ${consentRejectAction === "end" ? "text-brand-700" : "text-gray-700"}`}>Finalizar</span>
+                    <p className="text-[10px] text-gray-400">Pausar el bot, no responder mas</p>
+                  </button>
+                  <button type="button" onClick={() => setConsentRejectAction("handoff")}
+                    className={`p-3 rounded-lg border text-left transition-colors ${consentRejectAction === "handoff" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+                  >
+                    <span className={`text-xs font-medium ${consentRejectAction === "handoff" ? "text-brand-700" : "text-gray-700"}`}>Transferir a agente</span>
+                    <p className="text-[10px] text-gray-400">Pasar a un humano</p>
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje al rechazar</label>
+                  <input
+                    type="text"
+                    value={consentRejectMessage}
+                    onChange={(e) => setConsentRejectMessage(e.target.value)}
+                    placeholder="Entendido. Sin tu autorizacion no podemos continuar con el proceso."
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        </>)}
 
         {/* ─── TAB: Personalidad ─── */}
         {activeTab === "personality" && (<>

@@ -63,6 +63,18 @@ export interface FlowConfig {
   onCompletionWebhook?: FlowStepWebhook; // webhook to fire when the entire flow completes
 }
 
+export interface BotConsentConfig {
+  enabled: boolean;
+  message: string;                    // consent message sent to user
+  termsUrl?: string;                  // link to terms & conditions
+  ageVerification?: boolean;          // require age declaration
+  ageMessage?: string;                // custom age verification message
+  acceptKeywords?: string[];          // words that mean acceptance
+  rejectKeywords?: string[];          // words that mean rejection
+  rejectMessage?: string;             // message on rejection
+  rejectAction?: 'end' | 'handoff';  // what to do on rejection
+}
+
 export interface BotFlowState {
   currentStepIndex: number;
   completedSteps: string[];       // IDs of completed steps
@@ -210,6 +222,11 @@ export class Bot {
 
   @Column({ name: 'data_collection_fields', type: 'jsonb', nullable: true, default: '[]' })
   dataCollectionFields: { field: string; label: string; instructions: string; priority: number }[];
+
+  // === Consent Gate ===
+
+  @Column({ name: 'consent_config', type: 'jsonb', nullable: true })
+  consentConfig: BotConsentConfig | null;
 
   // === Sequential Flow ===
 

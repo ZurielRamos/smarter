@@ -82,6 +82,10 @@ export class Conversation {
   @Column({ name: 'bot_flow_state', type: 'jsonb', nullable: true })
   botFlowState: BotFlowState | null;
 
+  // Whether user has given consent for this conversation
+  @Column({ name: 'bot_consent_given', type: 'boolean', default: false })
+  botConsentGiven: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
