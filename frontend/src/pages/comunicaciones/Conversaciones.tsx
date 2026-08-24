@@ -947,16 +947,21 @@ export function Conversaciones() {
                     )}
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium text-gray-900 truncate">{getDisplayName(conv)}</p>
-                      <span className="text-[10px] text-gray-400 shrink-0 ml-2">
-                        {conv.lastMessageAt ? (() => {
-                          const d = new Date(conv.lastMessageAt!);
-                          const today = new Date();
-                          if (d.toDateString() === today.toDateString()) {
-                            return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                          }
-                          return d.toLocaleDateString([], { day: "numeric", month: "short" });
-                        })() : ""}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        {conv.botStatus === 'handed_off' && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Resuelta</span>
+                        )}
+                        <span className="text-[10px] text-gray-400">
+                          {conv.lastMessageAt ? (() => {
+                            const d = new Date(conv.lastMessageAt!);
+                            const today = new Date();
+                            if (d.toDateString() === today.toDateString()) {
+                              return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                            }
+                            return d.toLocaleDateString([], { day: "numeric", month: "short" });
+                          })() : ""}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center justify-between mt-0.5">
                       <p className="text-xs text-gray-500 truncate flex items-center gap-1">
