@@ -286,6 +286,8 @@ export class BotsService {
     const apiKey = this.configService.get<string>('OPENROUTER_API_KEY');
     if (!apiKey) throw new NotFoundException('OPENROUTER_API_KEY no configurada');
 
+    let consentDisclaimer = '';
+
     // === CONSENT GATE (for test chat) ===
     if (bot.consentConfig?.enabled) {
       const consent = bot.consentConfig;
@@ -307,10 +309,8 @@ export class BotsService {
           return { role: 'assistant', content: consentText };
         } else {
           consentText += '\n\nAl continuar la conversación, aceptas estos términos.';
-          // Implicit mode: send consent + proceed with normal response below
-          // We prepend consent to the response at the end
-          // For now, just return consent — the normal flow continues on next message
-          return { role: 'assistant', content: consentText };
+          // Implicit mode: store consent prefix, will be prepended to the AI response below
+          consentDisclaimer = consentText;
         }
       }
 
@@ -453,6 +453,7 @@ export class BotsService {
     }
 
     const content = response.content || 'Sin respuesta';
+    const finalContent = consentDisclaimer ? `${consentDisclaimer}\n\n---\n\n${content}` : content;
 
     // Accumulate token usage
     bot.totalPromptTokens = (bot.totalPromptTokens || 0) + totalPromptTokens;
@@ -484,7 +485,7 @@ export class BotsService {
 
     return {
       role: 'assistant',
-      content,
+      content: finalContent,
       usage: {
         prompt_tokens: totalPromptTokens,
         completion_tokens: totalCompletionTokens,
