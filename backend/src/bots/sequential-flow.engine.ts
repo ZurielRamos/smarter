@@ -146,7 +146,16 @@ export class SequentialFlowEngine {
     }
 
     // Response is valid — save the data
-    const parsedValue = validationResult.parsedValue || userMessage.trim();
+    let parsedValue = validationResult.parsedValue || userMessage.trim();
+
+    // Apply AI interpretation if enabled (extract clean data from natural language)
+    if (currentStep.aiInterpretation && !validationResult.usage) {
+      const aiResult = await this.aiParseValue(parsedValue, currentStep, bot);
+      if (aiResult.parsedValue) {
+        parsedValue = aiResult.parsedValue;
+      }
+    }
+
     state.collectedData[currentStep.field] = parsedValue;
     state.retryCount = 0;
 
@@ -708,6 +717,53 @@ Instrucciones:
   }
 
   // ─── AI Interpretation ──────────────────────────────────
+
+  private async aiParseValue(
+    rawValue: string,
+    step: FlowStep,
+    bot: Bot,
+  ): Promise<{ parsedValue?: string }> {
+    const apiKey = this.configService.get<string>('OPENROUTER_API_KEY');
+    if (!apiKey) return {};
+
+    const systemPrompt = `Eres un parser de datos. El usuario respondió a la pregunta: "${step.question}".
+El campo esperado es: "${step.field}" (${step.type}).
+Extrae SOLO el dato relevante de la respuesta del usuario. Devuelve únicamente el valor extraído, sin explicaciones ni formato adicional.
+
+Ejemplos:
+- Pregunta: "¿Cuál es tu nombre?" / Respuesta: "mi nombre es Victor Ramos" → Victor Ramos
+- Pregunta: "¿Cuál es tu empresa?" / Respuesta: "La empresa se llama Nueva Empresa" → Nueva Empresa
+- Pregunta: "¿Cuál es tu email?" / Respuesta: "mi correo es test@mail.com" → test@mail.com
+- Pregunta: "¿Cuál es tu teléfono?" / Respuesta: "me pueden llamar al 300 123 4567" → 3001234567`;
+
+    try {
+      const resolvedModel = await this.resolveModel(bot.tenantId, bot.model);
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: resolvedModel,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: rawValue },
+          ],
+          temperature: 0.1,
+          max_tokens: 100,
+        }),
+      });
+
+      if (!res.ok) return {};
+
+      const json = await res.json();
+      const parsed = json.choices?.[0]?.message?.content?.trim();
+      if (parsed && parsed.length > 0 && parsed.length < rawValue.length * 2) {
+        return { parsedValue: parsed };
+      }
+      return {};
+    } catch {
+      return {};
+    }
+  }
 
   private async aiValidate(
     message: string,
