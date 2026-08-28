@@ -44,7 +44,7 @@ export class Conversation {
   @Column({ name: 'contact_avatar', type: 'varchar', nullable: true })
   contactAvatar: string | null;
 
-  // open | closed | archived
+  // open | resolved | archived  ('closed' es alias legado de 'resolved')
   @Column({ type: 'varchar', length: 20, default: 'open' })
   status: string;
 

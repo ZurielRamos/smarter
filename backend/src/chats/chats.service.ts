@@ -23,6 +23,7 @@ import { EvolutionService } from '../evolution/evolution.service';
 import { MailgunService } from '../providers/mailgun.service';
 import { EmailDomainService } from '../providers/email-domain.service';
 import { EmailUnsubscribeService } from '../providers/email-unsubscribe.service';
+import { UserTenant } from '../users/user-tenant.entity';
 
 @Injectable()
 export class ChatsService {
@@ -53,6 +54,8 @@ export class ChatsService {
     private readonly sequentialFlowEngine: SequentialFlowEngine,
     @InjectRepository(Activity)
     private readonly activityRepo: Repository<Activity>,
+    @InjectRepository(UserTenant)
+    private readonly userTenantRepo: Repository<UserTenant>,
     @Inject(forwardRef(() => EvolutionService))
     private readonly evolutionService: EvolutionService,
     private readonly mailgunService: MailgunService,
@@ -64,6 +67,50 @@ export class ChatsService {
 
   async getInboxes(tenantId: string): Promise<Inbox[]> {
     return this.inboxRepo.find({ where: { tenantId }, order: { createdAt: 'ASC' } });
+  }
+
+  /**
+   * Bootstrap de la vista de conversaciones: consolida en una sola respuesta
+   * los datos que el frontend necesita al abrir el chat (inboxes, primera
+   * página de conversaciones, labels y miembros del tenant). Ejecuta las
+   * consultas en paralelo para minimizar la latencia total.
+   */
+  async getBootstrap(
+    tenantId: string,
+    opts: { inboxIds?: string[]; labelIds?: string[]; hideCampaign?: boolean; limit: number; offset: number },
+  ): Promise<{
+    inboxes: Inbox[];
+    conversations: { data: Conversation[]; total: number };
+    labels: Label[];
+    members: UserTenant[];
+  }> {
+    const convOpts = {
+      limit: opts.limit,
+      offset: opts.offset,
+      labelIds: opts.labelIds ?? [],
+      hideCampaign: opts.hideCampaign,
+    };
+
+    const conversationsPromise =
+      opts.inboxIds && opts.inboxIds.length > 0
+        ? this.getConversationsByInboxes(opts.inboxIds, convOpts)
+        : this.getConversationsByTenantPaginated(tenantId, convOpts);
+
+    const [inboxes, conversations, labels, members] = await Promise.all([
+      this.getInboxes(tenantId),
+      conversationsPromise,
+      this.getLabels(tenantId),
+      this.userTenantRepo.find({
+        where: [
+          { tenantId, status: 'active' },
+          { tenantId, status: 'pending' },
+        ],
+        relations: { user: true },
+        order: { createdAt: 'ASC' },
+      }),
+    ]);
+
+    return { inboxes, conversations, labels, members };
   }
 
   async createInbox(data: { tenantId: string; name: string; channel: string }): Promise<Inbox> {
@@ -1810,6 +1857,28 @@ export class ChatsService {
     await this.createSystemNote(conversationId, `🤖 Bot desactivado por ${agentName || 'un agente'}.`, conversation.inbox?.tenantId);
     this.chatsGateway.emitConversationUpdate(conversation.inbox?.tenantId, conversation);
     return { botStatus: 'handed_off' };
+  }
+
+  async updateConversationStatus(conversationId: string, status: string, agentName?: string): Promise<{ status: string }> {
+    // 'closed' se mantiene como alias legado de 'resolved' para datos existentes
+    const allowed = ['open', 'resolved', 'closed', 'archived'];
+    if (!allowed.includes(status)) {
+      throw new BadRequestException('Estado de conversación inválido');
+    }
+    const conversation = await this.conversationRepo.findOne({ where: { id: conversationId }, relations: { inbox: true } });
+    if (!conversation) throw new NotFoundException('Conversation not found');
+    const prevStatus = conversation.status;
+    if (prevStatus === status) return { status };
+    conversation.status = status;
+    await this.conversationRepo.save(conversation);
+    const labels: Record<string, string> = { open: 'abierta', resolved: 'resuelta', closed: 'resuelta', archived: 'archivada' };
+    await this.createSystemNote(
+      conversationId,
+      `📁 Conversación marcada como ${labels[status] || status} por ${agentName || 'un agente'}.`,
+      conversation.inbox?.tenantId,
+    );
+    this.chatsGateway.emitConversationUpdate(conversation.inbox?.tenantId, conversation);
+    return { status };
   }
 
   async deleteConversation(conversationId: string): Promise<void> {

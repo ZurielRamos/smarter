@@ -7,6 +7,9 @@ export function useSocket(tenantId: string | undefined) {
   const socketRef = useRef<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const joinedRoomsRef = useRef<Set<string>>(new Set());
+  // Stable reconnection counter — used to signal consumers to re-register listeners
+  const reconnectCountRef = useRef(0);
+  const [reconnectCount, setReconnectCount] = useState(0);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -28,6 +31,9 @@ export function useSocket(tenantId: string | undefined) {
       joinedRoomsRef.current.forEach((room) => {
         socket.emit("join_conversation", room);
       });
+      // Bump reconnect count so consumers re-register
+      reconnectCountRef.current += 1;
+      setReconnectCount(reconnectCountRef.current);
     });
 
     socket.on("disconnect", (reason) => {
@@ -61,14 +67,16 @@ export function useSocket(tenantId: string | undefined) {
 
   /**
    * Register an event listener on the socket.
-   * The `connected` dependency ensures listeners are re-registered after reconnection.
+   * Uses a ref-based approach so the callback identity is stable —
+   * consumers should include `reconnectCount` in their effect deps
+   * to re-register after reconnections.
    */
   const on = useCallback((event: string, handler: (...args: any[]) => void) => {
     const socket = socketRef.current;
     if (!socket) return () => {};
     socket.on(event, handler);
     return () => { socket.off(event, handler); };
-  }, [connected]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // Stable identity — no deps
 
-  return { socket: socketRef, joinConversation, leaveConversation, on, connected };
+  return { socket: socketRef, joinConversation, leaveConversation, on, connected, reconnectCount };
 }

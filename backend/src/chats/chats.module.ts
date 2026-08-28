@@ -9,6 +9,7 @@ import { Label } from './label.entity';
 import { Tenant } from '../tenants/tenant.entity';
 import { Activity } from '../records/activity.entity';
 import { CampaignSendLog } from '../campaigns/campaign-send-log.entity';
+import { UserTenant } from '../users/user-tenant.entity';
 import { ChatsService } from './chats.service';
 import { ChatsController, WebhookController } from './chats.controller';
 import { ApiConversationsController } from './api-conversations.controller';
@@ -32,7 +33,7 @@ import { TemplatesModule } from '../templates/templates.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Inbox, Conversation, Message, InboxCollaborator, ClientRecord, Label, Tenant, Activity, CampaignSendLog]),
+    TypeOrmModule.forFeature([Inbox, Conversation, Message, InboxCollaborator, ClientRecord, Label, Tenant, Activity, CampaignSendLog, UserTenant]),
     BillingModule,
     WebhooksModule,
     UsersModule,

@@ -80,7 +80,7 @@ export function ComunicacionesLayout() {
       </div>
 
       {/* Main layout */}
-      <div className="flex-1 flex overflow-hidden mt-4 rounded-t-xl border border-gray-200 bg-white">
+      <div className="flex-1 flex overflow-hidden mt-4 rounded-t-xl border border-gray-200 bg-white min-w-0">
         {/* Icon sidebar */}
         <div className="w-12 border-r border-gray-100 flex flex-col items-center py-3 gap-1 shrink-0 bg-gray-50/50">
           {navItems.map((item) => (

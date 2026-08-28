@@ -215,6 +215,27 @@ export class ChatsController {
 
   // === CONVERSATIONS ===
 
+  // Bootstrap: consolida inboxes + conversations + labels + members en una
+  // sola respuesta para reducir el número de peticiones al abrir la vista.
+  @Get('bootstrap')
+  getBootstrap(
+    @Query('tenantId') tenantId: string,
+    @Query('inboxIds') inboxIds?: string,
+    @Query('labelId') labelId?: string,
+    @Query('labelIds') labelIds?: string,
+    @Query('hideCampaign') hideCampaign?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.chatsService.getBootstrap(tenantId, {
+      inboxIds: inboxIds ? inboxIds.split(',').filter(Boolean) : undefined,
+      labelIds: labelIds ? labelIds.split(',').filter(Boolean) : (labelId ? [labelId] : []),
+      hideCampaign: hideCampaign === 'true',
+      limit: limit ? parseInt(limit, 10) : 15,
+      offset: offset ? parseInt(offset, 10) : 0,
+    });
+  }
+
   @Get('conversations')
   getConversations(
     @Query('tenantId') tenantId?: string,
@@ -252,6 +273,11 @@ export class ChatsController {
   @Post('conversations/:id/bot-reactivate')
   reactivateBot(@Param('id') id: string, @Req() req: any) {
     return this.chatsService.reactivateBot(id, req.user?.name || req.user?.email);
+  }
+
+  @Put('conversations/:id/status')
+  updateConversationStatus(@Param('id') id: string, @Body() body: { status: string }, @Req() req: any) {
+    return this.chatsService.updateConversationStatus(id, body.status, req.user?.name || req.user?.email);
   }
 
   @Post('conversations/:id/bot-pause')

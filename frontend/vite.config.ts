@@ -11,6 +11,28 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  optimizeDeps: {
+    // Pre-bundlea las deps pesadas para evitar re-bundles en caliente
+    // (que disparan full reloads) al navegar a rutas lazy por primera vez.
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'recharts',
+      'framer-motion',
+      '@tanstack/react-table',
+      'react-virtuoso',
+      'socket.io-client',
+      'cmdk',
+      'react-easy-crop',
+      '@dnd-kit/core',
+      '@dnd-kit/sortable',
+      '@dnd-kit/utilities',
+      'axios',
+      'lucide-react',
+      'sonner',
+    ],
+  },
   server: {
     allowedHosts: ['smarter.strategee.us'],
     proxy: {
