@@ -13,6 +13,7 @@ import { UpdateBotDto } from './dto/update-bot.dto';
 import { CreateBotToolDto } from './dto/create-bot-tool.dto';
 import { UpdateBotToolDto } from './dto/update-bot-tool.dto';
 import { BillingService } from '../billing/billing.service';
+import { SequentialFlowEngine } from './sequential-flow.engine';
 
 export interface ChatResponse {
   role: string;
@@ -41,6 +42,7 @@ export class BotsService {
     private readonly conversationRepo: Repository<Conversation>,
     private readonly configService: ConfigService,
     private readonly billingService: BillingService,
+    private readonly sequentialFlowEngine: SequentialFlowEngine,
   ) {}
 
   // ─── CRUD Bot ───────────────────────────────────────────
@@ -366,20 +368,23 @@ export class BotsService {
       }
     }
 
-    // === SEQUENTIAL BOT: step-by-step flow in test mode ===
+    // === SEQUENTIAL BOT: delegate to the real engine (stateless test mode) ===
+    // We reuse SequentialFlowEngine so the "Probar Bot" panel behaves EXACTLY
+    // like production (same validation, non-answer detection, AI fallback).
     if (bot.type === 'sequential') {
-      const steps = (bot.flowSteps || []).sort((a, b) => a.order - b.order);
+      const steps = bot.flowSteps || [];
       if (steps.length === 0) {
         return { role: 'assistant', content: bot.fallbackMessage || 'No hay pasos configurados en el flujo.', prefixMessages: consentDisclaimer ? [consentDisclaimer] : undefined };
       }
 
-      // Determine how many steps have been completed by counting bot flow questions already asked
-      // Filter messages to only those after consent (if any)
+      // Strip the bot-level consent exchange from the transcript so the engine
+      // only sees the flow's own messages. (Per-step consent still handled by
+      // the engine itself.)
       const consentSnippet = bot.consentConfig?.enabled ? (bot.consentConfig.message || '').substring(0, 40) : '';
       const consentMsgIdx = consentSnippet ? messages.findIndex((m) => m.role === 'assistant' && m.content.includes(consentSnippet)) : -1;
       let flowMessages = consentMsgIdx >= 0 ? messages.slice(consentMsgIdx + 1) : messages;
 
-      // If consent was explicit, skip the user's acceptance message (first user msg after consent)
+      // If consent was explicit, skip the user's acceptance message.
       if (consentMsgIdx >= 0 && bot.consentConfig?.mode !== 'implicit' && flowMessages.length > 0) {
         const firstUserIdx = flowMessages.findIndex((m) => m.role === 'user');
         if (firstUserIdx >= 0) {
@@ -387,132 +392,16 @@ export class BotsService {
         }
       }
 
-      // Count assistant messages that are flow questions and user answers
-      const botFlowReplies = flowMessages.filter((m) => m.role === 'assistant');
-      const userFlowReplies = flowMessages.filter((m) => m.role === 'user');
+      const flowResponse = await this.sequentialFlowEngine.runStateless(bot, flowMessages);
 
-      // If no flow questions have been sent yet, send the first step
-      if (botFlowReplies.length === 0) {
-        const firstStep = steps[0];
-        let question = firstStep.question;
-        if (firstStep.type === 'select' && firstStep.validation?.options?.length) {
-          question += '\n\n' + firstStep.validation.options.map((o, i) => `${i + 1}. ${o}`).join('\n');
-        }
-        if (firstStep.type === 'consent' && firstStep.consent) {
-          question = firstStep.question || firstStep.consent.legalText || '';
-          if (firstStep.consent.termsUrl) question += `\n\n📎 Términos: ${firstStep.consent.termsUrl}`;
-          question += '\n\nResponde "Acepto" o "No acepto".';
-        }
-        const greeting = bot.welcomeMessage ? `${bot.welcomeMessage}\n\n${question}` : question;
-        return { role: 'assistant', content: greeting, prefixMessages: consentDisclaimer ? [consentDisclaimer] : undefined };
-      }
-
-      // Determine current step index: number of completed exchanges
-      // Each step = one bot question + one user answer
-      const completedSteps = Math.min(userFlowReplies.length, steps.length);
-
-      if (completedSteps >= steps.length) {
-        // Check if flow was already completed previously (user is writing AFTER completion)
-        if (userFlowReplies.length > steps.length) {
-          // Flow already done — don't respond again
-          return { role: 'assistant', content: '', handedOff: true };
-        }
-
-        // All steps just completed — send completion message with last step's data
-        const config = bot.flowConfig || {};
-        const completionMsg = config.completionMessage || 'Gracias, hemos recopilado toda la información necesaria.';
-        let extractedData: Record<string, string> | undefined;
-        if (userFlowReplies.length > 0) {
-          const lastStep = steps[steps.length - 1];
-          const lastAnswer = userFlowReplies[userFlowReplies.length - 1]?.content || '';
-          if (lastStep.field && lastAnswer) {
-            let parsedValue = lastAnswer.trim();
-
-            if (lastStep.aiInterpretation && apiKey) {
-              try {
-                const parsePrompt = `Eres un parser de datos. El usuario respondió a la pregunta: "${lastStep.question}".
-El campo esperado es: "${lastStep.field}" (${lastStep.type}).
-Extrae SOLO el dato relevante de la respuesta del usuario. Devuelve únicamente el valor extraído, sin explicaciones.`;
-                const resolvedModel = await this.resolveModel(bot.tenantId, bot.model);
-                const parseRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                  body: JSON.stringify({ model: resolvedModel, messages: [{ role: 'system', content: parsePrompt }, { role: 'user', content: lastAnswer }], temperature: 0.1, max_tokens: 100 }),
-                });
-                if (parseRes.ok) {
-                  const parseJson = await parseRes.json();
-                  const parsed = parseJson.choices?.[0]?.message?.content?.trim();
-                  if (parsed) parsedValue = parsed;
-                }
-              } catch {}
-            }
-
-            extractedData = { [lastStep.field]: parsedValue };
-          }
-        }
-        return { role: 'assistant', content: completionMsg, handedOff: config.completionAction === 'handoff' || config.completionAction === 'resolve', extractedData };
-      }
-
-      // Send the next step question
-      const nextStep = steps[completedSteps];
-      let question = nextStep.question;
-      if (nextStep.type === 'select' && nextStep.validation?.options?.length) {
-        question += '\n\n' + nextStep.validation.options.map((o, i) => `${i + 1}. ${o}`).join('\n');
-      }
-      if (nextStep.type === 'consent' && nextStep.consent) {
-        question = nextStep.question || nextStep.consent.legalText || '';
-        if (nextStep.consent.termsUrl) question += `\n\n📎 Términos: ${nextStep.consent.termsUrl}`;
-        question += '\n\nResponde "Acepto" o "No acepto".';
-      }
-
-      // Build extractedData from the step that was just answered
-      let extractedData: Record<string, string> | undefined;
-      if (completedSteps > 0 && userFlowReplies.length > 0) {
-        const justCompletedStep = steps[completedSteps - 1];
-        const userAnswer = userFlowReplies[userFlowReplies.length - 1]?.content || '';
-        if (justCompletedStep.field && userAnswer) {
-          let parsedValue = userAnswer.trim();
-
-          // If AI interpretation is enabled, parse the response
-          if (justCompletedStep.aiInterpretation && apiKey) {
-            try {
-              const parsePrompt = `Eres un parser de datos. El usuario respondió a la pregunta: "${justCompletedStep.question}".
-El campo esperado es: "${justCompletedStep.field}" (${justCompletedStep.type}).
-Extrae SOLO el dato relevante de la respuesta del usuario. Devuelve únicamente el valor extraído, sin explicaciones ni formato adicional.
-
-Ejemplos:
-- Pregunta: "¿Cuál es tu nombre?" / Respuesta: "mi nombre es victor Ramos" → Victor Ramos
-- Pregunta: "¿Cuál es tu empresa?" / Respuesta: "la empresa es strategee LLC" → Strategee LLC
-- Pregunta: "¿Cuál es tu email?" / Respuesta: "mi correo es test@mail.com" → test@mail.com`;
-
-              const resolvedModel = await this.resolveModel(bot.tenantId, bot.model);
-              const parseRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                body: JSON.stringify({
-                  model: resolvedModel,
-                  messages: [
-                    { role: 'system', content: parsePrompt },
-                    { role: 'user', content: userAnswer },
-                  ],
-                  temperature: 0.1,
-                  max_tokens: 100,
-                }),
-              });
-
-              if (parseRes.ok) {
-                const parseJson = await parseRes.json();
-                const parsed = parseJson.choices?.[0]?.message?.content?.trim();
-                if (parsed) parsedValue = parsed;
-              }
-            } catch {}
-          }
-
-          extractedData = { [justCompletedStep.field]: parsedValue };
-        }
-      }
-
-      return { role: 'assistant', content: question, extractedData };
+      return {
+        role: 'assistant',
+        content: flowResponse.content,
+        handedOff: flowResponse.handedOff,
+        extractedData: flowResponse.extractedData,
+        usage: flowResponse.usage,
+        prefixMessages: consentDisclaimer ? [consentDisclaimer] : undefined,
+      };
     }
 
     // Build system prompt

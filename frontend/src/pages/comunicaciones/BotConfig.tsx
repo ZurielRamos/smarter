@@ -1098,7 +1098,7 @@ export function BotConfig() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50">
+    <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-6 py-4 sticky top-0 z-10">
         <div className="flex items-center justify-between">
@@ -1151,7 +1151,7 @@ export function BotConfig() {
 
       {/* Tabs */}
       <div className="px-6 pt-3 sticky top-[73px] z-[9] bg-gray-50">
-        <div className="flex gap-4 max-w-3xl overflow-x-auto border-b border-gray-200">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 border-b border-gray-200">
           {[
             { id: "personality", label: "Personalidad", icon: <UserCircle className="h-3.5 w-3.5" /> },
             ...(botType === "sequential" ? [{ id: "flow", label: "Flujo", icon: <GitBranch className="h-3.5 w-3.5" /> }] : []),

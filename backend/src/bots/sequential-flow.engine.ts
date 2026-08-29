@@ -6,6 +6,7 @@ import { Bot, FlowStep, BotFlowState, FlowConfig, FlowStepWebhook, FlowConsentCo
 import { Conversation } from '../chats/conversation.entity';
 import { BillingService } from '../billing/billing.service';
 import { BotKnowledge } from './bot-knowledge.entity';
+import { looksLikeNonAnswer } from './flow-answer.util';
 
 export interface SequentialFlowResponse {
   content: string;
@@ -57,7 +58,7 @@ export class SequentialFlowEngine {
 
       state.lastStepAt = new Date().toISOString();
       conversation.botFlowState = state;
-      await this.conversationRepo.save(conversation);
+      await this.persistState(conversation);
 
       const questionText = this.formatStepQuestion(firstStep);
       const greeting = bot.welcomeMessage ? `${bot.welcomeMessage}\n\n${questionText}` : questionText;
@@ -92,16 +93,32 @@ export class SequentialFlowEngine {
     // Validate the user's response
     const validationResult = await this.validateResponse(userMessage, currentStep, bot);
 
-    if (!validationResult.valid) {
+    // Guard: even if the value passes type validation, a message that is clearly
+    // a non-answer (confusion, refusal, question, off-topic) must not be stored
+    // as the field value. Treat it as invalid so we re-ask instead.
+    // 1) Cheap deterministic heuristic first.
+    let isNonAnswer = validationResult.valid && this.looksLikeNonAnswer(userMessage);
+    let nonAnswerUsage: any | undefined;
+
+    // 2) AI fallback for free-text steps the heuristic couldn't catch. Only for
+    //    text fields without an explicit validation pattern (where anything passes).
+    const isFreeText = currentStep.type === 'text' && !currentStep.validation?.pattern;
+    if (validationResult.valid && !isNonAnswer && isFreeText) {
+      const check = await this.aiIsRealAnswer(bot, userMessage, currentStep);
+      nonAnswerUsage = check.usage;
+      if (!check.isAnswer) isNonAnswer = true;
+    }
+
+    if (!validationResult.valid || isNonAnswer) {
       // Check if it's an off-topic message (doesn't look like an answer to the question)
-      if (config.offTopicBehavior === 'ai_respond' && this.looksOffTopic(userMessage, currentStep)) {
+      if (!isNonAnswer && config.offTopicBehavior === 'ai_respond' && this.looksOffTopic(userMessage, currentStep)) {
         const aiResponse = await this.handleOffTopic(bot, userMessage, currentStep);
         if (aiResponse) {
           // Save state (no change to step), return AI response + re-ask
           conversation.botFlowState = state;
-          await this.conversationRepo.save(conversation);
+          await this.persistState(conversation);
           return {
-            content: `${aiResponse}\n\n${currentStep.question}`,
+            content: `${aiResponse.content}\n\n${currentStep.question}`,
             currentStep,
             usage: aiResponse.usage,
           };
@@ -116,7 +133,7 @@ export class SequentialFlowEngine {
       const maxRetries = currentStep.retries ?? 2;
       if (state.retryCount > maxRetries) {
         conversation.botFlowState = state;
-        await this.conversationRepo.save(conversation);
+        await this.persistState(conversation);
         return {
           content: bot.handoffMessage || 'Te conecto con un agente para asistirte mejor.',
           handedOff: true,
@@ -126,22 +143,33 @@ export class SequentialFlowEngine {
       // Check global max retries
       if (config.maxGlobalRetries && state.globalRetryCount > config.maxGlobalRetries) {
         conversation.botFlowState = state;
-        await this.conversationRepo.save(conversation);
+        await this.persistState(conversation);
         return {
           content: bot.handoffMessage || 'Te conecto con un agente para asistirte mejor.',
           handedOff: true,
         };
       }
 
-      // Send validation error + repeat question
-      const errorMsg = validationResult.errorMessage || currentStep.validation?.errorMessage || 'Respuesta no válida.';
       conversation.botFlowState = state;
-      await this.conversationRepo.save(conversation);
+      await this.persistState(conversation);
 
+      // When the user didn't really answer, reply with an AI-generated
+      // clarification so it feels natural instead of mechanically repeating.
+      const clarification = await this.generateClarification(bot, userMessage, currentStep);
+      if (clarification) {
+        return {
+          content: clarification.content,
+          currentStep,
+          usage: this.mergeUsage(nonAnswerUsage, clarification.usage),
+        };
+      }
+
+      // Fallback: validation error + repeat question
+      const errorMsg = validationResult.errorMessage || currentStep.validation?.errorMessage || 'No estoy seguro de haber entendido tu respuesta.';
       return {
         content: `${errorMsg}\n\n${currentStep.question}`,
         currentStep,
-        usage: validationResult.usage,
+        usage: this.mergeUsage(nonAnswerUsage, validationResult.usage),
       };
     }
 
@@ -198,11 +226,60 @@ export class SequentialFlowEngine {
 
     state.lastStepAt = new Date().toISOString();
     conversation.botFlowState = state;
-    await this.conversationRepo.save(conversation);
+    await this.persistState(conversation);
 
     const questionText = this.formatStepQuestion(firstStep);
     const greeting = bot.welcomeMessage ? `${bot.welcomeMessage}\n\n${questionText}` : questionText;
     return { content: greeting, currentStep: firstStep };
+  }
+
+  /**
+   * Runs the sequential flow WITHOUT persisting state — used by the "Probar
+   * Bot" test panel, which sends the full transcript on every turn and keeps
+   * no server-side conversation. We replay every prior user answer through the
+   * real engine to rebuild the flow state in memory, then process the latest
+   * user message. This guarantees the test path behaves EXACTLY like production
+   * (same validation, non-answer detection, AI fallback) with zero duplication.
+   *
+   * `flowMessages` is the transcript already stripped of any bot-level consent
+   * exchange by the caller. The engine's per-step `consent` steps still work.
+   */
+  async runStateless(
+    bot: Bot,
+    flowMessages: { role: string; content: string }[],
+  ): Promise<SequentialFlowResponse> {
+    // Ephemeral conversation: the engine reads/writes botFlowState on it but
+    // persistState() will skip the DB because of the __ephemeral flag.
+    const conversation = {
+      id: 'test',
+      contactId: 'test',
+      botFlowState: null,
+      __ephemeral: true,
+    } as unknown as Conversation;
+
+    const userMessages = flowMessages.filter((m) => m.role === 'user').map((m) => m.content);
+
+    // No user input yet → present the first step (like startFlow).
+    if (userMessages.length === 0) {
+      return this.startFlow(bot, conversation);
+    }
+
+    // First user message triggers the flow start (mirrors processMessage's
+    // isFirstMessage branch, which presents step 1 without consuming input).
+    let lastResponse = await this.startFlow(bot, conversation);
+
+    // Replay each user answer against the engine to rebuild state. The final
+    // answer produces the response we return to the caller.
+    for (const msg of userMessages) {
+      // If a previous turn already completed the flow or handed off, stop
+      // advancing — extra messages shouldn't re-trigger the flow.
+      if (lastResponse.flowCompleted || lastResponse.handedOff) {
+        return { content: '', handedOff: true };
+      }
+      lastResponse = await this.processMessage(bot, conversation, msg);
+    }
+
+    return lastResponse;
   }
 
   // ─── Consent Handling ──────────────────────────────────
@@ -257,7 +334,7 @@ export class SequentialFlowEngine {
       // User rejected consent
       state.collectedData[step.field] = 'rejected';
       conversation.botFlowState = state;
-      await this.conversationRepo.save(conversation);
+      await this.persistState(conversation);
 
       const rejectMsg = consent.rejectMessage || 'Entendido. Sin tu autorización no podemos continuar con el proceso.';
       const action = consent.rejectAction || 'end';
@@ -273,7 +350,7 @@ export class SequentialFlowEngine {
     state.retryCount++;
     if (state.retryCount > (step.retries ?? 2)) {
       conversation.botFlowState = state;
-      await this.conversationRepo.save(conversation);
+      await this.persistState(conversation);
       return {
         content: bot.handoffMessage || 'Te conecto con un agente para asistirte mejor.',
         handedOff: true,
@@ -281,7 +358,7 @@ export class SequentialFlowEngine {
     }
 
     conversation.botFlowState = state;
-    await this.conversationRepo.save(conversation);
+    await this.persistState(conversation);
 
     return {
       content: `No pude entender tu respuesta. Por favor responde "Acepto" o "No acepto".\n\n${this.formatStepQuestion(step)}`,
@@ -368,6 +445,162 @@ Instrucciones:
     }
   }
 
+  // ─── Non-Answer Detection ──────────────────────────────
+
+  /**
+   * Detects when the user's message is not an actual answer to the current
+   * question but rather an expression of confusion, refusal, or a request for
+   * clarification (e.g. "no entiendo", "no sé", "cómo?"). These must NOT be
+   * stored as the field value.
+   */
+  private looksLikeNonAnswer(message: string): boolean {
+    return looksLikeNonAnswer(message);
+  }
+
+  /**
+   * Generates a natural, AI-written clarification when the user did not answer
+   * the current question, so the bot doesn't just mechanically repeat itself.
+   * Falls back to null if the model is unavailable — caller handles the fallback.
+   */
+  private async generateClarification(
+    bot: Bot,
+    userMessage: string,
+    currentStep: FlowStep,
+  ): Promise<{ content: string; usage?: any } | null> {
+    const apiKey = this.configService.get<string>('OPENROUTER_API_KEY');
+    if (!apiKey) return null;
+
+    const systemPrompt = `Eres ${bot.persona || 'un asistente virtual'}.${bot.objective ? ` Tu objetivo: ${bot.objective}.` : ''}
+Estás completando un formulario paso a paso. El usuario no respondió la pregunta actual: parece confundido, dudó o pidió una aclaración.
+
+Pregunta actual del formulario: "${currentStep.question}"
+
+Instrucciones:
+- Reformula o aclara la pregunta de forma amable y natural, con tus propias palabras.
+- Explica brevemente por qué necesitas ese dato si ayuda a que el usuario responda.
+- NO inventes que ya tienes el dato. NO avances al siguiente paso.
+- Sé cálido y conciso (máximo 2 oraciones). Responde en texto plano, sin formato.
+- Termina invitando al usuario a responder la pregunta.`;
+
+    try {
+      const resolvedModel = await this.resolveModel(bot.tenantId, bot.model);
+
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: resolvedModel,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
+          temperature: 0.6,
+          max_tokens: 200,
+        }),
+      });
+
+      if (!res.ok) return null;
+
+      const json = await res.json();
+      const content = json.choices?.[0]?.message?.content?.trim() || '';
+      const usage = json.usage ? {
+        prompt_tokens: json.usage.prompt_tokens || 0,
+        completion_tokens: json.usage.completion_tokens || 0,
+        model: resolvedModel,
+        cost: null,
+        credits: 0,
+      } : undefined;
+
+      return content ? { content, usage } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * AI fallback that decides whether the user's message actually answers the
+   * current question. Used only for free-text steps where the cheap heuristic
+   * couldn't tell. Returns { isAnswer } plus token usage. On any error or when
+   * the model is unavailable, assumes it IS an answer to avoid blocking valid
+   * responses (fail-open).
+   */
+  private async aiIsRealAnswer(
+    bot: Bot,
+    userMessage: string,
+    currentStep: FlowStep,
+  ): Promise<{ isAnswer: boolean; usage?: any }> {
+    const apiKey = this.configService.get<string>('OPENROUTER_API_KEY');
+    if (!apiKey) return { isAnswer: true };
+
+    const systemPrompt = `Eres un clasificador. Debes decidir si el mensaje del usuario responde a la pregunta de un formulario.
+
+Pregunta del formulario: "${currentStep.question}"
+Dato esperado: "${currentStep.field}" (tipo: ${currentStep.type}).
+
+Responde SOLO con un JSON:
+{"isAnswer": true} si el mensaje contiene o intenta dar el dato solicitado.
+{"isAnswer": false} si el usuario pregunta otra cosa, cambia de tema, expresa confusión, o no proporciona el dato.
+
+NO agregues texto fuera del JSON.`;
+
+    try {
+      const resolvedModel = await this.resolveModel(bot.tenantId, bot.model);
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: resolvedModel,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
+          temperature: 0,
+          max_tokens: 20,
+        }),
+      });
+
+      if (!res.ok) return { isAnswer: true };
+
+      const json = await res.json();
+      const raw = json.choices?.[0]?.message?.content?.trim() || '';
+      const usage = json.usage ? {
+        prompt_tokens: json.usage.prompt_tokens || 0,
+        completion_tokens: json.usage.completion_tokens || 0,
+        model: resolvedModel,
+        cost: null,
+        credits: 0,
+      } : undefined;
+
+      let isAnswer = true; // fail-open default
+      try {
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          if (typeof parsed.isAnswer === 'boolean') isAnswer = parsed.isAnswer;
+        }
+      } catch {
+        // keep fail-open default
+      }
+
+      return { isAnswer, usage };
+    } catch {
+      return { isAnswer: true };
+    }
+  }
+
+  /** Adds up token usage from two AI calls made within the same turn. */
+  private mergeUsage(a?: any, b?: any): any | undefined {
+    if (!a) return b;
+    if (!b) return a;
+    return {
+      prompt_tokens: (a.prompt_tokens || 0) + (b.prompt_tokens || 0),
+      completion_tokens: (a.completion_tokens || 0) + (b.completion_tokens || 0),
+      model: b.model || a.model,
+      cost: null,
+      credits: (a.credits || 0) + (b.credits || 0),
+    };
+  }
+
   private async searchKnowledge(botId: string, query: string): Promise<string> {
     const entries = await this.knowledgeRepo.find({ where: { botId, isEnabled: true } });
     if (entries.length === 0) return '';
@@ -429,6 +662,16 @@ Instrucciones:
       startedAt: new Date().toISOString(),
       lastStepAt: '',
     };
+  }
+
+  /**
+   * Persists the flow state, unless the conversation is ephemeral (in-memory
+   * test session). This lets the SAME engine drive both production (persisted)
+   * and the "Probar Bot" panel (stateless) without duplicating flow logic.
+   */
+  private async persistState(conversation: Conversation): Promise<void> {
+    if ((conversation as any).__ephemeral) return;
+    await this.conversationRepo.save(conversation);
   }
 
   private formatStepQuestion(step: FlowStep): string {
@@ -503,7 +746,7 @@ Instrucciones:
     state.currentStepIndex = nextStep.order;
     state.retryCount = 0;
     conversation.botFlowState = state;
-    await this.conversationRepo.save(conversation);
+    await this.persistState(conversation);
 
     return {
       content: this.formatStepQuestion(nextStep),
@@ -521,7 +764,7 @@ Instrucciones:
     usage?: { prompt_tokens: number; completion_tokens: number; model: string; cost: number | null; credits: number },
   ): Promise<SequentialFlowResponse> {
     conversation.botFlowState = state;
-    await this.conversationRepo.save(conversation);
+    await this.persistState(conversation);
 
     // Execute completion webhook if configured
     const webhookResults: { stepId: string; success: boolean; response?: string }[] = [];

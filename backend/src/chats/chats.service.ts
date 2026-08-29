@@ -1595,18 +1595,27 @@ export class ChatsService {
 
           const newData: Record<string, string> = {};
 
-          // Sequential bots can overwrite existing data (except phone on WA/evolution channels)
-          const isSequential = bot.type === 'sequential';
+          // Overwrite existing data only when the new value differs (except phone on WA/evolution channels)
           const isPhoneChannel = inbox.channel === 'whatsapp' || inbox.channel === 'evolution';
 
-          for (const [key, value] of Object.entries(response.extractedData)) {
+          // Overwrite only when the incoming value is non-empty AND different
+          // from the currently stored value (case-insensitive, trimmed compare).
+          const isDifferent = (incoming: unknown, current: unknown): boolean => {
+            const a = String(incoming ?? '').trim();
+            const b = String(current ?? '').trim();
+            if (!a) return false; // never write empty values
+            return a.toLowerCase() !== b.toLowerCase();
+          };
+
+          for (const [key, rawValue] of Object.entries(response.extractedData)) {
+            const value = typeof rawValue === 'string' ? rawValue.trim() : rawValue;
             if (!value) continue;
 
             if (key.startsWith('custom:')) {
               // Custom field — store in customData jsonb
               const customKey = key.replace('custom:', '');
               if (!record.customData) record.customData = {};
-              if (isSequential || !record.customData[customKey]) {
+              if (isDifferent(value, record.customData[customKey])) {
                 record.customData[customKey] = value;
                 newData[key] = value;
               }
@@ -1618,7 +1627,7 @@ export class ChatsService {
               // Never overwrite phone on WhatsApp/Evolution (it's the contact identifier)
               if (recordField === 'phone' && isPhoneChannel) continue;
 
-              if (isSequential || !record[recordField]) {
+              if (isDifferent(value, record[recordField])) {
                 record[recordField] = value;
                 newData[key] = value;
               }
