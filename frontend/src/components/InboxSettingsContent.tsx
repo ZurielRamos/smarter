@@ -107,6 +107,8 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
 
   const handleWhatsAppConnect = () => {
     if (!inbox || !waConfig) return;
+    if (!waConfig.configId) { alert("Falta el WhatsApp Config ID (META_WA_CONFIG_ID) en el servidor. No se puede iniciar el Embedded Signup."); return; }
+    if (!waConfig.appId) { alert("Falta el App ID (META_APP_ID) en el servidor."); return; }
     setConnecting(true);
 
     const FB = (window as any).FB;
