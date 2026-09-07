@@ -617,8 +617,23 @@ export class ChatsService {
     }
 
     for (const msg of value.messages) {
-      const contactPhone = msg.from;
-      const contactName = value.contacts?.[0]?.profile?.name || contactPhone;
+      const contact = value.contacts?.[0];
+      // Meta's newer identity model may omit `msg.from` and only provide a user_id
+      // (e.g. "CO.xxxxx"). Fall back through the available identifiers so contactId is
+      // never undefined (which crashes the TypeORM where clause).
+      const contactPhone =
+        msg.from ||
+        contact?.wa_id ||
+        msg.from_user_id ||
+        contact?.user_id ||
+        null;
+
+      if (!contactPhone) {
+        console.warn(`[Webhook] Skipping message with no resolvable contact id: ${JSON.stringify(msg).substring(0, 300)}`);
+        continue;
+      }
+
+      const contactName = contact?.profile?.name || contactPhone;
 
       // Find or create conversation
       let conversation = await this.conversationRepo.findOne({
