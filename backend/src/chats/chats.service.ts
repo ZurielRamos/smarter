@@ -606,6 +606,38 @@ export class ChatsService {
     }
   }
 
+  /**
+   * Determina si un identificador de contacto de WhatsApp corresponde al nuevo
+   * modelo de identidad de Meta (user_id, p. ej. "CO.2116087075782558" o su forma
+   * numérica larga sin prefijo) en lugar de un número de teléfono E.164 clásico.
+   *
+   * Los teléfonos válidos de WhatsApp son numéricos y de ~7 a 15 dígitos.
+   * Los user_id de identidad llegan con prefijo "CO." o como enteros muy largos
+   * (16+ dígitos) que no son teléfonos marcables.
+   */
+  private isWhatsAppIdentityId(contactId: string | null | undefined): boolean {
+    if (!contactId) return false;
+    if (contactId.startsWith('CO.')) return true;
+    const digits = contactId.replace(/\D/g, '');
+    // Un teléfono E.164 no supera los 15 dígitos. Los user_id numéricos son más largos.
+    return !/^\d{7,15}$/.test(digits) || digits.length > 15;
+  }
+
+  /**
+   * Construye los campos de destinatario del payload de la Cloud API según el tipo
+   * de contacto. Para teléfonos usa el formato clásico { to }. Para identidades
+   * (user_id) usa recipient_type: "individual" con el user_id normalizado, que es
+   * lo que Meta requiere para responder a contactos del nuevo modelo de identidad.
+   */
+  private buildWhatsAppRecipient(contactId: string): Record<string, any> {
+    if (this.isWhatsAppIdentityId(contactId)) {
+      // Normalizar: la API espera el user_id con prefijo "CO." cuando es identidad.
+      const userId = contactId.startsWith('CO.') ? contactId : `CO.${contactId}`;
+      return { recipient_type: 'individual', to: userId };
+    }
+    return { to: contactId };
+  }
+
   private async handleWhatsAppMessages(value: any): Promise<void> {
     const phoneNumberId = value.metadata?.phone_number_id;
     if (!phoneNumberId) return;
@@ -2035,7 +2067,7 @@ export class ChatsService {
       // Send via WhatsApp Cloud API
       const messageBody: any = {
         messaging_product: 'whatsapp',
-        to: conversation.contactId,
+        ...this.buildWhatsAppRecipient(conversation.contactId),
         type: 'text',
         text: { body: content },
       };
@@ -2332,7 +2364,7 @@ export class ChatsService {
           // Send media message
           const messageBody: any = {
             messaging_product: 'whatsapp',
-            to: conversation.contactId,
+            ...this.buildWhatsAppRecipient(conversation.contactId),
             type: messageType,
           };
 
@@ -2800,7 +2832,7 @@ export class ChatsService {
     // Send template via WhatsApp Cloud API
     const messageBody: any = {
       messaging_product: 'whatsapp',
-      to: conversation.contactId,
+      ...this.buildWhatsAppRecipient(conversation.contactId),
       type: 'template',
       template: {
         name: templateName,
