@@ -30,3 +30,6 @@ backend/uploads/
 mobile/
 # ETL cache (generated at runtime)
 backend/etl-cache/
+
+# Database backups (may contain personal data)
+backend/backups/

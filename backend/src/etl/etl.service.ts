@@ -329,6 +329,23 @@ export class EtlService {
     const job = await this.jobRepo.findOneBy({ id: jobId });
     if (!job) throw new NotFoundException(`Job ${jobId} not found`);
 
+    // === GUARDA DE IDEMPOTENCIA ===
+    // BullMQ puede volver a entregar un job que quedó "stalled" (p. ej. si el
+    // worker se reinició mientras cargaba). Sin esta guarda, el pipeline
+    // re-ejecutaría el LOAD y duplicaría TODOS los contactos del archivo (causa
+    // raíz del incidente de duplicación masiva). Sólo procesamos un job que esté
+    // realmente pendiente de ejecutarse.
+    const alreadyTerminal: ImportJobStatus[] = ['completed', 'completed_with_errors', 'failed', 'cancelled'];
+    const alreadyRunning: ImportJobStatus[] = ['transforming', 'validating', 'deduplicating', 'loading'];
+    if (alreadyTerminal.includes(job.status)) {
+      console.warn(`[ETL] Job ${jobId} ya está en estado terminal '${job.status}'. Se omite re-ejecución (idempotencia).`);
+      return;
+    }
+    if (alreadyRunning.includes(job.status)) {
+      console.warn(`[ETL] Job ${jobId} ya está en curso ('${job.status}'). Se omite ejecución duplicada (idempotencia).`);
+      return;
+    }
+
     if (!this.fileStore.exists(fileId)) {
       await this.failJob(job, 'Archivo expiró antes de procesarse. Reintente la importación.');
       return;

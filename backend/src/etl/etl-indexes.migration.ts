@@ -48,6 +48,24 @@ export async function createEtlIndexes(dataSource: DataSource): Promise<void> {
       ON clients USING GIN (custom_data jsonb_path_ops)
       WHERE custom_data IS NOT NULL
     `);
+
+    // === RESTRICCIÓN DE UNICIDAD (anti-duplicados) ===
+    // Un contacto por (tenant, teléfono). Índice parcial sobre la forma
+    // normalizada (LOWER/TRIM) para que coincida con el ON CONFLICT del LOAD
+    // del ETL y con el find-or-create de chats.
+    //
+    // Nota: NO se aplica unicidad por email a propósito. Una misma persona puede
+    // tener dos contactos con el mismo email pero teléfonos distintos (p. ej.
+    // dos líneas), y forzar email único los fusionaría incorrectamente. El
+    // teléfono es el identificador confiable en este dominio (Colombia, +57).
+    //
+    // Requisito: la tabla no debe contener duplicados previos por
+    // (tenant_id, LOWER(TRIM(phone))) o la creación fallará. Ya fue depurada.
+    await queryRunner.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_clients_tenant_phone
+      ON clients (tenant_id, LOWER(TRIM(phone)))
+      WHERE phone IS NOT NULL AND phone <> ''
+    `);
   } finally {
     await queryRunner.release();
   }

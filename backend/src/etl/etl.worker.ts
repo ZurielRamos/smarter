@@ -5,7 +5,11 @@ import { EtlService } from './etl.service';
 import { FileStoreService } from './file-store.service';
 import { ParseProcessor } from './processors/parse.processor';
 
-@Processor('etl')
+// concurrency 1: procesamos un job ETL a la vez para evitar que dos ejecuciones
+// del mismo import corran en paralelo (una de las condiciones que produjo la
+// duplicación masiva). La idempotencia en executeJob es la salvaguarda principal;
+// esto reduce además la contención sobre la tabla clients durante cargas grandes.
+@Processor('etl', { concurrency: 1 })
 export class EtlWorker extends WorkerHost {
   private readonly logger = new Logger(EtlWorker.name);
 

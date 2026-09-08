@@ -44,20 +44,42 @@ export class LoadProcessor {
       const entities = chunk.map((record) => this.buildEntity(record, tenantId));
 
       try {
-        // Use insert() instead of save() — skips SELECT, does direct INSERT
-        await this.recordRepo
+        // INSERT ... ON CONFLICT DO NOTHING sobre los índices únicos parciales
+        // (uq_clients_tenant_phone / uq_clients_tenant_email). Esto hace el LOAD
+        // idempotente: si el job se re-ejecuta (BullMQ stalled/redespacho) o el
+        // archivo contiene un contacto ya existente, la fila se ignora en vez de
+        // duplicarse. `orIgnore()` genera ON CONFLICT DO NOTHING, que además es
+        // seguro ante colisiones dentro del mismo batch.
+        const insertResult = await this.recordRepo
           .createQueryBuilder()
           .insert()
           .into(ClientRecord)
           .values(entities)
+          .orIgnore()
           .execute();
-        result.created += entities.length;
+        // `identifiers` sólo contiene las filas realmente insertadas (las
+        // ignoradas por conflicto quedan como undefined).
+        const inserted = Array.isArray(insertResult.identifiers)
+          ? insertResult.identifiers.filter((id) => id != null).length
+          : entities.length;
+        result.created += inserted;
+        result.skipped += entities.length - inserted;
       } catch (error: any) {
-        // If batch insert fails, fallback to individual inserts
+        // Fallback: inserción individual, también ignorando conflictos
         for (let j = 0; j < entities.length; j++) {
           try {
-            await this.recordRepo.save(entities[j]);
-            result.created++;
+            const one = await this.recordRepo
+              .createQueryBuilder()
+              .insert()
+              .into(ClientRecord)
+              .values(entities[j])
+              .orIgnore()
+              .execute();
+            const ok = Array.isArray(one.identifiers)
+              ? one.identifiers.filter((id) => id != null).length
+              : 1;
+            if (ok > 0) result.created++;
+            else result.skipped++;
           } catch (innerError: any) {
             result.errors.push({
               rowNumber: i + j + 1,
