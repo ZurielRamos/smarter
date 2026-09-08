@@ -38,7 +38,7 @@ export class MailService {
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 0;">
         <!-- Header -->
         <div style="background: #1a1a1a; padding: 24px 32px; border-radius: 12px 12px 0 0;">
-          <img src="https://crm.strategee.us/logo-completo.png" alt="Smarter" style="height: 28px;" />
+          <img src="https://crm.strategee.us/logo-dark.png" alt="Smarter" style="height: 28px;" />
         </div>
         
         <!-- Body -->
@@ -94,7 +94,7 @@ export class MailService {
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 0;">
         <!-- Header -->
         <div style="background: #1a1a1a; padding: 24px 32px; border-radius: 12px 12px 0 0;">
-          <img src="https://crm.strategee.us/logo-completo.png" alt="Smarter" style="height: 28px;" />
+          <img src="https://crm.strategee.us/logo-dark.png" alt="Smarter" style="height: 28px;" />
         </div>
         
         <!-- Body -->
@@ -159,7 +159,7 @@ export class MailService {
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 0;">
         <div style="background: #1a1a1a; padding: 24px 32px; border-radius: 12px 12px 0 0;">
-          <img src="https://crm.strategee.us/logo-completo.png" alt="Smarter" style="height: 28px;" />
+          <img src="https://crm.strategee.us/logo-dark.png" alt="Smarter" style="height: 28px;" />
         </div>
         <div style="background: #ffffff; padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
           <h2 style="color: #1a1a1a; margin: 0 0 16px 0; font-size: 20px;">Restablecer contraseña</h2>
