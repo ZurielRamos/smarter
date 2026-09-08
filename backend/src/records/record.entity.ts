@@ -17,6 +17,7 @@ import { Tenant } from '../tenants/tenant.entity';
 @Index(['createdAt'])
 @Index(['tenantId', 'createdAt'])
 @Index(['tenantId', 'phone'])
+@Index(['tenantId', 'whatsappId'])
 @Index(['tenantId', 'email'])
 @Index(['tenantId', 'documentNumber'])
 @Index(['tenantId', 'city'])
@@ -65,6 +66,13 @@ export class ClientRecord {
 
   @Column({ name: 'country_code', type: 'varchar', length: 5, nullable: true })
   countryCode: string; // +57, +1, +52
+
+  // Business-Scoped User ID (BSUID) del modelo de identidad de WhatsApp.
+  // Formato: "{código país}.{id}", p. ej. "CO.2116087075782558".
+  // Estable por portfolio de negocio; presente cuando el contacto usa username
+  // de WhatsApp y no expone su teléfono.
+  @Column({ name: 'whatsapp_id', type: 'varchar', nullable: true })
+  whatsappId: string | null;
 
   @Column({ type: 'varchar', nullable: true })
   email: string;

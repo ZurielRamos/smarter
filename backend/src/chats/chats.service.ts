@@ -941,11 +941,11 @@ export class ChatsService {
     let record: ClientRecord | null = null;
 
     if (isIdentity) {
-      // Buscar por el user_id de identidad guardado en custom_data
+      // Buscar por el BSUID (whatsapp_id)
       record = await this.clientRecordRepo
         .createQueryBuilder('client')
         .where('client.tenant_id = :tenantId', { tenantId })
-        .andWhere("client.custom_data ->> 'whatsappIdentityId' = :identityId", { identityId })
+        .andWhere('client.whatsapp_id = :identityId', { identityId })
         .getOne();
     } else {
       // Buscar por teléfono normalizado (sin prefijo +)
@@ -963,12 +963,12 @@ export class ChatsService {
       record = this.clientRecordRepo.create({
         tenantId,
         phone,
+        whatsappId: identityId,
         firstName: nameParts[0] || null,
         lastName: nameParts.slice(1).join(' ') || null,
         status: 'active',
         channelSource: inboxId || 'whatsapp',
         lastContactAt: new Date(),
-        customData: identityId ? { whatsappIdentityId: identityId } : undefined,
       } as Partial<ClientRecord>);
       record = await this.clientRecordRepo.save(record);
       console.log(`[Chat] Created new record (${isIdentity ? 'identity ' + identityId : 'phone ' + phone}) in tenant ${tenantId}`);
@@ -978,9 +978,9 @@ export class ChatsService {
         record.deletedAt = null;
         record.status = 'active';
       }
-      // Asegurar que el identity id quede guardado si faltaba
-      if (isIdentity && identityId && record.customData?.whatsappIdentityId !== identityId) {
-        record.customData = { ...(record.customData || {}), whatsappIdentityId: identityId };
+      // Asegurar que el BSUID quede guardado si faltaba
+      if (isIdentity && identityId && record.whatsappId !== identityId) {
+        record.whatsappId = identityId;
       }
       record.lastContactAt = new Date();
       await this.clientRecordRepo.save(record);
