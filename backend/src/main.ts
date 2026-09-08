@@ -36,20 +36,24 @@ async function bootstrap() {
   // SPA fallback: rutas del frontend devuelven index.html
   const expressApp = app.getHttpAdapter().getInstance();
   expressApp.use((req, res, next) => {
+    // Solo el pathname, sin querystring, para no confundir un token
+    // (p.ej. JWT que termina en ".xxxx") con una extensión de archivo.
+    const pathname = req.url.split('?')[0];
+
     // Serve static landing page for root
-    if (req.url === '/' || req.url === '/index') {
+    if (pathname === '/' || pathname === '/index') {
       const landingPath = join(process.cwd(), 'public', 'landing.html');
       if (existsSync(landingPath)) {
         return res.sendFile(landingPath);
       }
     }
     if (
-      (req.url.startsWith('/api') && !req.url.startsWith('/api-reference')) ||
-      req.url.startsWith('/uploads') ||
-      req.url.startsWith('/webhooks') ||
-      req.url.startsWith('/ws') ||
-      req.url.startsWith('/socket.io') ||
-      req.url.match(/\.\w+$/)
+      (pathname.startsWith('/api') && !pathname.startsWith('/api-reference')) ||
+      pathname.startsWith('/uploads') ||
+      pathname.startsWith('/webhooks') ||
+      pathname.startsWith('/ws') ||
+      pathname.startsWith('/socket.io') ||
+      pathname.match(/\.\w+$/)
     ) {
       return next();
     }
