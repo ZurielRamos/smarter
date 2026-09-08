@@ -19,6 +19,7 @@ const SYSTEM_FIELDS = [
   { fieldKey: 'jobTitle', fieldLabel: 'Cargo', fieldType: 'text', fieldGroup: 'identificacion' },
   // Contacto
   { fieldKey: 'phone', fieldLabel: 'Teléfono', fieldType: 'text', fieldGroup: 'contacto' },
+  { fieldKey: 'whatsappId', fieldLabel: 'WhatsApp ID (BSUID)', fieldType: 'text', fieldGroup: 'contacto' },
   { fieldKey: 'countryCode', fieldLabel: 'Código de país', fieldType: 'text', fieldGroup: 'contacto' },
   { fieldKey: 'email', fieldLabel: 'Email', fieldType: 'text', fieldGroup: 'contacto' },
   { fieldKey: 'website', fieldLabel: 'Sitio web', fieldType: 'url', fieldGroup: 'contacto' },

@@ -67,7 +67,7 @@ export class CustomFieldsService {
     const chunkSize = 500;
 
     // System field map for reading values from records
-    const SYSTEM_FIELDS = new Set(['firstName', 'lastName', 'phone', 'email', 'status', 'channelSource', 'lastContactAt', 'tags']);
+    const SYSTEM_FIELDS = new Set(['firstName', 'lastName', 'phone', 'whatsappId', 'email', 'status', 'channelSource', 'lastContactAt', 'tags']);
 
     const getFieldValue = (record: ClientRecord, fieldKey: string): any => {
       if (SYSTEM_FIELDS.has(fieldKey)) return (record as any)[fieldKey];

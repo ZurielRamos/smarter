@@ -157,6 +157,7 @@ export class RecordListsService {
       documentType: 'r.document_type',
       documentNumber: 'r.document_number',
       phone: 'r.phone',
+      whatsappId: 'r.whatsapp_id',
       countryCode: 'r.country_code',
       email: 'r.email',
       gender: 'r.gender',
