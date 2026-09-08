@@ -36,6 +36,6 @@ export function BlockProperties({ block, onChange }: Props) {
     case "social":
       return <SocialProperties {...commonProps} />;
     default:
-      return <p className="text-xs text-gray-400">Sin propiedades</p>;
+      return <p className="text-xs text-muted-foreground">Sin propiedades</p>;
   }
 }

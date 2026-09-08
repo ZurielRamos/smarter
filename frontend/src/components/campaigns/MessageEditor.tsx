@@ -210,16 +210,16 @@ export function MessageEditor({ value, onChange, onSave, saving, variables }: Me
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <div className="bg-card rounded-xl border border-border p-6">
       <div className="flex items-center gap-2 mb-4">
         <MessageSquare className="h-5 w-5 text-brand-600" />
-        <h2 className="text-base font-semibold text-gray-900">Mensaje SMS</h2>
+        <h2 className="text-base font-semibold text-foreground">Mensaje SMS</h2>
       </div>
 
       <div className="flex gap-4">
         {/* Variables panel */}
         <div className="w-[170px] shrink-0">
-          <p className="text-xs font-medium text-gray-500 mb-2">Variables</p>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Variables</p>
           <div className="space-y-1.5">
             {AVAILABLE_VARIABLES.map((v) => (
               <div
@@ -232,10 +232,10 @@ export function MessageEditor({ value, onChange, onSave, saving, variables }: Me
                   "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium cursor-grab active:cursor-grabbing select-none transition-colors",
                   dragging === v.field
                     ? "opacity-50 border-brand-300 bg-brand-50"
-                    : "bg-white border-gray-200 hover:border-brand-400 hover:bg-brand-50 text-gray-700"
+                    : "bg-card border-border hover:border-brand-400 hover:bg-brand-50 text-foreground"
                 )}
               >
-                <GripVertical className="h-3 w-3 text-gray-400" />
+                <GripVertical className="h-3 w-3 text-muted-foreground" />
                 <span>{v.label}</span>
               </div>
             ))}
@@ -254,12 +254,12 @@ export function MessageEditor({ value, onChange, onSave, saving, variables }: Me
             onDragLeave={handleDragLeave}
             className={cn(
               "w-full min-h-[140px] px-4 py-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 transition-colors whitespace-pre-wrap",
-              isDragOver ? "border-brand-400 bg-brand-50/50" : "border-gray-200"
+              isDragOver ? "border-brand-400 bg-brand-50/50" : "border-border"
             )}
           />
 
           {/* Stats */}
-          <div className="flex items-center justify-between mt-3 text-xs text-gray-400">
+          <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
             <span>{charCount} caracteres · {smsCount} SMS</span>
             <button
               type="button"
@@ -273,9 +273,9 @@ export function MessageEditor({ value, onChange, onSave, saving, variables }: Me
 
           {/* Preview */}
           {value && (
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <p className="text-[10px] font-medium text-gray-400 uppercase mb-1">Vista previa</p>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{getPreview()}</p>
+            <div className="mt-4 p-3 bg-muted rounded-lg border border-border">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase mb-1">Vista previa</p>
+              <p className="text-sm text-foreground whitespace-pre-wrap">{getPreview()}</p>
             </div>
           )}
         </div>

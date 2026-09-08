@@ -24,10 +24,10 @@ interface Template {
 }
 
 const CHANNEL_CONFIG: Record<string, { icon: any; color: string; bg: string; label: string; border: string; description: string }> = {
-  email: { icon: Mail, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200", label: "Email", description: "Plantilla HTML con editor visual" },
-  sms: { icon: MessageSquare, color: "text-sky-600", bg: "bg-sky-50", border: "border-sky-200", label: "SMS", description: "Mensaje de texto corto" },
-  whatsapp: { icon: WhatsAppIcon, color: "text-green-600", bg: "bg-green-50", border: "border-green-200", label: "WhatsApp", description: "Plantilla de Meta Business" },
-  llamada: { icon: Phone, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200", label: "Llamada", description: "Texto a voz o audio pre-grabado" },
+  email: { icon: Mail, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-500/15", border: "border-orange-200 dark:border-orange-500/30", label: "Email", description: "Plantilla HTML con editor visual" },
+  sms: { icon: MessageSquare, color: "text-sky-600", bg: "bg-sky-50 dark:bg-sky-500/15", border: "border-sky-200 dark:border-sky-500/30", label: "SMS", description: "Mensaje de texto corto" },
+  whatsapp: { icon: WhatsAppIcon, color: "text-green-600", bg: "bg-green-50 dark:bg-green-500/15", border: "border-green-200 dark:border-green-500/30", label: "WhatsApp", description: "Plantilla de Meta Business" },
+  llamada: { icon: Phone, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-500/15", border: "border-purple-200 dark:border-purple-500/30", label: "Llamada", description: "Texto a voz o audio pre-grabado" },
 };
 
 export function Plantillas() {
@@ -61,12 +61,12 @@ export function Plantillas() {
   return (
     <div className="flex-1 flex overflow-hidden">
       {/* Sidebar — Templates list */}
-      <div className="w-80 border-r border-gray-100 flex flex-col shrink-0">
-        <div className="px-3 py-3 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase">Plantillas</h3>
+      <div className="w-80 border-r border-border flex flex-col shrink-0">
+        <div className="px-3 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase">Plantillas</h3>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             title="Nueva plantilla"
           >
             <Plus className="h-4 w-4" />
@@ -74,11 +74,11 @@ export function Plantillas() {
         </div>
 
         {/* Channel filter */}
-        <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-1">
+        <div className="px-3 py-2 border-b border-border flex items-center gap-1">
           <button
             onClick={() => setFilterChannel(null)}
             className={`text-[10px] px-2 py-1 rounded-md font-medium transition-colors ${
-              !filterChannel ? "bg-brand-100 text-brand-700" : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+              !filterChannel ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-100" : "bg-muted text-muted-foreground hover:bg-muted"
             }`}
           >
             Todos
@@ -88,7 +88,7 @@ export function Plantillas() {
               key={key}
               onClick={() => setFilterChannel(filterChannel === key ? null : key)}
               className={`text-[10px] px-2 py-1 rounded-md font-medium transition-colors ${
-                filterChannel === key ? "bg-brand-100 text-brand-700" : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                filterChannel === key ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-100" : "bg-muted text-muted-foreground hover:bg-muted"
               }`}
             >
               {cfg.label}
@@ -99,13 +99,13 @@ export function Plantillas() {
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           ) : templates.length === 0 ? (
             <div className="px-3 py-8 text-center">
-              <FileText className="h-6 w-6 text-gray-300 mx-auto mb-2" />
-              <p className="text-xs text-gray-400">Sin plantillas</p>
-              <p className="text-[10px] text-gray-400 mt-1">
+              <FileText className="h-6 w-6 text-muted-foreground/40 mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">Sin plantillas</p>
+              <p className="text-[10px] text-muted-foreground mt-1">
                 Crea tu primera plantilla
               </p>
             </div>
@@ -121,8 +121,8 @@ export function Plantillas() {
                   }
                   className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
                     templateId === tpl.id
-                      ? "bg-brand-50 text-brand-700"
-                      : "text-gray-700 hover:bg-gray-50"
+                      ? "bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100"
+                      : "text-foreground hover:bg-muted"
                   }`}
                 >
                   <div className={`h-7 w-7 rounded-lg ${channelInfo.bg} flex items-center justify-center shrink-0`}>
@@ -131,16 +131,16 @@ export function Plantillas() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{tpl.name}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-[9px] text-gray-400">{channelInfo.label}</span>
-                      <Globe className="h-2.5 w-2.5 text-gray-300" />
+                      <span className="text-[9px] text-muted-foreground">{channelInfo.label}</span>
+                      <Globe className="h-2.5 w-2.5 text-muted-foreground/40" />
                       <div className="flex items-center gap-0.5">
                         {tpl.translations.map((t) => (
                           <span
                             key={t.language}
                             className={`text-[9px] px-1 py-0 rounded font-medium ${
                               t.language === tpl.defaultLanguage
-                                ? "bg-brand-50 text-brand-700"
-                                : "bg-gray-100 text-gray-500"
+                                ? "bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100"
+                                : "bg-muted text-muted-foreground"
                             }`}
                           >
                             {t.language.toUpperCase()}
@@ -234,13 +234,13 @@ function CreateTemplateModal({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative bg-card text-card-foreground rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900">Nueva plantilla</h3>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h3 className="text-sm font-semibold text-foreground">Nueva plantilla</h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -250,20 +250,20 @@ function CreateTemplateModal({
         <div className="px-5 py-4 space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">Nombre</label>
+            <label className="block text-xs font-medium text-foreground mb-1.5">Nombre</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej: Bienvenida nuevo cliente"
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
               autoFocus
             />
           </div>
 
           {/* Channel selector */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">Canal</label>
+            <label className="block text-xs font-medium text-foreground mb-2">Canal</label>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(CHANNEL_CONFIG).filter(([key]) => key !== "whatsapp").map(([key, cfg]) => {
                 const Icon = cfg.icon;
@@ -275,15 +275,15 @@ function CreateTemplateModal({
                     className={`flex items-center gap-2.5 p-2.5 rounded-xl border-2 transition-all text-left ${
                       isSelected
                         ? `${cfg.border} ${cfg.bg}`
-                        : "border-gray-100 hover:border-gray-200 bg-white"
+                        : "border-border hover:bg-muted bg-card"
                     }`}
                   >
                     <div className={`h-7 w-7 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
                       <Icon className={`h-3.5 w-3.5 ${cfg.color}`} />
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-gray-900">{cfg.label}</p>
-                      <p className="text-[9px] text-gray-400 mt-0.5">{cfg.description}</p>
+                      <p className="text-xs font-medium text-foreground">{cfg.label}</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">{cfg.description}</p>
                     </div>
                   </button>
                 );
@@ -293,10 +293,10 @@ function CreateTemplateModal({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-end gap-2">
+        <div className="px-5 py-4 border-t border-border flex items-center justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
           >
             Cancelar
           </button>

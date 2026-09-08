@@ -42,7 +42,7 @@ const CHANNEL_ICONS: Record<string, { icon: any; color: string; bg: string; desc
   llamada: { icon: Phone, color: "text-purple-600", bg: "bg-purple-50", description: "Llamadas automáticas e IVR" },
   email: { icon: Mail, color: "text-orange-600", bg: "bg-orange-50", description: "Email transaccional" },
   whatsapp: { icon: MetaIcon, color: "text-blue-600", bg: "bg-blue-50", description: "WhatsApp, Messenger e Instagram" },
-  ai: { icon: OpenRouterIcon, color: "text-gray-900", bg: "bg-gray-50", description: "Modelos de lenguaje (LLM) para bots e IA" },
+  ai: { icon: OpenRouterIcon, color: "text-foreground", bg: "bg-muted", description: "Modelos de lenguaje (LLM) para bots e IA" },
 };
 
 export function AdminProviders() {
@@ -83,13 +83,13 @@ export function AdminProviders() {
         ) : (
           <div className="space-y-4">
             {providers.map((p) => {
-              const channelInfo = CHANNEL_ICONS[p.channel] || { icon: MessageSquare, color: "text-gray-600", bg: "bg-gray-50" };
+              const channelInfo = CHANNEL_ICONS[p.channel] || { icon: MessageSquare, color: "text-muted-foreground", bg: "bg-muted" };
               const Icon = channelInfo.icon;
 
               return (
                 <div
                   key={p.channel}
-                  className={`bg-white rounded-xl border overflow-hidden ${p.configured ? "border-green-200" : "border-red-200"}`}
+                  className={`bg-card rounded-xl border overflow-hidden ${p.configured ? "border-green-200" : "border-red-200"}`}
                 >
                   <div className="px-5 py-4 flex items-center gap-4">
                     <div className={`h-10 w-10 rounded-lg ${channelInfo.bg} flex items-center justify-center shrink-0`}>
@@ -97,7 +97,7 @@ export function AdminProviders() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold text-gray-900">{p.name}</h3>
+                        <h3 className="text-sm font-semibold text-foreground">{p.name}</h3>
                         {p.configured ? (
                           <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 font-medium">
                             <CheckCircle2 className="h-2.5 w-2.5" /> Configurado
@@ -108,7 +108,7 @@ export function AdminProviders() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {(channelInfo as any).description || `Proveedor: ${p.provider}`}
                       </p>
                     </div>
@@ -141,11 +141,11 @@ export function AdminProviders() {
             })}
 
             {/* Info */}
-            <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
-              <h4 className="text-sm font-semibold text-gray-700 mb-2">
+            <div className="bg-muted rounded-xl border border-border p-5">
+              <h4 className="text-sm font-semibold text-foreground mb-2">
                 ¿Cómo configurar?
               </h4>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Las credenciales de los proveedores se configuran en las variables de entorno del servidor (<code className="bg-gray-200 px-1 rounded">.env</code>). 
                 Esto garantiza que no se expongan en la base de datos y se gestionen de forma segura por entorno (desarrollo, staging, producción).
               </p>

@@ -113,24 +113,24 @@ export function EmailConfigCard() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-card rounded-xl border border-border p-6">
         <div className="flex items-center justify-center py-4">
-          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-card rounded-xl border border-border overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
+      <div className="px-5 py-4 border-b border-border flex items-center gap-3">
         <div className="h-9 w-9 rounded-lg bg-orange-50 flex items-center justify-center">
           <Mail className="h-4.5 w-4.5 text-orange-600" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Configuración de Email</h3>
-          <p className="text-xs text-gray-400">Configura el remitente y verifica tu dominio para enviar emails</p>
+          <h3 className="text-sm font-semibold text-foreground">Configuración de Email</h3>
+          <p className="text-xs text-muted-foreground">Configura el remitente y verifica tu dominio para enviar emails</p>
         </div>
         {config?.domainStatus === "verified" && (
           <span className="ml-auto inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 font-medium">
@@ -153,23 +153,23 @@ export function EmailConfigCard() {
         {/* Form */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Nombre del remitente</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Nombre del remitente</label>
             <input
               type="text"
               value={form.fromName}
               onChange={(e) => setForm({ ...form, fromName: e.target.value })}
               placeholder="Mi Empresa"
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Email del remitente</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Email del remitente</label>
             <input
               type="email"
               value={form.fromEmail}
               onChange={(e) => setForm({ ...form, fromEmail: e.target.value })}
               placeholder="comunicaciones@miempresa.com"
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -185,37 +185,37 @@ export function EmailConfigCard() {
 
         {/* DNS Records */}
         {config && dnsRecords.length > 0 && (
-          <div className="pt-4 border-t border-gray-100">
-            <h4 className="text-sm font-semibold text-gray-900 mb-1">Registros DNS</h4>
-            <p className="text-xs text-gray-500 mb-4">
-              Agrega estos registros en la configuración DNS de <code className="bg-gray-100 px-1 rounded">{config.domain}</code> para verificar tu dominio.
+          <div className="pt-4 border-t border-border">
+            <h4 className="text-sm font-semibold text-foreground mb-1">Registros DNS</h4>
+            <p className="text-xs text-muted-foreground mb-4">
+              Agrega estos registros en la configuración DNS de <code className="bg-muted px-1 rounded">{config.domain}</code> para verificar tu dominio.
             </p>
 
             <div className="space-y-3">
               {dnsRecords.map((record, i) => (
-                <div key={i} className="p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                <div key={i} className="p-3 rounded-lg border border-border bg-muted/50">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 font-mono font-bold">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-foreground font-mono font-bold">
                           {record.type}
                         </span>
-                        <span className="text-xs text-gray-500">{record.purpose}</span>
+                        <span className="text-xs text-muted-foreground">{record.purpose}</span>
                       </div>
                       <div className="mt-2 space-y-1">
                         <div>
-                          <span className="text-[10px] font-medium text-gray-400 uppercase">Nombre</span>
-                          <p className="text-xs font-mono text-gray-700 break-all">{record.name}</p>
+                          <span className="text-[10px] font-medium text-muted-foreground uppercase">Nombre</span>
+                          <p className="text-xs font-mono text-foreground break-all">{record.name}</p>
                         </div>
                         <div>
-                          <span className="text-[10px] font-medium text-gray-400 uppercase">Valor</span>
-                          <p className="text-xs font-mono text-gray-700 break-all">{record.value}</p>
+                          <span className="text-[10px] font-medium text-muted-foreground uppercase">Valor</span>
+                          <p className="text-xs font-mono text-foreground break-all">{record.value}</p>
                         </div>
                       </div>
                     </div>
                     <button
                       onClick={() => copyToClipboard(record.value, `${i}`)}
-                      className="shrink-0 p-1.5 rounded-md hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="shrink-0 p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-muted-foreground transition-colors"
                       title="Copiar valor"
                     >
                       {copied === `${i}` ? (
@@ -269,7 +269,7 @@ export function EmailConfigCard() {
         {/* Empty state */}
         {!config && (
           <div className="text-center py-4">
-            <p className="text-xs text-gray-400">Ingresa tu email y nombre de remitente para ver los registros DNS necesarios.</p>
+            <p className="text-xs text-muted-foreground">Ingresa tu email y nombre de remitente para ver los registros DNS necesarios.</p>
           </div>
         )}
       </div>

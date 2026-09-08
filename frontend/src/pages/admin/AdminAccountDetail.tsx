@@ -82,7 +82,7 @@ const TYPE_COLORS: Record<string, { text: string; bg: string; icon: any }> = {
   purchase: { text: "text-blue-700", bg: "bg-blue-50", icon: ArrowDownCircle },
   consume: { text: "text-red-700", bg: "bg-red-50", icon: ArrowUpCircle },
   refund: { text: "text-emerald-700", bg: "bg-emerald-50", icon: ArrowDownCircle },
-  expire: { text: "text-gray-700", bg: "bg-gray-100", icon: ArrowUpCircle },
+  expire: { text: "text-foreground", bg: "bg-muted", icon: ArrowUpCircle },
   adjustment: { text: "text-purple-700", bg: "bg-purple-50", icon: Activity },
 };
 
@@ -329,7 +329,7 @@ export function AdminAccountDetail() {
   if (!tenant) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-gray-500">Cuenta no encontrada</p>
+        <p className="text-muted-foreground">Cuenta no encontrada</p>
       </div>
     );
   }
@@ -383,19 +383,19 @@ export function AdminAccountDetail() {
               <MoreVertical className="h-4 w-4 text-white" />
             </button>
             {showMore && (
-              <div className="absolute right-0 top-11 w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+              <div className="absolute right-0 top-11 w-52 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
                 <button
                   onClick={openConfigModal}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                 >
-                  <Wrench className="h-4 w-4 text-gray-400" />
+                  <Wrench className="h-4 w-4 text-muted-foreground" />
                   Configurar cuenta
                 </button>
                 <button
                   onClick={openCostModal}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                 >
-                  <Settings2 className="h-4 w-4 text-gray-400" />
+                  <Settings2 className="h-4 w-4 text-muted-foreground" />
                   Configurar consumos
                 </button>
               </div>
@@ -412,67 +412,67 @@ export function AdminAccountDetail() {
         className="py-6 px-8 flex-1 min-h-0 overflow-auto"
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-card rounded-xl border border-border p-5">
             <div className="flex items-center gap-3 mb-3">
               <div className="h-9 w-9 rounded-lg bg-amber-50 flex items-center justify-center">
                 <Coins className="h-4 w-4 text-amber-600" />
               </div>
-              <p className="text-sm font-medium text-gray-500">Créditos disponibles</p>
+              <p className="text-sm font-medium text-muted-foreground">Créditos disponibles</p>
             </div>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-2xl font-bold text-foreground">
               {balance ? balance.available.toLocaleString("es-CO", { maximumFractionDigits: 2 }) : "—"}
             </p>
             {balance && balance.reserved > 0 && (
-              <p className="text-xs text-gray-400 mt-1">{balance.reserved.toLocaleString()} reservados</p>
+              <p className="text-xs text-muted-foreground mt-1">{balance.reserved.toLocaleString()} reservados</p>
             )}
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-card rounded-xl border border-border p-5">
             <div className="flex items-center gap-3 mb-3">
               <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center">
                 <Users className="h-4 w-4 text-blue-600" />
               </div>
-              <p className="text-sm font-medium text-gray-500">Miembros</p>
+              <p className="text-sm font-medium text-muted-foreground">Miembros</p>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{members.length}</p>
-            <p className="text-xs text-gray-400 mt-1">Máx. {tenant.maxAgents} agentes</p>
+            <p className="text-2xl font-bold text-foreground">{members.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">Máx. {tenant.maxAgents} agentes</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-card rounded-xl border border-border p-5">
             <div className="flex items-center gap-3 mb-3">
               <div className="h-9 w-9 rounded-lg bg-purple-50 flex items-center justify-center">
                 <Activity className="h-4 w-4 text-purple-600" />
               </div>
-              <p className="text-sm font-medium text-gray-500">Plan</p>
+              <p className="text-sm font-medium text-muted-foreground">Plan</p>
             </div>
-            <p className="text-2xl font-bold text-gray-900 capitalize">{plan ? plan.type : "Sin plan"}</p>
+            <p className="text-2xl font-bold text-foreground capitalize">{plan ? plan.type : "Sin plan"}</p>
             {plan && plan.type === "monthly" && (
-              <p className="text-xs text-gray-400 mt-1">{plan.monthlyCredits.toLocaleString()} créditos/mes</p>
+              <p className="text-xs text-muted-foreground mt-1">{plan.monthlyCredits.toLocaleString()} créditos/mes</p>
             )}
           </div>
         </div>
 
         {/* Members */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Users className="h-4 w-4 text-gray-400" />
+        <div className="bg-card rounded-xl border border-border p-5 mb-6">
+          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
             Miembros de la cuenta
           </h3>
           {members.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">Sin miembros asignados</p>
+            <p className="text-sm text-muted-foreground text-center py-4">Sin miembros asignados</p>
           ) : (
             <div className="space-y-2">
               {members.map((m) => (
-                <div key={m.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50/50 border border-gray-100">
+                <div key={m.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
                   <div className="h-8 w-8 rounded-full bg-brand-100 flex items-center justify-center text-xs font-bold text-brand-700">
                     {m.user.name?.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "U"}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{m.user.name}</p>
-                    <p className="text-xs text-gray-400 truncate">{m.user.email}</p>
+                    <p className="text-sm font-medium text-foreground truncate">{m.user.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{m.user.email}</p>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    m.role === "owner" ? "bg-amber-100 text-amber-700" : m.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"
+                    m.role === "owner" ? "bg-amber-100 text-amber-700" : m.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-muted text-muted-foreground"
                   }`}>
                     {m.role === "owner" ? "Propietario" : m.role === "admin" ? "Administrador" : "Agente"}
                   </span>
@@ -483,11 +483,11 @@ export function AdminAccountDetail() {
         </div>
 
         {/* Transactions */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 w-1/2">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Coins className="h-4 w-4 text-gray-400" />
+        <div className="bg-card rounded-xl border border-border p-5 mb-6 w-1/2">
+          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Coins className="h-4 w-4 text-muted-foreground" />
             Historial de consumos
-            {txTotal > 0 && <span className="text-xs text-gray-400 font-normal ml-1">({txTotal})</span>}
+            {txTotal > 0 && <span className="text-xs text-muted-foreground font-normal ml-1">({txTotal})</span>}
           </h3>
           <div
             ref={txContainerRef}
@@ -495,21 +495,21 @@ export function AdminAccountDetail() {
             className="max-h-64 overflow-y-auto space-y-1"
           >
             {transactions.length === 0 && !txLoading ? (
-              <p className="text-sm text-gray-400 text-center py-4">Sin movimientos registrados</p>
+              <p className="text-sm text-muted-foreground text-center py-4">Sin movimientos registrados</p>
             ) : (
               transactions.map((tx) => {
                 const typeInfo = TYPE_COLORS[tx.type] || TYPE_COLORS.adjustment;
                 const TypeIcon = typeInfo.icon;
                 return (
-                  <div key={tx.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50/50 transition-colors">
+                  <div key={tx.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors">
                     <div className={`h-7 w-7 rounded-lg ${typeInfo.bg} flex items-center justify-center shrink-0`}>
                       <TypeIcon className={`h-3.5 w-3.5 ${typeInfo.text}`} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-gray-800 truncate">
+                      <p className="text-xs font-medium text-foreground truncate">
                         {tx.description || tx.source || TYPE_LABELS[tx.type]}
                       </p>
-                      <p className="text-[10px] text-gray-400">
+                      <p className="text-[10px] text-muted-foreground">
                         {new Date(tx.createdAt).toLocaleDateString("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                       </p>
                     </div>
@@ -517,7 +517,7 @@ export function AdminAccountDetail() {
                       <p className={`text-xs font-bold ${tx.amount >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {tx.amount >= 0 ? "+" : ""}{tx.amount.toLocaleString("es-CO", { maximumFractionDigits: 2 })}
                       </p>
-                      <p className="text-[10px] text-gray-400">{tx.balanceAfter.toLocaleString("es-CO", { maximumFractionDigits: 2 })}</p>
+                      <p className="text-[10px] text-muted-foreground">{tx.balanceAfter.toLocaleString("es-CO", { maximumFractionDigits: 2 })}</p>
                     </div>
                   </div>
                 );
@@ -525,73 +525,73 @@ export function AdminAccountDetail() {
             )}
             {txLoading && (
               <div className="flex items-center justify-center py-3">
-                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               </div>
             )}
           </div>
         </div>
 
         {/* Info */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-gray-400" />
+        <div className="bg-card rounded-xl border border-border p-5">
+          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
             Información
           </h3>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="text-gray-400 text-xs">ID</p>
-              <p className="text-gray-700 font-mono text-xs mt-0.5">{tenant.id}</p>
+              <p className="text-muted-foreground text-xs">ID</p>
+              <p className="text-foreground font-mono text-xs mt-0.5">{tenant.id}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-xs">Slug</p>
-              <p className="text-gray-700 mt-0.5">/{tenant.slug}</p>
+              <p className="text-muted-foreground text-xs">Slug</p>
+              <p className="text-foreground mt-0.5">/{tenant.slug}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-xs">Creada</p>
-              <p className="text-gray-700 mt-0.5">{formatDate(tenant.createdAt)}</p>
+              <p className="text-muted-foreground text-xs">Creada</p>
+              <p className="text-foreground mt-0.5">{formatDate(tenant.createdAt)}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-xs">Última actualización</p>
-              <p className="text-gray-700 mt-0.5">{formatDate(tenant.updatedAt)}</p>
+              <p className="text-muted-foreground text-xs">Última actualización</p>
+              <p className="text-foreground mt-0.5">{formatDate(tenant.updatedAt)}</p>
             </div>
           </div>
         </div>
 
         {/* Audit Log */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Activity className="h-4 w-4 text-gray-400" />
+        <div className="bg-card rounded-xl border border-border p-5">
+          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Activity className="h-4 w-4 text-muted-foreground" />
             Registro de actividad
             {auditTotal > 0 && (
-              <span className="text-xs text-gray-400 font-normal">({auditTotal})</span>
+              <span className="text-xs text-muted-foreground font-normal">({auditTotal})</span>
             )}
           </h3>
           {auditLoading ? (
             <div className="flex justify-center py-6">
-              <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : auditLogs.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">Sin actividad registrada</p>
+            <p className="text-sm text-muted-foreground text-center py-4">Sin actividad registrada</p>
           ) : (
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {auditLogs.map((log) => (
-                <div key={log.id} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
-                  <div className="h-7 w-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0 mt-0.5">
-                    <Activity className="h-3.5 w-3.5 text-gray-500" />
+                <div key={log.id} className="flex items-start gap-3 py-2 border-b border-border last:border-0">
+                  <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                    <Activity className="h-3.5 w-3.5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-700">
+                    <p className="text-sm text-foreground">
                       <span className="font-medium">{log.adminEmail}</span>
                       {' '}
-                      <span className="text-gray-500">{formatAuditAction(log.action)}</span>
+                      <span className="text-muted-foreground">{formatAuditAction(log.action)}</span>
                     </p>
                     {log.metadata && (
-                      <p className="text-xs text-gray-400 mt-0.5 truncate">
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
                         {formatAuditMetadata(log.action, log.metadata)}
                       </p>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 shrink-0 mt-0.5">{formatRelativeDate(log.createdAt)}</p>
+                  <p className="text-xs text-muted-foreground shrink-0 mt-0.5">{formatRelativeDate(log.createdAt)}</p>
                 </div>
               ))}
             </div>
@@ -622,12 +622,12 @@ export function AdminAccountDetail() {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div className="flex items-center justify-between p-6 border-b border-border">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Configurar cuenta</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">Editar configuración de la cuenta</p>
+                  <h2 className="text-lg font-semibold text-foreground">Configurar cuenta</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Editar configuración de la cuenta</p>
                 </div>
-                <button onClick={() => setShowConfigModal(false)} className="text-gray-400 hover:text-gray-600">
+                <button onClick={() => setShowConfigModal(false)} className="text-muted-foreground hover:text-muted-foreground">
                   <X className="h-5 w-5" />
                 </button>
               </div>
@@ -635,43 +635,43 @@ export function AdminAccountDetail() {
               <div className="p-6 space-y-4">
                 {/* Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre de la cuenta</label>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Nombre de la cuenta</label>
                   <input
                     type="text"
                     value={configForm.name}
                     onChange={(e) => setConfigForm({ ...configForm, name: e.target.value })}
-                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   />
                 </div>
 
                 {/* Max agents */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Máximo de agentes</label>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Máximo de agentes</label>
                   <input
                     type="number"
                     min={1}
                     value={configForm.maxAgents}
                     onChange={(e) => setConfigForm({ ...configForm, maxAgents: parseInt(e.target.value) || 1 })}
-                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   />
-                  <p className="text-xs text-gray-400 mt-1">Número máximo de usuarios permitidos</p>
+                  <p className="text-xs text-muted-foreground mt-1">Número máximo de usuarios permitidos</p>
                 </div>
 
                 {/* isDev toggle */}
-                <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/50">
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Cuenta de desarrollo</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Webhooks al entorno de desarrollo</p>
+                    <p className="text-sm font-medium text-foreground">Cuenta de desarrollo</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Webhooks al entorno de desarrollo</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setConfigForm({ ...configForm, isDev: !configForm.isDev })}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      configForm.isDev ? 'bg-brand-600' : 'bg-gray-300'
+                      configForm.isDev ? 'bg-brand-600' : 'bg-gray-300 dark:bg-gray-600'
                     }`}
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                      className={`inline-block h-4 w-4 transform rounded-full bg-card transition-transform shadow-sm ${
                         configForm.isDev ? 'translate-x-6' : 'translate-x-1'
                       }`}
                     />
@@ -679,36 +679,36 @@ export function AdminAccountDetail() {
                 </div>
 
                 {/* Plan de créditos */}
-                <div className="pt-4 border-t border-gray-200">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Plan de créditos</p>
+                <div className="pt-4 border-t border-border">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Plan de créditos</p>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Créditos mensuales</label>
+                      <label className="block text-sm font-medium text-foreground mb-1.5">Créditos mensuales</label>
                       <input
                         type="number"
                         min={0}
                         value={configForm.monthlyCredits}
                         onChange={(e) => setConfigForm({ ...configForm, monthlyCredits: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                        className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                       />
-                      <p className="text-xs text-gray-400 mt-1">Créditos otorgados al inicio de cada mes</p>
+                      <p className="text-xs text-muted-foreground mt-1">Créditos otorgados al inicio de cada mes</p>
                     </div>
 
                     {/* Rollover toggle */}
-                    <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                    <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/50">
                       <div>
-                        <p className="text-sm font-medium text-gray-700">Acumular créditos</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Los créditos no usados se acumulan al renovar</p>
+                        <p className="text-sm font-medium text-foreground">Acumular créditos</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Los créditos no usados se acumulan al renovar</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setConfigForm({ ...configForm, rollover: !configForm.rollover })}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          configForm.rollover ? 'bg-brand-600' : 'bg-gray-300'
+                          configForm.rollover ? 'bg-brand-600' : 'bg-gray-300 dark:bg-gray-600'
                         }`}
                       >
                         <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                          className={`inline-block h-4 w-4 transform rounded-full bg-card transition-transform shadow-sm ${
                             configForm.rollover ? 'translate-x-6' : 'translate-x-1'
                           }`}
                         />
@@ -718,10 +718,10 @@ export function AdminAccountDetail() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <div className="flex justify-end gap-3 pt-4 border-t border-border">
                   <button
                     onClick={() => setShowConfigModal(false)}
-                    className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
                   >
                     Cancelar
                   </button>
@@ -762,12 +762,12 @@ export function AdminAccountDetail() {
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Configurar consumos</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <h3 className="text-lg font-semibold text-foreground">Configurar consumos</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Override por cuenta · Vacío = usa valor global
                   </p>
                 </div>
-                <button onClick={() => setShowCostModal(false)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                <button onClick={() => setShowCostModal(false)} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -775,13 +775,13 @@ export function AdminAccountDetail() {
               {/* Actions grid */}
               <div className="space-y-3">
                 {ACTIONS.map(({ action, label, icon: Icon, color, bg }) => (
-                  <div key={action} className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                  <div key={action} className="flex items-center gap-4 p-3 rounded-lg border border-border bg-muted/50">
                     <div className={`h-9 w-9 rounded-lg ${bg} flex items-center justify-center shrink-0`}>
                       <Icon className={`h-4 w-4 ${color}`} />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-800">{label}</p>
-                      <p className="text-[10px] text-gray-400">
+                      <p className="text-sm font-medium text-foreground">{label}</p>
+                      <p className="text-[10px] text-muted-foreground">
                         Global: {globalCosts[action] !== undefined ? globalCosts[action] : "—"}
                       </p>
                     </div>
@@ -798,28 +798,28 @@ export function AdminAccountDetail() {
                             [action]: e.target.value === "" ? "" : parseFloat(e.target.value) || 0,
                           }))
                         }
-                        className="w-20 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                        className="w-20 px-3 py-1.5 rounded-lg border border-border text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                       />
-                      <span className="text-xs text-gray-500">créditos</span>
+                      <span className="text-xs text-muted-foreground">créditos</span>
                     </div>
                   </div>
                 ))}
               </div>
 
               {/* Model selector */}
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">
+              <div className="mt-4 pt-4 border-t border-border">
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                   Modelo IA (override por cuenta · vacío = global)
                 </label>
                 <ModelSelector value={tenantModel} onChange={setTenantModel} />
               </div>
 
               {/* Actions */}
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setShowCostModal(false)}
-                  className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
                 >
                   Cancelar
                 </button>

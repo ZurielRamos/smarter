@@ -60,20 +60,20 @@ export function DeleteConfirmModal({ open, onClose, onConfirm, payload }: Delete
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="w-full max-w-md rounded-2xl shadow-2xl bg-white overflow-hidden"
+          className="w-full max-w-md rounded-2xl shadow-2xl bg-card overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="px-6 pt-6 pb-4">
             <div className="flex items-start gap-4">
-              <div className="h-11 w-11 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
+              <div className="h-11 w-11 rounded-full bg-red-100 dark:bg-red-500/10 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
               </div>
               <div className="flex-1">
-                <h3 className="text-base font-semibold text-gray-900">Eliminar contactos</h3>
-                <p className="text-sm text-gray-500 mt-1">Esta acción tiene consecuencias diferentes según el historial de cada contacto.</p>
+                <h3 className="text-base font-semibold text-foreground">Eliminar contactos</h3>
+                <p className="text-sm text-muted-foreground mt-1">Esta acción tiene consecuencias diferentes según el historial de cada contacto.</p>
               </div>
-              <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-400">
+              <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-muted text-muted-foreground">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -83,38 +83,38 @@ export function DeleteConfirmModal({ open, onClose, onConfirm, payload }: Delete
           <div className="px-6 pb-4">
             {loading ? (
               <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : preview && (
               <div className="space-y-3">
                 {preview.withoutHistory > 0 && (
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-red-50 border border-red-100">
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20">
                     <Trash2 className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-sm font-medium text-red-800">{preview.withoutHistory} se eliminarán permanentemente</p>
-                      <p className="text-xs text-red-600 mt-0.5">No tienen conversaciones ni notas. Se borrarán de la base de datos sin posibilidad de recuperación.</p>
+                      <p className="text-sm font-medium text-red-800 dark:text-red-300">{preview.withoutHistory} se eliminarán permanentemente</p>
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">No tienen conversaciones ni notas. Se borrarán de la base de datos sin posibilidad de recuperación.</p>
                     </div>
                   </div>
                 )}
                 {preview.withHistory > 0 && (
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 border border-amber-100">
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20">
                     <Archive className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-sm font-medium text-amber-800">{preview.withHistory} se archivarán (soft delete)</p>
-                      <p className="text-xs text-amber-600 mt-0.5">Tienen historial de conversaciones o notas. Se ocultarán de las vistas pero podrás restaurarlos desde "Eliminados".</p>
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-300">{preview.withHistory} se archivarán (soft delete)</p>
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Tienen historial de conversaciones o notas. Se ocultarán de las vistas pero podrás restaurarlos desde "Eliminados".</p>
                     </div>
                   </div>
                 )}
                 <div className="px-1 pt-1">
-                  <p className="text-xs text-gray-500">Total: <span className="font-medium text-gray-700">{preview.total} contactos</span> afectados</p>
+                  <p className="text-xs text-muted-foreground">Total: <span className="font-medium text-foreground">{preview.total} contactos</span> afectados</p>
                 </div>
               </div>
             )}
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors">
+          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border bg-muted">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors">
               Cancelar
             </button>
             <button

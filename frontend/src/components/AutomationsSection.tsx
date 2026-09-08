@@ -167,7 +167,7 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
   const renderActionInput = (ruleId: string, idx: number, action: AutomationAction) => {
     const def = ACTION_TYPES.find((a) => a.type === action.type);
     if (!def) return null;
-    const inputCls = "px-2 py-1.5 rounded-md border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500";
+    const inputCls = "px-2 py-1.5 rounded-md border border-border text-xs focus:outline-none focus:ring-2 focus:ring-brand-500";
     const ddCls = "min-w-[140px] [&>button]:py-1.5 [&>button]:text-xs";
     switch (def.input) {
       case "status":
@@ -228,16 +228,16 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
     }
   };
 
-  if (loading) return <div className="bg-white rounded-xl border border-gray-200 p-5"><Loader2 className="h-4 w-4 animate-spin text-gray-400" /></div>;
+  if (loading) return <div className="bg-card rounded-xl border border-border p-5"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    <div className="bg-card rounded-xl border border-border p-5">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
             <Zap className="h-3.5 w-3.5 text-brand-600" /> Automatizaciones
           </h2>
-          <p className="text-[11px] text-gray-500 mt-0.5 max-w-md">
+          <p className="text-[11px] text-muted-foreground mt-0.5 max-w-md">
             Cuando un contacto envíe un mensaje que coincida con las palabras clave, se ejecutarán las acciones configuradas.
           </p>
         </div>
@@ -249,11 +249,11 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
 
       <div className="space-y-3">
         {rules.length === 0 && (
-          <p className="text-[11px] text-gray-400 italic py-2">No hay automatizaciones. Agrega una regla para empezar.</p>
+          <p className="text-[11px] text-muted-foreground italic py-2">No hay automatizaciones. Agrega una regla para empezar.</p>
         )}
 
         {rules.map((rule) => (
-          <div key={rule.id} className="rounded-lg border border-gray-200 p-4 bg-gray-50/40">
+          <div key={rule.id} className="rounded-lg border border-border p-4 bg-muted/40">
             {/* Header de la regla */}
             <div className="flex items-center gap-2 mb-3">
               <button
@@ -261,13 +261,13 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${rule.enabled ? "bg-brand-600" : "bg-gray-300"}`}
                 aria-label="Activar regla"
               >
-                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${rule.enabled ? "translate-x-[18px]" : "translate-x-1"}`} />
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-card transition-transform shadow-sm ${rule.enabled ? "translate-x-[18px]" : "translate-x-1"}`} />
               </button>
               <input
                 type="text"
                 value={rule.name}
                 onChange={(e) => updateRule(rule.id, { name: e.target.value })}
-                className="flex-1 px-2 py-1 rounded-md border border-gray-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="flex-1 px-2 py-1 rounded-md border border-border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="Nombre de la regla"
               />
               <button onClick={() => removeRule(rule.id)} className="p-1.5 rounded-md text-red-500 hover:bg-red-50" aria-label="Eliminar regla">
@@ -278,14 +278,14 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
             {/* Trigger */}
             <div className="mb-3">
               <div className="flex items-center gap-2 mb-1.5">
-                <label className="text-xs font-medium text-gray-600">Si el mensaje</label>
+                <label className="text-xs font-medium text-muted-foreground">Si el mensaje</label>
                 <DropdownSelect
                   className="min-w-[150px] [&>button]:py-1 [&>button]:text-xs"
                   value={rule.matchType}
                   onChange={(v) => updateRule(rule.id, { matchType: v as MatchType })}
                   options={(Object.keys(MATCH_LABELS) as MatchType[]).map((m) => ({ value: m, label: MATCH_LABELS[m] }))}
                 />
-                <label className="text-xs font-medium text-gray-600">alguna de:</label>
+                <label className="text-xs font-medium text-muted-foreground">alguna de:</label>
               </div>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {rule.keywords.map((kw) => (
@@ -302,15 +302,15 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
                   onChange={(e) => setKeywordInputs((prev) => ({ ...prev, [rule.id]: e.target.value }))}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addKeyword(rule.id); } }}
                   placeholder="Ej: acepto, baja, stop"
-                  className="flex-1 px-3 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="flex-1 px-3 py-1.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
-                <button onClick={() => addKeyword(rule.id)} className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">Agregar</button>
+                <button onClick={() => addKeyword(rule.id)} className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted">Agregar</button>
               </div>
             </div>
 
             {/* Acciones */}
             <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1.5">Entonces:</label>
+              <label className="text-xs font-medium text-muted-foreground block mb-1.5">Entonces:</label>
               <div className="space-y-2">
                 {rule.actions.map((action, idx) => (
                   <div key={idx} className="flex items-center gap-2">
@@ -335,7 +335,7 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
         ))}
       </div>
 
-      <button onClick={addRule} className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 text-xs font-medium text-gray-600 hover:bg-gray-50 w-full justify-center">
+      <button onClick={addRule} className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-border text-xs font-medium text-muted-foreground hover:bg-muted w-full justify-center">
         <Plus className="h-3.5 w-3.5" /> Agregar automatización
       </button>
     </div>

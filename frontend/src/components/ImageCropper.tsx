@@ -88,11 +88,11 @@ export function ImageCropper({ imageSrc, fileName, aspect, title, onCropComplete
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 bg-white flex flex-col items-center justify-center z-[60]"
+      className="fixed inset-0 bg-card flex flex-col items-center justify-center z-[60]"
     >
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">{title || "Recortar imagen"}</h3>
+      <h3 className="text-lg font-semibold text-foreground mb-4">{title || "Recortar imagen"}</h3>
 
-      <div className="relative w-full max-w-sm aspect-square rounded-xl overflow-hidden border border-gray-200">
+      <div className="relative w-full max-w-sm aspect-square rounded-xl overflow-hidden border border-border">
         <Cropper
           image={squareSrc}
           crop={crop}
@@ -114,7 +114,7 @@ export function ImageCropper({ imageSrc, fileName, aspect, title, onCropComplete
         <button
           type="button"
           onClick={() => setZoom((z) => Math.max(1, +(z - 0.1).toFixed(1)))}
-          className="h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600"
+          className="h-9 w-9 rounded-full bg-muted hover:bg-muted flex items-center justify-center text-muted-foreground"
         >
           <ZoomOut className="h-4 w-4" />
         </button>
@@ -130,13 +130,13 @@ export function ImageCropper({ imageSrc, fileName, aspect, title, onCropComplete
         <button
           type="button"
           onClick={() => setZoom((z) => Math.min(3, +(z + 0.1).toFixed(1)))}
-          className="h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600"
+          className="h-9 w-9 rounded-full bg-muted hover:bg-muted flex items-center justify-center text-muted-foreground"
         >
           <ZoomIn className="h-4 w-4" />
         </button>
       </div>
 
-      <p className="text-xs text-gray-400 mt-2">
+      <p className="text-xs text-muted-foreground mt-2">
         Arrastra para ajustar. El resultado será cuadrado{isPng ? " con fondo transparente" : " con fondo blanco"}.
       </p>
 

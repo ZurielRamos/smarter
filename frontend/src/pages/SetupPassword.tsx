@@ -48,11 +48,11 @@ export function SetupPassword() {
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-muted p-4">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-          <h1 className="text-lg font-semibold text-gray-900">Enlace inválido</h1>
-          <p className="text-sm text-gray-500 mt-1">Este enlace no es válido o ha expirado.</p>
+          <h1 className="text-lg font-semibold text-foreground">Enlace inválido</h1>
+          <p className="text-sm text-muted-foreground mt-1">Este enlace no es válido o ha expirado.</p>
           <button onClick={() => navigate("/login")} className="mt-4 text-sm text-brand-600 hover:text-brand-700 font-medium">
             Ir al inicio de sesión
           </button>
@@ -62,39 +62,39 @@ export function SetupPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-muted p-4">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+        <div className="bg-card rounded-2xl shadow-sm border border-border p-8">
           {/* Logo */}
           <div className="text-center mb-6">
             <img src={logoCompleto} alt="Smarter" className="h-10 mx-auto mb-4" />
-            <h1 className="text-xl font-bold text-gray-900">{title}</h1>
-            <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+            <h1 className="text-xl font-bold text-foreground">{title}</h1>
+            <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
           </div>
 
           {result?.status === "success" ? (
             <div className="text-center py-6">
               <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
               <p className="text-sm font-medium text-green-700">{result.message}</p>
-              <p className="text-xs text-gray-400 mt-2">Redirigiendo al inicio de sesión...</p>
+              <p className="text-xs text-muted-foreground mt-2">Redirigiendo al inicio de sesión...</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Contraseña</label>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Contraseña</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Mínimo 8 caracteres"
-                    className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -105,16 +105,16 @@ export function SetupPassword() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirmar contraseña</label>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Confirmar contraseña</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     type={showPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Repite tu contraseña"
                     className={`w-full pl-10 pr-10 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent ${
-                      confirmPassword && !passwordsMatch ? "border-red-300" : "border-gray-200"
+                      confirmPassword && !passwordsMatch ? "border-red-300" : "border-border"
                     }`}
                   />
                   {confirmPassword && passwordsMatch && (

@@ -49,14 +49,14 @@ function NotificationPreferences() {
       {NOTIFICATION_TYPES.map((item) => (
         <div key={item.key} className="flex items-center justify-between py-2">
           <div>
-            <p className="text-sm font-medium text-gray-700">{item.label}</p>
-            <p className="text-xs text-gray-400">{item.description}</p>
+            <p className="text-sm font-medium text-foreground">{item.label}</p>
+            <p className="text-xs text-muted-foreground">{item.description}</p>
           </div>
           <button
             onClick={() => toggle(item.key)}
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${isEnabled(item.key) ? "bg-brand-600" : "bg-gray-200"}`}
           >
-            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${isEnabled(item.key) ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
+            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-card transition-transform ${isEnabled(item.key) ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
           </button>
         </div>
       ))}
@@ -262,9 +262,9 @@ export function Profile() {
           )}
 
           {/* Avatar & Name card */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Información personal</h2>
-            <p className="text-sm text-gray-500 mb-5">
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-1">Información personal</h2>
+            <p className="text-sm text-muted-foreground mb-5">
               Tu foto y nombre visible en la plataforma
             </p>
 
@@ -272,7 +272,7 @@ export function Profile() {
               {/* Avatar */}
               <button
                 onClick={() => openEdit("avatar")}
-                className="group relative h-16 w-16 rounded-full border-2 border-dashed border-gray-200 hover:border-brand-400 flex items-center justify-center overflow-hidden transition-all bg-accent-500 shrink-0"
+                className="group relative h-16 w-16 rounded-full border-2 border-dashed border-border hover:border-brand-400 flex items-center justify-center overflow-hidden transition-all bg-accent-500 shrink-0"
               >
                 {user?.avatarPath ? (
                   <img
@@ -291,12 +291,12 @@ export function Profile() {
               {/* Name */}
               <div className="flex-1 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Nombre</p>
-                  <p className="text-sm text-gray-500">{user?.name}</p>
+                  <p className="text-sm font-medium text-foreground">Nombre</p>
+                  <p className="text-sm text-muted-foreground">{user?.name}</p>
                 </div>
                 <button
                   onClick={() => openEdit("name")}
-                  className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-brand-600 hover:bg-brand-50 transition-colors"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
@@ -305,9 +305,9 @@ export function Profile() {
           </div>
 
           {/* Email card (read-only) */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Correo electrónico</h2>
-            <p className="text-sm text-gray-500 mb-5">
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-1">Correo electrónico</h2>
+            <p className="text-sm text-muted-foreground mb-5">
               Tu correo de acceso a la plataforma
             </p>
 
@@ -316,16 +316,16 @@ export function Profile() {
                 <Mail className="h-4 w-4 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">{user?.email}</p>
-                <p className="text-xs text-gray-400">No se puede cambiar</p>
+                <p className="text-sm font-medium text-foreground">{user?.email}</p>
+                <p className="text-xs text-muted-foreground">No se puede cambiar</p>
               </div>
             </div>
           </div>
 
           {/* Security card */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Seguridad</h2>
-            <p className="text-sm text-gray-500 mb-5">
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-1">Seguridad</h2>
+            <p className="text-sm text-muted-foreground mb-5">
               Gestiona tu contraseña de acceso
             </p>
 
@@ -335,8 +335,8 @@ export function Profile() {
                   <Lock className="h-4 w-4 text-amber-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Contraseña</p>
-                  <p className="text-xs text-gray-400">••••••••</p>
+                  <p className="text-sm font-medium text-foreground">Contraseña</p>
+                  <p className="text-xs text-muted-foreground">••••••••</p>
                 </div>
               </div>
               <Button
@@ -350,9 +350,9 @@ export function Profile() {
           </div>
 
           {/* API Token card */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Notificaciones</h2>
-            <p className="text-sm text-gray-500 mb-5">
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-1">Notificaciones</h2>
+            <p className="text-sm text-muted-foreground mb-5">
               Elige qué notificaciones quieres recibir
             </p>
 
@@ -360,9 +360,9 @@ export function Profile() {
           </div>
 
           {/* API Token card */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Token de API</h2>
-            <p className="text-sm text-gray-500 mb-5">
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-1">Token de API</h2>
+            <p className="text-sm text-muted-foreground mb-5">
               Usa este token para autenticarte en la API. No lo compartas con nadie.
             </p>
 
@@ -372,21 +372,21 @@ export function Profile() {
                   <Key className="h-4 w-4 text-indigo-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-400 mb-1">Tu token de acceso</p>
+                  <p className="text-xs text-muted-foreground mb-1">Tu token de acceso</p>
                   <div className="flex items-center gap-2">
-                    <code className="text-xs bg-gray-100 px-3 py-1.5 rounded-lg text-gray-700 font-mono truncate block flex-1">
+                    <code className="text-xs bg-muted px-3 py-1.5 rounded-lg text-foreground font-mono truncate block flex-1">
                       {tokenVisible ? user?.apiToken : "••••••••••••••••••••••••••••••••"}
                     </code>
                     <button
                       onClick={() => setTokenVisible(!tokenVisible)}
-                      className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+                      className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors shrink-0"
                       title={tokenVisible ? "Ocultar" : "Mostrar"}
                     >
                       {tokenVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                     </button>
                     <button
                       onClick={handleCopyToken}
-                      className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+                      className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors shrink-0"
                       title="Copiar"
                     >
                       {tokenCopied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
@@ -395,8 +395,8 @@ export function Profile() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                <p className="text-xs text-gray-400">
+              <div className="flex items-center justify-between pt-2 border-t border-border">
+                <p className="text-xs text-muted-foreground">
                   Regenerar invalidará el token actual
                 </p>
                 <Button
@@ -434,17 +434,17 @@ export function Profile() {
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
             >
               <div
-                className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+                className="bg-card rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Header */}
-                <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">
+                <div className="px-6 pt-6 pb-4 border-b border-border flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-foreground">
                     {editField === "name" && "Editar nombre"}
                     {editField === "avatar" && "Cambiar avatar"}
                     {editField === "password" && "Cambiar contraseña"}
                   </h3>
-                  <button onClick={closeEdit} className="text-gray-400 hover:text-gray-600">
+                  <button onClick={closeEdit} className="text-muted-foreground hover:text-muted-foreground">
                     <X className="h-5 w-5" />
                   </button>
                 </div>
@@ -459,14 +459,14 @@ export function Profile() {
 
                   {editField === "name" && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      <label className="block text-sm font-medium text-foreground mb-1.5">
                         Nombre completo
                       </label>
                       <input
                         type="text"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+                        className="w-full px-4 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
                         placeholder="Tu nombre"
                       />
                     </div>
@@ -474,10 +474,10 @@ export function Profile() {
 
                   {editField === "avatar" && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                      <label className="block text-sm font-medium text-foreground mb-3">
                         Sube una foto de perfil (recomendado 256×256px)
                       </label>
-                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center">
+                      <div className="border-2 border-dashed border-border rounded-xl p-6 text-center">
                         {filePreview ? (
                           <img
                             src={filePreview}
@@ -485,7 +485,7 @@ export function Profile() {
                             className="mx-auto h-24 w-24 rounded-full object-cover mb-3"
                           />
                         ) : (
-                          <Upload className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+                          <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
                         )}
                         <label className="inline-block cursor-pointer px-4 py-2 bg-brand-50 text-brand-700 text-sm font-medium rounded-lg hover:bg-brand-100 transition-colors">
                           Seleccionar archivo
@@ -497,7 +497,7 @@ export function Profile() {
                           />
                         </label>
                         {selectedFile && (
-                          <p className="text-xs text-gray-400 mt-2">{selectedFile.name}</p>
+                          <p className="text-xs text-muted-foreground mt-2">{selectedFile.name}</p>
                         )}
                       </div>
                     </div>
@@ -506,7 +506,7 @@ export function Profile() {
                   {editField === "password" && (
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-sm font-medium text-foreground mb-1.5">
                           Contraseña actual
                         </label>
                         <div className="relative">
@@ -514,20 +514,20 @@ export function Profile() {
                             type={showCurrentPwd ? "text" : "password"}
                             value={currentPassword}
                             onChange={(e) => setCurrentPassword(e.target.value)}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none pr-10"
+                            className="w-full px-4 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none pr-10"
                             placeholder="••••••••"
                           />
                           <button
                             type="button"
                             onClick={() => setShowCurrentPwd(!showCurrentPwd)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                           >
                             {showCurrentPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-sm font-medium text-foreground mb-1.5">
                           Nueva contraseña
                         </label>
                         <div className="relative">
@@ -535,27 +535,27 @@ export function Profile() {
                             type={showNewPwd ? "text" : "password"}
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none pr-10"
+                            className="w-full px-4 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none pr-10"
                             placeholder="Mínimo 6 caracteres"
                           />
                           <button
                             type="button"
                             onClick={() => setShowNewPwd(!showNewPwd)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                           >
                             {showNewPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-sm font-medium text-foreground mb-1.5">
                           Confirmar nueva contraseña
                         </label>
                         <input
                           type="password"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+                          className="w-full px-4 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
                           placeholder="Repite la nueva contraseña"
                         />
                         {confirmPassword && newPassword !== confirmPassword && (
@@ -567,7 +567,7 @@ export function Profile() {
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-3">
+                <div className="px-6 py-4 border-t border-border bg-muted flex items-center justify-end gap-3">
                   <Button onClick={closeEdit} variant="outline" size="sm">
                     Cancelar
                   </Button>
@@ -624,7 +624,7 @@ export function Profile() {
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
             >
               <div
-                className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+                className="bg-card rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Icon + Title */}
@@ -633,7 +633,7 @@ export function Profile() {
                     <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
                       <AlertTriangle className="h-5 w-5 text-amber-600" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-foreground">
                       Regenerar token de API
                     </h3>
                   </div>
@@ -641,30 +641,30 @@ export function Profile() {
 
                 {/* Body */}
                 <div className="px-6 py-4 space-y-3">
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     Estás a punto de generar un nuevo token de API. Ten en cuenta lo siguiente:
                   </p>
                   <ul className="space-y-2">
-                    <li className="flex items-start gap-2 text-sm text-gray-600">
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
                       <span className="mt-1 h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
-                      El token actual dejará de funcionar <strong className="text-gray-800">inmediatamente</strong>.
+                      El token actual dejará de funcionar <strong className="text-foreground">inmediatamente</strong>.
                     </li>
-                    <li className="flex items-start gap-2 text-sm text-gray-600">
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
                       <span className="mt-1 h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
                       Cualquier integración o aplicación que use el token actual perderá acceso.
                     </li>
-                    <li className="flex items-start gap-2 text-sm text-gray-600">
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
                       <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
                       Deberás actualizar el token en todos los servicios que lo utilicen.
                     </li>
                   </ul>
-                  <p className="text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+                  <p className="text-sm text-muted-foreground bg-muted rounded-lg px-3 py-2 border border-border">
                     Esta acción no se puede deshacer.
                   </p>
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-3">
+                <div className="px-6 py-4 border-t border-border bg-muted flex items-center justify-end gap-3">
                   <Button
                     onClick={() => setShowRegenerateModal(false)}
                     variant="outline"

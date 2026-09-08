@@ -60,7 +60,7 @@ export function Tooltip({ label, description, children, disabled }: TooltipProps
         >
           <div className="bg-gray-900 text-white rounded-xl px-4 py-2.5 shadow-2xl">
             <p className="text-sm font-semibold leading-tight">{label}</p>
-            {description && <p className="text-xs text-gray-400 mt-1 max-w-[200px] leading-snug">{description}</p>}
+            {description && <p className="text-xs text-muted-foreground mt-1 max-w-[200px] leading-snug">{description}</p>}
           </div>
         </div>,
         document.body

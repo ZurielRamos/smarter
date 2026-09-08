@@ -1,4 +1,5 @@
-import { Plus, Trash2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Plus, Trash2, ChevronDown } from "lucide-react";
 import type { FilterCondition } from "@/pages/FilterPanel";
 import type { CustomField } from "@/services/api";
 
@@ -7,7 +8,9 @@ import type { CustomField } from "@/services/api";
  * caber dentro del dropdown de filtros de la lista de chats (ancho ~320px).
  * A diferencia del FilterPanel de la vista de Contactos (layout horizontal),
  * apila campo / operador / valor verticalmente. Usa el mismo formato de datos
- * (FilterCondition) para ser compatible con el backend.
+ * (FilterCondition) para ser compatible con el backend. Los selectores son
+ * dropdowns personalizados (no <select> nativos) para mantener el estilo de la
+ * app.
  */
 
 const OPERATORS: { value: string; label: string; types: string[] }[] = [
@@ -21,8 +24,66 @@ const OPERATORS: { value: string; label: string; types: string[] }[] = [
   { value: "is_not_empty", label: "no está vacío", types: ["text", "select", "number", "date", "boolean", "array"] },
 ];
 
-const SELECT_CLASS =
+const INPUT_CLASS =
   "w-full px-2 py-1.5 text-xs rounded-md border border-gray-200 bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-all";
+
+/** Dropdown personalizado (reemplaza al <select> nativo). */
+function RuleSelect({
+  value,
+  options,
+  placeholder = "Seleccionar...",
+  capitalize = false,
+  onChange,
+}: {
+  value: string;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  capitalize?: boolean;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const selected = options.find((o) => o.value === value);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`${INPUT_CLASS} flex items-center justify-between text-left ${open ? "ring-1 ring-brand-500 border-brand-500" : "hover:border-gray-300"}`}
+      >
+        <span className={`truncate ${selected ? "text-gray-800" : "text-gray-400"} ${capitalize ? "capitalize" : ""}`}>
+          {selected?.label || placeholder}
+        </span>
+        <ChevronDown className={`h-3.5 w-3.5 text-gray-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-[60] max-h-48 overflow-auto">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${capitalize ? "capitalize" : ""} ${value === opt.value ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function RecordFilterEditor({
   filters,
@@ -37,12 +98,8 @@ export function RecordFilterEditor({
     return fields.find((f) => f.fieldKey === fieldKey);
   }
 
-  function getFieldType(fieldKey: string): string {
-    return getField(fieldKey)?.fieldType || "text";
-  }
-
   function operatorsForField(fieldKey: string) {
-    const type = getFieldType(fieldKey);
+    const type = getField(fieldKey)?.fieldType || "text";
     return OPERATORS.filter((op) => op.types.includes(type));
   }
 
@@ -87,51 +144,41 @@ export function RecordFilterEditor({
             </div>
 
             {/* Campo */}
-            <select
+            <RuleSelect
               value={filter.field}
-              onChange={(e) => {
-                const nextOps = operatorsForField(e.target.value);
+              options={fields.map((f) => ({ value: f.fieldKey, label: f.fieldLabel }))}
+              placeholder="Campo..."
+              onChange={(fieldKey) => {
+                const nextOps = operatorsForField(fieldKey);
                 const keepOp = nextOps.some((o) => o.value === filter.operator) ? filter.operator : nextOps[0]?.value || "equals";
-                updateFilter(filter.id, { field: e.target.value, operator: keepOp, value: "" });
+                updateFilter(filter.id, { field: fieldKey, operator: keepOp, value: "" });
               }}
-              className={SELECT_CLASS}
-            >
-              {fields.map((f) => (
-                <option key={f.fieldKey} value={f.fieldKey}>{f.fieldLabel}</option>
-              ))}
-            </select>
+            />
 
             {/* Operador */}
-            <select
+            <RuleSelect
               value={filter.operator}
-              onChange={(e) => updateFilter(filter.id, { operator: e.target.value })}
-              className={SELECT_CLASS}
-            >
-              {ops.map((op) => (
-                <option key={op.value} value={op.value}>{op.label}</option>
-              ))}
-            </select>
+              options={ops.map((op) => ({ value: op.value, label: op.label }))}
+              onChange={(operator) => updateFilter(filter.id, { operator })}
+            />
 
             {/* Valor */}
             {needsValue && (
               options && options.length > 0 ? (
-                <select
+                <RuleSelect
                   value={filter.value}
-                  onChange={(e) => updateFilter(filter.id, { value: e.target.value })}
-                  className={SELECT_CLASS}
-                >
-                  <option value="">Seleccionar...</option>
-                  {options.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
+                  options={options.map((opt) => ({ value: opt, label: opt }))}
+                  placeholder="Seleccionar..."
+                  capitalize
+                  onChange={(value) => updateFilter(filter.id, { value })}
+                />
               ) : (
                 <input
                   type={type === "number" ? "number" : type === "date" ? "date" : "text"}
                   value={filter.value}
                   onChange={(e) => updateFilter(filter.id, { value: e.target.value })}
                   placeholder="Valor..."
-                  className={SELECT_CLASS}
+                  className={INPUT_CLASS}
                 />
               )
             )}

@@ -29,7 +29,7 @@ interface BotData {
 
 const statusColors: Record<string, { bg: string; text: string }> = {
   active: { bg: "bg-green-100", text: "text-green-700" },
-  inactive: { bg: "bg-gray-100", text: "text-gray-600" },
+  inactive: { bg: "bg-muted", text: "text-muted-foreground" },
   draft: { bg: "bg-yellow-100", text: "text-yellow-700" },
 };
 
@@ -85,7 +85,7 @@ export function BotDetail() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
+      <div className="flex-1 flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
       </div>
     );
@@ -93,8 +93,8 @@ export function BotDetail() {
 
   if (!bot) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
-        <p className="text-gray-500 text-sm">Bot no encontrado</p>
+      <div className="flex-1 flex items-center justify-center bg-background">
+        <p className="text-muted-foreground text-sm">Bot no encontrado</p>
       </div>
     );
   }
@@ -102,18 +102,18 @@ export function BotDetail() {
   const colors = statusColors[bot.status] || statusColors.draft;
 
   return (
-    <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-gray-50">
+    <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-background">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-6 py-4">
+      <div className="bg-card border-b border-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-brand-50 flex items-center justify-center">
               <Bot className="h-5 w-5 text-brand-600" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">{bot.name}</h2>
+              <h2 className="text-lg font-semibold text-foreground">{bot.name}</h2>
               {bot.description && (
-                <p className="text-sm text-gray-500">{bot.description}</p>
+                <p className="text-sm text-muted-foreground">{bot.description}</p>
               )}
             </div>
           </div>
@@ -131,26 +131,26 @@ export function BotDetail() {
 
       {/* Content */}
       <div className="p-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4">Información del Bot</h3>
+        <div className="bg-card rounded-xl border border-border p-6">
+          <h3 className="text-sm font-semibold text-foreground mb-4">Información del Bot</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs text-gray-500">Nombre</p>
-              <p className="text-sm font-medium text-gray-900">{bot.name}</p>
+              <p className="text-xs text-muted-foreground">Nombre</p>
+              <p className="text-sm font-medium text-foreground">{bot.name}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Estado</p>
-              <p className="text-sm font-medium text-gray-900 capitalize">{bot.status}</p>
+              <p className="text-xs text-muted-foreground">Estado</p>
+              <p className="text-sm font-medium text-foreground capitalize">{bot.status}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Creado</p>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-xs text-muted-foreground">Creado</p>
+              <p className="text-sm font-medium text-foreground">
                 {new Date(bot.createdAt).toLocaleDateString("es-CO")}
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Última actualización</p>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-xs text-muted-foreground">Última actualización</p>
+              <p className="text-sm font-medium text-foreground">
                 {new Date(bot.updatedAt).toLocaleDateString("es-CO")}
               </p>
             </div>
@@ -158,57 +158,57 @@ export function BotDetail() {
         </div>
 
         {/* Token Usage */}
-        <div className="mt-4 bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4">Consumo de tokens</h3>
+        <div className="mt-4 bg-card rounded-xl border border-border p-6">
+          <h3 className="text-sm font-semibold text-foreground mb-4">Consumo de tokens</h3>
           <div className="grid grid-cols-3 gap-4">
-            <div className="bg-blue-50 rounded-lg p-3 text-center">
-              <p className="text-[10px] text-blue-600 font-medium uppercase">Entrada</p>
-              <p className="text-lg font-bold text-blue-700 mt-0.5">
+            <div className="bg-blue-50 dark:bg-blue-500/10 rounded-lg p-3 text-center">
+              <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium uppercase">Entrada</p>
+              <p className="text-lg font-bold text-blue-700 dark:text-blue-300 mt-0.5">
                 {(bot.totalPromptTokens || 0).toLocaleString()}
               </p>
               <p className="text-[10px] text-blue-500">tokens</p>
             </div>
-            <div className="bg-purple-50 rounded-lg p-3 text-center">
-              <p className="text-[10px] text-purple-600 font-medium uppercase">Salida</p>
-              <p className="text-lg font-bold text-purple-700 mt-0.5">
+            <div className="bg-purple-50 dark:bg-purple-500/10 rounded-lg p-3 text-center">
+              <p className="text-[10px] text-purple-600 dark:text-purple-400 font-medium uppercase">Salida</p>
+              <p className="text-lg font-bold text-purple-700 dark:text-purple-300 mt-0.5">
                 {(bot.totalCompletionTokens || 0).toLocaleString()}
               </p>
               <p className="text-[10px] text-purple-500">tokens</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <p className="text-[10px] text-gray-600 font-medium uppercase">Total</p>
-              <p className="text-lg font-bold text-gray-700 mt-0.5">
+            <div className="bg-muted rounded-lg p-3 text-center">
+              <p className="text-[10px] text-muted-foreground font-medium uppercase">Total</p>
+              <p className="text-lg font-bold text-foreground mt-0.5">
                 {((bot.totalPromptTokens || 0) + (bot.totalCompletionTokens || 0)).toLocaleString()}
               </p>
-              <p className="text-[10px] text-gray-500">{(bot.totalRequests || 0)} requests</p>
+              <p className="text-[10px] text-muted-foreground">{(bot.totalRequests || 0)} requests</p>
             </div>
           </div>
         </div>
 
         {/* Metrics */}
-        <div className="mt-4 bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4">Métricas</h3>
+        <div className="mt-4 bg-card rounded-xl border border-border p-6">
+          <h3 className="text-sm font-semibold text-foreground mb-4">Métricas</h3>
           {metrics ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <p className="text-lg font-bold text-gray-700">{metrics.totalConversations}</p>
-                <p className="text-[10px] text-gray-500">Conversaciones</p>
+                <p className="text-lg font-bold text-foreground">{metrics.totalConversations}</p>
+                <p className="text-[10px] text-muted-foreground">Conversaciones</p>
               </div>
               <div className="text-center">
-                <p className="text-lg font-bold text-green-600">{metrics.resolutionRate}%</p>
-                <p className="text-[10px] text-gray-500">Tasa de resolución</p>
+                <p className="text-lg font-bold text-green-600 dark:text-green-400">{metrics.resolutionRate}%</p>
+                <p className="text-[10px] text-muted-foreground">Tasa de resolución</p>
               </div>
               <div className="text-center">
-                <p className="text-lg font-bold text-gray-700">{metrics.messages24h}</p>
-                <p className="text-[10px] text-gray-500">Mensajes (24h)</p>
+                <p className="text-lg font-bold text-foreground">{metrics.messages24h}</p>
+                <p className="text-[10px] text-muted-foreground">Mensajes (24h)</p>
               </div>
               <div className="text-center">
-                <p className="text-lg font-bold text-brand-600">{metrics.totalCredits}</p>
-                <p className="text-[10px] text-gray-500">Créditos consumidos</p>
+                <p className="text-lg font-bold text-brand-600 dark:text-brand-300">{metrics.totalCredits}</p>
+                <p className="text-[10px] text-muted-foreground">Créditos consumidos</p>
               </div>
             </div>
           ) : (
-            <p className="text-xs text-gray-400 text-center">Cargando métricas...</p>
+            <p className="text-xs text-muted-foreground text-center">Cargando métricas...</p>
           )}
         </div>
 

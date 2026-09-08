@@ -83,7 +83,7 @@ function VariablesDropdown({ variables, onSelect }: { variables: Variable[]; onS
         ref={triggerRef}
         type="button"
         onClick={handleOpen}
-        className="h-7 flex items-center gap-0.5 px-1.5 rounded transition-colors text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+        className="h-7 flex items-center gap-0.5 px-1.5 rounded transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
         title="Insertar variable"
       >
         <Braces className="h-3.5 w-3.5" />
@@ -93,7 +93,7 @@ function VariablesDropdown({ variables, onSelect }: { variables: Variable[]; onS
       {open && createPortal(
         <div
           ref={popoverRef}
-          className="fixed z-[9999] bg-white rounded-xl shadow-2xl border border-gray-200 w-[210px] overflow-hidden"
+          className="fixed z-[9999] bg-card rounded-xl shadow-2xl border border-border w-[210px] overflow-hidden"
           style={{ top: coords.top, left: coords.left }}
         >
           <div className="px-2 pt-2 pb-1">
@@ -102,24 +102,24 @@ function VariablesDropdown({ variables, onSelect }: { variables: Variable[]; onS
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar campo..."
-              className="w-full px-2 py-1.5 rounded-md border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full px-2 py-1.5 rounded-md border border-border text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
               autoFocus
             />
           </div>
           <div className="max-h-[240px] overflow-y-auto pb-1">
             {Object.keys(grouped).length === 0 && (
-              <p className="text-xs text-gray-400 px-3 py-2">Sin resultados</p>
+              <p className="text-xs text-muted-foreground px-3 py-2">Sin resultados</p>
             )}
             {Object.entries(grouped).map(([group, vars]) => (
               <div key={group}>
-                <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide px-3 pt-2 pb-1">{group}</p>
+                <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide px-3 pt-2 pb-1">{group}</p>
                 {vars.map((v) => (
                   <button
                     key={v.field}
                     onClick={() => { onSelect(v); setOpen(false); }}
-                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-brand-50 hover:text-brand-700 transition-colors flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-brand-50 hover:text-brand-700 transition-colors flex items-center gap-2"
                   >
-                    <Braces className="h-3 w-3 text-gray-400 shrink-0" />
+                    <Braces className="h-3 w-3 text-muted-foreground shrink-0" />
                     <span className="truncate">{v.label}</span>
                   </button>
                 ))}
@@ -319,11 +319,11 @@ export function RichTextEditor({ value, onChange, variables, minHeight = "120px"
   };
 
   const btnCls = () =>
-    `w-7 h-7 flex items-center justify-center rounded transition-colors text-gray-500 hover:bg-gray-100 hover:text-gray-700`;
+    `w-7 h-7 flex items-center justify-center rounded transition-colors text-muted-foreground hover:bg-muted hover:text-foreground`;
 
   return (
-    <div className="relative border border-gray-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-brand-500">
-      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-gray-50 border-b border-gray-200 flex-wrap">
+    <div className="relative border border-border rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-brand-500">
+      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-muted border-b border-border flex-wrap">
         <button type="button" onClick={() => exec("bold")} className={btnCls()} title="Negrita">
           <Bold className="h-3.5 w-3.5" />
         </button>
@@ -360,7 +360,7 @@ export function RichTextEditor({ value, onChange, variables, minHeight = "120px"
         onMouseUp={saveSelection}
         onBlur={() => { saveSelection(); setTimeout(() => setAutocomplete(null), 150); }}
         style={{ minHeight }}
-        className="relative max-h-[240px] overflow-y-auto px-3 py-2 text-xs text-gray-800 leading-relaxed focus:outline-none [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-brand-600 [&_a]:underline [&_b]:font-semibold"
+        className="relative max-h-[240px] overflow-y-auto px-3 py-2 text-xs text-foreground leading-relaxed focus:outline-none [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-brand-600 [&_a]:underline [&_b]:font-semibold"
         data-placeholder="Escribe tu contenido aqui..."
       />
 
@@ -373,7 +373,7 @@ export function RichTextEditor({ value, onChange, variables, minHeight = "120px"
         return createPortal(
           <div
             ref={autocompleteRef}
-            className="fixed z-[9999] bg-white rounded-lg shadow-xl border border-gray-200 w-[220px] max-h-[180px] overflow-y-auto py-1"
+            className="fixed z-[9999] bg-popover text-popover-foreground rounded-lg shadow-xl border border-border w-[220px] max-h-[180px] overflow-y-auto py-1"
             style={{
               top: editorRect.top + autocomplete.coords.top,
               left: Math.min(editorRect.left + autocomplete.coords.left, window.innerWidth - 230),
@@ -384,12 +384,12 @@ export function RichTextEditor({ value, onChange, variables, minHeight = "120px"
                 key={v.field}
                 onMouseDown={(e) => { e.preventDefault(); selectAutocomplete(v); }}
                 className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center gap-2 ${
-                  i === autocompleteIndex ? "bg-brand-50 text-brand-700" : "text-gray-700 hover:bg-gray-50"
+                  i === autocompleteIndex ? "bg-brand-50 text-brand-700" : "text-foreground hover:bg-muted"
                 }`}
               >
-                <Braces className="h-3 w-3 text-gray-400 shrink-0" />
+                <Braces className="h-3 w-3 text-muted-foreground shrink-0" />
                 <span className="truncate flex-1">{v.label}</span>
-                <span className="text-[9px] text-gray-400">{v.field}</span>
+                <span className="text-[9px] text-muted-foreground">{v.field}</span>
               </button>
             ))}
           </div>,

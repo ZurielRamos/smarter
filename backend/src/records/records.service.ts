@@ -1,17 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, IsNull } from 'typeorm';
+import { Repository, Not, IsNull, DataSource } from 'typeorm';
 import { ClientRecord } from './record.entity';
 import { Note } from './note.entity';
 import { Activity } from './activity.entity';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ConversionsService } from '../conversions/conversions.service';
+import { PhoneValidator } from '../etl/validators/phone.validator';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Países soportados para normalización de teléfonos (para validar input). */
+const SUPPORTED_PHONE_COUNTRIES = new Set(['CO', 'MX', 'US']);
+
 @Injectable()
 export class RecordsService {
+  private readonly logger = new Logger(RecordsService.name);
+
   constructor(
     @InjectRepository(ClientRecord)
     private readonly recordRepository: Repository<ClientRecord>,
@@ -22,6 +28,7 @@ export class RecordsService {
     private readonly webhooksService: WebhooksService,
     private readonly notificationsService: NotificationsService,
     private readonly conversionsService: ConversionsService,
+    private readonly dataSource: DataSource,
   ) {}
 
   // System field keys that are actual columns in the entity
@@ -966,5 +973,541 @@ export class RecordsService {
 
   async deleteNote(noteId: string): Promise<void> {
     await this.noteRepository.delete(noteId);
+  }
+
+  // ============================================================
+  // === NORMALIZACIÓN DE TELÉFONOS ===
+  // ============================================================
+
+  /**
+   * Analiza los teléfonos del tenant y clasifica cuáles necesitan que se les
+   * agregue el prefijo de país. No modifica nada (dry-run).
+   *
+   * - country: código de país por defecto para números locales (CO, MX, US).
+   * - cleanFormat: si true, la limpieza de formato (quitar +, espacios, guiones)
+   *   también se aplica a los números que ya tienen prefijo pero traen basura.
+   *
+   * Devuelve un resumen con conteos, ejemplos de cambios y colisiones potenciales.
+   */
+  /**
+   * Resuelve el patrón a usar. Si country es 'CUSTOM', exige un `custom` válido
+   * con prefijo (solo dígitos) y al menos una longitud nacional. Para países
+   * predefinidos valida que estén soportados y devuelve undefined (usa el
+   * patrón interno del validador).
+   */
+  private resolvePhonePattern(
+    country: string,
+    custom?: { code?: string; digits?: number[] },
+  ): { code: string; digits: number[] } | undefined {
+    if (country === 'CUSTOM') {
+      const code = (custom?.code || '').replace(/[^\d]/g, '');
+      const digits = (custom?.digits || []).filter((d) => Number.isInteger(d) && d >= 4 && d <= 15);
+      if (!code) {
+        throw new BadRequestException('El prefijo personalizado no es válido (solo dígitos, ej. 54).');
+      }
+      if (digits.length === 0) {
+        throw new BadRequestException('Debe indicar al menos una longitud nacional válida (entre 4 y 15 dígitos).');
+      }
+      return { code, digits };
+    }
+
+    if (!SUPPORTED_PHONE_COUNTRIES.has(country)) {
+      throw new BadRequestException(`País no soportado: ${country}`);
+    }
+    return undefined;
+  }
+
+  async previewPhoneNormalization(
+    tenantId: string,
+    country = 'CO',
+    cleanFormat = true,
+    custom?: { code?: string; digits?: number[] },
+  ): Promise<{
+    country: string;
+    total: number;
+    counts: { ok: number; needsPrefix: number; ambiguous: number; empty: number; cleanupOnly: number };
+    willChange: number;
+    collisions: number;
+    samples: {
+      needsPrefix: Array<{ id: string; before: string; after: string }>;
+      ambiguous: Array<{ id: string; value: string; reason: string }>;
+      collisions: Array<{ id: string; before: string; after: string }>;
+    };
+  }> {
+    const customPattern = this.resolvePhonePattern(country, custom);
+
+    const records = await this.recordRepository.find({
+      where: { tenantId },
+      select: { id: true, phone: true },
+    });
+
+    // Conjunto de teléfonos "canónicos" existentes para detectar colisiones al
+    // agregar prefijo (dos contactos que terminarían con el mismo número).
+    const existingCanonical = new Map<string, string>(); // canonical -> recordId
+    for (const r of records) {
+      if (r.phone) {
+        const a = PhoneValidator.analyze(r.phone, country, customPattern);
+        const key = a.status === 'ok' ? a.normalized! : null;
+        if (key && !existingCanonical.has(key)) existingCanonical.set(key, r.id);
+      }
+    }
+
+    const counts = { ok: 0, needsPrefix: 0, ambiguous: 0, empty: 0, cleanupOnly: 0 };
+    const samples = {
+      needsPrefix: [] as Array<{ id: string; before: string; after: string }>,
+      ambiguous: [] as Array<{ id: string; value: string; reason: string }>,
+      collisions: [] as Array<{ id: string; before: string; after: string }>,
+    };
+    let willChange = 0;
+    let collisions = 0;
+
+    for (const r of records) {
+      const a = PhoneValidator.analyze(r.phone, country, customPattern);
+
+      if (a.status === 'empty') {
+        counts.empty++;
+        continue;
+      }
+
+      if (a.status === 'ambiguous') {
+        counts.ambiguous++;
+        if (samples.ambiguous.length < 20) {
+          samples.ambiguous.push({ id: r.id, value: r.phone || '', reason: a.reason || 'No reconocido' });
+        }
+        continue;
+      }
+
+      if (a.status === 'ok') {
+        counts.ok++;
+        // Si se pidió limpiar formato y el valor guardado difiere del limpio,
+        // cuenta como cambio de solo-limpieza.
+        if (cleanFormat && a.normalized !== r.phone) {
+          counts.cleanupOnly++;
+          willChange++;
+        }
+        continue;
+      }
+
+      // needs_prefix
+      counts.needsPrefix++;
+      const target = a.normalized!;
+      const collidesWith = existingCanonical.get(target);
+      if (collidesWith && collidesWith !== r.id) {
+        collisions++;
+        if (samples.collisions.length < 20) {
+          samples.collisions.push({ id: r.id, before: r.phone || '', after: target });
+        }
+        // No se aplicará por colisión: se reporta pero no se cuenta como cambio.
+        continue;
+      }
+      willChange++;
+      if (samples.needsPrefix.length < 20) {
+        samples.needsPrefix.push({ id: r.id, before: r.phone || '', after: target });
+      }
+    }
+
+    return {
+      country: customPattern ? `+${customPattern.code}` : country,
+      total: records.length,
+      counts,
+      willChange,
+      collisions,
+      samples,
+    };
+  }
+
+  /**
+   * Aplica la normalización: agrega el prefijo de país a los números locales
+   * (needs_prefix) y opcionalmente limpia el formato de los que ya tienen
+   * prefijo. Omite ambiguos y colisiones. Actualiza en lotes.
+   */
+  async applyPhoneNormalization(
+    tenantId: string,
+    country = 'CO',
+    cleanFormat = true,
+    actor?: { actorId?: string; actorName?: string },
+    custom?: { code?: string; digits?: number[] },
+  ): Promise<{ updated: number; skippedAmbiguous: number; skippedCollisions: number }> {
+    const customPattern = this.resolvePhonePattern(country, custom);
+
+    const records = await this.recordRepository.find({
+      where: { tenantId },
+      select: { id: true, phone: true },
+    });
+
+    // Mapa de teléfonos canónicos existentes para no crear duplicados.
+    const existingCanonical = new Map<string, string>();
+    for (const r of records) {
+      if (r.phone) {
+        const a = PhoneValidator.analyze(r.phone, country, customPattern);
+        const key = a.status === 'ok' ? a.normalized! : null;
+        if (key && !existingCanonical.has(key)) existingCanonical.set(key, r.id);
+      }
+    }
+
+    const updates: Array<{ id: string; phone: string }> = [];
+    let skippedAmbiguous = 0;
+    let skippedCollisions = 0;
+
+    for (const r of records) {
+      const a = PhoneValidator.analyze(r.phone, country, customPattern);
+
+      if (a.status === 'empty') continue;
+      if (a.status === 'ambiguous') { skippedAmbiguous++; continue; }
+
+      if (a.status === 'ok') {
+        if (cleanFormat && a.normalized && a.normalized !== r.phone) {
+          updates.push({ id: r.id, phone: a.normalized });
+        }
+        continue;
+      }
+
+      // needs_prefix
+      const target = a.normalized!;
+      const collidesWith = existingCanonical.get(target);
+      if (collidesWith && collidesWith !== r.id) { skippedCollisions++; continue; }
+      updates.push({ id: r.id, phone: target });
+      // Reservar el canónico para evitar que otro registro colisione en el mismo lote.
+      existingCanonical.set(target, r.id);
+    }
+
+    // Actualización en lotes.
+    const chunkSize = 500;
+    let updated = 0;
+    for (let i = 0; i < updates.length; i += chunkSize) {
+      const chunk = updates.slice(i, i + chunkSize);
+      await Promise.all(
+        chunk.map((u) => this.recordRepository.update(u.id, { phone: u.phone })),
+      );
+      updated += chunk.length;
+    }
+
+    if (updated > 0) {
+      this.logger.log(
+        `Normalización de teléfonos tenant=${tenantId} país=${country} por=${actor?.actorName || actor?.actorId || 'desconocido'}: ${updated} actualizados, ${skippedAmbiguous} ambiguos, ${skippedCollisions} colisiones omitidas`,
+      );
+    }
+
+    return { updated, skippedAmbiguous, skippedCollisions };
+  }
+
+  // ============================================================
+  // === DETECCIÓN Y MERGE DE DUPLICADOS ===
+  // ============================================================
+
+  /** Tablas que referencian un contacto por record_id y deben reapuntarse en el merge. */
+  private static readonly RECORD_FK_TABLES = [
+    'conversations',
+    'notes',
+    'activities',
+    'contact_events',
+    'ad_events',
+    'conversion_logs',
+    'campaign_send_logs',
+  ];
+
+  /**
+   * Detecta grupos de contactos duplicados dentro del tenant según los criterios
+   * seleccionados. Solo considera contactos activos (deletedAt IS NULL).
+   *
+   * criteria: subconjunto de ['email','document','whatsappId','phone'].
+   * Un grupo se forma cuando 2+ contactos comparten el mismo valor normalizado
+   * en alguno de los criterios elegidos.
+   */
+  async detectDuplicates(
+    tenantId: string,
+    criteria: string[] = ['email', 'document', 'whatsappId', 'phone'],
+  ): Promise<{
+    groups: Array<{
+      key: string;
+      criterion: string;
+      value: string;
+      members: Array<{
+        id: string;
+        firstName: string | null;
+        lastName: string | null;
+        fullName: string | null;
+        email: string | null;
+        phone: string | null;
+        documentNumber: string | null;
+        whatsappId: string | null;
+        status: string | null;
+        createdAt: Date;
+        relatedCount: number;
+        filledFields: number;
+      }>;
+      suggestedWinnerId: string;
+    }>;
+    totalGroups: number;
+    totalDuplicates: number;
+  }> {
+    const allowed = new Set(['email', 'document', 'whatsappId', 'phone']);
+    const active = (criteria || []).filter((c) => allowed.has(c));
+    if (active.length === 0) {
+      return { groups: [], totalGroups: 0, totalDuplicates: 0 };
+    }
+
+    const records = await this.recordRepository.find({
+      where: { tenantId, deletedAt: IsNull() },
+    });
+
+    // Conteo de datos relacionados por record (para sugerir ganador y mostrar).
+    const relatedCounts = await this.getRelatedCounts(records.map((r) => r.id));
+
+    // Normalizadores por criterio.
+    const keyForCriterion = (r: ClientRecord, criterion: string): string | null => {
+      switch (criterion) {
+        case 'email':
+          return r.email ? r.email.trim().toLowerCase() : null;
+        case 'phone':
+          return r.phone ? r.phone.replace(/[^\d]/g, '') : null;
+        case 'whatsappId':
+          return r.whatsappId ? r.whatsappId.trim().toLowerCase() : null;
+        case 'document':
+          return r.documentNumber ? r.documentNumber.trim().toLowerCase() : null;
+        default:
+          return null;
+      }
+    };
+
+    // Agrupa por criterio+valor. Un record puede caer en varios grupos si comparte
+    // distintos criterios, pero evitamos duplicar el mismo par exacto de contactos:
+    // usamos la primera coincidencia por conjunto de miembros.
+    const buckets = new Map<string, { criterion: string; value: string; ids: Set<string> }>();
+    for (const criterion of active) {
+      for (const r of records) {
+        const value = keyForCriterion(r, criterion);
+        if (!value) continue;
+        const key = `${criterion}:${value}`;
+        if (!buckets.has(key)) buckets.set(key, { criterion, value, ids: new Set() });
+        buckets.get(key)!.ids.add(r.id);
+      }
+    }
+
+    const filledFields = (r: ClientRecord): number => {
+      const fields = [r.firstName, r.lastName, r.fullName, r.email, r.phone, r.documentNumber, r.whatsappId, r.company, r.city, r.address, r.avatarUrl];
+      let n = fields.filter((f) => f != null && String(f).trim() !== '').length;
+      if (r.tags && r.tags.length > 0) n++;
+      if (r.customData && Object.keys(r.customData).length > 0) n++;
+      return n;
+    };
+
+    const recordById = new Map(records.map((r) => [r.id, r]));
+    const groups: any[] = [];
+    // Evita mostrar el mismo conjunto de miembros dos veces (p. ej. si dos criterios
+    // agrupan exactamente los mismos contactos).
+    const seenMemberSets = new Set<string>();
+
+    for (const { criterion, value, ids } of buckets.values()) {
+      if (ids.size < 2) continue;
+      const memberKey = [...ids].sort().join(',');
+      if (seenMemberSets.has(memberKey)) continue;
+      seenMemberSets.add(memberKey);
+
+      const members = [...ids].map((id) => {
+        const r = recordById.get(id)!;
+        return {
+          id: r.id,
+          firstName: r.firstName ?? null,
+          lastName: r.lastName ?? null,
+          fullName: r.fullName ?? null,
+          email: r.email ?? null,
+          phone: r.phone ?? null,
+          documentNumber: r.documentNumber ?? null,
+          whatsappId: r.whatsappId ?? null,
+          status: r.status ?? null,
+          createdAt: r.createdAt,
+          relatedCount: relatedCounts.get(r.id) ?? 0,
+          filledFields: filledFields(r),
+        };
+      });
+
+      // Ganador sugerido: más datos relacionados, luego más campos completos,
+      // luego el más antiguo (createdAt ascendente).
+      const suggested = [...members].sort((a, b) => {
+        if (b.relatedCount !== a.relatedCount) return b.relatedCount - a.relatedCount;
+        if (b.filledFields !== a.filledFields) return b.filledFields - a.filledFields;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      })[0];
+
+      groups.push({
+        key: `${criterion}:${value}`,
+        criterion,
+        value,
+        members,
+        suggestedWinnerId: suggested.id,
+      });
+    }
+
+    const totalDuplicates = groups.reduce((acc, g) => acc + (g.members.length - 1), 0);
+    return { groups, totalGroups: groups.length, totalDuplicates };
+  }
+
+  /** Cuenta filas relacionadas (conversaciones, notas, actividades) por record. */
+  private async getRelatedCounts(ids: string[]): Promise<Map<string, number>> {
+    const counts = new Map<string, number>();
+    if (ids.length === 0) return counts;
+    const rows = await this.recordRepository.query(
+      `SELECT c.id,
+         (SELECT COUNT(*) FROM conversations WHERE record_id = c.id)
+       + (SELECT COUNT(*) FROM notes WHERE record_id = c.id)
+       + (SELECT COUNT(*) FROM activities WHERE record_id = c.id) AS cnt
+       FROM clients c WHERE c.id = ANY($1)`,
+      [ids],
+    );
+    for (const row of rows) counts.set(row.id, Number(row.cnt) || 0);
+    return counts;
+  }
+
+  /**
+   * Fusiona uno o varios contactos "perdedores" en un "ganador". Reapunta todas
+   * las referencias por record_id, consolida listas estáticas, rellena campos
+   * vacíos del ganador con datos de los perdedores y hace soft delete de estos.
+   * Todo en una transacción.
+   */
+  async mergeRecords(
+    tenantId: string,
+    winnerId: string,
+    loserIds: string[],
+    actor?: { actorId?: string; actorName?: string },
+  ): Promise<{ merged: number; winnerId: string }> {
+    const losers = (loserIds || []).filter((id) => id && id !== winnerId);
+    if (losers.length === 0) {
+      throw new BadRequestException('No hay contactos perdedores válidos para fusionar.');
+    }
+
+    const winner = await this.recordRepository.findOne({ where: { id: winnerId, tenantId } });
+    if (!winner) throw new BadRequestException('El contacto ganador no existe en este tenant.');
+
+    const loserRecords = await this.recordRepository.find({
+      where: losers.map((id) => ({ id, tenantId })),
+    });
+    if (loserRecords.length !== losers.length) {
+      throw new BadRequestException('Alguno de los contactos a fusionar no existe en este tenant.');
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      // 1. Reapuntar todas las tablas con record_id de los perdedores al ganador.
+      for (const table of RecordsService.RECORD_FK_TABLES) {
+        await manager.query(
+          `UPDATE ${table} SET record_id = $1 WHERE record_id = ANY($2)`,
+          [winnerId, losers],
+        );
+      }
+
+      // 2. Consolidar listas estáticas: reemplazar cada perdedor por el ganador (dedup).
+      const lists = await manager.query(
+        `SELECT id, record_ids FROM record_lists
+         WHERE tenant_id = $1 AND type = 'static' AND record_ids IS NOT NULL`,
+        [tenantId],
+      );
+      const loserSet = new Set(losers);
+      for (const list of lists) {
+        const current: string[] = Array.isArray(list.record_ids) ? list.record_ids : [];
+        if (!current.some((id) => loserSet.has(id))) continue;
+        const next = Array.from(new Set(current.map((id) => (loserSet.has(id) ? winnerId : id))));
+        await manager.query(
+          `UPDATE record_lists SET record_ids = $1::jsonb, updated_at = NOW() WHERE id = $2`,
+          [JSON.stringify(next), list.id],
+        );
+      }
+
+      // 3. Consolidar campos del ganador con los de los perdedores.
+      const merged = this.mergeFieldValues(winner, loserRecords);
+
+      // 4. Soft delete de los perdedores ANTES de asignar el phone al ganador,
+      //    para no violar el índice único (tenant, phone) si se copia.
+      await manager.query(
+        `UPDATE clients SET deleted_at = NOW(), updated_at = NOW() WHERE id = ANY($1)`,
+        [losers],
+      );
+
+      // 5. Persistir los campos consolidados del ganador.
+      await manager.query(
+        `UPDATE clients SET
+           first_name = $1, last_name = $2, full_name = $3, email = $4, phone = $5,
+           country_code = $6, whatsapp_id = $7, document_type = $8, document_number = $9,
+           company = $10, job_title = $11, city = $12, region = $13, address = $14,
+           avatar_url = $15, tags = $16::jsonb, custom_data = $17::jsonb,
+           score = $18, ad_touchpoints = $19,
+           last_contact_at = $20, last_activity_at = $21, updated_at = NOW()
+         WHERE id = $22`,
+        [
+          merged.firstName, merged.lastName, merged.fullName, merged.email, merged.phone,
+          merged.countryCode, merged.whatsappId, merged.documentType, merged.documentNumber,
+          merged.company, merged.jobTitle, merged.city, merged.region, merged.address,
+          merged.avatarUrl,
+          merged.tags ? JSON.stringify(merged.tags) : null,
+          merged.customData ? JSON.stringify(merged.customData) : null,
+          merged.score, merged.adTouchpoints,
+          merged.lastContactAt, merged.lastActivityAt,
+          winnerId,
+        ],
+      );
+    });
+
+    this.logActivity({
+      tenantId,
+      recordId: winnerId,
+      type: 'contacts_merged',
+      description: `${losers.length} contacto(s) duplicado(s) fusionado(s) en este registro`,
+      metadata: { loserIds: losers },
+      actorId: actor?.actorId,
+      actorName: actor?.actorName,
+    }).catch(() => {});
+
+    this.logger.log(
+      `Merge de contactos tenant=${tenantId} ganador=${winnerId} perdedores=[${losers.join(',')}] por=${actor?.actorName || actor?.actorId || 'desconocido'}`,
+    );
+
+    return { merged: losers.length, winnerId };
+  }
+
+  /**
+   * Consolida los valores escalares/jsonb del ganador rellenando huecos con los
+   * de los perdedores (en orden). No pisa valores que el ganador ya tenga.
+   */
+  private mergeFieldValues(winner: ClientRecord, losers: ClientRecord[]): ClientRecord {
+    const isEmpty = (v: any) => v == null || (typeof v === 'string' && v.trim() === '');
+    const result: any = { ...winner };
+
+    const scalarFields = [
+      'firstName', 'lastName', 'fullName', 'email', 'phone', 'countryCode', 'whatsappId',
+      'documentType', 'documentNumber', 'company', 'jobTitle', 'city', 'region', 'address', 'avatarUrl',
+    ];
+
+    for (const loser of losers) {
+      // Rellenar escalares vacíos del ganador.
+      for (const f of scalarFields) {
+        if (isEmpty(result[f]) && !isEmpty((loser as any)[f])) {
+          result[f] = (loser as any)[f];
+        }
+      }
+      // Tags: unión sin duplicados.
+      const winnerTags = Array.isArray(result.tags) ? result.tags : [];
+      const loserTags = Array.isArray(loser.tags) ? loser.tags : [];
+      if (loserTags.length > 0) {
+        result.tags = Array.from(new Set([...winnerTags, ...loserTags]));
+      }
+      // customData: fusionar sin pisar claves existentes del ganador.
+      if (loser.customData && Object.keys(loser.customData).length > 0) {
+        result.customData = { ...(loser.customData || {}), ...(result.customData || {}) };
+      }
+      // Fechas: la más reciente.
+      result.lastContactAt = this.maxDate(result.lastContactAt, loser.lastContactAt);
+      result.lastActivityAt = this.maxDate(result.lastActivityAt, loser.lastActivityAt);
+      // Score: el máximo.
+      result.score = Math.max(result.score || 0, loser.score || 0);
+      // Ad touchpoints: suma.
+      result.adTouchpoints = (result.adTouchpoints || 0) + (loser.adTouchpoints || 0);
+    }
+
+    return result as ClientRecord;
+  }
+
+  private maxDate(a: Date | null | undefined, b: Date | null | undefined): Date | null {
+    if (!a) return b ?? null;
+    if (!b) return a ?? null;
+    return new Date(a).getTime() >= new Date(b).getTime() ? a : b;
   }
 }

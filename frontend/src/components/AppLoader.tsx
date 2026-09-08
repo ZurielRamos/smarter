@@ -4,7 +4,7 @@
  */
 export function AppLoader() {
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-white">
+    <div className="flex h-screen w-full items-center justify-center bg-card">
       <style>{`
         @keyframes smarter-heartbeat {
           0%, 100% { transform: scale(1); opacity: 1; }

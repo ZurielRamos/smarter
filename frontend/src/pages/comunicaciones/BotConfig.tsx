@@ -164,25 +164,25 @@ function AddFieldDropdown({ existingFields, onAdd, tenantId }: { existingFields:
 
   return (
     <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen(!open)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors">
+      <button type="button" onClick={() => setOpen(!open)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground transition-colors">
         <Plus className="h-3 w-3" /> Agregar campo
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 w-72 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-          <div className="px-3 py-2 border-b border-gray-100">
-            <input ref={inputRef} type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar campo..." className="w-full px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" />
+        <div className="absolute z-50 top-full left-0 mt-1 w-72 bg-popover text-popover-foreground rounded-xl shadow-lg border border-border overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="px-3 py-2 border-b border-border">
+            <input ref={inputRef} type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar campo..." className="w-full px-2 py-1 text-xs border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" />
           </div>
           <div className="max-h-52 overflow-y-auto">
             {available.length === 0 ? (
-              <div className="px-3 py-4 text-center text-xs text-gray-400">No hay campos disponibles</div>
+              <div className="px-3 py-4 text-center text-xs text-muted-foreground">No hay campos disponibles</div>
             ) : (
               available.map((f) => (
                 <button key={f.field} type="button" onClick={() => { onAdd(f.field, f.label); setOpen(false); setSearch(""); }}
-                  className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                  className="w-full text-left px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors flex items-center justify-between"
                 >
                   <span>{f.label}</span>
-                  <span className="text-[10px] text-gray-400 font-mono">{f.field}</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">{f.field}</span>
                 </button>
               ))
             )}
@@ -261,47 +261,47 @@ function ModelSelector({ value, onChange }: { value: string; onChange: (v: strin
       <button
         type="button"
         onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 hover:border-gray-300 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 bg-white transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-border text-sm text-foreground hover:border-border focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 bg-card transition-colors"
       >
         <span className="truncate">
           {value ? (
-            <><span className="font-medium">{selectedName || value}</span><span className="text-gray-400 ml-1.5 text-xs">{value}</span></>
+            <><span className="font-medium">{selectedName || value}</span><span className="text-muted-foreground ml-1.5 text-xs">{value}</span></>
           ) : (
-            <span className="text-gray-400">Busca y selecciona un modelo...</span>
+            <span className="text-muted-foreground">Busca y selecciona un modelo...</span>
           )}
         </span>
         {value ? (
-          <X className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 shrink-0" onClick={(e) => { e.stopPropagation(); onChange(""); setSelectedName(""); }} />
+          <X className="h-3.5 w-3.5 text-muted-foreground hover:text-muted-foreground shrink-0" onClick={(e) => { e.stopPropagation(); onChange(""); setSelectedName(""); }} />
         ) : (
-          <Search className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+          <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
         )}
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-          <div className="px-3 py-2 border-b border-gray-100">
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover text-popover-foreground rounded-xl shadow-lg border border-border overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="px-3 py-2 border-b border-border">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-              <input ref={inputRef} type="text" value={search} onChange={(e) => handleSearch(e.target.value)} placeholder="Buscar modelo..." className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input ref={inputRef} type="text" value={search} onChange={(e) => handleSearch(e.target.value)} placeholder="Buscar modelo..." className="w-full pl-8 pr-3 py-1.5 text-xs border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" />
             </div>
           </div>
           <div className="max-h-64 overflow-y-auto">
             {loading ? (
-              <div className="flex items-center justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-gray-400" /></div>
+              <div className="flex items-center justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
             ) : results.length === 0 ? (
-              <div className="py-6 text-center text-xs text-gray-400">No se encontraron modelos</div>
+              <div className="py-6 text-center text-xs text-muted-foreground">No se encontraron modelos</div>
             ) : (
               results.map((m) => (
-                <button key={m.id} type="button" onClick={() => handleSelect(m)} className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors border-b border-gray-50 last:border-0 ${m.id === value ? "bg-brand-50" : "hover:bg-gray-50"}`}>
+                <button key={m.id} type="button" onClick={() => handleSelect(m)} className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors border-b border-border last:border-0 ${m.id === value ? "bg-brand-50" : "hover:bg-muted"}`}>
                   <Check className={`h-3.5 w-3.5 shrink-0 ${m.id === value ? "text-brand-600" : "text-transparent"}`} />
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-gray-900 truncate block">{m.name}</span>
-                    <span className="text-[10px] text-gray-400 font-mono">{m.id}{m.context_length ? ` · ${Math.round(m.context_length / 1000)}k ctx` : ""}</span>
+                    <span className="text-sm font-medium text-foreground truncate block">{m.name}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">{m.id}{m.context_length ? ` · ${Math.round(m.context_length / 1000)}k ctx` : ""}</span>
                   </div>
                   {m.pricing && (
                     <div className="text-right shrink-0">
-                      <p className="text-[10px] text-gray-500">{formatPrice(m.pricing.prompt)} in</p>
-                      <p className="text-[10px] text-gray-500">{formatPrice(m.pricing.completion)} out</p>
+                      <p className="text-[10px] text-muted-foreground">{formatPrice(m.pricing.prompt)} in</p>
+                      <p className="text-[10px] text-muted-foreground">{formatPrice(m.pricing.completion)} out</p>
                     </div>
                   )}
                 </button>
@@ -333,16 +333,16 @@ function MiniSelect({ value, onChange, options, labels }: { value: string; onCha
   return (
     <div className="relative" ref={ref}>
       <button type="button" onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded border border-gray-200 text-xs text-gray-800 hover:border-gray-300 focus:outline-none focus:border-brand-300 bg-white transition-colors"
+        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded border border-border text-xs text-foreground hover:border-border focus:outline-none focus:border-brand-300 bg-card transition-colors"
       >
         <span className="font-medium">{display}</span>
-        <ChevronDown className={`h-3 w-3 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-0.5 animate-in fade-in slide-in-from-top-1 duration-100">
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-0.5 animate-in fade-in slide-in-from-top-1 duration-100">
           {options.map((opt) => (
             <button key={opt} type="button" onClick={() => { onChange(opt); setOpen(false); }}
-              className={`w-full text-left px-2.5 py-1.5 text-xs transition-colors ${opt === value ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+              className={`w-full text-left px-2.5 py-1.5 text-xs transition-colors ${opt === value ? "bg-brand-50 text-brand-700 font-medium" : "text-foreground hover:bg-muted"}`}
             >{labels?.[opt] || opt}</button>
           ))}
         </div>
@@ -359,7 +359,7 @@ function KvList({ items, setItems, valuePlaceholder = "", tenantId }: { items: {
       {items.map((item, i) => (
         <KvRow key={i} item={item} index={i} items={items} setItems={setItems} valuePlaceholder={valuePlaceholder} tenantId={tenantId} />
       ))}
-      <button type="button" onClick={() => setItems([...items, { key: "", value: "", source: "fixed" }])} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-700">
+      <button type="button" onClick={() => setItems([...items, { key: "", value: "", source: "fixed" }])} className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground">
         <Plus className="h-2.5 w-2.5" /> Agregar
       </button>
     </div>
@@ -397,16 +397,16 @@ function KvRow({ item, index, items, setItems, valuePlaceholder, tenantId }: { i
   };
 
   const sourceColors: Record<string, string> = {
-    fixed: "bg-gray-100 text-gray-600",
+    fixed: "bg-muted text-muted-foreground",
     contact: "bg-blue-100 text-blue-700",
     ai: "bg-purple-100 text-purple-700",
   };
   const sourceLabels: Record<string, string> = { fixed: "Fijo", contact: "Contacto", ai: "IA" };
 
   return (
-    <div className="border border-gray-200 rounded-lg p-2 space-y-1.5">
+    <div className="border border-border rounded-lg p-2 space-y-1.5">
       <div className="flex gap-1.5 items-center">
-        <input type="text" value={item.key} onChange={(e) => update({ key: e.target.value })} placeholder="Name" className="w-1/3 px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300" />
+        <input type="text" value={item.key} onChange={(e) => update({ key: e.target.value })} placeholder="Name" className="w-1/3 px-2 py-1.5 rounded border border-border text-xs font-mono focus:outline-none focus:border-brand-300" />
 
         {/* Source selector */}
         <div className="relative" ref={menuRef}>
@@ -414,17 +414,17 @@ function KvRow({ item, index, items, setItems, valuePlaceholder, tenantId }: { i
             className={`px-2 py-1.5 rounded text-[10px] font-medium whitespace-nowrap ${sourceColors[source]}`}
           >{sourceLabels[source]} ▾</button>
           {showSourceMenu && (
-            <div className="absolute z-50 top-full left-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-0.5 animate-in fade-in duration-100">
-              <button type="button" onClick={() => { update({ source: "fixed", value: "", description: "" }); setShowSourceMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50">Valor fijo</button>
-              <button type="button" onClick={() => { update({ source: "contact", value: "", description: "" }); setShowSourceMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50">Campo del contacto</button>
-              <button type="button" onClick={() => { update({ source: "ai", value: "", description: "" }); setShowSourceMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50">IA (de la conversación)</button>
+            <div className="absolute z-50 top-full left-0 mt-1 w-36 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-0.5 animate-in fade-in duration-100">
+              <button type="button" onClick={() => { update({ source: "fixed", value: "", description: "" }); setShowSourceMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted">Valor fijo</button>
+              <button type="button" onClick={() => { update({ source: "contact", value: "", description: "" }); setShowSourceMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted">Campo del contacto</button>
+              <button type="button" onClick={() => { update({ source: "ai", value: "", description: "" }); setShowSourceMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted">IA (de la conversación)</button>
             </div>
           )}
         </div>
 
         {/* Value input depends on source */}
         {source === "fixed" && (
-          <input type="text" value={item.value} onChange={(e) => update({ value: e.target.value })} placeholder={valuePlaceholder || "Valor"} className="flex-1 px-2 py-1.5 rounded border border-gray-200 text-xs focus:outline-none focus:border-brand-300" />
+          <input type="text" value={item.value} onChange={(e) => update({ value: e.target.value })} placeholder={valuePlaceholder || "Valor"} className="flex-1 px-2 py-1.5 rounded border border-border text-xs focus:outline-none focus:border-brand-300" />
         )}
         {source === "contact" && (
           <ContactFieldSelect value={item.value} onChange={(v) => update({ value: v })} fields={fields} />
@@ -433,12 +433,12 @@ function KvRow({ item, index, items, setItems, valuePlaceholder, tenantId }: { i
           <span className="flex-1 text-[10px] text-purple-600 italic">El modelo lo extrae</span>
         )}
 
-        <button type="button" onClick={() => setItems(items.filter((_, idx) => idx !== index))} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
+        <button type="button" onClick={() => setItems(items.filter((_, idx) => idx !== index))} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
       </div>
 
       {/* AI description */}
       {source === "ai" && (
-        <input type="text" value={item.description || ""} onChange={(e) => update({ description: e.target.value })} placeholder="Describe cómo debe obtener este dato (ej: el producto que busca el usuario)" className="w-full px-2 py-1.5 rounded border border-gray-200 text-[10px] text-gray-700 focus:outline-none focus:border-brand-300" />
+        <input type="text" value={item.description || ""} onChange={(e) => update({ description: e.target.value })} placeholder="Describe cómo debe obtener este dato (ej: el producto que busca el usuario)" className="w-full px-2 py-1.5 rounded border border-border text-[10px] text-foreground focus:outline-none focus:border-brand-300" />
       )}
     </div>
   );
@@ -460,16 +460,16 @@ function ContactFieldSelect({ value, onChange, fields }: { value: string; onChan
 
   return (
     <div className="relative flex-1" ref={ref}>
-      <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-2 py-1.5 rounded border border-gray-200 text-xs text-gray-700 hover:border-gray-300 bg-white">
+      <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-2 py-1.5 rounded border border-border text-xs text-foreground hover:border-border bg-card">
         <span className="truncate">{selected?.label || value || "Seleccionar campo..."}</span>
-        <ChevronDown className="h-3 w-3 text-gray-400" />
+        <ChevronDown className="h-3 w-3 text-muted-foreground" />
       </button>
       {open && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 max-h-40 overflow-y-auto py-0.5 animate-in fade-in duration-100">
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border max-h-40 overflow-y-auto py-0.5 animate-in fade-in duration-100">
           {fields.map((f) => (
             <button key={f.field} type="button" onClick={() => { onChange(f.field); setOpen(false); }}
-              className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${f.field === value ? "bg-brand-50 text-brand-700" : "hover:bg-gray-50"}`}
-            >{f.label} <span className="text-gray-400 ml-1">{f.field}</span></button>
+              className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${f.field === value ? "bg-brand-50 text-brand-700" : "hover:bg-muted"}`}
+            >{f.label} <span className="text-muted-foreground ml-1">{f.field}</span></button>
           ))}
         </div>
       )}
@@ -591,68 +591,68 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-150" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
-          <h3 className="text-sm font-semibold text-gray-900">{tool ? "Editar herramienta" : "Nueva herramienta"}</h3>
-          <button onClick={onClose} className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
+      <div className="relative bg-card rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-card z-10">
+          <h3 className="text-sm font-semibold text-foreground">{tool ? "Editar herramienta" : "Nueva herramienta"}</h3>
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-muted-foreground"><X className="h-4 w-4" /></button>
         </div>
 
         <div className="px-5 py-4 space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Nombre de la función</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value.replace(/\s+/g, '_').toLowerCase())} placeholder="buscar_producto" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200" />
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Nombre de la función</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value.replace(/\s+/g, '_').toLowerCase())} placeholder="buscar_producto" className="w-full px-3 py-2 rounded-lg border border-border text-sm font-mono text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200" />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="El modelo usa esta descripción para decidir cuándo ejecutar la herramienta" rows={2} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Descripción</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="El modelo usa esta descripción para decidir cuándo ejecutar la herramienta" rows={2} className="w-full px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
           </div>
 
           {/* Execution type */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Tipo</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Tipo</label>
             <div className="grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setExecutionType("webhook")}
-                className={`px-3 py-2 rounded-lg border text-left transition-colors ${executionType === "webhook" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+                className={`px-3 py-2 rounded-lg border text-left transition-colors ${executionType === "webhook" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-border hover:border-border"}`}
               >
-                <span className={`text-xs font-medium ${executionType === "webhook" ? "text-brand-700" : "text-gray-700"}`}>HTTP Request</span>
-                <p className="text-[10px] text-gray-400">Llama una URL externa</p>
+                <span className={`text-xs font-medium ${executionType === "webhook" ? "text-brand-700" : "text-foreground"}`}>HTTP Request</span>
+                <p className="text-[10px] text-muted-foreground">Llama una URL externa</p>
               </button>
               <button type="button" onClick={() => setExecutionType("static")}
-                className={`px-3 py-2 rounded-lg border text-left transition-colors ${executionType === "static" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+                className={`px-3 py-2 rounded-lg border text-left transition-colors ${executionType === "static" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-border hover:border-border"}`}
               >
-                <span className={`text-xs font-medium ${executionType === "static" ? "text-brand-700" : "text-gray-700"}`}>Respuesta estática</span>
-                <p className="text-[10px] text-gray-400">Devuelve un texto fijo</p>
+                <span className={`text-xs font-medium ${executionType === "static" ? "text-brand-700" : "text-foreground"}`}>Respuesta estática</span>
+                <p className="text-[10px] text-muted-foreground">Devuelve un texto fijo</p>
               </button>
             </div>
           </div>
 
           {/* Webhook config */}
           {executionType === "webhook" && (
-            <div className="space-y-3 border border-gray-200 rounded-lg p-4">
+            <div className="space-y-3 border border-border rounded-lg p-4">
               {/* Method + URL */}
               <div className="flex gap-2">
                 <div className="w-28 shrink-0">
-                  <label className="block text-[10px] text-gray-500 mb-1">Método</label>
+                  <label className="block text-[10px] text-muted-foreground mb-1">Método</label>
                   <MiniSelect value={method} onChange={setMethod} options={["GET", "POST", "PUT", "PATCH", "DELETE"]} />
                 </div>
                 <div className="flex-1">
-                  <label className="block text-[10px] text-gray-500 mb-1">URL</label>
-                  <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://api.example.com/endpoint" className="w-full px-2 py-1.5 rounded border border-gray-200 text-xs font-mono text-gray-800 focus:outline-none focus:border-brand-300" />
-                  <p className="text-[9px] text-gray-400 mt-0.5">Usa {"{{param}}"} para insertar valores de los parámetros</p>
+                  <label className="block text-[10px] text-muted-foreground mb-1">URL</label>
+                  <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://api.example.com/endpoint" className="w-full px-2 py-1.5 rounded border border-border text-xs font-mono text-foreground focus:outline-none focus:border-brand-300" />
+                  <p className="text-[9px] text-muted-foreground mt-0.5">Usa {"{{param}}"} para insertar valores de los parámetros</p>
                 </div>
               </div>
 
               {/* Authentication */}
               <div>
-                <label className="block text-[10px] text-gray-500 mb-1">Autenticación</label>
+                <label className="block text-[10px] text-muted-foreground mb-1">Autenticación</label>
                 <MiniSelect value={authType} onChange={setAuthType} options={["none", "bearer", "basic", "api_key"]} labels={{ none: "Ninguna", bearer: "Bearer Token", basic: "Basic Auth", api_key: "API Key" }} />
                 {authType !== "none" && (
                   <input type="text" value={authValue} onChange={(e) => setAuthValue(e.target.value)}
                     placeholder={authType === "bearer" ? "Token..." : authType === "basic" ? "usuario:contraseña" : "X-Api-Key:valor"}
-                    className="w-full px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300"
+                    className="w-full px-2 py-1.5 rounded border border-border text-xs font-mono focus:outline-none focus:border-brand-300"
                   />
                 )}
               </div>
@@ -660,10 +660,10 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
               {/* Query Params */}
               <div className="flex items-center justify-between py-2">
                 <div>
-                  <p className="text-xs font-medium text-gray-700">Query Parameters</p>
-                  <p className="text-[10px] text-gray-400">Parámetros enviados en la URL (?key=value)</p>
+                  <p className="text-xs font-medium text-foreground">Query Parameters</p>
+                  <p className="text-[10px] text-muted-foreground">Parámetros enviados en la URL (?key=value)</p>
                 </div>
-                <button type="button" onClick={() => setSendQueryParams(!sendQueryParams)} className={`relative w-9 h-5 rounded-full transition-colors ${sendQueryParams ? "bg-brand-600" : "bg-gray-300"}`}>
+                <button type="button" onClick={() => setSendQueryParams(!sendQueryParams)} className={`relative w-9 h-5 rounded-full transition-colors ${sendQueryParams ? "bg-brand-600" : "bg-gray-300 dark:bg-gray-600"}`}>
                   <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${sendQueryParams ? "translate-x-4" : ""}`} />
                 </button>
               </div>
@@ -672,10 +672,10 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
               {/* Headers */}
               <div className="flex items-center justify-between py-2">
                 <div>
-                  <p className="text-xs font-medium text-gray-700">Headers</p>
-                  <p className="text-[10px] text-gray-400">Cabeceras HTTP adicionales</p>
+                  <p className="text-xs font-medium text-foreground">Headers</p>
+                  <p className="text-[10px] text-muted-foreground">Cabeceras HTTP adicionales</p>
                 </div>
-                <button type="button" onClick={() => setSendHeaders(!sendHeaders)} className={`relative w-9 h-5 rounded-full transition-colors ${sendHeaders ? "bg-brand-600" : "bg-gray-300"}`}>
+                <button type="button" onClick={() => setSendHeaders(!sendHeaders)} className={`relative w-9 h-5 rounded-full transition-colors ${sendHeaders ? "bg-brand-600" : "bg-gray-300 dark:bg-gray-600"}`}>
                   <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${sendHeaders ? "translate-x-4" : ""}`} />
                 </button>
               </div>
@@ -686,10 +686,10 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
                 <div>
                   <div className="flex items-center justify-between py-2">
                     <div>
-                      <p className="text-xs font-medium text-gray-700">Body</p>
-                      <p className="text-[10px] text-gray-400">Cuerpo de la petición</p>
+                      <p className="text-xs font-medium text-foreground">Body</p>
+                      <p className="text-[10px] text-muted-foreground">Cuerpo de la petición</p>
                     </div>
-                    <button type="button" onClick={() => setSendBody(!sendBody)} className={`relative w-9 h-5 rounded-full transition-colors ${sendBody ? "bg-brand-600" : "bg-gray-300"}`}>
+                    <button type="button" onClick={() => setSendBody(!sendBody)} className={`relative w-9 h-5 rounded-full transition-colors ${sendBody ? "bg-brand-600" : "bg-gray-300 dark:bg-gray-600"}`}>
                       <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${sendBody ? "translate-x-4" : ""}`} />
                     </button>
                   </div>
@@ -698,14 +698,14 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
                       <div className="flex gap-1 mb-2">
                         {[{ v: "json", l: "JSON" }, { v: "form", l: "FORM" }, { v: "raw", l: "RAW" }].map((t) => (
                           <button key={t.v} type="button" onClick={() => setBodyType(t.v)}
-                            className={`px-2 py-1 rounded text-[10px] font-medium border transition-colors ${bodyType === t.v ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-500"}`}
+                            className={`px-2 py-1 rounded text-[10px] font-medium border transition-colors ${bodyType === t.v ? "border-brand-300 bg-brand-50 text-brand-700" : "border-border text-muted-foreground"}`}
                           >{t.l}</button>
                         ))}
                       </div>
                       {bodyType === "raw" ? (
                         <div>
-                          <textarea value={rawBody} onChange={(e) => setRawBody(e.target.value)} placeholder={'{\n  "user": {\n    "name": "{{nombre}}",\n    "email": "{{contact.email}}"\n  },\n  "query": "{{busqueda}}"\n}'} rows={6} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-xs font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-y" />
-                          <p className="text-[9px] text-gray-400 mt-1">JSON libre. Usa {"{{param}}"} para valores de la IA o {"{{contact.campo}}"} para datos del contacto.</p>
+                          <textarea value={rawBody} onChange={(e) => setRawBody(e.target.value)} placeholder={'{\n  "user": {\n    "name": "{{nombre}}",\n    "email": "{{contact.email}}"\n  },\n  "query": "{{busqueda}}"\n}'} rows={6} className="w-full px-3 py-2 rounded-lg border border-border text-xs font-mono text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-y" />
+                          <p className="text-[9px] text-muted-foreground mt-1">JSON libre. Usa {"{{param}}"} para valores de la IA o {"{{contact.campo}}"} para datos del contacto.</p>
                         </div>
                       ) : (
                         <KvList items={bodyFields} setItems={setBodyFields} valuePlaceholder="valor fijo" tenantId={tenantId} />
@@ -722,39 +722,39 @@ function ToolFormModal({ tool, botId, tenantId, onClose, onSaved }: { tool: any 
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Mapeo de respuesta</label>
-                  <p className="text-[10px] text-gray-400">Define qué datos de la respuesta del endpoint se le pasan al modelo.</p>
+                  <label className="text-xs font-medium text-muted-foreground">Mapeo de respuesta</label>
+                  <p className="text-[10px] text-muted-foreground">Define qué datos de la respuesta del endpoint se le pasan al modelo.</p>
                 </div>
               </div>
               <div className="space-y-1.5 mt-2">
                 {responseMapping.map((item, i) => (
                   <div key={i} className="flex gap-1.5 items-center">
-                    <input type="text" value={item.path} onChange={(e) => { const next = [...responseMapping]; next[i] = { ...next[i], path: e.target.value }; setResponseMapping(next); }} placeholder="data.products" className="w-2/5 px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300" />
-                    <span className="text-gray-400 text-xs">→</span>
-                    <input type="text" value={item.label} onChange={(e) => { const next = [...responseMapping]; next[i] = { ...next[i], label: e.target.value }; setResponseMapping(next); }} placeholder="Productos encontrados" className="flex-1 px-2 py-1.5 rounded border border-gray-200 text-xs focus:outline-none focus:border-brand-300" />
-                    <button type="button" onClick={() => setResponseMapping(responseMapping.filter((_, idx) => idx !== i))} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
+                    <input type="text" value={item.path} onChange={(e) => { const next = [...responseMapping]; next[i] = { ...next[i], path: e.target.value }; setResponseMapping(next); }} placeholder="data.products" className="w-2/5 px-2 py-1.5 rounded border border-border text-xs font-mono focus:outline-none focus:border-brand-300" />
+                    <span className="text-muted-foreground text-xs">→</span>
+                    <input type="text" value={item.label} onChange={(e) => { const next = [...responseMapping]; next[i] = { ...next[i], label: e.target.value }; setResponseMapping(next); }} placeholder="Productos encontrados" className="flex-1 px-2 py-1.5 rounded border border-border text-xs focus:outline-none focus:border-brand-300" />
+                    <button type="button" onClick={() => setResponseMapping(responseMapping.filter((_, idx) => idx !== i))} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
                   </div>
                 ))}
-                <button type="button" onClick={() => setResponseMapping([...responseMapping, { path: "", label: "" }])} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-700">
+                <button type="button" onClick={() => setResponseMapping([...responseMapping, { path: "", label: "" }])} className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground">
                   <Plus className="h-2.5 w-2.5" /> Agregar campo
                 </button>
               </div>
-              <p className="text-[9px] text-gray-400 mt-1.5">Usa dot notation para acceder a campos anidados: data.items, result.price. Si no configuras ninguno, se pasa la respuesta completa.</p>
+              <p className="text-[9px] text-muted-foreground mt-1.5">Usa dot notation para acceder a campos anidados: data.items, result.price. Si no configuras ninguno, se pasa la respuesta completa.</p>
             </div>
           )}
 
           {/* Static response */}
           {executionType === "static" && (
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Respuesta</label>
-              <textarea value={staticResponse} onChange={(e) => setStaticResponse(e.target.value)} placeholder='{"horario": "Lunes a Viernes 8am-6pm"}' rows={3} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-y" />
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Respuesta</label>
+              <textarea value={staticResponse} onChange={(e) => setStaticResponse(e.target.value)} placeholder='{"horario": "Lunes a Viernes 8am-6pm"}' rows={3} className="w-full px-3 py-2 rounded-lg border border-border text-sm font-mono text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-y" />
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2 sticky bottom-0 bg-white">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+        <div className="px-5 py-3 border-t border-border flex justify-end gap-2 sticky bottom-0 bg-card">
+          <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted">Cancelar</button>
           <button onClick={handleSave} disabled={saving || !name.trim() || !description.trim()} className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-xs font-medium disabled:opacity-50">
             {saving && <Loader2 className="h-3 w-3 animate-spin" />}
             {tool ? "Guardar" : "Crear"}
@@ -1090,20 +1090,20 @@ export function BotConfig() {
   })();
 
   if (loading) {
-    return <div className="flex-1 flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" /></div>;
+    return <div className="flex-1 flex items-center justify-center bg-muted"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" /></div>;
   }
 
   if (!bot) {
-    return <div className="flex-1 flex items-center justify-center bg-gray-50"><p className="text-gray-500 text-sm">Bot no encontrado</p></div>;
+    return <div className="flex-1 flex items-center justify-center bg-muted"><p className="text-muted-foreground text-sm">Bot no encontrado</p></div>;
   }
 
   return (
-    <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-gray-50">
+    <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-muted">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-6 py-4 sticky top-0 z-10">
+      <div className="bg-card border-b border-border px-6 py-4 sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate(`/${slug}/comunicaciones/bots/${botId}`)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+            <button onClick={() => navigate(`/${slug}/comunicaciones/bots/${botId}`)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-muted-foreground transition-colors">
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div className="h-10 w-10 rounded-lg bg-brand-50 flex items-center justify-center">
@@ -1111,12 +1111,12 @@ export function BotConfig() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold text-gray-900">Configurar Bot</h2>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${botType === "sequential" ? "bg-blue-100 text-blue-700" : botType === "hybrid" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"}`}>
+                <h2 className="text-lg font-semibold text-foreground">Configurar Bot</h2>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${botType === "sequential" ? "bg-blue-100 text-blue-700" : botType === "hybrid" ? "bg-purple-100 text-purple-700" : "bg-muted text-muted-foreground"}`}>
                   {botType === "sequential" ? "Secuencial" : botType === "hybrid" ? "Híbrido" : "Conversación libre"}
                 </span>
               </div>
-              <p className="text-sm text-gray-500">{bot.name}</p>
+              <p className="text-sm text-muted-foreground">{bot.name}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -1140,8 +1140,8 @@ export function BotConfig() {
       {showPromptPreview && (
         <div className="mx-6 mt-4 p-4 bg-gray-900 rounded-xl border border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-gray-400">Prompt compilado (lo que recibe el modelo)</span>
-            <button onClick={() => setShowPromptPreview(false)} className="text-gray-500 hover:text-gray-300"><X className="h-3.5 w-3.5" /></button>
+            <span className="text-xs font-medium text-muted-foreground">Prompt compilado (lo que recibe el modelo)</span>
+            <button onClick={() => setShowPromptPreview(false)} className="text-muted-foreground hover:text-muted-foreground"><X className="h-3.5 w-3.5" /></button>
           </div>
           <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
             {compiledPrompt || "(vacío — configura la identidad del bot)"}
@@ -1150,8 +1150,8 @@ export function BotConfig() {
       )}
 
       {/* Tabs */}
-      <div className="px-6 pt-3 sticky top-[73px] z-[9] bg-gray-50">
-        <div className="flex flex-wrap gap-x-4 gap-y-1 border-b border-gray-200">
+      <div className="px-6 pt-3 sticky top-[73px] z-[9] bg-muted">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 border-b border-border">
           {[
             { id: "personality", label: "Personalidad", icon: <UserCircle className="h-3.5 w-3.5" /> },
             ...(botType === "sequential" ? [{ id: "flow", label: "Flujo", icon: <GitBranch className="h-3.5 w-3.5" /> }] : []),
@@ -1163,7 +1163,7 @@ export function BotConfig() {
             { id: "advanced", label: "Avanzado", icon: <Cpu className="h-3.5 w-3.5" /> },
           ].map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-1 pb-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${activeTab === tab.id ? "border-brand-600 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+              className={`flex items-center gap-1.5 px-1 pb-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${activeTab === tab.id ? "border-brand-600 text-brand-700" : "border-transparent text-muted-foreground hover:text-foreground"}`}
             >
               {tab.icon}
               {tab.label}
@@ -1188,79 +1188,79 @@ export function BotConfig() {
 
         {/* ─── TAB: Consentimiento ─── */}
         {activeTab === "consent" && (<>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Shield className="h-4 w-4 text-brand-600" />
-              <h3 className="text-sm font-semibold text-gray-900">Consentimiento y autorizacion</h3>
+              <h3 className="text-sm font-semibold text-foreground">Consentimiento y autorizacion</h3>
             </div>
             <button
               type="button"
               onClick={() => setConsentEnabled(!consentEnabled)}
-              className={`relative w-9 h-5 rounded-full transition-colors ${consentEnabled ? "bg-brand-600" : "bg-gray-300"}`}
+              className={`relative w-9 h-5 rounded-full transition-colors ${consentEnabled ? "bg-brand-600" : "bg-gray-300 dark:bg-gray-600"}`}
             >
               <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${consentEnabled ? "translate-x-4" : ""}`} />
             </button>
           </div>
-          <p className="text-xs text-gray-500 mb-4">Cuando esta activo, el bot solicitara autorizacion del usuario antes de iniciar la conversacion. El bot no procedera hasta obtener el consentimiento.</p>
+          <p className="text-xs text-muted-foreground mb-4">Cuando esta activo, el bot solicitara autorizacion del usuario antes de iniciar la conversacion. El bot no procedera hasta obtener el consentimiento.</p>
 
           {consentEnabled && (
-            <div className="space-y-4 pt-3 border-t border-gray-100">
+            <div className="space-y-4 pt-3 border-t border-border">
               {/* Mode selector */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Modo de consentimiento</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Modo de consentimiento</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button type="button" onClick={() => setConsentMode("implicit")}
-                    className={`p-3 rounded-lg border text-left transition-colors ${consentMode === "implicit" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+                    className={`p-3 rounded-lg border text-left transition-colors ${consentMode === "implicit" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-border hover:border-border"}`}
                   >
-                    <span className={`text-xs font-medium ${consentMode === "implicit" ? "text-brand-700" : "text-gray-700"}`}>Implicito</span>
-                    <p className="text-[10px] text-gray-400 mt-0.5">El bot envia el aviso y responde normalmente. Continuar chateando = aceptar.</p>
+                    <span className={`text-xs font-medium ${consentMode === "implicit" ? "text-brand-700" : "text-foreground"}`}>Implicito</span>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">El bot envia el aviso y responde normalmente. Continuar chateando = aceptar.</p>
                   </button>
                   <button type="button" onClick={() => setConsentMode("explicit")}
-                    className={`p-3 rounded-lg border text-left transition-colors ${consentMode === "explicit" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+                    className={`p-3 rounded-lg border text-left transition-colors ${consentMode === "explicit" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-border hover:border-border"}`}
                   >
-                    <span className={`text-xs font-medium ${consentMode === "explicit" ? "text-brand-700" : "text-gray-700"}`}>Explicito</span>
-                    <p className="text-[10px] text-gray-400 mt-0.5">El bot se detiene hasta que el usuario diga "Acepto" explicitamente.</p>
+                    <span className={`text-xs font-medium ${consentMode === "explicit" ? "text-brand-700" : "text-foreground"}`}>Explicito</span>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">El bot se detiene hasta que el usuario diga "Acepto" explicitamente.</p>
                   </button>
                 </div>
               </div>
 
               {/* Consent message */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje de consentimiento</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Mensaje de consentimiento</label>
                 <textarea
                   value={consentMessage}
                   onChange={(e) => setConsentMessage(e.target.value)}
                   placeholder="Ej: Para continuar, necesito tu autorizacion para el tratamiento de tus datos personales conforme a nuestra politica de privacidad."
                   rows={4}
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
                 />
-                <p className="text-[10px] text-gray-400 mt-1">Este mensaje se envia al inicio de cada nueva conversacion. El usuario debe aceptar para que el bot continue.</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Este mensaje se envia al inicio de cada nueva conversacion. El usuario debe aceptar para que el bot continue.</p>
               </div>
 
               {/* Terms URL */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Enlace a terminos y condiciones</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Enlace a terminos y condiciones</label>
                 <input
                   type="url"
                   value={consentTermsUrl}
                   onChange={(e) => setConsentTermsUrl(e.target.value)}
                   placeholder="https://tu-sitio.com/terminos-y-condiciones"
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                 />
-                <p className="text-[10px] text-gray-400 mt-1">Se adjuntara como enlace al final del mensaje de consentimiento.</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Se adjuntara como enlace al final del mensaje de consentimiento.</p>
               </div>
 
               {/* Age verification */}
-              <div className="flex items-center justify-between py-3 border-t border-gray-100">
+              <div className="flex items-center justify-between py-3 border-t border-border">
                 <div>
-                  <p className="text-xs font-medium text-gray-700">Declaracion de mayoria de edad</p>
-                  <p className="text-[10px] text-gray-400">Requiere que el usuario confirme ser mayor de edad</p>
+                  <p className="text-xs font-medium text-foreground">Declaracion de mayoria de edad</p>
+                  <p className="text-[10px] text-muted-foreground">Requiere que el usuario confirme ser mayor de edad</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setConsentAgeVerification(!consentAgeVerification)}
-                  className={`relative w-9 h-5 rounded-full transition-colors ${consentAgeVerification ? "bg-brand-600" : "bg-gray-300"}`}
+                  className={`relative w-9 h-5 rounded-full transition-colors ${consentAgeVerification ? "bg-brand-600" : "bg-gray-300 dark:bg-gray-600"}`}
                 >
                   <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${consentAgeVerification ? "translate-x-4" : ""}`} />
                 </button>
@@ -1268,71 +1268,71 @@ export function BotConfig() {
 
               {consentAgeVerification && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje de mayoria de edad</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Mensaje de mayoria de edad</label>
                   <input
                     type="text"
                     value={consentAgeMessage}
                     onChange={(e) => setConsentAgeMessage(e.target.value)}
                     placeholder="Declaro ser mayor de 18 anos."
-                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                    className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                   />
                 </div>
               )}
 
               {/* Reject behavior */}
-              <div className="pt-3 border-t border-gray-100">
+              <div className="pt-3 border-t border-border">
                 {/* Keywords */}
                 <div className="space-y-3 mb-4">
                   {consentMode === "explicit" && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Palabra de aprobacion</label>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1.5">Palabra de aprobacion</label>
                       <input
                         type="text"
                         value={consentAcceptKeyword}
                         onChange={(e) => setConsentAcceptKeyword(e.target.value)}
                         placeholder="acepto"
-                        className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                        className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                       />
-                      <p className="text-[10px] text-gray-400 mt-1">El usuario debe escribir esta palabra para aceptar el consentimiento.</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">El usuario debe escribir esta palabra para aceptar el consentimiento.</p>
                     </div>
                   )}
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Palabra de negacion</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">Palabra de negacion</label>
                     <input
                       type="text"
                       value={consentRejectKeyword}
                       onChange={(e) => setConsentRejectKeyword(e.target.value)}
                       placeholder="no acepto"
-                      className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                      className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                     />
-                    <p className="text-[10px] text-gray-400 mt-1">Si el usuario escribe esta palabra, se rechaza el consentimiento{consentMode === "implicit" ? " (en cualquier momento de la conversacion)" : ""}.</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Si el usuario escribe esta palabra, se rechaza el consentimiento{consentMode === "implicit" ? " (en cualquier momento de la conversacion)" : ""}.</p>
                   </div>
                 </div>
 
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Si el usuario rechaza</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Si el usuario rechaza</label>
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <button type="button" onClick={() => setConsentRejectAction("end")}
-                    className={`p-3 rounded-lg border text-left transition-colors ${consentRejectAction === "end" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+                    className={`p-3 rounded-lg border text-left transition-colors ${consentRejectAction === "end" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-border hover:border-border"}`}
                   >
-                    <span className={`text-xs font-medium ${consentRejectAction === "end" ? "text-brand-700" : "text-gray-700"}`}>Finalizar</span>
-                    <p className="text-[10px] text-gray-400">Pausar el bot, no responder mas</p>
+                    <span className={`text-xs font-medium ${consentRejectAction === "end" ? "text-brand-700" : "text-foreground"}`}>Finalizar</span>
+                    <p className="text-[10px] text-muted-foreground">Pausar el bot, no responder mas</p>
                   </button>
                   <button type="button" onClick={() => setConsentRejectAction("handoff")}
-                    className={`p-3 rounded-lg border text-left transition-colors ${consentRejectAction === "handoff" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+                    className={`p-3 rounded-lg border text-left transition-colors ${consentRejectAction === "handoff" ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-border hover:border-border"}`}
                   >
-                    <span className={`text-xs font-medium ${consentRejectAction === "handoff" ? "text-brand-700" : "text-gray-700"}`}>Transferir a agente</span>
-                    <p className="text-[10px] text-gray-400">Pasar a un humano</p>
+                    <span className={`text-xs font-medium ${consentRejectAction === "handoff" ? "text-brand-700" : "text-foreground"}`}>Transferir a agente</span>
+                    <p className="text-[10px] text-muted-foreground">Pasar a un humano</p>
                   </button>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje al rechazar</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Mensaje al rechazar</label>
                   <input
                     type="text"
                     value={consentRejectMessage}
                     onChange={(e) => setConsentRejectMessage(e.target.value)}
                     placeholder="Entendido. Sin tu autorizacion no podemos continuar con el proceso."
-                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                    className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                   />
                 </div>
               </div>
@@ -1345,31 +1345,31 @@ export function BotConfig() {
         {activeTab === "personality" && (<>
 
         {/* 1. Identity */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center gap-2 mb-4">
             <UserCircle className="h-4 w-4 text-brand-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Identidad</h3>
+            <h3 className="text-sm font-semibold text-foreground">Identidad</h3>
           </div>
-          <p className="text-xs text-gray-500 mb-4">Define quién es el bot y cómo se comunica.</p>
+          <p className="text-xs text-muted-foreground mb-4">Define quién es el bot y cómo se comunica.</p>
 
           <div className="space-y-4">
             {/* Persona */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Nombre / Persona</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Nombre / Persona</label>
               <input
                 type="text" value={persona} onChange={(e) => setPersona(e.target.value)}
                 placeholder="Ej: Laura, Carlos, Asistente Virtual..."
-                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
               />
             </div>
 
             {/* Role */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Rol</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Rol</label>
               <div className="flex flex-wrap gap-2">
                 {ROLES.map((r) => (
                   <button key={r.value} type="button" onClick={() => setRole(role === r.value ? "" : r.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${role === r.value ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${role === r.value ? "border-brand-300 bg-brand-50 text-brand-700" : "border-border text-muted-foreground hover:border-border hover:bg-muted"}`}
                   >{r.label}</button>
                 ))}
               </div>
@@ -1377,30 +1377,30 @@ export function BotConfig() {
                 <input
                   type="text" value={customRole} onChange={(e) => setCustomRole(e.target.value)}
                   placeholder="Escribe el rol personalizado..."
-                  className="mt-2 w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                  className="mt-2 w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                 />
               )}
             </div>
 
             {/* Objective */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Objetivo</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Objetivo</label>
               <textarea
                 value={objective} onChange={(e) => setObjective(e.target.value)}
                 placeholder="Ej: Resolver dudas sobre productos y recopilar datos para agendar una demostración..."
                 rows={2}
-                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
+                className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
               />
-              <p className="text-[10px] text-gray-400 mt-1">Cuando el bot cumpla este objetivo, podrá marcar la conversación como resuelta.</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Cuando el bot cumpla este objetivo, podrá marcar la conversación como resuelta.</p>
             </div>
 
             {/* Tone */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Tono de comunicación</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Tono de comunicación</label>
               <div className="flex flex-wrap gap-2">
                 {TONES.map((t) => (
                   <button key={t.value} type="button" onClick={() => toggleTone(t.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${tone.includes(t.value) ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${tone.includes(t.value) ? "border-brand-300 bg-brand-50 text-brand-700" : "border-border text-muted-foreground hover:border-border hover:bg-muted"}`}
                   >{t.label}</button>
                 ))}
               </div>
@@ -1408,36 +1408,36 @@ export function BotConfig() {
 
             {/* Language */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Idiomas de respuesta</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Idiomas de respuesta</label>
               <div className="flex flex-wrap gap-2">
                 {LANGUAGES.map((l) => (
                   <button key={l.value} type="button" onClick={() => toggleLanguage(l.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${languages.includes(l.value) ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${languages.includes(l.value) ? "border-brand-300 bg-brand-50 text-brand-700" : "border-border text-muted-foreground hover:border-border hover:bg-muted"}`}
                   >{l.label}</button>
                 ))}
               </div>
               {languages.length > 1 && (
-                <p className="text-[10px] text-gray-400 mt-1.5">El bot responderá en el idioma en que le escriban.</p>
+                <p className="text-[10px] text-muted-foreground mt-1.5">El bot responderá en el idioma en que le escriban.</p>
               )}
             </div>
           </div>
         </div>
 
         {/* 2. Rules */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center gap-2 mb-4">
             <Shield className="h-4 w-4 text-brand-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Reglas e instrucciones</h3>
+            <h3 className="text-sm font-semibold text-foreground">Reglas e instrucciones</h3>
           </div>
-          <p className="text-xs text-gray-500 mb-4">Define lo que el bot debe hacer y lo que nunca debe hacer.</p>
+          <p className="text-xs text-muted-foreground mb-4">Define lo que el bot debe hacer y lo que nunca debe hacer.</p>
 
           {/* Rules list */}
           <div className="space-y-2 mb-3">
             {rules.map((rule, idx) => (
               <div key={idx} className="flex items-start gap-2 group">
-                <span className="text-xs text-gray-400 mt-1.5 shrink-0">{idx + 1}.</span>
-                <p className="flex-1 text-sm text-gray-700 py-1">{rule}</p>
-                <button onClick={() => removeRule(idx)} className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-50 text-gray-400 hover:text-red-500 transition-all">
+                <span className="text-xs text-muted-foreground mt-1.5 shrink-0">{idx + 1}.</span>
+                <p className="flex-1 text-sm text-foreground py-1">{rule}</p>
+                <button onClick={() => removeRule(idx)} className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-all">
                   <Trash2 className="h-3 w-3" />
                 </button>
               </div>
@@ -1450,9 +1450,9 @@ export function BotConfig() {
               type="text" value={newRule} onChange={(e) => setNewRule(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addRule(); } }}
               placeholder="Ej: Nunca inventar información, Siempre saludar por nombre, No hablar de la competencia..."
-              className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+              className="flex-1 px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
             />
-            <button onClick={addRule} disabled={!newRule.trim()} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            <button onClick={addRule} disabled={!newRule.trim()} className="px-3 py-2 rounded-lg bg-muted hover:bg-muted text-muted-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               <Plus className="h-4 w-4" />
             </button>
           </div>
@@ -1470,16 +1470,16 @@ export function BotConfig() {
 
         {/* ─── TAB: Datos ─── */}
         {activeTab === "data" && (<>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4 text-brand-600" />
-              <h3 className="text-sm font-semibold text-gray-900">Recopilación de datos</h3>
+              <h3 className="text-sm font-semibold text-foreground">Recopilación de datos</h3>
             </div>
             <button
               type="button"
               onClick={() => setDataCollectionEnabled(!dataCollectionEnabled)}
-              className={`relative w-9 h-5 rounded-full transition-colors ${dataCollectionEnabled ? "bg-brand-600" : "bg-gray-300"}`}
+              className={`relative w-9 h-5 rounded-full transition-colors ${dataCollectionEnabled ? "bg-brand-600" : "bg-gray-300 dark:bg-gray-600"}`}
             >
               <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${dataCollectionEnabled ? "translate-x-4" : ""}`} />
             </button>
@@ -1487,13 +1487,13 @@ export function BotConfig() {
 
           {dataCollectionEnabled && (
             <div className="space-y-4">
-              <p className="text-xs text-gray-500">El bot extraerá datos del contacto durante la conversación y los guardará automáticamente en el CRM.</p>
+              <p className="text-xs text-muted-foreground">El bot extraerá datos del contacto durante la conversación y los guardará automáticamente en el CRM.</p>
 
               {/* Intensity */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-medium text-gray-600">Intensidad de recopilación</label>
-                  <span className="text-xs font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                  <label className="text-xs font-medium text-muted-foreground">Intensidad de recopilación</label>
+                  <span className="text-xs font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                     {dataCollectionIntensity === 1 ? "Muy pasivo" : dataCollectionIntensity === 2 ? "Pasivo" : dataCollectionIntensity === 3 ? "Balanceado" : dataCollectionIntensity === 4 ? "Activo" : "Muy activo"}
                   </span>
                 </div>
@@ -1503,7 +1503,7 @@ export function BotConfig() {
                   onChange={(e) => setDataCollectionIntensity(parseInt(e.target.value))}
                   className="w-full accent-brand-600"
                 />
-                <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
                   <span>Solo si lo menciona</span>
                   <span>Pregunta siempre</span>
                 </div>
@@ -1511,21 +1511,21 @@ export function BotConfig() {
 
               {/* Fields */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">Campos a recopilar</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-2">Campos a recopilar</label>
 
                 {/* Existing fields */}
                 <div className="space-y-2 mb-3">
                   {dataCollectionFields.map((f) => (
-                    <div key={f.field} className="border border-gray-200 rounded-lg p-3">
+                    <div key={f.field} className="border border-border rounded-lg p-3">
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${f.priority === 1 ? "bg-red-100 text-red-700" : f.priority === 2 ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-600"}`}>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${f.priority === 1 ? "bg-red-100 text-red-700" : f.priority === 2 ? "bg-yellow-100 text-yellow-700" : "bg-muted text-muted-foreground"}`}>
                             {f.priority === 1 ? "Alta" : f.priority === 2 ? "Media" : "Baja"}
                           </span>
-                          <span className="text-sm font-medium text-gray-900">{f.label}</span>
-                          <span className="text-[10px] text-gray-400 font-mono">{f.field}</span>
+                          <span className="text-sm font-medium text-foreground">{f.label}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">{f.field}</span>
                         </div>
-                        <button onClick={() => removeDataField(f.field)} className="p-1 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+                        <button onClick={() => removeDataField(f.field)} className="p-1 rounded-md hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors">
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
@@ -1535,12 +1535,12 @@ export function BotConfig() {
                           value={f.instructions}
                           onChange={(e) => updateDataField(f.field, { instructions: e.target.value })}
                           placeholder="Instrucciones específicas (opcional)..."
-                          className="flex-1 px-2 py-1 rounded border border-gray-200 text-xs text-gray-700 focus:outline-none focus:border-brand-300"
+                          className="flex-1 px-2 py-1 rounded border border-border text-xs text-foreground focus:outline-none focus:border-brand-300"
                         />
                         <div className="flex gap-0.5 shrink-0">
                           {[1, 2, 3].map((p) => (
                             <button key={p} type="button" onClick={() => updateDataField(f.field, { priority: p })}
-                              className={`w-5 h-5 rounded text-[9px] font-bold transition-colors ${f.priority === p ? (p === 1 ? "bg-red-100 text-red-700" : p === 2 ? "bg-yellow-100 text-yellow-700" : "bg-gray-200 text-gray-600") : "bg-gray-50 text-gray-400 hover:bg-gray-100"}`}
+                              className={`w-5 h-5 rounded text-[9px] font-bold transition-colors ${f.priority === p ? (p === 1 ? "bg-red-100 text-red-700" : p === 2 ? "bg-yellow-100 text-yellow-700" : "bg-gray-200 text-muted-foreground") : "bg-muted text-muted-foreground hover:bg-muted"}`}
                             >{p}</button>
                           ))}
                         </div>
@@ -1565,17 +1565,17 @@ export function BotConfig() {
 
         {/* ─── TAB: Comportamiento ─── */}
         {activeTab === "behavior" && (<>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center gap-2 mb-4">
             <MessageSquare className="h-4 w-4 text-brand-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Mensajes automáticos</h3>
+            <h3 className="text-sm font-semibold text-foreground">Mensajes automáticos</h3>
           </div>
           <div className="space-y-4">
             {/* Reply delay */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-gray-600">Tiempo de espera antes de responder</label>
-                <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                <label className="text-xs font-medium text-muted-foreground">Tiempo de espera antes de responder</label>
+                <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                   {replyDelay === 0 ? "Inmediato" : `${replyDelay}s`}
                 </span>
               </div>
@@ -1585,55 +1585,55 @@ export function BotConfig() {
                 onChange={(e) => setReplyDelay(parseInt(e.target.value))}
                 className="w-full accent-brand-600"
               />
-              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
                 <span>Inmediato</span>
                 <span>15 segundos</span>
               </div>
-              <p className="text-[10px] text-gray-400 mt-1">Espera a que el usuario termine de escribir antes de responder. Útil cuando envían varios mensajes seguidos.</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Espera a que el usuario termine de escribir antes de responder. Útil cuando envían varios mensajes seguidos.</p>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje de bienvenida</label>
-              <textarea value={welcomeMessage} onChange={(e) => setWelcomeMessage(e.target.value)} placeholder="Hola 👋 ¿En qué puedo ayudarte hoy?" rows={2} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Mensaje de bienvenida</label>
+              <textarea value={welcomeMessage} onChange={(e) => setWelcomeMessage(e.target.value)} placeholder="Hola 👋 ¿En qué puedo ayudarte hoy?" rows={2} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje de fallback</label>
-              <textarea value={fallbackMessage} onChange={(e) => setFallbackMessage(e.target.value)} placeholder="Lo siento, no pude procesar tu mensaje. ¿Puedes intentarlo de nuevo?" rows={2} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Mensaje de fallback</label>
+              <textarea value={fallbackMessage} onChange={(e) => setFallbackMessage(e.target.value)} placeholder="Lo siento, no pude procesar tu mensaje. ¿Puedes intentarlo de nuevo?" rows={2} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
             </div>
 
             {/* Schedule */}
-            <div className="border-t border-gray-100 pt-4">
+            <div className="border-t border-border pt-4">
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <p className="text-xs font-medium text-gray-700">Horario de atención</p>
-                  <p className="text-[10px] text-gray-400">Fuera de horario el bot no responde y envía un mensaje automático</p>
+                  <p className="text-xs font-medium text-foreground">Horario de atención</p>
+                  <p className="text-[10px] text-muted-foreground">Fuera de horario el bot no responde y envía un mensaje automático</p>
                 </div>
-                <button type="button" onClick={() => setScheduleEnabled(!scheduleEnabled)} className={`relative w-9 h-5 rounded-full transition-colors ${scheduleEnabled ? "bg-brand-600" : "bg-gray-300"}`}>
+                <button type="button" onClick={() => setScheduleEnabled(!scheduleEnabled)} className={`relative w-9 h-5 rounded-full transition-colors ${scheduleEnabled ? "bg-brand-600" : "bg-gray-300 dark:bg-gray-600"}`}>
                   <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${scheduleEnabled ? "translate-x-4" : ""}`} />
                 </button>
               </div>
               {scheduleEnabled && (
                 <div className="mt-3 space-y-3">
-                  <label className="block text-[10px] text-gray-500 mb-1">Mensaje fuera de horario</label>
-                  <input type="text" value={scheduleOffMessage} onChange={(e) => setScheduleOffMessage(e.target.value)} placeholder="Estamos fuera de horario. Te responderemos pronto." className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-brand-300" />
+                  <label className="block text-[10px] text-muted-foreground mb-1">Mensaje fuera de horario</label>
+                  <input type="text" value={scheduleOffMessage} onChange={(e) => setScheduleOffMessage(e.target.value)} placeholder="Estamos fuera de horario. Te responderemos pronto." className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs text-foreground focus:outline-none focus:border-brand-300" />
 
                   <div className="space-y-1.5">
                     {Object.entries(scheduleDays).map(([day, config]) => (
                       <div key={day} className="flex items-center gap-2">
                         <button type="button" onClick={() => setScheduleDays((prev) => ({ ...prev, [day]: { ...prev[day], active: !prev[day].active } }))}
-                          className={`relative w-7 h-4 rounded-full transition-colors shrink-0 ${config.active ? "bg-brand-600" : "bg-gray-300"}`}
+                          className={`relative w-7 h-4 rounded-full transition-colors shrink-0 ${config.active ? "bg-brand-600" : "bg-gray-300 dark:bg-gray-600"}`}
                         >
                           <span className={`absolute top-0.5 left-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${config.active ? "translate-x-3" : ""}`} />
                         </button>
-                        <span className="text-xs text-gray-700 w-20 capitalize">{day}</span>
+                        <span className="text-xs text-foreground w-20 capitalize">{day}</span>
                         {config.active && (
                           <>
-                            <input type="time" value={config.start} onChange={(e) => setScheduleDays((prev) => ({ ...prev, [day]: { ...prev[day], start: e.target.value } }))} className="px-1.5 py-1 rounded border border-gray-200 text-[10px] focus:outline-none focus:border-brand-300" />
-                            <span className="text-[10px] text-gray-400">a</span>
-                            <input type="time" value={config.end} onChange={(e) => setScheduleDays((prev) => ({ ...prev, [day]: { ...prev[day], end: e.target.value } }))} className="px-1.5 py-1 rounded border border-gray-200 text-[10px] focus:outline-none focus:border-brand-300" />
+                            <input type="time" value={config.start} onChange={(e) => setScheduleDays((prev) => ({ ...prev, [day]: { ...prev[day], start: e.target.value } }))} className="px-1.5 py-1 rounded border border-border text-[10px] focus:outline-none focus:border-brand-300" />
+                            <span className="text-[10px] text-muted-foreground">a</span>
+                            <input type="time" value={config.end} onChange={(e) => setScheduleDays((prev) => ({ ...prev, [day]: { ...prev[day], end: e.target.value } }))} className="px-1.5 py-1 rounded border border-border text-[10px] focus:outline-none focus:border-brand-300" />
                           </>
                         )}
-                        {!config.active && <span className="text-[10px] text-gray-400">Inactivo</span>}
+                        {!config.active && <span className="text-[10px] text-muted-foreground">Inactivo</span>}
                       </div>
                     ))}
                   </div>
@@ -1642,27 +1642,27 @@ export function BotConfig() {
             </div>
 
             {/* Rate Limit */}
-            <div className="border-t border-gray-100 pt-4">
+            <div className="border-t border-border pt-4">
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <p className="text-xs font-medium text-gray-700">Límite de mensajes por contacto</p>
-                  <p className="text-[10px] text-gray-400">Evita consumo excesivo de créditos por un solo contacto</p>
+                  <p className="text-xs font-medium text-foreground">Límite de mensajes por contacto</p>
+                  <p className="text-[10px] text-muted-foreground">Evita consumo excesivo de créditos por un solo contacto</p>
                 </div>
               </div>
               <div className="flex gap-3 items-end">
                 <div className="flex-1">
-                  <label className="block text-[10px] text-gray-500 mb-1">Máximo mensajes</label>
-                  <input type="number" min={0} max={200} value={rateLimitMax} onChange={(e) => setRateLimitMax(parseInt(e.target.value) || 0)} placeholder="0 = sin límite" className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs focus:outline-none focus:border-brand-300" />
+                  <label className="block text-[10px] text-muted-foreground mb-1">Máximo mensajes</label>
+                  <input type="number" min={0} max={200} value={rateLimitMax} onChange={(e) => setRateLimitMax(parseInt(e.target.value) || 0)} placeholder="0 = sin límite" className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs focus:outline-none focus:border-brand-300" />
                 </div>
                 <div className="flex-1">
-                  <label className="block text-[10px] text-gray-500 mb-1">En ventana de (min)</label>
-                  <input type="number" min={1} max={1440} value={rateLimitWindow} onChange={(e) => setRateLimitWindow(parseInt(e.target.value) || 60)} className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs focus:outline-none focus:border-brand-300" />
+                  <label className="block text-[10px] text-muted-foreground mb-1">En ventana de (min)</label>
+                  <input type="number" min={1} max={1440} value={rateLimitWindow} onChange={(e) => setRateLimitWindow(parseInt(e.target.value) || 60)} className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs focus:outline-none focus:border-brand-300" />
                 </div>
               </div>
               {rateLimitMax > 0 && (
                 <div className="mt-2">
-                  <label className="block text-[10px] text-gray-500 mb-1">Mensaje cuando se excede el límite</label>
-                  <input type="text" value={rateLimitMessage} onChange={(e) => setRateLimitMessage(e.target.value)} placeholder="Has alcanzado el límite de mensajes. Intenta más tarde." className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-brand-300" />
+                  <label className="block text-[10px] text-muted-foreground mb-1">Mensaje cuando se excede el límite</label>
+                  <input type="text" value={rateLimitMessage} onChange={(e) => setRateLimitMessage(e.target.value)} placeholder="Has alcanzado el límite de mensajes. Intenta más tarde." className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs text-foreground focus:outline-none focus:border-brand-300" />
                 </div>
               )}
             </div>
@@ -1670,36 +1670,36 @@ export function BotConfig() {
         </div>
 
         {/* 5. Conversation Control */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center gap-2 mb-4">
             <RefreshCw className="h-4 w-4 text-brand-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Control de conversación</h3>
+            <h3 className="text-sm font-semibold text-foreground">Control de conversación</h3>
           </div>
-          <p className="text-xs text-gray-500 mb-4">Configura cuándo el bot deja de responder y transfiere a un agente humano.</p>
+          <p className="text-xs text-muted-foreground mb-4">Configura cuándo el bot deja de responder y transfiere a un agente humano.</p>
 
           <div className="space-y-4">
             {/* Max messages */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-gray-600">Máximo de mensajes del bot</label>
-                <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                <label className="text-xs font-medium text-muted-foreground">Máximo de mensajes del bot</label>
+                <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                   {maxBotMessages === 0 ? "Sin límite" : maxBotMessages}
                 </span>
               </div>
               <input type="range" min="0" max="50" step="1" value={maxBotMessages} onChange={(e) => setMaxBotMessages(parseInt(e.target.value))} className="w-full accent-brand-600" />
-              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>Sin límite</span><span>50 mensajes</span></div>
-              <p className="text-[10px] text-gray-400 mt-1">Después de este número de respuestas, el bot se pausa y espera intervención humana.</p>
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5"><span>Sin límite</span><span>50 mensajes</span></div>
+              <p className="text-[10px] text-muted-foreground mt-1">Después de este número de respuestas, el bot se pausa y espera intervención humana.</p>
             </div>
 
             {/* Handoff keywords */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Palabras clave de transferencia</label>
-              <p className="text-[10px] text-gray-400 mb-2">Si el contacto escribe alguna de estas palabras, el bot se desactiva y transfiere a un humano.</p>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Palabras clave de transferencia</label>
+              <p className="text-[10px] text-muted-foreground mb-2">Si el contacto escribe alguna de estas palabras, el bot se desactiva y transfiere a un humano.</p>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {handoffKeywords.map((kw, i) => (
-                  <span key={i} className="flex items-center gap-1 px-2 py-1 rounded-md bg-gray-100 text-xs text-gray-700">
+                  <span key={i} className="flex items-center gap-1 px-2 py-1 rounded-md bg-muted text-xs text-foreground">
                     {kw}
-                    <button onClick={() => setHandoffKeywords((prev) => prev.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500">
+                    <button onClick={() => setHandoffKeywords((prev) => prev.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-red-500">
                       <X className="h-2.5 w-2.5" />
                     </button>
                   </span>
@@ -1709,9 +1709,9 @@ export function BotConfig() {
                 <input type="text" value={newKeyword} onChange={(e) => setNewKeyword(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && newKeyword.trim()) { e.preventDefault(); setHandoffKeywords((prev) => [...prev, newKeyword.trim()]); setNewKeyword(""); } }}
                   placeholder="Ej: agente, humano, persona..."
-                  className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                  className="flex-1 px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                 />
-                <button onClick={() => { if (newKeyword.trim()) { setHandoffKeywords((prev) => [...prev, newKeyword.trim()]); setNewKeyword(""); } }} disabled={!newKeyword.trim()} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-40">
+                <button onClick={() => { if (newKeyword.trim()) { setHandoffKeywords((prev) => [...prev, newKeyword.trim()]); setNewKeyword(""); } }} disabled={!newKeyword.trim()} className="px-3 py-2 rounded-lg bg-muted hover:bg-muted text-muted-foreground transition-colors disabled:opacity-40">
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
@@ -1719,31 +1719,31 @@ export function BotConfig() {
 
             {/* Handoff message */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje al transferir</label>
-              <textarea value={handoffMessage} onChange={(e) => setHandoffMessage(e.target.value)} placeholder="Te conecto con un agente humano. Un momento por favor..." rows={2} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Mensaje al transferir</label>
+              <textarea value={handoffMessage} onChange={(e) => setHandoffMessage(e.target.value)} placeholder="Te conecto con un agente humano. Un momento por favor..." rows={2} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none" />
             </div>
 
             {/* On resolved actions */}
-            <div className="border-t border-gray-100 pt-4 mt-4">
-              <label className="block text-xs font-medium text-gray-600 mb-2">Al cumplir el objetivo</label>
-              <p className="text-[10px] text-gray-400 mb-3">Acciones automáticas cuando el bot marca la conversación como resuelta.</p>
+            <div className="border-t border-border pt-4 mt-4">
+              <label className="block text-xs font-medium text-muted-foreground mb-2">Al cumplir el objetivo</label>
+              <p className="text-[10px] text-muted-foreground mb-3">Acciones automáticas cuando el bot marca la conversación como resuelta.</p>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-[10px] text-gray-500 mb-1">Cambiar estado del contacto a:</label>
+                  <label className="block text-[10px] text-muted-foreground mb-1">Cambiar estado del contacto a:</label>
                   <MiniSelect value={onResolvedStatus} onChange={setOnResolvedStatus} options={["", "lead", "contactado", "interesado", "oportunidad", "cliente", "premium", "fidelizado", "inactivo", "perdido"]} labels={{ "": "Sin cambio", lead: "Lead", contactado: "Contactado", interesado: "Interesado", oportunidad: "Oportunidad", cliente: "Cliente", premium: "Premium", fidelizado: "Fidelizado", inactivo: "Inactivo", perdido: "Perdido" }} />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-gray-500 mb-1">Agregar etiquetas a la conversación:</label>
+                  <label className="block text-[10px] text-muted-foreground mb-1">Agregar etiquetas a la conversación:</label>
                   <div className="flex flex-wrap gap-1.5">
                     {availableLabels.map((lbl) => (
                       <button key={lbl.id} type="button" onClick={() => setOnResolvedLabelIds((prev) => prev.includes(lbl.id) ? prev.filter((id) => id !== lbl.id) : [...prev, lbl.id])}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${onResolvedLabelIds.includes(lbl.id) ? "border-brand-300 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${onResolvedLabelIds.includes(lbl.id) ? "border-brand-300 bg-brand-50 text-brand-700" : "border-border text-muted-foreground hover:border-border"}`}
                       >
                         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: lbl.color || '#9ca3af' }} />
                         {lbl.label}
                       </button>
                     ))}
-                    {availableLabels.length === 0 && <p className="text-[10px] text-gray-400">No hay etiquetas creadas</p>}
+                    {availableLabels.length === 0 && <p className="text-[10px] text-muted-foreground">No hay etiquetas creadas</p>}
                   </div>
                 </div>
               </div>
@@ -1752,25 +1752,25 @@ export function BotConfig() {
         </div>
 
         {/* Media Handling */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center gap-2 mb-4">
             <ImageIcon className="h-4 w-4 text-brand-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Manejo de archivos multimedia</h3>
+            <h3 className="text-sm font-semibold text-foreground">Manejo de archivos multimedia</h3>
           </div>
-          <p className="text-xs text-gray-500 mb-4">Define qué hace el bot cuando recibe imágenes, audios o documentos.</p>
+          <p className="text-xs text-muted-foreground mb-4">Define qué hace el bot cuando recibe imágenes, audios o documentos.</p>
 
           <div className="space-y-4">
             {/* Image handling */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Cuando recibe una imagen</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Cuando recibe una imagen</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {MEDIA_MODES_IMAGE.map((m) => (
                   <button key={m.value} type="button" onClick={() => setMediaHandling((prev) => ({ ...prev, image: m.value as any }))}
-                    className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-center transition-colors ${mediaHandling.image === m.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}
+                    className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-center transition-colors ${mediaHandling.image === m.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-border hover:border-border hover:bg-muted"}`}
                   >
                     <span className="text-sm">{m.icon}</span>
-                    <span className={`text-xs font-medium ${mediaHandling.image === m.value ? "text-brand-700" : "text-gray-700"}`}>{m.label}</span>
-                    <span className="text-[10px] text-gray-400 leading-tight">{m.description}</span>
+                    <span className={`text-xs font-medium ${mediaHandling.image === m.value ? "text-brand-700" : "text-foreground"}`}>{m.label}</span>
+                    <span className="text-[10px] text-muted-foreground leading-tight">{m.description}</span>
                   </button>
                 ))}
               </div>
@@ -1778,15 +1778,15 @@ export function BotConfig() {
 
             {/* Audio handling */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Cuando recibe un audio</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Cuando recibe un audio</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {MEDIA_MODES_AUDIO.map((m) => (
                   <button key={m.value} type="button" onClick={() => setMediaHandling((prev) => ({ ...prev, audio: m.value as any }))}
-                    className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-center transition-colors ${mediaHandling.audio === m.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}
+                    className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-center transition-colors ${mediaHandling.audio === m.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-border hover:border-border hover:bg-muted"}`}
                   >
                     <span className="text-sm">{m.icon}</span>
-                    <span className={`text-xs font-medium ${mediaHandling.audio === m.value ? "text-brand-700" : "text-gray-700"}`}>{m.label}</span>
-                    <span className="text-[10px] text-gray-400 leading-tight">{m.description}</span>
+                    <span className={`text-xs font-medium ${mediaHandling.audio === m.value ? "text-brand-700" : "text-foreground"}`}>{m.label}</span>
+                    <span className="text-[10px] text-muted-foreground leading-tight">{m.description}</span>
                   </button>
                 ))}
               </div>
@@ -1794,15 +1794,15 @@ export function BotConfig() {
 
             {/* Document handling */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Cuando recibe un documento</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Cuando recibe un documento</label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {MEDIA_MODES_DOCUMENT.map((m) => (
                   <button key={m.value} type="button" onClick={() => setMediaHandling((prev) => ({ ...prev, document: m.value as any }))}
-                    className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-center transition-colors ${mediaHandling.document === m.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}
+                    className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-center transition-colors ${mediaHandling.document === m.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-border hover:border-border hover:bg-muted"}`}
                   >
                     <span className="text-sm">{m.icon}</span>
-                    <span className={`text-xs font-medium ${mediaHandling.document === m.value ? "text-brand-700" : "text-gray-700"}`}>{m.label}</span>
-                    <span className="text-[10px] text-gray-400 leading-tight">{m.description}</span>
+                    <span className={`text-xs font-medium ${mediaHandling.document === m.value ? "text-brand-700" : "text-foreground"}`}>{m.label}</span>
+                    <span className="text-[10px] text-muted-foreground leading-tight">{m.description}</span>
                   </button>
                 ))}
               </div>
@@ -1810,27 +1810,27 @@ export function BotConfig() {
 
             {/* Custom messages */}
             {(mediaHandling.image === "acknowledge" || mediaHandling.audio === "acknowledge" || mediaHandling.document === "acknowledge") && (
-              <div className="border-t border-gray-100 pt-4">
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje al recibir archivo (modo Responder)</label>
+              <div className="border-t border-border pt-4">
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Mensaje al recibir archivo (modo Responder)</label>
                 <textarea
                   value={mediaHandling.acknowledgeMessage || ""}
                   onChange={(e) => setMediaHandling((prev) => ({ ...prev, acknowledgeMessage: e.target.value }))}
                   placeholder="Recibí tu archivo, pero no puedo procesarlo. ¿Puedes describirme de qué se trata?"
                   rows={2}
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
                 />
               </div>
             )}
 
             {(mediaHandling.image === "forward" || mediaHandling.audio === "forward" || mediaHandling.document === "forward") && (
-              <div className="border-t border-gray-100 pt-4">
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensaje al transferir (modo Transferir)</label>
+              <div className="border-t border-border pt-4">
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Mensaje al transferir (modo Transferir)</label>
                 <textarea
                   value={mediaHandling.forwardMessage || ""}
                   onChange={(e) => setMediaHandling((prev) => ({ ...prev, forwardMessage: e.target.value }))}
                   placeholder="Te conecto con un agente para que pueda revisar tu archivo."
                   rows={2}
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
                 />
               </div>
             )}
@@ -1857,45 +1857,45 @@ export function BotConfig() {
 
         {/* ─── TAB: Herramientas ─── */}
         {activeTab === "tools" && (<>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Wrench className="h-4 w-4 text-brand-600" />
-              <h3 className="text-sm font-semibold text-gray-900">Herramientas</h3>
+              <h3 className="text-sm font-semibold text-foreground">Herramientas</h3>
             </div>
-            <button type="button" onClick={() => { setEditingTool(null); setShowToolForm(true); }} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors">
+            <button type="button" onClick={() => { setEditingTool(null); setShowToolForm(true); }} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground transition-colors">
               <Plus className="h-3 w-3" /> Agregar
             </button>
           </div>
-          <p className="text-xs text-gray-500 mb-4">Las herramientas permiten al bot ejecutar acciones durante la conversación (consultar APIs, buscar datos, etc.).</p>
+          <p className="text-xs text-muted-foreground mb-4">Las herramientas permiten al bot ejecutar acciones durante la conversación (consultar APIs, buscar datos, etc.).</p>
 
           {tools.length === 0 ? (
-            <div className="text-center py-6 border border-dashed border-gray-200 rounded-lg">
-              <Wrench className="h-6 w-6 text-gray-300 mx-auto mb-2" />
-              <p className="text-xs text-gray-400">No hay herramientas configuradas</p>
+            <div className="text-center py-6 border border-dashed border-border rounded-lg">
+              <Wrench className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">No hay herramientas configuradas</p>
             </div>
           ) : (
             <div className="space-y-2">
               {tools.map((tool) => (
-                <div key={tool.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg group">
+                <div key={tool.id} className="flex items-center justify-between p-3 border border-border rounded-lg group">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${tool.executionType === "webhook" ? "bg-blue-50" : "bg-amber-50"}`}>
                       {tool.executionType === "webhook" ? <Globe className="h-3.5 w-3.5 text-blue-600" /> : <FileText className="h-3.5 w-3.5 text-amber-600" />}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-900 truncate">{tool.name}</span>
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${tool.isEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                        <span className="text-sm font-medium text-foreground truncate">{tool.name}</span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${tool.isEnabled ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
                           {tool.isEnabled ? "activa" : "inactiva"}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 truncate">{tool.description}</p>
+                      <p className="text-xs text-muted-foreground truncate">{tool.description}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={async () => { try { const { data } = await api.post(`/bots/tools/${tool.id}/test`, { args: {}, contactData: {} }); toast.success(`✓ ${data.duration}ms${data.success ? '' : ' (error)'}`); } catch { toast.error('Error al probar'); } }} className="p-1.5 rounded-md hover:bg-green-50 text-gray-400 hover:text-green-600" title="Probar"><Play className="h-3 w-3" /></button>
-                    <button onClick={() => { setEditingTool(tool); setShowToolForm(true); }} className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil className="h-3 w-3" /></button>
-                    <button onClick={async () => { await api.delete(`/bots/tools/${tool.id}`); setTools((prev) => prev.filter((t) => t.id !== tool.id)); }} className="p-1.5 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
+                    <button onClick={async () => { try { const { data } = await api.post(`/bots/tools/${tool.id}/test`, { args: {}, contactData: {} }); toast.success(`✓ ${data.duration}ms${data.success ? '' : ' (error)'}`); } catch { toast.error('Error al probar'); } }} className="p-1.5 rounded-md hover:bg-green-50 text-muted-foreground hover:text-green-600" title="Probar"><Play className="h-3 w-3" /></button>
+                    <button onClick={() => { setEditingTool(tool); setShowToolForm(true); }} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-muted-foreground"><Pencil className="h-3 w-3" /></button>
+                    <button onClick={async () => { await api.delete(`/bots/tools/${tool.id}`); setTools((prev) => prev.filter((t) => t.id !== tool.id)); }} className="p-1.5 rounded-md hover:bg-red-50 text-muted-foreground hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
                   </div>
                 </div>
               ))}
@@ -1926,25 +1926,25 @@ export function BotConfig() {
 
         {/* ─── TAB: Avanzado ─── */}
         {activeTab === "advanced" && (<>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center gap-2 mb-2">
             <Cpu className="h-4 w-4 text-brand-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Ajustes de rendimiento</h3>
+            <h3 className="text-sm font-semibold text-foreground">Ajustes de rendimiento</h3>
           </div>
-          <p className="text-xs text-gray-500 mb-4">Configura cómo responde el bot. Los valores por defecto funcionan bien para la mayoría de casos.</p>
+          <p className="text-xs text-muted-foreground mb-4">Configura cómo responde el bot. Los valores por defecto funcionan bien para la mayoría de casos.</p>
 
           <div className="space-y-4">
             {/* Routing variant */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Velocidad de respuesta</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Velocidad de respuesta</label>
               <div className="grid grid-cols-4 gap-2">
                 {ROUTING_VARIANTS.map((v) => (
                   <button key={v.value} type="button" onClick={() => setVariant(v.value)}
-                    className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-center transition-colors ${variant === v.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}
+                    className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-lg border text-center transition-colors ${variant === v.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-border hover:border-border hover:bg-muted"}`}
                   >
                     <span className="text-sm">{v.icon}</span>
-                    <span className={`text-xs font-medium ${variant === v.value ? "text-brand-700" : "text-gray-700"}`}>{v.label}</span>
-                    <span className="text-[10px] text-gray-400 leading-tight">{v.description}</span>
+                    <span className={`text-xs font-medium ${variant === v.value ? "text-brand-700" : "text-foreground"}`}>{v.label}</span>
+                    <span className="text-[10px] text-muted-foreground leading-tight">{v.description}</span>
                   </button>
                 ))}
               </div>
@@ -1952,37 +1952,37 @@ export function BotConfig() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-gray-600">Creatividad de respuestas</label>
-                <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{temperature.toFixed(2)}</span>
+                <label className="text-xs font-medium text-muted-foreground">Creatividad de respuestas</label>
+                <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{temperature.toFixed(2)}</span>
               </div>
               <input type="range" min="0" max="2" step="0.05" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full accent-brand-600" />
-              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>Respuestas exactas</span><span>Respuestas creativas</span></div>
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5"><span>Respuestas exactas</span><span>Respuestas creativas</span></div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Largo máximo de respuesta</label>
-              <input type="number" min={1} max={16384} value={maxTokens} onChange={(e) => setMaxTokens(Math.max(1, Math.min(16384, parseInt(e.target.value) || 1024)))} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200" />
-              <p className="text-[10px] text-gray-400 mt-1">Controla qué tan largas pueden ser las respuestas del bot. Un valor más alto permite respuestas más detalladas.</p>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Largo máximo de respuesta</label>
+              <input type="number" min={1} max={16384} value={maxTokens} onChange={(e) => setMaxTokens(Math.max(1, Math.min(16384, parseInt(e.target.value) || 1024)))} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200" />
+              <p className="text-[10px] text-muted-foreground mt-1">Controla qué tan largas pueden ser las respuestas del bot. Un valor más alto permite respuestas más detalladas.</p>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-gray-600">Memoria de la conversación</label>
-                <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{contextMessages} mensajes</span>
+                <label className="text-xs font-medium text-muted-foreground">Memoria de la conversación</label>
+                <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{contextMessages} mensajes</span>
               </div>
               <input type="range" min="1" max="50" step="1" value={contextMessages} onChange={(e) => setContextMessages(parseInt(e.target.value))} className="w-full accent-brand-600" />
-              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>Poca memoria</span><span>Mucha memoria</span></div>
-              <p className="text-[10px] text-gray-400 mt-1">Cuántos mensajes anteriores recuerda el bot. Más memoria = mejores respuestas pero más costo por mensaje.</p>
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5"><span>Poca memoria</span><span>Mucha memoria</span></div>
+              <p className="text-[10px] text-muted-foreground mt-1">Cuántos mensajes anteriores recuerda el bot. Más memoria = mejores respuestas pero más costo por mensaje.</p>
             </div>
           </div>
         </div>
 
         {/* 6. Advanced */}
-        <details className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <summary className="px-6 py-4 cursor-pointer flex items-center gap-2 hover:bg-gray-50 transition-colors">
-            <ChevronDown className="h-4 w-4 text-gray-400" />
-            <span className="text-sm font-semibold text-gray-900">Instrucciones manuales</span>
-            <span className="text-xs text-gray-400 ml-2">Solo para usuarios avanzados</span>
+        <details className="bg-card rounded-xl border border-border overflow-hidden">
+          <summary className="px-6 py-4 cursor-pointer flex items-center gap-2 hover:bg-muted transition-colors">
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-semibold text-foreground">Instrucciones manuales</span>
+            <span className="text-xs text-muted-foreground ml-2">Solo para usuarios avanzados</span>
           </summary>
           <div className="px-6 pb-6 pt-2">
             <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg mb-3">
@@ -1992,7 +1992,7 @@ export function BotConfig() {
               value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)}
               placeholder="Deja vacío para usar la configuración guiada..."
               rows={6}
-              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-y font-mono"
+              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-y font-mono"
             />
           </div>
         </details>

@@ -61,10 +61,10 @@ interface CampaignSendRecord {
 }
 
 const statusColors: Record<string, { bg: string; text: string }> = {
-  draft: { bg: "bg-gray-100", text: "text-gray-600" },
-  active: { bg: "bg-green-100", text: "text-green-700" },
-  completed: { bg: "bg-blue-100", text: "text-blue-700" },
-  paused: { bg: "bg-orange-100", text: "text-orange-700" },
+  draft: { bg: "bg-muted", text: "text-muted-foreground" },
+  active: { bg: "bg-green-100 dark:bg-green-500/15", text: "text-green-700 dark:text-green-300" },
+  completed: { bg: "bg-blue-100 dark:bg-blue-500/15", text: "text-blue-700 dark:text-blue-300" },
+  paused: { bg: "bg-orange-100 dark:bg-orange-500/15", text: "text-orange-700 dark:text-orange-300" },
 };
 
 const operatorLabels: Record<string, string> = {
@@ -458,7 +458,7 @@ export function CampanaDetail() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Tabs with campaign info */}
-      <div className="px-5 border-b border-gray-100 flex items-center gap-4 shrink-0 bg-white">
+      <div className="px-5 border-b border-border flex items-center gap-4 shrink-0 bg-card">
         <div className="flex items-center gap-1 flex-1">
         {([
           { key: "general", label: "General", icon: Settings2 },
@@ -472,7 +472,7 @@ export function CampanaDetail() {
             className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
               campaignTab === key
                 ? "border-brand-600 text-brand-700"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
             <Icon className="h-3.5 w-3.5" />
@@ -583,27 +583,27 @@ export function CampanaDetail() {
         <div className="flex-1 min-h-0 overflow-auto px-6 py-6">
           <div className="max-w-3xl space-y-6">
             {/* Segmentation */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-gray-900">Segmentación</h2>
+                <h2 className="text-base font-semibold text-foreground">Segmentación</h2>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={async () => { if (campaign.listId) { const { data: updated } = await api.put(`/campaigns/${campaign.id}`, { listId: null }); setCampaign(updated); } }}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${!campaign.listId ? "border-brand-500 bg-brand-50/50" : "border-gray-200 hover:border-gray-300"}`}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${!campaign.listId ? "border-brand-500 bg-brand-50/50" : "border-border hover:border-border"}`}
                 >
-                  <p className={`text-sm font-semibold ${!campaign.listId ? "text-brand-800" : "text-gray-700"}`}>Segmentación</p>
-                  <p className="text-[11px] text-gray-500 mt-1">Define condiciones para filtrar contactos dinámicamente al enviar</p>
+                  <p className={`text-sm font-semibold ${!campaign.listId ? "text-brand-800" : "text-foreground"}`}>Segmentación</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Define condiciones para filtrar contactos dinámicamente al enviar</p>
                 </button>
                 <button
                   onClick={() => { if (!campaign.listId) setCampaign({ ...campaign, listId: "pending" }); }}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${campaign.listId ? "border-brand-500 bg-brand-50/50" : "border-gray-200 hover:border-gray-300"}`}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${campaign.listId ? "border-brand-500 bg-brand-50/50" : "border-border hover:border-border"}`}
                 >
                   <div className="flex items-center gap-2">
                     <List className="h-4 w-4" />
-                    <p className={`text-sm font-semibold ${campaign.listId ? "text-brand-800" : "text-gray-700"}`}>Lista</p>
+                    <p className={`text-sm font-semibold ${campaign.listId ? "text-brand-800" : "text-foreground"}`}>Lista</p>
                   </div>
-                  <p className="text-[11px] text-gray-500 mt-1">Usa una lista pre-definida de contactos (estática o dinámica)</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Usa una lista pre-definida de contactos (estática o dinámica)</p>
                 </button>
               </div>
 
@@ -616,8 +616,8 @@ export function CampanaDetail() {
                       return (
                         <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-brand-200 bg-brand-50/50">
                           <div>
-                            <p className="text-sm font-medium text-gray-800">{selectedList.name}</p>
-                            <p className="text-[11px] text-gray-500">{selectedList.type === "dynamic" ? "Dinámica — se recalcula al enviar" : "Estática"}{selectedList.type === "static" && selectedList.recordIds ? ` · ${selectedList.recordIds.length} contactos` : ""}</p>
+                            <p className="text-sm font-medium text-foreground">{selectedList.name}</p>
+                            <p className="text-[11px] text-muted-foreground">{selectedList.type === "dynamic" ? "Dinámica — se recalcula al enviar" : "Estática"}{selectedList.type === "static" && selectedList.recordIds ? ` · ${selectedList.recordIds.length} contactos` : ""}</p>
                           </div>
                           <button
                             onClick={() => setCampaign({ ...campaign, listId: "pending" })}
@@ -630,11 +630,11 @@ export function CampanaDetail() {
                     }
                     // List picker
                     if (recordLists.length === 0) {
-                      return <p className="text-xs text-gray-400 py-4 text-center">No hay listas creadas. Crea una desde la vista de Contactos.</p>;
+                      return <p className="text-xs text-muted-foreground py-4 text-center">No hay listas creadas. Crea una desde la vista de Contactos.</p>;
                     }
                     return (
                       <div className="space-y-2">
-                        <p className="text-xs text-gray-500 mb-2">Selecciona una lista:</p>
+                        <p className="text-xs text-muted-foreground mb-2">Selecciona una lista:</p>
                         {recordLists.map((list) => (
                           <button
                             key={list.id}
@@ -642,11 +642,11 @@ export function CampanaDetail() {
                               const { data: updated } = await api.put(`/campaigns/${campaign.id}`, { listId: list.id });
                               setCampaign(updated);
                             }}
-                            className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 hover:border-brand-300 hover:bg-brand-50/30 text-left transition-all"
+                            className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-border hover:border-brand-300 hover:bg-brand-50/30 text-left transition-all"
                           >
                             <div>
-                              <p className="text-sm font-medium text-gray-800">{list.name}</p>
-                              <p className="text-[11px] text-gray-400">{list.type === "dynamic" ? "Dinámica" : "Estática"}{list.type === "static" && list.recordIds ? ` · ${list.recordIds.length} contactos` : ""}</p>
+                              <p className="text-sm font-medium text-foreground">{list.name}</p>
+                              <p className="text-[11px] text-muted-foreground">{list.type === "dynamic" ? "Dinámica" : "Estática"}{list.type === "static" && list.recordIds ? ` · ${list.recordIds.length} contactos` : ""}</p>
                             </div>
                           </button>
                         ))}
@@ -700,34 +700,34 @@ export function CampanaDetail() {
         <div className="flex-1 min-h-0 overflow-auto px-6 py-6">
           <div className="max-w-lg space-y-6">
             {/* Type selector cards */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">Tipo de envío</h2>
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h2 className="text-base font-semibold text-foreground mb-4">Tipo de envío</h2>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => autoSaveSchedule({ isRecurring: false })}
                   className={cn(
                     "p-4 rounded-xl border-2 text-left transition-all",
-                    !campaign.isRecurring ? "border-brand-500 bg-brand-50/50" : "border-gray-200 hover:border-gray-300"
+                    !campaign.isRecurring ? "border-brand-500 bg-brand-50/50" : "border-border hover:border-border"
                   )}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <Calendar className="h-4 w-4" />
-                    <p className={cn("text-sm font-semibold", !campaign.isRecurring ? "text-brand-800" : "text-gray-700")}>Envío único</p>
+                    <p className={cn("text-sm font-semibold", !campaign.isRecurring ? "text-brand-800" : "text-foreground")}>Envío único</p>
                   </div>
-                  <p className="text-[11px] text-gray-500">Enviar una vez, de forma manual o en una fecha programada</p>
+                  <p className="text-[11px] text-muted-foreground">Enviar una vez, de forma manual o en una fecha programada</p>
                 </button>
                 <button
                   onClick={() => autoSaveSchedule({ isRecurring: true })}
                   className={cn(
                     "p-4 rounded-xl border-2 text-left transition-all",
-                    campaign.isRecurring ? "border-brand-500 bg-brand-50/50" : "border-gray-200 hover:border-gray-300"
+                    campaign.isRecurring ? "border-brand-500 bg-brand-50/50" : "border-border hover:border-border"
                   )}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <RefreshCw className="h-4 w-4" />
-                    <p className={cn("text-sm font-semibold", campaign.isRecurring ? "text-brand-800" : "text-gray-700")}>Envío recurrente</p>
+                    <p className={cn("text-sm font-semibold", campaign.isRecurring ? "text-brand-800" : "text-foreground")}>Envío recurrente</p>
                   </div>
-                  <p className="text-[11px] text-gray-500">Enviar automáticamente en días y horas específicos cada semana</p>
+                  <p className="text-[11px] text-muted-foreground">Enviar automáticamente en días y horas específicos cada semana</p>
                 </button>
               </div>
             </div>
@@ -735,19 +735,19 @@ export function CampanaDetail() {
             {/* Configuration based on selection */}
             {!campaign.isRecurring ? (
               /* === ENVÍO ÚNICO === */
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-base font-semibold text-gray-900 mb-5">Configuración de envío único</h2>
+              <div className="bg-card rounded-xl border border-border p-6">
+                <h2 className="text-base font-semibold text-foreground mb-5">Configuración de envío único</h2>
                 <div className="space-y-5">
                   {/* Send type: manual or scheduled */}
                   <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-2">¿Cuándo enviar?</label>
+                    <label className="text-sm font-medium text-foreground block mb-2">¿Cuándo enviar?</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => autoSaveSchedule({ sendDate: null, sendTime: null })}
                         className={cn(
                           "px-3 py-2.5 rounded-lg border text-sm font-medium transition-all text-center",
-                          !campaign.sendDate ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:border-gray-300"
+                          !campaign.sendDate ? "border-brand-500 bg-brand-50 text-brand-700" : "border-border text-muted-foreground hover:border-border"
                         )}
                       >
                         Manual (ahora)
@@ -757,7 +757,7 @@ export function CampanaDetail() {
                         onClick={() => autoSaveSchedule({ sendDate: campaign.sendDate || new Date().toISOString().split("T")[0] })}
                         className={cn(
                           "px-3 py-2.5 rounded-lg border text-sm font-medium transition-all text-center",
-                          campaign.sendDate ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:border-gray-300"
+                          campaign.sendDate ? "border-brand-500 bg-brand-50 text-brand-700" : "border-border text-muted-foreground hover:border-border"
                         )}
                       >
                         Programado
@@ -767,18 +767,18 @@ export function CampanaDetail() {
 
                   {/* Date & Time (only if scheduled) */}
                   {campaign.sendDate && (
-                    <div className="space-y-4 p-4 rounded-lg bg-gray-50 border border-gray-100">
+                    <div className="space-y-4 p-4 rounded-lg bg-muted border border-border">
                       <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1.5">Fecha de envío</label>
+                        <label className="text-sm font-medium text-foreground block mb-1.5">Fecha de envío</label>
                         <input
                           type="date"
                           value={campaign.sendDate ? campaign.sendDate.split("T")[0] : ""}
                           onChange={(e) => autoSaveSchedule({ sendDate: e.target.value || null })}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                          className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1.5">Hora de envío</label>
+                        <label className="text-sm font-medium text-foreground block mb-1.5">Hora de envío</label>
                         <TimePicker value={campaign.sendTime || ""} onChange={(val) => autoSaveSchedule({ sendTime: val || null })} />
                       </div>
                     </div>
@@ -786,27 +786,27 @@ export function CampanaDetail() {
 
                   {/* Limit */}
                   <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-1.5">Límite de envíos</label>
+                    <label className="text-sm font-medium text-foreground block mb-1.5">Límite de envíos</label>
                     <input
                       type="number"
                       value={campaign.maxSends || ""}
                       onChange={(e) => autoSaveSchedule({ maxSends: e.target.value ? Number(e.target.value) : null })}
                       placeholder="Sin límite (se envía a toda la audiencia)"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                      className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
                     />
-                    <p className="text-[11px] text-gray-400 mt-1">Máximo de mensajes a enviar en esta ejecución. Déjalo vacío para enviar a todos.</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">Máximo de mensajes a enviar en esta ejecución. Déjalo vacío para enviar a todos.</p>
                   </div>
                 </div>
               </div>
             ) : (
               /* === ENVÍO RECURRENTE === */
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-base font-semibold text-gray-900 mb-5">Configuración de envío recurrente</h2>
+              <div className="bg-card rounded-xl border border-border p-6">
+                <h2 className="text-base font-semibold text-foreground mb-5">Configuración de envío recurrente</h2>
                 <div className="space-y-5">
                   {/* Days with individual time */}
                   <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-2">Días y horas de envío</label>
-                    <p className="text-[11px] text-gray-400 mb-3">Selecciona los días y configura la hora de envío para cada uno</p>
+                    <label className="text-sm font-medium text-foreground block mb-2">Días y horas de envío</label>
+                    <p className="text-[11px] text-muted-foreground mb-3">Selecciona los días y configura la hora de envío para cada uno</p>
                     <div className="space-y-2">
                       {["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"].map((dayLabel, idx) => {
                         const dayKey = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"][idx];
@@ -816,7 +816,7 @@ export function CampanaDetail() {
                         return (
                           <div key={dayKey} className={cn(
                             "flex items-center gap-3 p-3 rounded-lg border transition-all",
-                            isSelected ? "border-brand-200 bg-brand-50/30" : "border-gray-100 bg-gray-50/50"
+                            isSelected ? "border-brand-200 bg-brand-50/30" : "border-border bg-muted/50"
                           )}>
                             <button
                               type="button"
@@ -831,7 +831,7 @@ export function CampanaDetail() {
                               }}
                               className={cn(
                                 "w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                                isSelected ? "border-brand-600 bg-brand-600" : "border-gray-300"
+                                isSelected ? "border-brand-600 bg-brand-600" : "border-border"
                               )}
                             >
                               {isSelected && (
@@ -840,7 +840,7 @@ export function CampanaDetail() {
                                 </svg>
                               )}
                             </button>
-                            <span className={cn("text-sm font-medium w-20", isSelected ? "text-gray-900" : "text-gray-400")}>{dayLabel}</span>
+                            <span className={cn("text-sm font-medium w-20", isSelected ? "text-foreground" : "text-muted-foreground")}>{dayLabel}</span>
                             {isSelected && (
                               <div className="flex-1">
                                 <TimePicker
@@ -861,15 +861,15 @@ export function CampanaDetail() {
 
                   {/* Limit per execution */}
                   <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-1.5">Límite por ejecución</label>
+                    <label className="text-sm font-medium text-foreground block mb-1.5">Límite por ejecución</label>
                     <input
                       type="number"
                       value={campaign.maxSends || ""}
                       onChange={(e) => autoSaveSchedule({ maxSends: e.target.value ? Number(e.target.value) : null })}
                       placeholder="Sin límite"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                      className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
                     />
-                    <p className="text-[11px] text-gray-400 mt-1">Máximo de mensajes a enviar en cada ejecución recurrente. Déjalo vacío para enviar a todos.</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">Máximo de mensajes a enviar en cada ejecución recurrente. Déjalo vacío para enviar a todos.</p>
                   </div>
                 </div>
               </div>
@@ -882,8 +882,8 @@ export function CampanaDetail() {
         <div className="flex-1 min-h-0 overflow-auto px-6 py-6">
           <div className="max-w-3xl space-y-6">
             {/* Action buttons */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">Acciones</h2>
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h2 className="text-base font-semibold text-foreground mb-4">Acciones</h2>
               {(() => {
                 const isManual = !campaign.isRecurring && !campaign.sendDate;
                 const isScheduled = !campaign.isRecurring && !!campaign.sendDate;
@@ -893,7 +893,7 @@ export function CampanaDetail() {
                 if (isManual) {
                   return (
                     <div className="space-y-3">
-                      <p className="text-sm text-gray-500 mb-3">Envío manual — ejecuta el envío inmediatamente a toda la audiencia</p>
+                      <p className="text-sm text-muted-foreground mb-3">Envío manual — ejecuta el envío inmediatamente a toda la audiencia</p>
                       <Button
                         onClick={handleSendCampaign}
                         disabled={sending || !canSend}
@@ -914,7 +914,7 @@ export function CampanaDetail() {
 
                 return (
                   <div className="space-y-3">
-                    <p className="text-sm text-gray-500 mb-3">
+                    <p className="text-sm text-muted-foreground mb-3">
                       {isScheduled ? "Envío programado" : "Envío recurrente"} — gestiona el estado de la programación
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -941,7 +941,7 @@ export function CampanaDetail() {
                         <Button
                           onClick={() => handleStatusChange("completed")}
                           variant="outline"
-                          className="flex-1 py-2.5 border-gray-300 text-gray-700 hover:bg-gray-50 gap-2"
+                          className="flex-1 py-2.5 border-border text-foreground hover:bg-muted gap-2"
                         >
                           <CheckCircle className="h-4 w-4" />
                           Marcar como terminada
@@ -958,7 +958,7 @@ export function CampanaDetail() {
                       <p className="text-[11px] text-amber-600 text-center">Programación pausada — no se ejecutarán envíos hasta reactivar</p>
                     )}
                     {campaign.status === "completed" && (
-                      <p className="text-[11px] text-gray-500 text-center">Campaña terminada — no se ejecutarán más envíos</p>
+                      <p className="text-[11px] text-muted-foreground text-center">Campaña terminada — no se ejecutarán más envíos</p>
                     )}
                   </div>
                 );
@@ -966,10 +966,10 @@ export function CampanaDetail() {
             </div>
 
             {/* Send history */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">Historial de Envíos</h2>
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h2 className="text-base font-semibold text-foreground mb-4">Historial de Envíos</h2>
               {sends.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">No se han realizado envíos aún</p>
+                <p className="text-sm text-muted-foreground text-center py-6">No se han realizado envíos aún</p>
               ) : (
                 <div className="space-y-3">
                   {sends.map((s) => {
@@ -980,7 +980,7 @@ export function CampanaDetail() {
                     return (
                       <div key={s.id} className={cn(
                         "p-4 rounded-lg border transition-all",
-                        isActive ? "border-amber-200 bg-amber-50/30" : s.status === "completed" ? "border-green-100 bg-green-50/20" : s.status === "failed" ? "border-red-100 bg-red-50/20" : "border-gray-100 bg-gray-50"
+                        isActive ? "border-amber-200 bg-amber-50/30" : s.status === "completed" ? "border-green-100 bg-green-50/20" : s.status === "failed" ? "border-red-100 bg-red-50/20" : "border-border bg-muted"
                       )}>
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
@@ -988,26 +988,26 @@ export function CampanaDetail() {
                               "h-2.5 w-2.5 rounded-full",
                               s.status === "completed" ? "bg-green-500" :
                               isActive ? "bg-amber-500 animate-pulse" :
-                              s.status === "failed" ? "bg-red-500" : "bg-gray-400"
+                              s.status === "failed" ? "bg-red-500" : "bg-muted-foreground/50"
                             )} />
-                            <span className="text-sm font-medium text-gray-900">
+                            <span className="text-sm font-medium text-foreground">
                               {s.status === "completed" ? "Completado" :
                                s.status === "sending" ? "Enviando..." :
                                s.status === "queued" ? "En cola..." :
                                s.status === "failed" ? "Fallido" : "Pendiente"}
                             </span>
                           </div>
-                          <span className="text-xs text-gray-400">{new Date(s.createdAt).toLocaleString()}</span>
+                          <span className="text-xs text-muted-foreground">{new Date(s.createdAt).toLocaleString()}</span>
                         </div>
 
                         {/* Progress bar for active sends */}
                         {isActive && s.totalRecipients > 0 && (
                           <div className="mb-3">
-                            <div className="flex justify-between text-[11px] text-gray-500 mb-1">
+                            <div className="flex justify-between text-[11px] text-muted-foreground mb-1">
                               <span>{processed.toLocaleString()} / {s.totalRecipients.toLocaleString()} procesados</span>
                               <span>{Math.round(progress)}%</span>
                             </div>
-                            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div className="h-2 bg-muted rounded-full overflow-hidden">
                               <div
                                 className="h-full rounded-full bg-amber-500 transition-all duration-300"
                                 style={{ width: `${progress}%` }}
@@ -1019,22 +1019,22 @@ export function CampanaDetail() {
                         {/* Stats */}
                         <div className="flex items-center gap-4 text-xs">
                           <div className="flex items-center gap-1">
-                            <span className="text-gray-400">Destinos:</span>
-                            <span className="font-semibold text-gray-900">{s.totalRecipients.toLocaleString()}</span>
+                            <span className="text-muted-foreground">Destinos:</span>
+                            <span className="font-semibold text-foreground">{s.totalRecipients.toLocaleString()}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-gray-400">Enviados:</span>
+                            <span className="text-muted-foreground">Enviados:</span>
                             <span className="font-semibold text-green-600">{s.totalSent.toLocaleString()}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-gray-400">Fallidos:</span>
+                            <span className="text-muted-foreground">Fallidos:</span>
                             <span className="font-semibold text-red-600">{s.totalFailed.toLocaleString()}</span>
                           </div>
                         </div>
 
                         {/* Timestamps */}
                         {(s.startedAt || s.completedAt) && (
-                          <div className="flex items-center gap-3 mt-2 text-[11px] text-gray-400">
+                          <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
                             {s.startedAt && <span>Inicio: {new Date(s.startedAt).toLocaleTimeString()}</span>}
                             {s.completedAt && <span>Fin: {new Date(s.completedAt).toLocaleTimeString()}</span>}
                             {s.startedAt && s.completedAt && (
@@ -1064,9 +1064,9 @@ export function CampanaDetail() {
             className="absolute inset-0 bg-black/40"
             onClick={() => setShowSegmentEditor(false)}
           />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-gray-200 shrink-0">
-              <h3 className="text-lg font-semibold text-gray-900">Editar Segmentación</h3>
+          <div className="relative bg-card rounded-xl shadow-xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-border shrink-0">
+              <h3 className="text-lg font-semibold text-foreground">Editar Segmentación</h3>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -1106,8 +1106,8 @@ export function CampanaDetail() {
             className="absolute inset-0 bg-black/40"
             onClick={() => setShowRenameModal(false)}
           />
-          <div className="relative bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="relative bg-card rounded-xl shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-foreground mb-4">
               Renombrar campaña
             </h3>
             <input
@@ -1116,7 +1116,7 @@ export function CampanaDetail() {
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleRename()}
               placeholder="Nombre de la campaña"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               autoFocus
             />
             <div className="flex justify-end gap-2 mt-4">

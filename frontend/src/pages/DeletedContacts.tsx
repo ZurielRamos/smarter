@@ -74,37 +74,37 @@ export function DeletedContacts() {
         {/* Search bar */}
         <div className="px-4 pb-3 shrink-0">
           <div className="relative max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar en eliminados..."
-              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              className="w-full pl-9 pr-3 py-2 border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             />
           </div>
         </div>
 
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : total === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <Trash2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">{search ? "Sin resultados" : "No hay contactos eliminados"}</p>
+              <Trash2 className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground">{search ? "Sin resultados" : "No hay contactos eliminados"}</p>
               <button onClick={() => navigate(`/${slug}/clients`)} className="text-sm text-brand-600 hover:text-brand-700 font-medium mt-2">
                 Volver a contactos
               </button>
             </div>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col bg-card rounded-xl border border-border overflow-hidden">
             <div className="flex-1 min-h-0 overflow-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10">
-                  <tr className="bg-gray-50 border-b border-gray-200">
+                  <tr className="bg-muted text-muted-foreground border-b border-border">
                     <th className="px-3 py-3 w-10">
                       <input
                         type="checkbox"
@@ -113,11 +113,11 @@ export function DeletedContacts() {
                         className="h-3.5 w-3.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                       />
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Nombre</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Email</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Teléfono</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Estado</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Eliminado</th>
+                    <th className="px-4 py-3 text-left font-semibold text-foreground">Nombre</th>
+                    <th className="px-4 py-3 text-left font-semibold text-foreground">Email</th>
+                    <th className="px-4 py-3 text-left font-semibold text-foreground">Teléfono</th>
+                    <th className="px-4 py-3 text-left font-semibold text-foreground">Estado</th>
+                    <th className="px-4 py-3 text-left font-semibold text-foreground">Eliminado</th>
                     <th className="px-4 py-3 w-16"></th>
                   </tr>
                 </thead>
@@ -125,7 +125,7 @@ export function DeletedContacts() {
                   {clients.map((client) => {
                     const name = [client.firstName, client.lastName].filter(Boolean).join(" ") || "Sin nombre";
                     return (
-                      <tr key={client.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <tr key={client.id} className="border-b border-border hover:bg-muted">
                         <td className="px-3 py-2.5">
                           <input
                             type="checkbox"
@@ -134,19 +134,19 @@ export function DeletedContacts() {
                             className="h-3.5 w-3.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                           />
                         </td>
-                        <td className="px-4 py-2.5 text-gray-900">{name}</td>
-                        <td className="px-4 py-2.5 text-gray-600">{client.email || "—"}</td>
-                        <td className="px-4 py-2.5 text-gray-600">{client.phone || "—"}</td>
+                        <td className="px-4 py-2.5 text-foreground">{name}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{client.email || "—"}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{client.phone || "—"}</td>
                         <td className="px-4 py-2.5">
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 capitalize">{client.status || "—"}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize">{client.status || "—"}</span>
                         </td>
-                        <td className="px-4 py-2.5 text-xs text-gray-400">
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground">
                           {client.deletedAt ? new Date(client.deletedAt).toLocaleString("es-CO") : "—"}
                         </td>
                         <td className="px-4 py-2.5">
                           <button
                             onClick={() => handleRestore([client.id])}
-                            className="h-7 w-7 rounded flex items-center justify-center text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                            className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-400 transition-colors"
                             title="Restaurar"
                           >
                             <RotateCcw className="h-3.5 w-3.5" />
@@ -161,11 +161,11 @@ export function DeletedContacts() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="shrink-0 flex items-center justify-between px-4 py-3 border-t border-gray-200">
-                <p className="text-sm text-gray-500">{total.toLocaleString()} eliminados · Página {page} de {totalPages}</p>
+              <div className="shrink-0 flex items-center justify-between px-4 py-3 border-t border-border">
+                <p className="text-sm text-muted-foreground">{total.toLocaleString()} eliminados · Página {page} de {totalPages}</p>
                 <div className="flex gap-2">
-                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">Anterior</button>
-                  <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">Siguiente</button>
+                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-muted disabled:opacity-50">Anterior</button>
+                  <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-muted disabled:opacity-50">Siguiente</button>
                 </div>
               </div>
             )}

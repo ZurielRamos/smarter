@@ -65,12 +65,12 @@ export function ComunicacionesLayout() {
               <Settings2 className="h-4 w-4" />
             </button>
             {settingsOpen && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="absolute right-0 top-full mt-2 w-48 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
                 <button
                   onClick={() => { setSettingsOpen(false); navigate(`/${slug}/inboxes`); }}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                 >
-                  <Inbox className="h-4 w-4 text-gray-400" />
+                  <Inbox className="h-4 w-4 text-muted-foreground" />
                   Bandejas
                 </button>
               </div>
@@ -80,18 +80,18 @@ export function ComunicacionesLayout() {
       </div>
 
       {/* Main layout */}
-      <div className="flex-1 flex overflow-hidden mt-4 rounded-t-xl border border-gray-200 bg-white min-w-0">
+      <div className="flex-1 flex overflow-hidden mt-4 rounded-t-xl border border-border bg-card min-w-0">
         {/* Icon sidebar */}
-        <div className="w-12 border-r border-gray-100 flex flex-col items-center py-3 gap-1 shrink-0 bg-gray-50/50">
+        <div className="w-12 border-r border-border flex flex-col items-center py-3 gap-1 shrink-0 bg-muted/50">
           {navItems.map((item) => (
             <div key={item.key} className="relative group/tip">
               <button
                 onClick={() => navigate(`/${slug}/comunicaciones/${item.path}`)}
-                className={`p-2.5 rounded-lg transition-colors ${activeView === item.key ? "bg-brand-100 text-brand-700" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
+                className={`p-2.5 rounded-lg transition-colors ${activeView === item.key ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-100" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
               >
                 {item.icon}
               </button>
-              <span className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 rounded-md bg-gray-900 text-white text-[10px] whitespace-nowrap opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity duration-150 z-50">
+              <span className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 rounded-md bg-gray-900 dark:bg-gray-700 text-white text-[10px] whitespace-nowrap opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity duration-150 z-50">
                 {item.label}
               </span>
             </div>

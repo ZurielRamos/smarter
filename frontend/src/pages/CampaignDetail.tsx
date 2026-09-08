@@ -57,7 +57,7 @@ interface CampaignSendRecord {
 }
 
 const statusColors: Record<string, { bg: string; text: string }> = {
-  draft: { bg: "bg-gray-100", text: "text-gray-600" },
+  draft: { bg: "bg-muted", text: "text-muted-foreground" },
   active: { bg: "bg-green-100", text: "text-green-700" },
   completed: { bg: "bg-blue-100", text: "text-blue-700" },
   paused: { bg: "bg-orange-100", text: "text-orange-700" },
@@ -358,7 +358,7 @@ export function CampaignDetail() {
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-gray-500">Cargando...</p>
+        <p className="text-muted-foreground">Cargando...</p>
       </div>
     );
   }
@@ -445,9 +445,9 @@ export function CampaignDetail() {
           {/* Main info */}
           <div className="lg:col-span-2 space-y-6">
             {/* Segmentation */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-gray-900">Segmentación</h2>
+                <h2 className="text-base font-semibold text-foreground">Segmentación</h2>
                 {!campaign.listId && (
                   <button
                     onClick={handleOpenSegmentEditor}
@@ -475,10 +475,10 @@ export function CampaignDetail() {
                             setCampaign(updated);
                           }
                         }}
-                        className={`p-4 rounded-xl border-2 text-left transition-all ${!usesList ? "border-brand-500 bg-brand-50/50" : "border-gray-200 hover:border-gray-300"}`}
+                        className={`p-4 rounded-xl border-2 text-left transition-all ${!usesList ? "border-brand-500 bg-brand-50/50" : "border-border hover:border-border"}`}
                       >
-                        <p className={`text-sm font-semibold ${!usesList ? "text-brand-800" : "text-gray-700"}`}>Segmentación</p>
-                        <p className="text-[11px] text-gray-500 mt-1">Define condiciones para filtrar contactos dinámicamente al enviar</p>
+                        <p className={`text-sm font-semibold ${!usesList ? "text-brand-800" : "text-foreground"}`}>Segmentación</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">Define condiciones para filtrar contactos dinámicamente al enviar</p>
                       </button>
                       <button
                         onClick={() => {
@@ -486,13 +486,13 @@ export function CampaignDetail() {
                             setCampaign({ ...campaign, listId: "pending" });
                           }
                         }}
-                        className={`p-4 rounded-xl border-2 text-left transition-all ${usesList ? "border-brand-500 bg-brand-50/50" : "border-gray-200 hover:border-gray-300"}`}
+                        className={`p-4 rounded-xl border-2 text-left transition-all ${usesList ? "border-brand-500 bg-brand-50/50" : "border-border hover:border-border"}`}
                       >
                         <div className="flex items-center gap-1.5">
-                          <List className="h-3.5 w-3.5 text-gray-500" />
-                          <p className={`text-sm font-semibold ${usesList ? "text-brand-800" : "text-gray-700"}`}>Lista</p>
+                          <List className="h-3.5 w-3.5 text-muted-foreground" />
+                          <p className={`text-sm font-semibold ${usesList ? "text-brand-800" : "text-foreground"}`}>Lista</p>
                         </div>
-                        <p className="text-[11px] text-gray-500 mt-1">Usa una lista pre-definida de contactos (estática o dinámica)</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">Usa una lista pre-definida de contactos (estática o dinámica)</p>
                       </button>
                     </div>
 
@@ -502,8 +502,8 @@ export function CampaignDetail() {
                         {selectedList ? (
                           <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-brand-200 bg-brand-50/50">
                             <div>
-                              <p className="text-sm font-medium text-gray-800">{selectedList.name}</p>
-                              <p className="text-[11px] text-gray-500">{selectedList.type === "dynamic" ? "Dinámica — se recalcula al enviar" : "Estática"}{selectedList.type === "static" && selectedList.recordIds ? ` · ${selectedList.recordIds.length} contactos` : ""}</p>
+                              <p className="text-sm font-medium text-foreground">{selectedList.name}</p>
+                              <p className="text-[11px] text-muted-foreground">{selectedList.type === "dynamic" ? "Dinámica — se recalcula al enviar" : "Estática"}{selectedList.type === "static" && selectedList.recordIds ? ` · ${selectedList.recordIds.length} contactos` : ""}</p>
                             </div>
                             <button
                               onClick={() => setCampaign({ ...campaign, listId: "pending" })}
@@ -515,10 +515,10 @@ export function CampaignDetail() {
                         ) : (
                           /* List picker */
                           recordLists.length === 0 ? (
-                            <p className="text-xs text-gray-400 py-4 text-center">No hay listas creadas. Crea una desde la vista de Contactos.</p>
+                            <p className="text-xs text-muted-foreground py-4 text-center">No hay listas creadas. Crea una desde la vista de Contactos.</p>
                           ) : (
                             <div className="space-y-2">
-                              <p className="text-xs text-gray-500 mb-2">Selecciona una lista:</p>
+                              <p className="text-xs text-muted-foreground mb-2">Selecciona una lista:</p>
                               {recordLists.map((list) => (
                                 <button
                                   key={list.id}
@@ -526,11 +526,11 @@ export function CampaignDetail() {
                                     const { data: updated } = await api.put(`/campaigns/${campaign.id}`, { listId: list.id });
                                     setCampaign(updated);
                                   }}
-                                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 hover:border-brand-300 hover:bg-brand-50/30 text-left transition-all"
+                                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-border hover:border-brand-300 hover:bg-brand-50/30 text-left transition-all"
                                 >
                                   <div>
-                                    <p className="text-sm font-medium text-gray-800">{list.name}</p>
-                                    <p className="text-[11px] text-gray-400">{list.type === "dynamic" ? "Dinámica" : "Estática"}{list.type === "static" && list.recordIds ? ` · ${list.recordIds.length} contactos` : ""}</p>
+                                    <p className="text-sm font-medium text-foreground">{list.name}</p>
+                                    <p className="text-[11px] text-muted-foreground">{list.type === "dynamic" ? "Dinámica" : "Estática"}{list.type === "static" && list.recordIds ? ` · ${list.recordIds.length} contactos` : ""}</p>
                                   </div>
                                 </button>
                               ))}
@@ -542,11 +542,11 @@ export function CampaignDetail() {
                       /* Segment conditions display */
                       <div className="space-y-3">
                         {campaign.segments.length === 0 ? (
-                          <p className="text-xs text-gray-400 py-3 text-center">Sin condiciones configuradas. Haz click en "Editar" para agregar filtros.</p>
+                          <p className="text-xs text-muted-foreground py-3 text-center">Sin condiciones configuradas. Haz click en "Editar" para agregar filtros.</p>
                         ) : campaign.segments.map((group, gIdx) => (
-                          <div key={gIdx} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                          <div key={gIdx} className="rounded-lg border border-border bg-muted p-4">
                             <div className="flex items-center gap-2 mb-3">
-                              <span className="text-xs font-semibold text-gray-500 uppercase">
+                              <span className="text-xs font-semibold text-muted-foreground uppercase">
                                 Grupo {gIdx + 1}
                               </span>
                               <span className="px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-700">
@@ -557,16 +557,16 @@ export function CampaignDetail() {
                               {group.conditions.map((cond, cIdx) => (
                                 <div
                                   key={cIdx}
-                                  className="flex items-center gap-2 text-sm bg-white rounded-md border border-gray-200 px-3 py-2"
+                                  className="flex items-center gap-2 text-sm bg-card rounded-md border border-border px-3 py-2"
                                 >
                                   <span className="font-medium text-brand-700">
                                     {fieldLabels[cond.field] || cond.field}
                                   </span>
-                                  <span className="text-gray-500">
+                                  <span className="text-muted-foreground">
                                     {operatorLabels[cond.operator] || cond.operator}
                                   </span>
                                   {!["is_true", "is_false", "is_null", "is_not_null"].includes(cond.operator) && (
-                                    <span className="font-medium text-gray-900">
+                                    <span className="font-medium text-foreground">
                                       {String(cond.value)}
                                     </span>
                                   )}
@@ -583,17 +583,17 @@ export function CampaignDetail() {
             </div>
 
             {/* Audience */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-base font-semibold text-gray-900 mb-2">Audiencia</h2>
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h2 className="text-base font-semibold text-foreground mb-2">Audiencia</h2>
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 rounded-lg bg-accent-50 flex items-center justify-center">
                   <Users className="h-6 w-6 text-accent-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-2xl font-bold text-foreground">
                     {campaign.matchedCount.toLocaleString()}
                   </p>
-                  <p className="text-sm text-gray-500">clientes que cumplen las condiciones</p>
+                  <p className="text-sm text-muted-foreground">clientes que cumplen las condiciones</p>
                 </div>
               </div>
             </div>
@@ -651,9 +651,9 @@ export function CampaignDetail() {
             )}
 
             {/* Send History */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-gray-900">Historial de Envíos</h2>
+                <h2 className="text-base font-semibold text-foreground">Historial de Envíos</h2>
                 <button
                   onClick={handleSendCampaign}
                   disabled={sending || (campaign.channel === "sms" ? !campaign.messageTemplate : campaign.channel === "whatsapp" ? !campaign.whatsappTemplateName : campaign.channel === "llamada" ? (!campaign.messageTemplate && !campaign.callAudioCode) : true)}
@@ -665,13 +665,13 @@ export function CampaignDetail() {
               </div>
 
               {sends.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">
+                <p className="text-sm text-muted-foreground text-center py-6">
                   No se han realizado envíos aún
                 </p>
               ) : (
                 <div className="space-y-2">
                   {sends.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50">
+                    <div key={s.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted">
                       <div className="flex items-center gap-3">
                         <div className={`h-2 w-2 rounded-full ${
                           s.status === "completed" ? "bg-green-500" :
@@ -679,10 +679,10 @@ export function CampaignDetail() {
                           s.status === "failed" ? "bg-red-500" : "bg-gray-400"
                         }`} />
                         <div>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-foreground">
                             {new Date(s.createdAt).toLocaleString()}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-muted-foreground">
                             {s.status === "completed" ? "Completado" :
                              s.status === "sending" ? "Enviando..." :
                              s.status === "failed" ? "Fallido" : "Pendiente"}
@@ -691,16 +691,16 @@ export function CampaignDetail() {
                       </div>
                       <div className="flex items-center gap-4 text-xs">
                         <div className="text-center">
-                          <p className="font-semibold text-gray-900">{s.totalRecipients}</p>
-                          <p className="text-gray-400">Destinos</p>
+                          <p className="font-semibold text-foreground">{s.totalRecipients}</p>
+                          <p className="text-muted-foreground">Destinos</p>
                         </div>
                         <div className="text-center">
                           <p className="font-semibold text-green-600">{s.totalSent}</p>
-                          <p className="text-gray-400">Enviados</p>
+                          <p className="text-muted-foreground">Enviados</p>
                         </div>
                         <div className="text-center">
                           <p className="font-semibold text-red-600">{s.totalFailed}</p>
-                          <p className="text-gray-400">Fallidos</p>
+                          <p className="text-muted-foreground">Fallidos</p>
                         </div>
                       </div>
                     </div>
@@ -713,39 +713,39 @@ export function CampaignDetail() {
           {/* Sidebar info */}
           <div className="space-y-6">
             {/* Schedule */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-gray-900">Programación</h2>
+                <h2 className="text-base font-semibold text-foreground">Programación</h2>
                 <button
                   onClick={handleOpenScheduleModal}
-                  className="p-1.5 rounded-md text-gray-400 hover:text-brand-700 hover:bg-brand-50 transition-colors"
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-brand-700 hover:bg-brand-50 transition-colors"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
               </div>
               <div className="space-y-3 text-sm">
                 {campaign.maxSends && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Users className="h-4 w-4 text-gray-400" />
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Users className="h-4 w-4 text-muted-foreground" />
                     <span>Máx. {campaign.maxSends.toLocaleString()} envíos</span>
                   </div>
                 )}
                 {campaign.isRecurring ? (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <RefreshCw className="h-4 w-4 text-gray-400" />
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <RefreshCw className="h-4 w-4 text-muted-foreground" />
                     <span>Recurrente</span>
                   </div>
                 ) : (
                   campaign.sendDate && (
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Calendar className="h-4 w-4 text-gray-400" />
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span>{new Date(campaign.sendDate).toLocaleDateString()}</span>
                     </div>
                   )
                 )}
                 {campaign.sendTime && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Clock className="h-4 w-4 text-gray-400" />
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
                     <span>{campaign.sendTime}</span>
                   </div>
                 )}
@@ -762,7 +762,7 @@ export function CampaignDetail() {
                   </div>
                 )}
                 {!campaign.maxSends && !campaign.sendDate && !campaign.sendTime && !campaign.isRecurring && (
-                  <p className="text-gray-400">Sin configurar</p>
+                  <p className="text-muted-foreground">Sin configurar</p>
                 )}
               </div>
             </div>
@@ -775,25 +775,25 @@ export function CampaignDetail() {
       {showScheduleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowScheduleModal(false)} />
-          <div className="relative bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-5">Editar Programación</h3>
+          <div className="relative bg-card rounded-xl shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-foreground mb-5">Editar Programación</h3>
 
             <div className="space-y-5">
               {/* Max sends */}
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1.5">Máximo de envíos</label>
+                <label className="text-sm font-medium text-foreground block mb-1.5">Máximo de envíos</label>
                 <input
                   type="number"
                   value={editMaxSends}
                   onChange={(e) => setEditMaxSends(e.target.value ? Number(e.target.value) : "")}
                   placeholder="Sin límite"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
                 />
               </div>
 
               {/* Recurring */}
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-gray-700">Recurrente</label>
+                <label className="text-sm font-medium text-foreground">Recurrente</label>
                 <button
                   type="button"
                   onClick={() => setEditIsRecurring(!editIsRecurring)}
@@ -812,26 +812,26 @@ export function CampaignDetail() {
               {/* Date (if not recurring) */}
               {!editIsRecurring && (
                 <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1.5">Fecha de envío</label>
+                  <label className="text-sm font-medium text-foreground block mb-1.5">Fecha de envío</label>
                   <input
                     type="date"
                     value={editSendDate}
                     onChange={(e) => setEditSendDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
                   />
                 </div>
               )}
 
               {/* Time */}
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1.5">Hora de envío</label>
+                <label className="text-sm font-medium text-foreground block mb-1.5">Hora de envío</label>
                 <TimePicker value={editSendTime} onChange={setEditSendTime} />
               </div>
 
               {/* Recurrence days */}
               {editIsRecurring && (
                 <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1.5">Días de envío</label>
+                  <label className="text-sm font-medium text-foreground block mb-1.5">Días de envío</label>
                   <div className="flex gap-1.5 flex-wrap">
                     {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day, idx) => {
                       const dayKey = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"][idx];
@@ -851,7 +851,7 @@ export function CampaignDetail() {
                             "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                             isSelected
                               ? "bg-brand-600 text-white"
-                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                              : "bg-muted text-muted-foreground hover:bg-muted"
                           )}
                         >
                           {day}
@@ -884,7 +884,7 @@ export function CampaignDetail() {
       {showSendModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" />
-          <div className="relative bg-white rounded-xl shadow-xl p-8 w-full max-w-md">
+          <div className="relative bg-card rounded-xl shadow-xl p-8 w-full max-w-md">
             {activeSend ? (
               <div>
                 {/* Status icon */}
@@ -905,20 +905,20 @@ export function CampaignDetail() {
                     </div>
                   )}
                   {activeSend.status === 'pending' && (
-                    <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center">
-                      <Send className="h-7 w-7 text-gray-400" />
+                    <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
+                      <Send className="h-7 w-7 text-muted-foreground" />
                     </div>
                   )}
                 </div>
 
                 {/* Title */}
-                <h3 className="text-lg font-semibold text-center text-gray-900 mb-1">
+                <h3 className="text-lg font-semibold text-center text-foreground mb-1">
                   {activeSend.status === 'sending' && 'Enviando campaña...'}
                   {activeSend.status === 'completed' && 'Envío completado'}
                   {activeSend.status === 'failed' && 'Error en el envío'}
                   {activeSend.status === 'pending' && 'Preparando envío...'}
                 </h3>
-                <p className="text-sm text-center text-gray-500 mb-6">
+                <p className="text-sm text-center text-muted-foreground mb-6">
                   {activeSend.status === 'sending' && 'Los mensajes se están enviando a los destinatarios'}
                   {activeSend.status === 'completed' && 'Todos los mensajes han sido procesados'}
                   {activeSend.status === 'failed' && (activeSend.errorMessage || 'Ocurrió un error durante el envío')}
@@ -928,11 +928,11 @@ export function CampaignDetail() {
                 {/* Progress bar */}
                 {activeSend.totalRecipients > 0 && (
                   <div className="mb-6">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1.5">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
                       <span>Progreso</span>
                       <span>{activeSend.totalSent + activeSend.totalFailed} / {activeSend.totalRecipients}</span>
                     </div>
-                    <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-2.5 bg-muted rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500 bg-accent-500"
                         style={{ width: `${((activeSend.totalSent + activeSend.totalFailed) / activeSend.totalRecipients) * 100}%` }}
@@ -943,17 +943,17 @@ export function CampaignDetail() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="text-center p-3 bg-gray-50 rounded-lg">
-                    <p className="text-xl font-bold text-gray-900">{activeSend.totalRecipients}</p>
-                    <p className="text-xs text-gray-500">Destinatarios</p>
+                  <div className="text-center p-3 bg-muted rounded-lg">
+                    <p className="text-xl font-bold text-foreground">{activeSend.totalRecipients}</p>
+                    <p className="text-xs text-muted-foreground">Destinatarios</p>
                   </div>
                   <div className="text-center p-3 bg-green-50 rounded-lg">
                     <p className="text-xl font-bold text-green-600">{activeSend.totalSent}</p>
-                    <p className="text-xs text-gray-500">Enviados</p>
+                    <p className="text-xs text-muted-foreground">Enviados</p>
                   </div>
                   <div className="text-center p-3 bg-red-50 rounded-lg">
                     <p className="text-xl font-bold text-red-600">{activeSend.totalFailed}</p>
-                    <p className="text-xs text-gray-500">Fallidos</p>
+                    <p className="text-xs text-muted-foreground">Fallidos</p>
                   </div>
                 </div>
 
@@ -969,10 +969,10 @@ export function CampaignDetail() {
               </div>
             ) : (
               <div className="flex flex-col items-center py-8">
-                <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center animate-pulse mb-4">
-                  <Send className="h-6 w-6 text-gray-400" />
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center animate-pulse mb-4">
+                  <Send className="h-6 w-6 text-muted-foreground" />
                 </div>
-                <p className="text-gray-500">Iniciando envío...</p>
+                <p className="text-muted-foreground">Iniciando envío...</p>
               </div>
             )}
           </div>
@@ -986,9 +986,9 @@ export function CampaignDetail() {
             className="absolute inset-0 bg-black/40"
             onClick={() => setShowSegmentEditor(false)}
           />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-gray-200 shrink-0">
-              <h3 className="text-lg font-semibold text-gray-900">Editar Segmentación</h3>
+          <div className="relative bg-card rounded-xl shadow-xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-border shrink-0">
+              <h3 className="text-lg font-semibold text-foreground">Editar Segmentación</h3>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -1027,8 +1027,8 @@ export function CampaignDetail() {
             className="absolute inset-0 bg-black/40"
             onClick={() => setShowRenameModal(false)}
           />
-          <div className="relative bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="relative bg-card rounded-xl shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-foreground mb-4">
               Renombrar campaña
             </h3>
             <input
@@ -1037,7 +1037,7 @@ export function CampaignDetail() {
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleRename()}
               placeholder="Nombre de la campaña"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               autoFocus
             />
             <div className="flex justify-end gap-2 mt-4">

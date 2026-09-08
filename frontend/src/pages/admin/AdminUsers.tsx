@@ -179,28 +179,28 @@ export function AdminUsers() {
         {/* Search */}
         <div className="mb-6 px-8">
           <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Buscar usuarios..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             />
           </div>
         </div>
 
         {/* Users list or empty state */}
         {filteredUsers.length === 0 && !showForm ? (
-          <div className="mx-8 bg-white rounded-xl border border-gray-200 p-12">
+          <div className="mx-8 bg-card rounded-xl border border-border p-12">
             <div className="flex flex-col items-center justify-center text-center">
               <div className="h-16 w-16 rounded-full bg-brand-50 flex items-center justify-center mb-4">
                 <Users className="h-7 w-7 text-brand-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+              <h3 className="text-lg font-semibold text-foreground mb-1">
                 Sin usuarios registrados
               </h3>
-              <p className="text-gray-500 text-sm max-w-sm">
+              <p className="text-muted-foreground text-sm max-w-sm">
                 No hay usuarios registrados aún. Crea el primer usuario para
                 comenzar a gestionar la plataforma.
               </p>
@@ -215,14 +215,14 @@ export function AdminUsers() {
           </div>
         ) : (
           <div className="px-8">
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-card rounded-xl border border-border overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Usuario</th>
-                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Cuentas</th>
-                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Estado</th>
+                  <tr className="border-b border-border bg-muted">
+                    <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Usuario</th>
+                    <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Tipo</th>
+                    <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Cuentas</th>
+                    <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase">Estado</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -230,7 +230,7 @@ export function AdminUsers() {
                     <tr
                       key={user.id}
                       className={`border-b border-gray-50 cursor-default transition-colors ${
-                        contextMenu?.user.id === user.id ? "bg-brand-50" : "hover:bg-gray-50/50"
+                        contextMenu?.user.id === user.id ? "bg-brand-50" : "hover:bg-muted/50"
                       }`}
                       onContextMenu={(e) => {
                         e.preventDefault();
@@ -243,8 +243,8 @@ export function AdminUsers() {
                             {user.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{user.name}</p>
-                            <p className="text-xs text-gray-400">{user.email}</p>
+                            <p className="font-medium text-foreground">{user.name}</p>
+                            <p className="text-xs text-muted-foreground">{user.email}</p>
                           </div>
                         </div>
                       </td>
@@ -255,12 +255,12 @@ export function AdminUsers() {
                             Super Admin
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-500">Usuario</span>
+                          <span className="text-xs text-muted-foreground">Usuario</span>
                         )}
                       </td>
                       <td className="px-5 py-3">
                         {user.tenantRoles.length === 0 ? (
-                          <span className="text-xs text-gray-400">Sin cuentas</span>
+                          <span className="text-xs text-muted-foreground">Sin cuentas</span>
                         ) : (
                           <div className="flex flex-wrap gap-1">
                             {user.tenantRoles.map((tr) => (
@@ -302,23 +302,23 @@ export function AdminUsers() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.75 }}
               transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
-              className="fixed z-[100] bg-white rounded-lg shadow-lg border border-gray-200 py-1 w-48 origin-top-left"
+              className="fixed z-[100] bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 w-48 origin-top-left"
               style={{ top: contextMenu.y, left: contextMenu.x }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="px-3 py-1.5 border-b border-gray-100 mb-1">
-                <p className="text-xs font-medium text-gray-900 truncate">{contextMenu.user.name}</p>
-                <p className="text-xs text-gray-400 truncate">{contextMenu.user.email}</p>
+              <div className="px-3 py-1.5 border-b border-border mb-1">
+                <p className="text-xs font-medium text-foreground truncate">{contextMenu.user.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{contextMenu.user.email}</p>
               </div>
               <button
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                 onClick={() => setContextMenu(null)}
               >
                 <Info className="h-4 w-4 text-brand-500" />
                 Ver detalles
               </button>
               <button
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                 onClick={() => {
                   setEditingUser(contextMenu.user);
                   setEditForm({
@@ -334,7 +334,7 @@ export function AdminUsers() {
                 Editar
               </button>
               <button
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                 onClick={() => {
                   setTenantsModal(contextMenu.user);
                   setContextMenu(null);
@@ -343,7 +343,7 @@ export function AdminUsers() {
                 <Building2 className="h-4 w-4 text-accent-500" />
                 Administrar cuentas
               </button>
-              <div className="border-t border-gray-100 my-1" />
+              <div className="border-t border-border my-1" />
               <button
                 className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-amber-700 hover:bg-amber-50 transition-colors"
                 onClick={() => setContextMenu(null)}
@@ -381,14 +381,14 @@ export function AdminUsers() {
                 className="rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-white/30 shadow-2xl bg-white/80"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                <div className="flex items-center justify-between p-6 border-b border-border">
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900">Nuevo Usuario</h2>
-                    <p className="text-xs text-gray-400 mt-0.5">Completa la información para crear un nuevo acceso</p>
+                    <h2 className="text-lg font-semibold text-foreground">Nuevo Usuario</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Completa la información para crear un nuevo acceso</p>
                   </div>
                   <button
                     onClick={() => { setShowForm(false); resetForm(); }}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-muted-foreground hover:text-muted-foreground"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -397,7 +397,7 @@ export function AdminUsers() {
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
                   {/* === SECCIÓN: Información personal === */}
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                       <div className="h-6 w-6 rounded-full bg-brand-100 flex items-center justify-center">
                         <Users className="h-3.5 w-3.5 text-brand-600" />
                       </div>
@@ -408,7 +408,7 @@ export function AdminUsers() {
                       {/* Nombre + Email en grid */}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-sm font-medium text-foreground mb-1">
                             Nombre completo
                           </label>
                           <input
@@ -417,12 +417,12 @@ export function AdminUsers() {
                             value={form.name}
                             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                             placeholder="Juan Pérez"
-                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
+                            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-sm font-medium text-foreground mb-1">
                             Correo electrónico
                           </label>
                           <div className="relative">
@@ -441,11 +441,11 @@ export function AdminUsers() {
                                   ? "border-red-300 focus:ring-red-400"
                                   : emailStatus === "available"
                                   ? "border-green-300 focus:ring-green-400"
-                                  : "border-gray-200"
+                                  : "border-border"
                               }`}
                             />
                             <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                              {emailStatus === "checking" && <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />}
+                              {emailStatus === "checking" && <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />}
                               {emailStatus === "available" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
                               {emailStatus === "taken" && <XCircle className="h-4 w-4 text-red-500" />}
                             </div>
@@ -459,7 +459,7 @@ export function AdminUsers() {
                       {/* Password + Super Admin en grid */}
                       <div className="grid grid-cols-2 gap-4 items-end">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-sm font-medium text-foreground mb-1">
                             Contraseña
                           </label>
                           <input
@@ -469,25 +469,25 @@ export function AdminUsers() {
                             onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
                             placeholder="Mínimo 6 caracteres"
                             minLength={6}
-                            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
+                            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
                           />
-                          <p className="text-xs text-gray-400 mt-1">El usuario podrá cambiarla después</p>
+                          <p className="text-xs text-muted-foreground mt-1">El usuario podrá cambiarla después</p>
                         </div>
 
                         <div>
-                          <label className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-amber-300 hover:bg-amber-50/30 cursor-pointer transition-colors">
+                          <label className="flex items-start gap-3 p-3 rounded-lg border border-border hover:border-amber-300 hover:bg-amber-50/30 cursor-pointer transition-colors">
                             <input
                               type="checkbox"
                               checked={form.isSuperAdmin}
                               onChange={(e) => setForm((f) => ({ ...f, isSuperAdmin: e.target.checked }))}
-                              className="h-4 w-4 mt-0.5 rounded border-gray-300 text-accent-500 focus:ring-accent-500"
+                              className="h-4 w-4 mt-0.5 rounded border-border text-accent-500 focus:ring-accent-500"
                             />
                             <div>
-                              <p className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
+                              <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
                                 <ShieldCheck className="h-3.5 w-3.5 text-amber-500" />
                                 Super Admin
                               </p>
-                              <p className="text-xs text-gray-500 mt-0.5">Panel de administración</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">Panel de administración</p>
                             </div>
                           </label>
                         </div>
@@ -496,9 +496,9 @@ export function AdminUsers() {
                   </div>
 
                   {/* === SECCIÓN: Cuentas asignadas === */}
-                  <div className="space-y-4 border-t border-gray-100 pt-6">
+                  <div className="space-y-4 border-t border-border pt-6">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                         <div className="h-6 w-6 rounded-full bg-accent-100 flex items-center justify-center">
                           <Building2 className="h-3.5 w-3.5 text-accent-600" />
                         </div>
@@ -516,10 +516,10 @@ export function AdminUsers() {
 
                     <div className="pl-8">
                       {form.tenantRoles.length === 0 ? (
-                        <div className="text-center py-5 border-2 border-dashed border-gray-200 rounded-lg">
-                          <Building2 className="h-7 w-7 text-gray-300 mx-auto mb-2" />
-                          <p className="text-sm text-gray-400">Sin cuentas asignadas</p>
-                          <p className="text-xs text-gray-300 mt-0.5">
+                        <div className="text-center py-5 border-2 border-dashed border-border rounded-lg">
+                          <Building2 className="h-7 w-7 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">Sin cuentas asignadas</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             Define a qué cuentas tendrá acceso y con qué rol
                           </p>
                         </div>
@@ -528,7 +528,7 @@ export function AdminUsers() {
                           {form.tenantRoles.map((tr, index) => (
                             <div
                               key={index}
-                              className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 border border-gray-100"
+                              className="flex items-center gap-2 p-2 rounded-lg bg-muted border border-border"
                             >
                               <TenantAutocomplete
                                 tenants={tenants}
@@ -542,7 +542,7 @@ export function AdminUsers() {
                               <button
                                 type="button"
                                 onClick={() => removeTenantRole(index)}
-                                className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 shrink-0"
+                                className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-50 shrink-0"
                                 title="Quitar acceso"
                               >
                                 <X className="h-4 w-4" />
@@ -560,7 +560,7 @@ export function AdminUsers() {
                   </div>
 
                   {/* Submit */}
-                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                  <div className="flex justify-end gap-3 pt-4 border-t border-border">
                     <Button
                       type="button"
                       variant="outline"
@@ -611,14 +611,14 @@ export function AdminUsers() {
                 transition={{ duration: 0.2, ease: "easeOut" }}
                 className="fixed inset-0 z-50 flex items-center justify-center p-4"
               >
-                <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                <div className="bg-card rounded-2xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                   {/* Header */}
-                  <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+                  <div className="px-6 pt-6 pb-4 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Editar Usuario</h3>
-                      <p className="text-sm text-gray-500 mt-0.5">Modifica la información del usuario</p>
+                      <h3 className="text-lg font-semibold text-foreground">Editar Usuario</h3>
+                      <p className="text-sm text-muted-foreground mt-0.5">Modifica la información del usuario</p>
                     </div>
-                    <button onClick={() => setEditingUser(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                    <button onClick={() => setEditingUser(null)} className="text-muted-foreground hover:text-muted-foreground transition-colors">
                       <X className="h-5 w-5" />
                     </button>
                   </div>
@@ -626,7 +626,7 @@ export function AdminUsers() {
                   <div className="px-6 py-6 space-y-6">
                     {/* Información personal */}
                     <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                         <div className="h-6 w-6 rounded-full bg-brand-100 flex items-center justify-center">
                           <UserCircle className="h-3.5 w-3.5 text-brand-600" />
                         </div>
@@ -635,51 +635,51 @@ export function AdminUsers() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo</label>
+                          <label className="block text-sm font-medium text-foreground mb-1">Nombre completo</label>
                           <input
                             type="text"
                             value={editForm.name}
                             onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
+                            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
+                          <label className="block text-sm font-medium text-foreground mb-1">Correo electrónico</label>
                           <input
                             type="email"
                             value={editForm.email}
                             onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
+                            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
                           />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 items-end">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                          <label className="block text-sm font-medium text-foreground mb-1">Contraseña</label>
                           <input
                             type="password"
                             value={editForm.password}
                             onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
                             placeholder="Dejar vacío para no cambiar"
-                            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
+                            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
                           />
-                          <p className="text-xs text-gray-400 mt-1">Solo si deseas cambiarla</p>
+                          <p className="text-xs text-muted-foreground mt-1">Solo si deseas cambiarla</p>
                         </div>
                         <div>
-                          <label className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-amber-300 hover:bg-amber-50/30 cursor-pointer transition-colors">
+                          <label className="flex items-start gap-3 p-3 rounded-lg border border-border hover:border-amber-300 hover:bg-amber-50/30 cursor-pointer transition-colors">
                             <input
                               type="checkbox"
                               checked={editForm.isSuperAdmin}
                               onChange={(e) => setEditForm({ ...editForm, isSuperAdmin: e.target.checked })}
-                              className="h-4 w-4 mt-0.5 rounded border-gray-300 text-accent-500 focus:ring-accent-500"
+                              className="h-4 w-4 mt-0.5 rounded border-border text-accent-500 focus:ring-accent-500"
                             />
                             <div>
-                              <p className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
+                              <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
                                 <ShieldCheck className="h-3.5 w-3.5 text-amber-500" />
                                 Super Admin
                               </p>
-                              <p className="text-xs text-gray-500 mt-0.5">Panel de administración</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">Panel de administración</p>
                             </div>
                           </label>
                         </div>
@@ -687,9 +687,9 @@ export function AdminUsers() {
                     </div>
 
                     {/* Cuentas asignadas */}
-                    <div className="space-y-4 border-t border-gray-100 pt-6">
+                    <div className="space-y-4 border-t border-border pt-6">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                           <div className="h-6 w-6 rounded-full bg-accent-100 flex items-center justify-center">
                             <Building2 className="h-3.5 w-3.5 text-accent-600" />
                           </div>
@@ -715,17 +715,17 @@ export function AdminUsers() {
 
                       <div className="pl-8">
                         {editingUser.tenantRoles.length === 0 ? (
-                          <div className="text-center py-5 border-2 border-dashed border-gray-200 rounded-lg">
-                            <Building2 className="h-7 w-7 text-gray-300 mx-auto mb-2" />
-                            <p className="text-sm text-gray-400">Sin cuentas asignadas</p>
-                            <p className="text-xs text-gray-300 mt-0.5">Define a qué cuentas tendrá acceso y con qué rol</p>
+                          <div className="text-center py-5 border-2 border-dashed border-border rounded-lg">
+                            <Building2 className="h-7 w-7 text-muted-foreground mx-auto mb-2" />
+                            <p className="text-sm text-muted-foreground">Sin cuentas asignadas</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Define a qué cuentas tendrá acceso y con qué rol</p>
                           </div>
                         ) : (
                           <div className="space-y-2">
                             {editingUser.tenantRoles.map((tr) => (
-                              <div key={tr.id} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 border border-gray-100">
+                              <div key={tr.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted border border-border">
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-800 truncate">{tr.tenant?.name || "—"}</p>
+                                  <p className="text-sm font-medium text-foreground truncate">{tr.tenant?.name || "—"}</p>
                                 </div>
                                 <RoleSelector
                                   value={tr.role}
@@ -746,7 +746,7 @@ export function AdminUsers() {
                                       });
                                     }).catch(() => {});
                                   }}
-                                  className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 shrink-0"
+                                  className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-50 shrink-0"
                                   title="Quitar acceso"
                                 >
                                   <X className="h-4 w-4" />
@@ -764,7 +764,7 @@ export function AdminUsers() {
                   </div>
 
                   {/* Footer */}
-                  <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 sticky bottom-0">
+                  <div className="px-6 py-4 border-t border-border bg-muted flex justify-end gap-3 sticky bottom-0">
                     <Button onClick={() => setEditingUser(null)} variant="outline" size="sm">Cancelar</Button>
                     <Button
                       size="sm"
@@ -868,18 +868,18 @@ function TenantsManagementModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-6 border-b border-gray-100">
+        <div className="p-6 border-b border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700">
                 {user.name.charAt(0).toUpperCase()}
               </div>
               <div>
-                <h2 className="text-base font-semibold text-gray-900">Administrar cuentas</h2>
-                <p className="text-xs text-gray-400">{user.name} · {user.email}</p>
+                <h2 className="text-base font-semibold text-foreground">Administrar cuentas</h2>
+                <p className="text-xs text-muted-foreground">{user.name} · {user.email}</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <button onClick={onClose} className="text-muted-foreground hover:text-muted-foreground">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -888,7 +888,7 @@ function TenantsManagementModal({
         {/* Content */}
         <div className="p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Cuentas a las que tiene acceso este usuario:
             </p>
             <button
@@ -902,10 +902,10 @@ function TenantsManagementModal({
           </div>
 
           {roles.length === 0 ? (
-            <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-              <Building2 className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-400">Sin cuentas asignadas</p>
-              <p className="text-xs text-gray-300 mt-1">Este usuario no tiene acceso a ninguna cuenta</p>
+            <div className="text-center py-8 border-2 border-dashed border-border rounded-lg">
+              <Building2 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Sin cuentas asignadas</p>
+              <p className="text-xs text-muted-foreground mt-1">Este usuario no tiene acceso a ninguna cuenta</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -913,7 +913,7 @@ function TenantsManagementModal({
                 return (
                   <div
                     key={index}
-                    className="flex items-center gap-2 p-3 rounded-lg bg-gray-50 border border-gray-100"
+                    className="flex items-center gap-2 p-3 rounded-lg bg-muted border border-border"
                   >
                     <div className="flex-1 min-w-0">
                       <TenantAutocomplete
@@ -929,7 +929,7 @@ function TenantsManagementModal({
                     <button
                       type="button"
                       onClick={() => removeRole(index)}
-                      className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 shrink-0"
+                      className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-50 shrink-0"
                       title="Quitar acceso"
                     >
                       <X className="h-4 w-4" />
@@ -952,7 +952,7 @@ function TenantsManagementModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t border-gray-100">
+        <div className="flex justify-end gap-3 p-6 border-t border-border">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
@@ -1001,29 +1001,29 @@ function TenantAutocomplete({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center justify-between w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white hover:border-gray-300 transition-colors"
+        className="flex items-center justify-between w-full px-3 py-2 text-sm border border-border rounded-lg bg-card hover:border-border transition-colors"
       >
-        <span className={selected ? "text-gray-900" : "text-gray-400"}>
+        <span className={selected ? "text-foreground" : "text-muted-foreground"}>
           {selected?.name || "Seleccionar cuenta..."}
         </span>
-        <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
-        <div className="absolute z-50 bottom-full left-0 mb-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
-          <div className="p-2 border-b border-gray-100">
+        <div className="absolute z-50 bottom-full left-0 mb-1 w-full bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+          <div className="p-2 border-b border-border">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar cuenta..."
-              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-brand-400"
+              className="w-full px-2 py-1.5 text-sm border border-border rounded-md focus:outline-none focus:border-brand-400"
               autoFocus
             />
           </div>
           <div className="max-h-[160px] overflow-y-auto p-1">
             {filtered.length === 0 ? (
-              <p className="px-3 py-2 text-sm text-gray-400">Sin resultados</p>
+              <p className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</p>
             ) : (
               filtered.map((t) => (
                 <button
@@ -1031,12 +1031,12 @@ function TenantAutocomplete({
                   type="button"
                   onClick={() => { onChange(t.id); setOpen(false); setSearch(""); }}
                   className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-md text-left transition-colors ${
-                    t.id === value ? "bg-brand-50 text-brand-700" : "text-gray-700 hover:bg-gray-100"
+                    t.id === value ? "bg-brand-50 text-brand-700" : "text-foreground hover:bg-muted"
                   }`}
                 >
                   <Check className={`h-3.5 w-3.5 shrink-0 ${t.id === value ? "opacity-100" : "opacity-0"}`} />
                   <span>{t.name}</span>
-                  <span className="text-xs text-gray-400 ml-auto">/{t.slug}</span>
+                  <span className="text-xs text-muted-foreground ml-auto">/{t.slug}</span>
                 </button>
               ))
             )}
@@ -1077,21 +1077,21 @@ function RoleSelector({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 hover:border-gray-300 transition-colors ${selected.color}`}
+        className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-border hover:border-border transition-colors ${selected.color}`}
       >
         <selected.icon className="h-3.5 w-3.5" />
         {selected.label}
       </button>
 
       {open && (
-        <div className="absolute z-50 bottom-full right-0 mb-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden p-1">
+        <div className="absolute z-50 bottom-full right-0 mb-1 w-40 bg-card border border-border rounded-lg shadow-lg overflow-hidden p-1">
           {roles.map((r) => (
             <button
               key={r.value}
               type="button"
               onClick={() => { onChange(r.value); setOpen(false); }}
               className={`flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md text-left transition-colors ${
-                r.value === value ? r.color : "text-gray-700 hover:bg-gray-100"
+                r.value === value ? r.color : "text-foreground hover:bg-muted"
               }`}
             >
               <r.icon className="h-3.5 w-3.5 shrink-0" />

@@ -26,7 +26,7 @@ function highlightMatches(text: string, term: string, active: boolean): React.Re
     part.toLowerCase() === lower ? (
       <mark
         key={i}
-        className={`rounded-sm px-0.5 ${active ? "bg-amber-400 text-gray-900" : "bg-yellow-200 text-gray-900"}`}
+        className={`rounded-sm px-0.5 ${active ? "bg-amber-400 text-gray-900" : "bg-yellow-200 text-gray-900 dark:bg-yellow-400 dark:text-gray-900"}`}
       >
         {part}
       </mark>
@@ -48,9 +48,9 @@ export const MessageBubble = memo(function MessageBubble({
   if (msg.messageType === "system") {
     return (
       <div id={`msg-${msg.id}`} className="flex justify-center">
-        <span className="relative group/sys px-3 py-1 rounded-full bg-gray-200/70 text-[11px] text-gray-500 font-medium cursor-default">
+        <span className="relative group/sys px-3 py-1 rounded-full bg-muted text-[11px] text-muted-foreground font-medium cursor-default">
           {msg.content}
-          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded-md bg-gray-900 text-white text-[10px] whitespace-nowrap opacity-0 group-hover/sys:opacity-100 pointer-events-none transition-opacity duration-150">
+          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded-md bg-gray-900 dark:bg-gray-700 text-white text-[10px] whitespace-nowrap opacity-0 group-hover/sys:opacity-100 pointer-events-none transition-opacity duration-150">
             {new Date(msg.createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
           </span>
         </span>
@@ -69,26 +69,26 @@ export const MessageBubble = memo(function MessageBubble({
           <div className="h-6 w-6 rounded-full bg-brand-200 flex items-center justify-center text-[10px] font-bold text-brand-700">
             {msg.sender.name.charAt(0).toUpperCase()}
           </div>
-          <div className="absolute bottom-full right-0 mb-1.5 px-2 py-1 rounded-md bg-gray-900 text-white text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150">
+          <div className="absolute bottom-full right-0 mb-1.5 px-2 py-1 rounded-md bg-gray-900 dark:bg-gray-700 text-white text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150">
             Enviado por: {msg.sender.name}
           </div>
         </div>
       )}
-      <div className={`${msg.messageType === "template" ? "max-w-[320px]" : msg.direction === "outbound" ? "max-w-[min(70%,400px)]" : "max-w-[min(40%,300px)]"} px-4 py-2.5 rounded-2xl text-sm break-words transition-shadow ${isActiveMatch ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${msg.messageType === "template" ? "bg-green-50/90 border border-green-200 text-gray-800 rounded-br-md backdrop-blur-sm" : msg.messageType === "note" ? "bg-yellow-100/90 border border-yellow-200 text-yellow-900 rounded-br-md backdrop-blur-sm" : msg.direction === "outbound" ? "bg-brand-600/90 text-white rounded-br-md backdrop-blur-sm" : "bg-white/90 border border-gray-200 text-gray-800 rounded-bl-md backdrop-blur-sm"}`}>
+      <div className={`${msg.messageType === "template" ? "max-w-[320px]" : msg.direction === "outbound" ? "max-w-[min(70%,400px)]" : "max-w-[min(40%,300px)]"} px-4 py-2.5 rounded-2xl text-sm break-words transition-shadow ${isActiveMatch ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${msg.messageType === "template" ? "bg-green-50/90 border border-green-200 text-gray-800 dark:bg-green-500/10 dark:border-green-500/25 dark:text-green-50 rounded-br-md backdrop-blur-sm" : msg.messageType === "note" ? "bg-yellow-100/90 border border-yellow-200 text-yellow-900 dark:bg-yellow-500/10 dark:border-yellow-500/25 dark:text-yellow-100 rounded-br-md backdrop-blur-sm" : msg.direction === "outbound" ? "bg-brand-600/90 text-white rounded-br-md backdrop-blur-sm" : "bg-white/90 border border-gray-200 text-gray-800 dark:bg-secondary dark:border-border dark:text-secondary-foreground rounded-bl-md backdrop-blur-sm"}`}>
         {msg.messageType === "template" && <TemplateBubble msg={msg} />}
         {msg.messageType === "note" && (
-          <p className="text-[10px] font-medium text-yellow-600 mb-1 flex items-center gap-1"><StickyNote className="h-3 w-3" /> Nota privada</p>
+          <p className="text-[10px] font-medium text-yellow-600 dark:text-yellow-300 mb-1 flex items-center gap-1"><StickyNote className="h-3 w-3" /> Nota privada</p>
         )}
         {replyMsg && (
           <div
             onClick={() => onReplyClick(replyMsg.id)}
-            className={`mb-2 px-3 py-1.5 rounded-lg border-l-2 cursor-pointer transition-colors ${msg.direction === "outbound" ? "bg-white/10 border-white/40 hover:bg-white/15" : "bg-gray-100 border-gray-400 hover:bg-gray-150"}`}
+            className={`mb-2 px-3 py-1.5 rounded-lg border-l-2 cursor-pointer transition-colors ${msg.direction === "outbound" ? "bg-white/10 border-white/40 hover:bg-white/15" : "bg-black/5 border-muted-foreground/40 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"}`}
           >
-            <p className={`text-[10px] font-medium ${msg.direction === "outbound" ? "text-white/70" : "text-gray-500"}`}>
+            <p className={`text-[10px] font-medium ${msg.direction === "outbound" ? "text-white/70" : "text-muted-foreground"}`}>
               {replyMsg.direction === "outbound" ? "Tú" : displayName}
             </p>
             <div className="flex items-center gap-2">
-              <p className={`text-[11px] truncate flex-1 ${msg.direction === "outbound" ? "text-white/60" : "text-gray-500"}`}>
+              <p className={`text-[11px] truncate flex-1 ${msg.direction === "outbound" ? "text-white/60" : "text-muted-foreground"}`}>
                 {replyMsg.content || (replyMsg.mediaUrl ? "" : `[${replyMsg.messageType}]`)}
               </p>
               {replyMsg.mediaUrl && (replyMsg.messageType === "image" || replyMsg.mediaMimeType?.startsWith("image/")) && (
@@ -105,7 +105,7 @@ export const MessageBubble = memo(function MessageBubble({
               : formatWhatsAppText(msg.content)}
           </p>
         )}
-        {!msg.content && !msg.mediaUrl && msg.messageType !== "template" && <p className="whitespace-pre-wrap text-gray-400 italic">[{msg.messageType}]</p>}
+        {!msg.content && !msg.mediaUrl && msg.messageType !== "template" && <p className="whitespace-pre-wrap text-muted-foreground italic">[{msg.messageType}]</p>}
         <MessageTimestamp msg={msg} />
       </div>
     </div>
@@ -125,9 +125,9 @@ function MediaContent({ msg }: { msg: Message }) {
   }
   if (msg.messageType === "document") {
     return (
-      <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-1 ${msg.direction === "outbound" ? "bg-white/10 hover:bg-white/20" : "bg-gray-100 hover:bg-gray-200"} transition-colors`}>
+      <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-1 ${msg.direction === "outbound" ? "bg-white/10 hover:bg-white/20" : "bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"} transition-colors`}>
         <span className="text-lg">📄</span>
-        <span className={`text-xs underline ${msg.direction === "outbound" ? "text-white/80" : "text-brand-600"}`}>Abrir documento</span>
+        <span className={`text-xs underline ${msg.direction === "outbound" ? "text-white/80" : "text-brand-600 dark:text-brand-300"}`}>Abrir documento</span>
       </a>
     );
   }
@@ -139,7 +139,7 @@ function MediaContent({ msg }: { msg: Message }) {
 
 function MessageTimestamp({ msg }: { msg: Message }) {
   return (
-    <p className={`text-[10px] mt-1 flex items-center gap-1 ${msg.messageType === "template" ? "text-green-500" : msg.messageType === "note" ? "text-yellow-500" : msg.direction === "outbound" ? "text-white/60" : "text-gray-400"}`}>
+    <p className={`text-[10px] mt-1 flex items-center gap-1 ${msg.messageType === "template" ? "text-green-500" : msg.messageType === "note" ? "text-yellow-500" : msg.direction === "outbound" ? "text-white/60" : "text-muted-foreground"}`}>
       {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
       {msg.direction === "outbound" && msg.messageType !== "note" && (
         <span className="inline-flex">
@@ -163,8 +163,8 @@ function ChatImage({ src, alt }: { src: string; alt: string }) {
   return (
     <div className="relative rounded-lg overflow-hidden mb-1 cursor-pointer max-w-full" onClick={() => window.open(src, "_blank")}>
       {!loaded && (
-        <div className="w-48 h-36 bg-gray-200/50 backdrop-blur-sm flex items-center justify-center animate-pulse rounded-lg">
-          <Image className="h-6 w-6 text-gray-300" />
+        <div className="w-48 h-36 bg-muted backdrop-blur-sm flex items-center justify-center animate-pulse rounded-lg">
+          <Image className="h-6 w-6 text-muted-foreground" />
         </div>
       )}
       <img
@@ -188,7 +188,7 @@ function TemplateBubble({ msg }: { msg: Message }) {
   if (!templateData?.components) {
     return (
       <>
-        <p className="text-[10px] font-medium text-green-600 mb-1 flex items-center gap-1">📋 Plantilla</p>
+        <p className="text-[10px] font-medium text-green-600 dark:text-green-300 mb-1 flex items-center gap-1">📋 Plantilla</p>
         <p className="whitespace-pre-wrap">{formatWhatsAppText(msg.content || "")}</p>
       </>
     );
@@ -205,13 +205,13 @@ function TemplateBubble({ msg }: { msg: Message }) {
 
   return (
     <>
-      {renderedHeader && <p className="font-bold text-gray-900 text-[13px] mb-1">{renderedHeader}</p>}
-      <p className="whitespace-pre-wrap text-[13px] text-gray-700 leading-relaxed">{formatWhatsAppText(renderedBody)}</p>
-      {footer?.text && <p className="text-[11px] text-gray-400 mt-2">{formatWhatsAppText(footer.text)}</p>}
+      {renderedHeader && <p className="font-bold text-gray-900 dark:text-green-50 text-[13px] mb-1">{renderedHeader}</p>}
+      <p className="whitespace-pre-wrap text-[13px] text-gray-700 dark:text-green-100/90 leading-relaxed">{formatWhatsAppText(renderedBody)}</p>
+      {footer?.text && <p className="text-[11px] text-gray-400 dark:text-green-200/60 mt-2">{formatWhatsAppText(footer.text)}</p>}
       {buttons?.buttons && buttons.buttons.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-green-200 space-y-1">
+        <div className="mt-2 pt-2 border-t border-green-200 dark:border-green-500/25 space-y-1">
           {buttons.buttons.map((btn: any, i: number) => (
-            <div key={i} className="text-center text-xs text-blue-500 font-medium py-0.5">{btn.text}</div>
+            <div key={i} className="text-center text-xs text-blue-500 dark:text-blue-300 font-medium py-0.5">{btn.text}</div>
           ))}
         </div>
       )}

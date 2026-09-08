@@ -3,34 +3,34 @@ import { LegalLayout } from "./LegalLayout";
 export function PrivacyPolicy() {
   return (
     <LegalLayout>
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 md:p-12">
+      <div className="bg-card rounded-2xl shadow-sm border border-border p-8 md:p-12">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Política de Privacidad</h1>
-          <p className="text-sm text-gray-500 mt-1">Última actualización: 2 de agosto de 2026</p>
+          <h1 className="text-2xl font-bold text-foreground">Política de Privacidad</h1>
+          <p className="text-sm text-muted-foreground mt-1">Última actualización: 2 de agosto de 2026</p>
         </div>
 
-        <div className="space-y-8 text-[15px] leading-relaxed text-gray-600">
+        <div className="space-y-8 text-[15px] leading-relaxed text-muted-foreground">
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">1. Introducción</h2>
+            <h2 className="text-base font-semibold text-foreground mb-3">1. Introducción</h2>
             <p>
               En Smarter (en adelante, "nosotros", "nuestro" o "la plataforma"), nos comprometemos a proteger la privacidad de los usuarios y contactos que interactúan con nuestra plataforma de comunicaciones empresariales. Esta política describe cómo recopilamos, usamos, almacenamos y protegemos su información personal de acuerdo con las leyes aplicables de protección de datos, incluyendo el Reglamento General de Protección de Datos (GDPR) y la legislación colombiana (Ley 1581 de 2012).
             </p>
           </section>
 
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">2. Responsable del tratamiento</h2>
+            <h2 className="text-base font-semibold text-foreground mb-3">2. Responsable del tratamiento</h2>
             <p>El responsable del tratamiento de los datos personales es:</p>
-            <div className="mt-3 bg-gray-50 rounded-lg p-4 text-sm">
-              <p className="font-medium text-gray-800">Strategee</p>
+            <div className="mt-3 bg-muted rounded-lg p-4 text-sm">
+              <p className="font-medium text-foreground">Strategee</p>
               <p>Correo electrónico: notificaciones@strategee.us</p>
             </div>
           </section>
 
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">3. Información que recopilamos</h2>
+            <h2 className="text-base font-semibold text-foreground mb-3">3. Información que recopilamos</h2>
             <p className="mb-3">Recopilamos las siguientes categorías de información personal:</p>
 
-            <h3 className="text-sm font-semibold text-gray-800 mt-4 mb-2">3.1 Información proporcionada directamente</h3>
+            <h3 className="text-sm font-semibold text-foreground mt-4 mb-2">3.1 Información proporcionada directamente</h3>
             <ul className="list-disc pl-5 space-y-1">
               <li>Nombre y apellidos</li>
               <li>Correo electrónico</li>
@@ -39,7 +39,7 @@ export function PrivacyPolicy() {
               <li>Contenido de mensajes enviados y recibidos a través de la plataforma</li>
             </ul>
 
-            <h3 className="text-sm font-semibold text-gray-800 mt-4 mb-2">3.2 Información recopilada automáticamente</h3>
+            <h3 className="text-sm font-semibold text-foreground mt-4 mb-2">3.2 Información recopilada automáticamente</h3>
             <ul className="list-disc pl-5 space-y-1">
               <li>Dirección IP y datos de geolocalización aproximada</li>
               <li>Tipo de navegador y sistema operativo</li>
@@ -47,7 +47,7 @@ export function PrivacyPolicy() {
               <li>Cookies y tecnologías similares</li>
             </ul>
 
-            <h3 className="text-sm font-semibold text-gray-800 mt-4 mb-2">3.3 Información de terceros</h3>
+            <h3 className="text-sm font-semibold text-foreground mt-4 mb-2">3.3 Información de terceros</h3>
             <ul className="list-disc pl-5 space-y-1">
               <li>Datos provenientes de la integración con Meta (Facebook, Instagram, WhatsApp Business)</li>
               <li>Información de perfil público de redes sociales cuando se autoriza la conexión</li>
@@ -55,7 +55,7 @@ export function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">4. Finalidad del tratamiento</h2>
+            <h2 className="text-base font-semibold text-foreground mb-3">4. Finalidad del tratamiento</h2>
             <p className="mb-3">Utilizamos la información recopilada para las siguientes finalidades:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li>Proporcionar, operar y mantener los servicios de la plataforma</li>
@@ -70,7 +70,7 @@ export function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">5. Base legal del tratamiento</h2>
+            <h2 className="text-base font-semibold text-foreground mb-3">5. Base legal del tratamiento</h2>
             <p className="mb-3">El tratamiento de datos personales se basa en:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li><strong>Consentimiento:</strong> Cuando el usuario acepta esta política al registrarse</li>
@@ -81,7 +81,7 @@ export function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">6. Compartir información con terceros</h2>
+            <h2 className="text-base font-semibold text-foreground mb-3">6. Compartir información con terceros</h2>
             <p className="mb-3">No vendemos ni alquilamos información personal. Compartimos datos únicamente con:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li><strong>Meta Platforms, Inc.:</strong> Para el funcionamiento de integraciones con WhatsApp Business API, Messenger e Instagram</li>
@@ -92,7 +92,7 @@ export function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">7. Seguridad de datos</h2>
+            <h2 className="text-base font-semibold text-foreground mb-3">7. Seguridad de datos</h2>
             <p className="mb-3">Implementamos medidas técnicas y organizativas apropiadas, incluyendo:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li>Cifrado de datos en tránsito (TLS/SSL) y en reposo</li>
@@ -105,14 +105,14 @@ export function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">8. Retención de datos</h2>
+            <h2 className="text-base font-semibold text-foreground mb-3">8. Retención de datos</h2>
             <p>
               Conservamos los datos personales únicamente durante el tiempo necesario para cumplir con las finalidades descritas o según lo exija la ley. Una vez cumplido el período de retención, los datos se eliminan de forma segura. Los usuarios pueden solicitar la eliminación anticipada de sus datos en cualquier momento.
             </p>
           </section>
 
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">9. Derechos de los titulares</h2>
+            <h2 className="text-base font-semibold text-foreground mb-3">9. Derechos de los titulares</h2>
             <p className="mb-3">De acuerdo con la legislación aplicable, usted tiene derecho a:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li><strong>Acceso:</strong> Conocer qué datos personales tenemos sobre usted</li>
@@ -129,30 +129,30 @@ export function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">10. Cookies</h2>
+            <h2 className="text-base font-semibold text-foreground mb-3">10. Cookies</h2>
             <p>
               Utilizamos cookies esenciales para el funcionamiento de la plataforma y cookies analíticas para mejorar el servicio. No utilizamos cookies de publicidad ni de seguimiento de terceros.
             </p>
           </section>
 
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">11. Transferencias internacionales</h2>
+            <h2 className="text-base font-semibold text-foreground mb-3">11. Transferencias internacionales</h2>
             <p>
               Sus datos pueden ser transferidos y almacenados en servidores ubicados fuera de su país de residencia. Garantizamos que cualquier transferencia internacional cumple con las salvaguardas legales apropiadas.
             </p>
           </section>
 
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">12. Cambios en esta política</h2>
+            <h2 className="text-base font-semibold text-foreground mb-3">12. Cambios en esta política</h2>
             <p>
               Nos reservamos el derecho de actualizar esta política periódicamente. Cualquier cambio sustancial será notificado a los usuarios a través de la plataforma o por correo electrónico. La fecha de la última actualización se indica al inicio del documento.
             </p>
           </section>
 
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">13. Contacto</h2>
+            <h2 className="text-base font-semibold text-foreground mb-3">13. Contacto</h2>
             <p>Para cualquier consulta relacionada con esta política de privacidad:</p>
-            <div className="mt-3 bg-gray-50 rounded-lg p-4 text-sm">
+            <div className="mt-3 bg-muted rounded-lg p-4 text-sm">
               <p><strong>Email:</strong> notificaciones@strategee.us</p>
               <p className="mt-1"><strong>Responsable de datos:</strong> Strategee</p>
             </div>

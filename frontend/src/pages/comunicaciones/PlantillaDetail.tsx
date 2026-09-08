@@ -48,10 +48,10 @@ const LANGUAGE_LABELS: Record<string, string> = {
 const ALL_LANGUAGES = Object.keys(LANGUAGE_LABELS);
 
 const CHANNEL_CONFIG: Record<string, { icon: any; color: string; bg: string; label: string }> = {
-  email: { icon: Mail, color: "text-orange-600", bg: "bg-orange-50", label: "Email" },
-  sms: { icon: MessageSquare, color: "text-sky-600", bg: "bg-sky-50", label: "SMS" },
-  whatsapp: { icon: WhatsAppIcon, color: "text-green-600", bg: "bg-green-50", label: "WhatsApp" },
-  llamada: { icon: Phone, color: "text-purple-600", bg: "bg-purple-50", label: "Llamada" },
+  email: { icon: Mail, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-500/15", label: "Email" },
+  sms: { icon: MessageSquare, color: "text-sky-600", bg: "bg-sky-50 dark:bg-sky-500/15", label: "SMS" },
+  whatsapp: { icon: WhatsAppIcon, color: "text-green-600", bg: "bg-green-50 dark:bg-green-500/15", label: "WhatsApp" },
+  llamada: { icon: Phone, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-500/15", label: "Llamada" },
 };
 
 function getLanguageLabel(code: string) {
@@ -203,30 +203,30 @@ export function PlantillaDetail() {
         return translation.html ? (
           <div className="p-4 text-sm max-h-[350px] overflow-y-auto" dangerouslySetInnerHTML={{ __html: translation.html }} />
         ) : (
-          <p className="p-4 text-sm text-gray-400 italic">Sin contenido HTML</p>
+          <p className="p-4 text-sm text-muted-foreground italic">Sin contenido HTML</p>
         );
       case "sms":
         return (
           <div className="p-4">
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{translation.body || "Sin contenido"}</p>
+            <p className="text-sm text-foreground whitespace-pre-wrap">{translation.body || "Sin contenido"}</p>
           </div>
         );
       case "llamada":
         return (
           <div className="p-4 space-y-2">
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{translation.body || "Sin mensaje"}</p>
+            <p className="text-sm text-foreground whitespace-pre-wrap">{translation.body || "Sin mensaje"}</p>
             {translation.voice && (
-              <p className="text-xs text-gray-400">Voz: {translation.voice}</p>
+              <p className="text-xs text-muted-foreground">Voz: {translation.voice}</p>
             )}
             {translation.audioCode && (
-              <p className="text-xs text-gray-400">Audio ID: {translation.audioCode}</p>
+              <p className="text-xs text-muted-foreground">Audio ID: {translation.audioCode}</p>
             )}
           </div>
         );
       case "whatsapp":
         return (
           <div className="p-4">
-            <pre className="text-xs text-gray-600 whitespace-pre-wrap bg-gray-50 rounded p-2">
+            <pre className="text-xs text-muted-foreground whitespace-pre-wrap bg-muted rounded p-2">
               {JSON.stringify(translation.whatsappComponents, null, 2) || "Sin componentes"}
             </pre>
           </div>
@@ -239,7 +239,7 @@ export function PlantillaDetail() {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -247,7 +247,7 @@ export function PlantillaDetail() {
   if (!template) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-gray-400">Plantilla no encontrada</p>
+        <p className="text-sm text-muted-foreground">Plantilla no encontrada</p>
       </div>
     );
   }
@@ -258,18 +258,18 @@ export function PlantillaDetail() {
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <div className="px-6 py-4 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className={`h-9 w-9 rounded-lg ${channelInfo.bg} flex items-center justify-center`}>
             <ChannelIcon className={`h-4.5 w-4.5 ${channelInfo.color}`} />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">{template.name}</h2>
-            <p className="text-[11px] text-gray-400 mt-0.5">
+            <h2 className="text-sm font-semibold text-foreground">{template.name}</h2>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
               {channelInfo.label} · Idioma por defecto: {getLanguageLabel(template.defaultLanguage)} · {template.translations.length} traducción(es)
             </p>
             {template.whatsappTemplateName && (
-              <p className="text-[11px] text-green-600 mt-0.5">
+              <p className="text-[11px] text-green-600 dark:text-green-400 mt-0.5">
                 Meta: {template.whatsappTemplateName} ({template.whatsappCategory || "N/A"})
               </p>
             )}
@@ -285,7 +285,7 @@ export function PlantillaDetail() {
           <button
             onClick={() => setConfirmDelete(true)}
             disabled={deleting}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-medium transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 text-xs font-medium transition-colors disabled:opacity-50"
           >
             {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
             Eliminar
@@ -296,23 +296,23 @@ export function PlantillaDetail() {
       {/* Translations list */}
       <div className="px-6 py-4 space-y-3">
         {template.translations.map((translation) => (
-          <div key={translation.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div key={translation.id} className="bg-card rounded-xl border border-border overflow-hidden">
             <div className="flex items-center gap-3 px-4 py-3">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <span
                   className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
                     translation.language === template.defaultLanguage
-                      ? "bg-brand-100 text-brand-700"
-                      : "bg-gray-100 text-gray-600"
+                      ? "bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-100"
+                      : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {translation.language.toUpperCase()}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className="text-sm font-medium text-foreground truncate">
                     {getLanguageLabel(translation.language)}
                   </p>
-                  <p className="text-[11px] text-gray-400 truncate">
+                  <p className="text-[11px] text-muted-foreground truncate">
                     {template.channel === "email" && translation.subject
                       ? `Asunto: ${translation.subject}`
                       : template.channel === "sms" || template.channel === "llamada"
@@ -327,7 +327,7 @@ export function PlantillaDetail() {
                 <button
                   onClick={() => setPreviewLang(previewLang === translation.language ? null : translation.language)}
                   className={`p-1.5 rounded-md transition-colors ${
-                    previewLang === translation.language ? "bg-brand-50 text-brand-600" : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                    previewLang === translation.language ? "bg-brand-50 text-brand-600 dark:bg-brand-700 dark:text-brand-100" : "hover:bg-muted text-muted-foreground hover:text-foreground"
                   }`}
                   title="Vista previa"
                 >
@@ -335,14 +335,14 @@ export function PlantillaDetail() {
                 </button>
                 <button
                   onClick={() => handleCopyContent(translation)}
-                  className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                   title="Copiar contenido"
                 >
                   <Copy className="h-3.5 w-3.5" />
                 </button>
                 <button
                   onClick={() => handleEdit(translation.language)}
-                  className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                   title="Editar"
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -351,7 +351,7 @@ export function PlantillaDetail() {
                   <button
                     onClick={() => setConfirmDeleteLang(translation.language)}
                     disabled={deletingLang === translation.language}
-                    className="p-1.5 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                    className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-50"
                     title="Eliminar traducción"
                   >
                     {deletingLang === translation.language ? (
@@ -366,10 +366,10 @@ export function PlantillaDetail() {
 
             {/* Preview */}
             {previewLang === translation.language && (
-              <div className="border-t border-gray-100">
+              <div className="border-t border-border">
                 {template.channel === "email" && translation.subject && (
-                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-100">
-                    <p className="text-xs text-gray-500">
+                  <div className="bg-muted px-4 py-2 border-b border-border">
+                    <p className="text-xs text-muted-foreground">
                       <strong>Asunto:</strong> {translation.subject}
                     </p>
                   </div>

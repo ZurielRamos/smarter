@@ -238,9 +238,9 @@ export function Dashboard() {
                     <div key={item.channel} className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
                         <div className="h-3 w-3 rounded-full" style={{ backgroundColor: CHANNEL_COLORS[item.channel] || "#9ca3af" }} />
-                        <span className="text-gray-600">{channelLabels[item.channel] || item.channel}</span>
+                        <span className="text-muted-foreground">{channelLabels[item.channel] || item.channel}</span>
                       </div>
-                      <span className="font-medium text-gray-900">{item.count}</span>
+                      <span className="font-medium text-foreground">{item.count}</span>
                     </div>
                   ))}
                 </div>
@@ -279,9 +279,9 @@ export function Dashboard() {
                     <div key={item.status} className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
                         <div className="h-3 w-3 rounded-full" style={{ backgroundColor: CONVERSATION_COLORS[item.status] || "#9ca3af" }} />
-                        <span className="text-gray-600">{statusLabels[item.status] || item.status}</span>
+                        <span className="text-muted-foreground">{statusLabels[item.status] || item.status}</span>
                       </div>
-                      <span className="font-medium text-gray-900">{item.count}</span>
+                      <span className="font-medium text-foreground">{item.count}</span>
                     </div>
                   ))}
                 </div>
@@ -316,7 +316,7 @@ export function Dashboard() {
                 <div className="h-14 w-14 rounded-full bg-brand-50 flex items-center justify-center mb-3">
                   <TrendingUp className="h-6 w-6 text-brand-400" />
                 </div>
-                <p className="text-gray-500 text-sm">No hay envíos recientes</p>
+                <p className="text-muted-foreground text-sm">No hay envíos recientes</p>
                 <Button onClick={() => navigate(`/${slug}/campaigns`)} size="sm" className="mt-3 bg-accent-500 hover:bg-accent-600 text-white">
                   Crear campaña
                 </Button>
@@ -324,17 +324,17 @@ export function Dashboard() {
             ) : (
               <div className="space-y-2 max-h-[220px] overflow-y-auto">
                 {stats.recentSends.map((send) => (
-                  <div key={send.id} className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100">
+                  <div key={send.id} className="flex items-center justify-between p-2.5 rounded-lg bg-muted border border-border">
                     <div className="flex items-center gap-3">
                       <div className={`h-2 w-2 rounded-full shrink-0 ${send.status === "completed" ? "bg-green-500" : send.status === "sending" ? "bg-amber-500 animate-pulse" : send.status === "failed" ? "bg-red-500" : "bg-gray-400"}`} />
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{send.campaignName}</p>
-                        <p className="text-xs text-gray-400">{new Date(send.createdAt).toLocaleString("es-CO")}</p>
+                        <p className="text-sm font-medium text-foreground">{send.campaignName}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(send.createdAt).toLocaleString("es-CO")}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="text-green-600 font-medium">{send.totalSent} ✓</span>
-                      {send.totalFailed > 0 && <span className="text-red-500 font-medium">{send.totalFailed} ✗</span>}
+                      <span className="text-green-600 dark:text-green-300 font-medium">{send.totalSent} ✓</span>
+                      {send.totalFailed > 0 && <span className="text-red-500 dark:text-red-300 font-medium">{send.totalFailed} ✗</span>}
                     </div>
                   </div>
                 ))}
@@ -353,9 +353,8 @@ function ChartCard({ title, subtitle, icon: Icon, children }: { title: string; s
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="relative rounded-xl p-5 overflow-hidden border border-gray-200/60 shadow-[0_4px_24px_rgba(0,0,0,0.04),_0_0_0_1px_rgba(255,255,255,0.8)_inset]"
+      className="relative rounded-xl p-5 overflow-hidden bg-card border border-border shadow-[0_4px_24px_rgba(0,0,0,0.04),_0_0_0_1px_rgba(255,255,255,0.8)_inset]"
       style={{
-        background: "linear-gradient(145deg, rgba(255,255,255,0.55) 0%, rgba(245,250,255,0.4) 100%)",
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
       }}
@@ -367,8 +366,8 @@ function ChartCard({ title, subtitle, icon: Icon, children }: { title: string; s
       <div className="relative z-10 flex items-center gap-2.5 mb-4">
         <Icon className="h-5 w-5 text-emerald-600" weight="duotone" />
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-          <p className="text-[11px] text-gray-400">{subtitle}</p>
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          <p className="text-[11px] text-muted-foreground">{subtitle}</p>
         </div>
       </div>
       <div className="relative z-10">{children}</div>
@@ -378,7 +377,7 @@ function ChartCard({ title, subtitle, icon: Icon, children }: { title: string; s
 
 function EmptyChart() {
   return (
-    <div className="flex items-center justify-center h-[200px] text-gray-400 text-sm">
+    <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
       Sin datos disponibles
     </div>
   );
@@ -387,8 +386,8 @@ function EmptyChart() {
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs">
-      <p className="text-gray-500 mb-1">{label}</p>
+    <div className="bg-card border border-border rounded-lg shadow-lg px-3 py-2 text-xs">
+      <p className="text-muted-foreground mb-1">{label}</p>
       {payload.map((entry: any) => (
         <p key={entry.name} className="font-medium" style={{ color: entry.color }}>
           {entry.name}: {entry.value?.toLocaleString()}
@@ -402,8 +401,8 @@ function PieTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   const data = payload[0];
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs">
-      <p className="font-medium text-gray-900">
+    <div className="bg-card border border-border rounded-lg shadow-lg px-3 py-2 text-xs">
+      <p className="font-medium text-foreground">
         {channelLabels[data.name] || statusLabels[data.name] || data.name}: {data.value?.toLocaleString()}
       </p>
     </div>

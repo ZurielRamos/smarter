@@ -13,15 +13,15 @@ export function PendingInvites() {
       {user.pendingInvites.map((invite) => (
         <div
           key={invite.tenantId}
-          className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 animate-in slide-in-from-right"
+          className="bg-popover text-popover-foreground rounded-xl shadow-lg border border-border p-4 animate-in slide-in-from-right"
         >
           <div className="flex items-start gap-3">
             <div className="h-9 w-9 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
               <Mail className="h-4 w-4 text-brand-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900">Invitación pendiente</p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-sm font-semibold text-foreground">Invitación pendiente</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Te han invitado como <strong>{invite.role === "owner" ? "Propietario" : invite.role === "admin" ? "Administrador" : "Agente"}</strong> a <strong>{invite.tenant.name}</strong>
               </p>
               <div className="flex items-center gap-2 mt-3">
@@ -39,7 +39,7 @@ export function PendingInvites() {
                 </button>
                 <button
                   onClick={() => declineInvite(invite.tenantId)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted text-xs font-medium transition-colors"
                 >
                   <X className="h-3 w-3" />
                   Rechazar

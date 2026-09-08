@@ -109,11 +109,11 @@ function DraggableFieldChip({ field }: { field: FieldDef }) {
         "flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm cursor-grab active:cursor-grabbing select-none transition-colors",
         isDragging
           ? "opacity-30 border-dashed border-brand-300"
-          : "bg-white border-gray-200 hover:border-brand-400 hover:bg-brand-50"
+          : "bg-card border-border hover:border-brand-400 hover:bg-brand-50"
       )}
     >
-      <GripVertical className="h-3.5 w-3.5 text-gray-400" />
-      <span className="font-medium text-gray-700">{field.label}</span>
+      <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="font-medium text-foreground">{field.label}</span>
     </div>
   );
 }
@@ -127,12 +127,12 @@ function ConditionDropZone({ groupId, isEmpty }: { groupId: string; isEmpty: boo
       ref={setNodeRef}
       className={cn(
         "rounded-lg border-2 border-dashed p-4 transition-all min-h-[60px] flex items-center justify-center",
-        isOver ? "border-brand-400 bg-brand-50" : "border-gray-200",
+        isOver ? "border-brand-400 bg-brand-50" : "border-border",
         isEmpty && "py-8"
       )}
     >
       {isEmpty && !isOver && (
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-muted-foreground">
           Arrastra campos aquí para crear condiciones
         </p>
       )}
@@ -163,7 +163,7 @@ function ConditionRow({
   const isNumeric = fieldDef.type === "number";
 
   return (
-    <div className="flex items-center gap-2 p-3 bg-white rounded-lg border border-gray-200">
+    <div className="flex items-center gap-2 p-3 bg-card rounded-lg border border-border">
       <span className="text-sm font-medium text-brand-700 shrink-0">
         {fieldDef.label}
       </span>
@@ -180,7 +180,7 @@ function ConditionRow({
           value={condition.value as number}
           onChange={(e) => onUpdate({ value: Number(e.target.value) })}
           placeholder="Valor..."
-          className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-md min-w-[100px] focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+          className="flex-1 px-3 py-1.5 text-sm border border-border rounded-md min-w-[100px] focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
         />
       )}
 
@@ -200,7 +200,7 @@ function ConditionRow({
           value={condition.value as string}
           onChange={(e) => onUpdate({ value: e.target.value })}
           placeholder="Valor..."
-          className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-md min-w-[100px] focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+          className="flex-1 px-3 py-1.5 text-sm border border-border rounded-md min-w-[100px] focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
         />
       )}
 
@@ -209,13 +209,13 @@ function ConditionRow({
           type="date"
           value={condition.value as string}
           onChange={(e) => onUpdate({ value: e.target.value })}
-          className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-md min-w-[100px] focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+          className="flex-1 px-3 py-1.5 text-sm border border-border rounded-md min-w-[100px] focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
         />
       )}
 
       <button
         onClick={onRemove}
-        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors shrink-0"
+        className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-md transition-colors shrink-0"
       >
         <Trash2 className="h-4 w-4" />
       </button>
@@ -379,9 +379,9 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex h-full gap-4">
         {/* Left: Available fields */}
-        <div className="w-[220px] shrink-0 flex flex-col border border-gray-200 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 border-b border-gray-100 bg-gray-50">
-            <h4 className="text-xs font-semibold text-gray-600 uppercase mb-2">
+        <div className="w-[220px] shrink-0 flex flex-col border border-border rounded-lg overflow-hidden">
+          <div className="px-3 py-2 border-b border-border bg-muted">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">
               Campos disponibles
             </h4>
             <input
@@ -389,7 +389,7 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
               value={fieldSearch}
               onChange={(e) => setFieldSearch(e.target.value)}
               placeholder="Buscar campo..."
-              className="w-full px-2.5 py-1.5 rounded-md border border-gray-200 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-white"
+              className="w-full px-2.5 py-1.5 rounded-md border border-border text-xs focus:outline-none focus:ring-1 focus:ring-brand-300 bg-card"
             />
           </div>
           <div className="space-y-1 overflow-y-auto flex-1 p-2 max-h-[400px]">
@@ -404,7 +404,7 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
         {/* Right: Segment groups */}
         <div className="flex-1 min-w-0 flex flex-col">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-semibold text-gray-700">
+            <h4 className="text-sm font-semibold text-foreground">
               Condiciones de segmentación
             </h4>
             {matchedCount !== null && (
@@ -426,9 +426,9 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
               <div className="divide-y divide-accent-100 max-h-[120px] overflow-y-auto">
                 {previewSample.map((client, idx) => (
                   <div key={idx} className="flex items-center gap-4 px-3 py-1.5 text-xs">
-                    <span className="text-gray-700 flex-1">{client.fullName || client.firstName || "—"}</span>
-                    <span className="text-gray-500">{client.phone || "—"}</span>
-                    <span className="text-gray-500">{client.status || "—"}</span>
+                    <span className="text-foreground flex-1">{client.fullName || client.firstName || "—"}</span>
+                    <span className="text-muted-foreground">{client.phone || "—"}</span>
+                    <span className="text-muted-foreground">{client.status || "—"}</span>
                   </div>
                 ))}
               </div>
@@ -439,21 +439,21 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
             {groups.map((group, idx) => (
               <div
                 key={group.id}
-                className="rounded-xl border border-gray-200 bg-gray-50 p-4"
+                className="rounded-xl border border-border bg-muted p-4"
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-500 uppercase">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase">
                       Grupo {idx + 1}
                     </span>
-                    <div className="flex items-center bg-white border border-gray-200 rounded-md overflow-hidden">
+                    <div className="flex items-center bg-card border border-border rounded-md overflow-hidden">
                       <button
                         onClick={() => updateGroupLogic(group.id, "AND")}
                         className={cn(
                           "px-2 py-0.5 text-xs font-medium transition-colors",
                           group.logic === "AND"
                             ? "bg-brand-600 text-white"
-                            : "text-gray-500 hover:bg-gray-100"
+                            : "text-muted-foreground hover:bg-muted"
                         )}
                       >
                         Y (AND)
@@ -464,7 +464,7 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
                           "px-2 py-0.5 text-xs font-medium transition-colors",
                           group.logic === "OR"
                             ? "bg-brand-600 text-white"
-                            : "text-gray-500 hover:bg-gray-100"
+                            : "text-muted-foreground hover:bg-muted"
                         )}
                       >
                         O (OR)
@@ -474,7 +474,7 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
                   {groups.length > 1 && (
                     <button
                       onClick={() => removeGroup(group.id)}
-                      className="p-1 text-gray-400 hover:text-red-500"
+                      className="p-1 text-muted-foreground hover:text-red-500"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -502,7 +502,7 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-3 shrink-0 border-t border-gray-100 mt-3">
+          <div className="flex items-center justify-between pt-3 shrink-0 border-t border-border mt-3">
             <Button variant="outline" size="sm" onClick={addGroup} className="gap-1.5">
               <Plus className="h-3.5 w-3.5" />
               Agregar grupo

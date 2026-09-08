@@ -97,19 +97,19 @@ export function Inboxes() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-8">
         <div className="max-w-3xl mx-auto">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <p className="text-sm text-gray-500 mb-6">
+          <div className="bg-card rounded-xl border border-border p-6">
+            <p className="text-sm text-muted-foreground mb-6">
               Una bandeja de entrada es donde administras las conversaciones de un canal específico.
               Puede incluir comunicaciones de WhatsApp, Messenger o Instagram.
             </p>
 
             {loading ? (
-              <div className="py-8 text-center text-sm text-gray-400">Cargando...</div>
+              <div className="py-8 text-center text-sm text-muted-foreground">Cargando...</div>
             ) : inboxes.length === 0 ? (
               <div className="py-12 text-center">
-                <MessageSquare className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm text-gray-600 font-medium">Sin bandejas creadas</p>
-                <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
+                <MessageSquare className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground font-medium">Sin bandejas creadas</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
                   Crea tu primera bandeja de entrada para empezar a recibir y gestionar conversaciones de tus clientes.
                 </p>
                 <button
@@ -120,9 +120,9 @@ export function Inboxes() {
                 </button>
               </div>
             ) : (
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-border">
                 {inboxes.map((inbox) => {
-                  const meta = CHANNEL_META[inbox.channel] || { label: inbox.channel, icon: MessageSquare, color: "text-gray-600", bg: "bg-gray-50" };
+                  const meta = CHANNEL_META[inbox.channel] || { label: inbox.channel, icon: MessageSquare, color: "text-muted-foreground", bg: "bg-muted" };
                   const Icon = meta.icon;
 
                   return (
@@ -133,7 +133,7 @@ export function Inboxes() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-gray-900">{inbox.name}</p>
+                            <p className="text-sm font-medium text-foreground">{inbox.name}</p>
                             {inbox.status === "connected" ? (
                               <span className="flex items-center gap-1 text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full font-medium">
                                 <Wifi className="h-2.5 w-2.5" /> Conectada
@@ -144,7 +144,7 @@ export function Inboxes() {
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-400 mt-0.5">
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             Canal {meta.label}{inbox.channelName ? ` · ${inbox.channelName}` : ""}
                           </p>
                         </div>
@@ -160,13 +160,13 @@ export function Inboxes() {
                         )}
                         <button
                           onClick={() => navigate(`/${slug}/inboxes/${inbox.id}/settings`)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors"
                         >
                           <Settings2 className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(inbox.id)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>

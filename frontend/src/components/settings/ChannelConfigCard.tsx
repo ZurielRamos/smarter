@@ -259,15 +259,15 @@ export function ChannelConfigCard() {
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">Canales</h2>
-        <p className="text-sm text-gray-500 mb-5">
+      <div className="bg-card rounded-xl border border-border p-6">
+        <h2 className="text-lg font-semibold text-foreground mb-1">Canales</h2>
+        <p className="text-sm text-muted-foreground mb-5">
           Configura los proveedores y credenciales para cada canal de comunicación.
         </p>
 
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -284,7 +284,7 @@ export function ChannelConfigCard() {
                     "flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all hover:shadow-sm",
                     isConfigured
                       ? `${ch.border} ${ch.bg}`
-                      : "border-gray-200 bg-white hover:border-gray-300"
+                      : "border-border bg-card hover:border-border"
                   )}
                 >
                   <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center shrink-0", ch.bg)}>
@@ -292,7 +292,7 @@ export function ChannelConfigCard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900">{ch.label}</span>
+                      <span className="text-sm font-medium text-foreground">{ch.label}</span>
                       {isConfigured && (
                         <span className="flex items-center gap-1 text-xs text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">
                           <Check className="h-3 w-3" />
@@ -300,9 +300,9 @@ export function ChannelConfigCard() {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">{ch.description}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{ch.description}</p>
                     {isConfigured && (
-                      <p className="text-xs text-gray-400 mt-1 capitalize">
+                      <p className="text-xs text-muted-foreground mt-1 capitalize">
                         Proveedor: {config.provider}
                       </p>
                     )}
@@ -332,24 +332,24 @@ export function ChannelConfigCard() {
               transition={{ duration: 0.2, ease: "easeOut" }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
             >
-              <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-card rounded-2xl shadow-xl w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 {/* Header */}
-                <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+                <div className="px-6 pt-6 pb-4 border-b border-border">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center", activeChannelDef.bg)}>
                         <activeChannelDef.icon className={cn("h-5 w-5", activeChannelDef.color)} />
                       </div>
                       <div>
-                        <h2 className="text-lg font-semibold text-gray-900">
+                        <h2 className="text-lg font-semibold text-foreground">
                           Configurar {activeChannelDef.label}
                         </h2>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           Selecciona un proveedor e ingresa las credenciales
                         </p>
                       </div>
                     </div>
-                    <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 transition-colors">
+                    <button onClick={closeModal} className="text-muted-foreground hover:text-muted-foreground transition-colors">
                       <X className="h-5 w-5" />
                     </button>
                   </div>
@@ -366,7 +366,7 @@ export function ChannelConfigCard() {
 
                   {/* Provider selection */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
                       Proveedor
                     </label>
                     <div className="grid grid-cols-1 gap-2">
@@ -382,18 +382,18 @@ export function ChannelConfigCard() {
                             "flex items-center gap-3 px-4 py-3 rounded-lg border-2 text-left transition-all",
                             selectedProvider === prov.value
                               ? "border-brand-500 bg-brand-50 ring-1 ring-brand-200"
-                              : "border-gray-200 hover:border-gray-300"
+                              : "border-border hover:border-border"
                           )}
                         >
                           <div className={cn(
                             "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                            selectedProvider === prov.value ? "border-brand-500" : "border-gray-300"
+                            selectedProvider === prov.value ? "border-brand-500" : "border-border"
                           )}>
                             {selectedProvider === prov.value && (
                               <div className="h-2 w-2 rounded-full bg-brand-500" />
                             )}
                           </div>
-                          <span className="text-sm font-medium text-gray-900">{prov.label}</span>
+                          <span className="text-sm font-medium text-foreground">{prov.label}</span>
                         </button>
                       ))}
                     </div>
@@ -404,12 +404,12 @@ export function ChannelConfigCard() {
                     <div className="space-y-4 pt-2">
                       <div className="flex items-center gap-2">
                         <div className="h-px flex-1 bg-gray-200" />
-                        <span className="text-xs text-gray-400 font-medium">Credenciales</span>
+                        <span className="text-xs text-muted-foreground font-medium">Credenciales</span>
                         <div className="h-px flex-1 bg-gray-200" />
                       </div>
                       {activeProviderDef.fields.map((field) => (
                         <div key={field.key}>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                          <label className="block text-sm font-medium text-foreground mb-1.5">
                             {field.label}
                           </label>
                           <input
@@ -418,10 +418,10 @@ export function ChannelConfigCard() {
                             onChange={(e) => setCredentials({ ...credentials, [field.key]: e.target.value })}
                             placeholder={field.placeholder}
                             maxLength={field.maxLength}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all"
+                            className="w-full px-4 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all"
                           />
                           {field.maxLength && (
-                            <p className="text-xs text-gray-400 mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                               {(credentials[field.key] ?? "").length}/{field.maxLength} caracteres
                             </p>
                           )}
@@ -432,8 +432,8 @@ export function ChannelConfigCard() {
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-                  <p className="text-xs text-gray-400">
+                <div className="px-6 py-4 border-t border-border bg-muted flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
                     Las credenciales se almacenan de forma segura.
                   </p>
                   <div className="flex items-center gap-3">

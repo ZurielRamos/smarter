@@ -118,21 +118,21 @@ function IconStyleSelector({ value, onChange }: { value: IconStyle; onChange: (v
         ref={triggerRef}
         type="button"
         onClick={handleOpen}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-border transition-colors"
       >
         <div className="flex items-center gap-1.5">
           <StylePreviewIcon network="facebook" style={value} size={20} />
           <StylePreviewIcon network="instagram" style={value} size={20} />
           <StylePreviewIcon network="youtube" style={value} size={20} />
         </div>
-        <span className="text-xs text-gray-600 flex-1 text-left truncate">{currentLabel}</span>
-        <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+        <span className="text-xs text-muted-foreground flex-1 text-left truncate">{currentLabel}</span>
+        <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && createPortal(
         <div
           ref={popoverRef}
-          className="fixed z-[9999] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden"
+          className="fixed z-[9999] bg-card rounded-xl shadow-2xl border border-border overflow-hidden"
           style={{ top: coords.top, left: coords.left, width: coords.width }}
         >
           <div className="max-h-[320px] overflow-y-auto py-1">
@@ -140,14 +140,14 @@ function IconStyleSelector({ value, onChange }: { value: IconStyle; onChange: (v
               <button
                 key={style.id}
                 onClick={() => { onChange(style.id); setOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors ${value === style.id ? "bg-brand-50" : ""}`}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted transition-colors ${value === style.id ? "bg-brand-50" : ""}`}
               >
                 <div className="flex items-center gap-1.5 shrink-0">
                   <StylePreviewIcon network="facebook" style={style.id} size={22} />
                   <StylePreviewIcon network="instagram" style={style.id} size={22} />
                   <StylePreviewIcon network="youtube" style={style.id} size={22} />
                 </div>
-                <span className="text-xs text-gray-700 flex-1">{style.label}</span>
+                <span className="text-xs text-foreground flex-1">{style.label}</span>
                 {value === style.id && <Check className="h-3.5 w-3.5 text-brand-600 shrink-0" />}
               </button>
             ))}
@@ -215,7 +215,7 @@ function AddNetworkDropdown({ onSelect, existingNetworks }: { onSelect: (network
         ref={triggerRef}
         type="button"
         onClick={handleOpen}
-        className="w-full py-2 rounded-lg border-2 border-dashed border-gray-300 text-xs text-gray-500 hover:border-brand-300 hover:text-brand-600 hover:bg-brand-50/50 transition-colors flex items-center justify-center gap-1.5"
+        className="w-full py-2 rounded-lg border-2 border-dashed border-border text-xs text-muted-foreground hover:border-brand-300 hover:text-brand-600 hover:bg-brand-50/50 transition-colors flex items-center justify-center gap-1.5"
       >
         <Plus className="h-3.5 w-3.5" />
         Agregar red social
@@ -224,10 +224,10 @@ function AddNetworkDropdown({ onSelect, existingNetworks }: { onSelect: (network
       {open && createPortal(
         <div
           ref={popoverRef}
-          className="fixed z-[9999] bg-white rounded-xl shadow-2xl border border-gray-200 w-[230px] overflow-hidden"
+          className="fixed z-[9999] bg-card rounded-xl shadow-2xl border border-border w-[230px] overflow-hidden"
           style={{ top: coords.top, left: coords.left }}
         >
-          <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide px-3 pt-2 pb-1">Seleccionar red social</p>
+          <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide px-3 pt-2 pb-1">Seleccionar red social</p>
           <div className="max-h-[280px] overflow-y-auto pb-1">
             {SOCIAL_NETWORKS.map((network) => {
               const alreadyAdded = existingNetworks.includes(network.id);
@@ -236,11 +236,11 @@ function AddNetworkDropdown({ onSelect, existingNetworks }: { onSelect: (network
                   key={network.id}
                   onClick={() => { if (!alreadyAdded) { onSelect(network.id); setOpen(false); } }}
                   disabled={alreadyAdded}
-                  className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 transition-colors ${alreadyAdded ? "opacity-40 cursor-not-allowed" : "hover:bg-gray-50"}`}
+                  className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 transition-colors ${alreadyAdded ? "opacity-40 cursor-not-allowed" : "hover:bg-muted"}`}
                 >
                   <NetworkIcon network={network.id} size={14} bgSize={24} />
-                  <span className="text-gray-700">{network.label}</span>
-                  {alreadyAdded && <span className="ml-auto text-[9px] text-gray-400">Agregado</span>}
+                  <span className="text-foreground">{network.label}</span>
+                  {alreadyAdded && <span className="ml-auto text-[9px] text-muted-foreground">Agregado</span>}
                 </button>
               );
             })}
@@ -257,12 +257,12 @@ function SocialIconItem({ icon, onUpdate, onDelete }: { icon: SocialIcon; onUpda
   const info = getNetworkInfo(icon.network);
 
   return (
-    <div className="border border-gray-200 rounded-lg p-2.5 space-y-2">
+    <div className="border border-border rounded-lg p-2.5 space-y-2">
       <div className="flex items-center gap-2">
-        <GripVertical className="h-3 w-3 text-gray-300 shrink-0 cursor-grab" />
+        <GripVertical className="h-3 w-3 text-muted-foreground shrink-0 cursor-grab" />
         <NetworkIcon network={icon.network} size={14} bgSize={22} />
-        <span className="text-xs font-medium text-gray-700 flex-1">{info.label}</span>
-        <button onClick={onDelete} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+        <span className="text-xs font-medium text-foreground flex-1">{info.label}</span>
+        <button onClick={onDelete} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors">
           <Trash2 className="h-3 w-3" />
         </button>
       </div>
@@ -271,7 +271,7 @@ function SocialIconItem({ icon, onUpdate, onDelete }: { icon: SocialIcon; onUpda
         value={icon.url}
         onChange={(e) => onUpdate({ ...icon, url: e.target.value })}
         placeholder="https://"
-        className="w-full px-2 py-1.5 rounded-md border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
+        className="w-full px-2 py-1.5 rounded-md border border-border text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
       />
     </div>
   );
@@ -326,7 +326,7 @@ export function SocialProperties({ props: p, onChange }: Props) {
       />
 
       {/* Settings */}
-      <div className="pt-3 border-t border-gray-100 space-y-3">
+      <div className="pt-3 border-t border-border space-y-3">
         <div>
           <label className={labelCls}>Tamano de icono (px)</label>
           <Stepper value={p.iconSize || 32} onChange={(v) => update("iconSize", v)} min={16} max={64} />

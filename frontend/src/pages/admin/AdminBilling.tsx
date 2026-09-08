@@ -239,8 +239,8 @@ export function AdminBilling() {
           <div className="h-16 w-16 rounded-full bg-brand-50 flex items-center justify-center mb-4 mx-auto">
             <Coins className="h-7 w-7 text-brand-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">Configuración de consumos</h3>
-          <p className="text-gray-500 text-sm max-w-sm mb-6">
+          <h3 className="text-lg font-semibold text-foreground mb-1">Configuración de consumos</h3>
+          <p className="text-muted-foreground text-sm max-w-sm mb-6">
             Define los costos globales por acción y el modelo de IA por defecto.
           </p>
           <Button
@@ -278,16 +278,16 @@ export function AdminBilling() {
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-foreground">
                     Configurar consumos
                   </h3>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Define cuántos créditos consume cada acción
                   </p>
                 </div>
                 <button
                   onClick={() => setShowConfigModal(false)}
-                  className="p-1 rounded-lg hover:bg-gray-100 text-gray-400"
+                  className="p-1 rounded-lg hover:bg-muted text-muted-foreground"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -298,7 +298,7 @@ export function AdminBilling() {
                 {ACTIONS.map(({ action, label, icon: Icon, color, bg }) => (
                   <div
                     key={action}
-                    className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 bg-gray-50/50"
+                    className="flex items-center gap-4 p-3 rounded-lg border border-border bg-muted/50"
                   >
                     <div
                       className={`h-9 w-9 rounded-lg ${bg} flex items-center justify-center shrink-0`}
@@ -306,7 +306,7 @@ export function AdminBilling() {
                       <Icon className={`h-4 w-4 ${color}`} />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-800">{label}</p>
+                      <p className="text-sm font-medium text-foreground">{label}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <input
@@ -321,28 +321,28 @@ export function AdminBilling() {
                             [action]: parseFloat(e.target.value) || 0,
                           }))
                         }
-                        className="w-20 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                        className="w-20 px-3 py-1.5 rounded-lg border border-border text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                       />
-                      <span className="text-xs text-gray-500">créditos</span>
+                      <span className="text-xs text-muted-foreground">créditos</span>
                     </div>
                   </div>
                 ))}
               </div>
 
               {/* Model selector */}
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">
+              <div className="mt-4 pt-4 border-t border-border">
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                   Modelo IA por defecto (OpenRouter)
                 </label>
                 <ModelSelector value={defaultModel} onChange={setDefaultModel} />
               </div>
 
               {/* Actions */}
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setShowConfigModal(false)}
-                  className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
                 >
                   Cancelar
                 </button>

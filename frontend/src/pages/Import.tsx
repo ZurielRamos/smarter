@@ -439,7 +439,7 @@ export function Import() {
 
       {/* Light section - content */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }} className="flex-1 min-h-0 flex flex-col py-4 overflow-hidden">
-        <div className="bg-white rounded-xl border border-gray-200 flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div className="bg-card rounded-xl border border-border flex flex-col flex-1 min-h-0 overflow-hidden">
           {/* Error */}
           {error && (
             <div className="flex items-center gap-2 p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm shrink-0 mx-4 mt-4">
@@ -468,7 +468,7 @@ export function Import() {
               <div className="flex-1 min-h-0 overflow-auto">
                 <DataPreview headers={parseResult.headers} preview={parseResult.preview} totalRows={parseResult.totalRows} />
               </div>
-              <div className="flex justify-between px-4 py-3 shrink-0 border-t border-gray-100">
+              <div className="flex justify-between px-4 py-3 shrink-0 border-t border-border">
                 <Button onClick={handleReset} variant="outline" size="lg" className="gap-2">
                   <Upload className="h-4 w-4" /> Subir otro archivo
                 </Button>
@@ -508,9 +508,9 @@ export function Import() {
               <div className="flex-1 min-h-0 overflow-auto p-6">
                 {/* Summary cards */}
                 <div className="grid grid-cols-4 gap-4 mb-6">
-                  <div className="rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-gray-800">{validationResult.totalRows.toLocaleString()}</p>
-                    <p className="text-xs text-gray-500 mt-1">Filas totales</p>
+                  <div className="rounded-xl border border-border p-4 text-center">
+                    <p className="text-2xl font-bold text-foreground">{validationResult.totalRows.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Filas totales</p>
                   </div>
                   <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-center">
                     <p className="text-2xl font-bold text-green-600">{validationResult.valid}</p>
@@ -536,27 +536,27 @@ export function Import() {
                 {/* Error table */}
                 {validationResult.errors.length > 0 && (
                   <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
                       <XCircle className="h-4 w-4 text-red-500" /> Errores ({validationResult.errors.length})
                     </h3>
                     <div className="rounded-lg border border-red-100 overflow-hidden">
                       <table className="w-full text-xs">
                         <thead className="bg-red-50">
                           <tr>
-                            <th className="px-3 py-2 text-left text-gray-600 font-medium">Fila</th>
-                            <th className="px-3 py-2 text-left text-gray-600 font-medium">Campo</th>
-                            <th className="px-3 py-2 text-left text-gray-600 font-medium">Error</th>
-                            <th className="px-3 py-2 text-left text-gray-600 font-medium">Valor</th>
-                            <th className="px-3 py-2 text-left text-gray-600 font-medium">Sugerencia</th>
+                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Fila</th>
+                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Campo</th>
+                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Error</th>
+                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Valor</th>
+                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Sugerencia</th>
                           </tr>
                         </thead>
                         <tbody>
                           {validationResult.errors.slice(0, 20).map((err, idx) => (
                             <tr key={idx} className="border-t border-red-50">
-                              <td className="px-3 py-2 font-mono text-gray-500">#{err.rowNumber}</td>
-                              <td className="px-3 py-2 font-medium text-gray-700">{err.field}</td>
+                              <td className="px-3 py-2 font-mono text-muted-foreground">#{err.rowNumber}</td>
+                              <td className="px-3 py-2 font-medium text-foreground">{err.field}</td>
                               <td className="px-3 py-2 text-red-600">{err.message}</td>
-                              <td className="px-3 py-2 text-gray-500 font-mono">{err.originalValue || "—"}</td>
+                              <td className="px-3 py-2 text-muted-foreground font-mono">{err.originalValue || "—"}</td>
                               <td className="px-3 py-2 text-green-600 font-mono">{err.suggestedValue || "—"}</td>
                             </tr>
                           ))}
@@ -574,26 +574,26 @@ export function Import() {
                 {/* Warnings table */}
                 {validationResult.warnings.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4 text-amber-500" /> Advertencias ({validationResult.warnings.length})
                     </h3>
                     <div className="rounded-lg border border-amber-100 overflow-hidden">
                       <table className="w-full text-xs">
                         <thead className="bg-amber-50">
                           <tr>
-                            <th className="px-3 py-2 text-left text-gray-600 font-medium">Fila</th>
-                            <th className="px-3 py-2 text-left text-gray-600 font-medium">Campo</th>
-                            <th className="px-3 py-2 text-left text-gray-600 font-medium">Advertencia</th>
-                            <th className="px-3 py-2 text-left text-gray-600 font-medium">Valor</th>
+                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Fila</th>
+                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Campo</th>
+                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Advertencia</th>
+                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Valor</th>
                           </tr>
                         </thead>
                         <tbody>
                           {validationResult.warnings.slice(0, 10).map((w, idx) => (
                             <tr key={idx} className="border-t border-amber-50">
-                              <td className="px-3 py-2 font-mono text-gray-500">#{w.rowNumber}</td>
-                              <td className="px-3 py-2 font-medium text-gray-700">{w.field}</td>
+                              <td className="px-3 py-2 font-mono text-muted-foreground">#{w.rowNumber}</td>
+                              <td className="px-3 py-2 font-medium text-foreground">{w.field}</td>
                               <td className="px-3 py-2 text-amber-600">{w.message}</td>
-                              <td className="px-3 py-2 text-gray-500 font-mono">{w.originalValue || "—"}</td>
+                              <td className="px-3 py-2 text-muted-foreground font-mono">{w.originalValue || "—"}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -612,7 +612,7 @@ export function Import() {
                       onClick={() => setMatchFields([])}
                       className={cn(
                         "px-3 py-2 rounded-lg border text-xs font-medium transition-colors",
-                        matchFields.length === 0 ? "border-blue-400 bg-white text-blue-700" : "border-blue-100 bg-white/50 text-gray-600 hover:bg-white"
+                        matchFields.length === 0 ? "border-blue-400 bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300" : "border-blue-100 dark:border-blue-500/25 bg-muted text-muted-foreground hover:bg-card"
                       )}
                     >
                       No verificar
@@ -624,7 +624,7 @@ export function Import() {
                         onClick={() => setMatchFields([f.field])}
                         className={cn(
                           "px-3 py-2 rounded-lg border text-xs font-medium transition-colors",
-                          matchFields[0] === f.field ? "border-blue-400 bg-white text-blue-700" : "border-blue-100 bg-white/50 text-gray-600 hover:bg-white"
+                          matchFields[0] === f.field ? "border-blue-400 bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300" : "border-blue-100 dark:border-blue-500/25 bg-muted text-muted-foreground hover:bg-card"
                         )}
                       >
                         {f.label}
@@ -652,19 +652,19 @@ export function Import() {
                           onClick={() => setDeduplicateStrategy(opt.value)}
                           className={cn(
                             "text-left p-3 rounded-lg border transition-colors",
-                            deduplicateStrategy === opt.value ? "border-indigo-400 bg-white" : "border-indigo-100 hover:bg-white"
+                            deduplicateStrategy === opt.value ? "border-indigo-400 bg-card" : "border-indigo-100 hover:bg-card"
                           )}
                         >
-                          <p className={cn("text-xs font-medium", deduplicateStrategy === opt.value ? "text-indigo-700" : "text-gray-700")}>{opt.label}</p>
-                          <p className="text-[10px] text-gray-500 mt-0.5">{opt.desc}</p>
+                          <p className={cn("text-xs font-medium", deduplicateStrategy === opt.value ? "text-indigo-700" : "text-foreground")}>{opt.label}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{opt.desc}</p>
                         </button>
                       ))}
                     </div>
 
                     {/* Field selector for overwrite_selected */}
                     {deduplicateStrategy === 'overwrite_selected' && (
-                      <div className="mt-3 p-3 rounded-lg bg-white border border-indigo-200">
-                        <p className="text-xs font-medium text-gray-700 mb-2">Campos a sobrescribir:</p>
+                      <div className="mt-3 p-3 rounded-lg bg-card border border-indigo-200">
+                        <p className="text-xs font-medium text-foreground mb-2">Campos a sobrescribir:</p>
                         <div className="flex flex-wrap gap-2">
                           {targetFields
                             .filter((f) => mapping[f.field]?.length > 0 && !matchFields.includes(f.field))
@@ -685,7 +685,7 @@ export function Import() {
                                     "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
                                     isSelected
                                       ? "bg-indigo-100 border-indigo-400 text-indigo-700"
-                                      : "bg-gray-50 border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600"
+                                      : "bg-muted border-border text-muted-foreground hover:border-indigo-300 hover:text-indigo-600"
                                   )}
                                 >
                                   {isSelected && <span className="mr-1">✓</span>}
@@ -704,8 +704,8 @@ export function Import() {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-between px-6 py-3 shrink-0 border-t border-gray-100">
-                <Button variant="ghost" onClick={() => setStep("map")} className="gap-2 text-gray-600">
+              <div className="flex items-center justify-between px-6 py-3 shrink-0 border-t border-border">
+                <Button variant="ghost" onClick={() => setStep("map")} className="gap-2 text-muted-foreground">
                   <ArrowLeft className="h-4 w-4" /> Volver al mapeo
                 </Button>
                 <div className="flex items-center gap-3">
@@ -729,11 +729,11 @@ export function Import() {
               <div className="flex-1 min-h-0 overflow-auto p-6">
                 {/* Summary */}
                 <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-gray-800">{deduplicateResult.totalRows.toLocaleString()}</p>
-                    <p className="text-xs text-gray-500 mt-1">Filas en archivo</p>
+                  <div className="rounded-xl border border-border p-4 text-center">
+                    <p className="text-2xl font-bold text-foreground">{deduplicateResult.totalRows.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Filas en archivo</p>
                     {deduplicateResult.isEstimate && (
-                      <p className="text-[10px] text-gray-400 mt-0.5">Muestra: {deduplicateResult.totalSample} filas</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Muestra: {deduplicateResult.totalSample} filas</p>
                     )}
                   </div>
                   <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-center">
@@ -759,35 +759,35 @@ export function Import() {
                 {/* Duplicates detail */}
                 {deduplicateResult.duplicates.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
                       <Copy className="h-4 w-4 text-amber-500" /> Muestra de duplicados detectados
                     </h3>
                     <div className="space-y-2">
                       {deduplicateResult.duplicates.map((dup, idx) => (
                         <div key={idx} className="rounded-lg border border-amber-100 p-3 bg-amber-50/50">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-mono text-gray-500">Fila #{dup.rowNumber}</span>
+                            <span className="text-xs font-mono text-muted-foreground">Fila #{dup.rowNumber}</span>
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
                               Match: {dup.matchedOn.join(", ")} ({Math.round(dup.confidence * 100)}%)
                             </span>
                           </div>
                           <div className="grid grid-cols-2 gap-3 text-xs">
                             <div>
-                              <p className="text-[10px] text-gray-400 uppercase mb-1">Entrante</p>
-                              <p className="text-gray-700">{String(dup.incoming.firstName || "")} {String(dup.incoming.lastName || "")}</p>
-                              <p className="text-gray-500 font-mono">{String(dup.incoming.phone || dup.incoming.email || "—")}</p>
+                              <p className="text-[10px] text-muted-foreground uppercase mb-1">Entrante</p>
+                              <p className="text-foreground">{String(dup.incoming.firstName || "")} {String(dup.incoming.lastName || "")}</p>
+                              <p className="text-muted-foreground font-mono">{String(dup.incoming.phone || dup.incoming.email || "—")}</p>
                             </div>
                             <div>
-                              <p className="text-[10px] text-gray-400 uppercase mb-1">Existente en BD</p>
-                              <p className="text-gray-700">{dup.existing.firstName} {dup.existing.lastName}</p>
-                              <p className="text-gray-500 font-mono">{dup.existing.phone || dup.existing.email || "—"}</p>
+                              <p className="text-[10px] text-muted-foreground uppercase mb-1">Existente en BD</p>
+                              <p className="text-foreground">{dup.existing.firstName} {dup.existing.lastName}</p>
+                              <p className="text-muted-foreground font-mono">{dup.existing.phone || dup.existing.email || "—"}</p>
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
                     {deduplicateResult.duplicatesCount > deduplicateResult.duplicates.length && (
-                      <p className="text-xs text-gray-400 mt-3 text-center italic">
+                      <p className="text-xs text-muted-foreground mt-3 text-center italic">
                         Se muestran {deduplicateResult.duplicates.length} ejemplos de ~{deduplicateResult.duplicatesCount.toLocaleString()} duplicados estimados.
                         La deduplicación completa se ejecutará al importar.
                       </p>
@@ -809,8 +809,8 @@ export function Import() {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-between px-6 py-3 shrink-0 border-t border-gray-100">
-                <Button variant="ghost" onClick={() => setStep("validate")} className="gap-2 text-gray-600">
+              <div className="flex items-center justify-between px-6 py-3 shrink-0 border-t border-border">
+                <Button variant="ghost" onClick={() => setStep("validate")} className="gap-2 text-muted-foreground">
                   <ArrowLeft className="h-4 w-4" /> Volver
                 </Button>
                 <Button onClick={handleExecuteImport} size="lg" className="gap-2 bg-brand-800 hover:bg-brand-700 text-white">
@@ -825,11 +825,11 @@ export function Import() {
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center max-w-md">
                 <Loader2 className="h-12 w-12 text-brand-600 animate-spin mx-auto mb-4" />
-                <h2 className="text-xl font-bold text-gray-800 mb-2">Procesando importación...</h2>
+                <h2 className="text-xl font-bold text-foreground mb-2">Procesando importación...</h2>
                 {importJob && (
                   <div className="space-y-3">
-                    <p className="text-sm text-gray-500">
-                      Fase: <span className="font-medium text-gray-700">{importJob.currentPhase || "iniciando"}</span>
+                    <p className="text-sm text-muted-foreground">
+                      Fase: <span className="font-medium text-foreground">{importJob.currentPhase || "iniciando"}</span>
                     </p>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
@@ -837,7 +837,7 @@ export function Import() {
                         style={{ width: `${importJob.progress}%` }}
                       />
                     </div>
-                    <p className="text-xs text-gray-400">{importJob.progress}% completado</p>
+                    <p className="text-xs text-muted-foreground">{importJob.progress}% completado</p>
                   </div>
                 )}
               </div>
@@ -852,7 +852,7 @@ export function Import() {
                   <>
                     <XCircle className="h-14 w-14 text-red-500 mx-auto mb-4" />
                     <h2 className="text-2xl font-bold text-red-600">Importación fallida</h2>
-                    <p className="text-sm text-gray-600 mt-2">{importJob.errorMessage || "Error desconocido"}</p>
+                    <p className="text-sm text-muted-foreground mt-2">{importJob.errorMessage || "Error desconocido"}</p>
                   </>
                 ) : (
                   <>
@@ -874,15 +874,15 @@ export function Import() {
                       <p className="text-xl font-bold text-blue-600">{importJob.updatedRecords}</p>
                       <p className="text-[10px] text-blue-600 uppercase mt-1">Actualizados</p>
                     </div>
-                    <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                      <p className="text-xl font-bold text-gray-600">{importJob.skippedRecords + importJob.errorRows}</p>
-                      <p className="text-[10px] text-gray-500 uppercase mt-1">Omitidos</p>
+                    <div className="rounded-lg bg-muted border border-border p-3">
+                      <p className="text-xl font-bold text-muted-foreground">{importJob.skippedRecords + importJob.errorRows}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase mt-1">Omitidos</p>
                     </div>
                   </div>
                 )}
 
                 {importJob.durationMs && (
-                  <p className="text-xs text-gray-400 mt-4 flex items-center justify-center gap-1">
+                  <p className="text-xs text-muted-foreground mt-4 flex items-center justify-center gap-1">
                     <Clock className="h-3 w-3" />
                     Completado en {(importJob.durationMs / 1000).toFixed(1)}s
                   </p>

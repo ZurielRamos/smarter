@@ -126,10 +126,10 @@ function SortableStepItem({
   const typeInfo = STEP_TYPES.find((t) => t.value === step.type);
 
   return (
-    <div ref={setNodeRef} style={style} className={`border rounded-xl transition-all ${expanded ? "border-brand-200 bg-brand-50/30" : "border-gray-200 bg-white"} ${isDragging ? "shadow-lg" : ""}`}>
+    <div ref={setNodeRef} style={style} className={`border rounded-xl transition-all ${expanded ? "border-brand-200 bg-brand-50/30" : "border-border bg-card"} ${isDragging ? "shadow-lg" : ""}`}>
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3">
-        <button type="button" {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-gray-100 text-gray-400">
+        <button type="button" {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-muted text-muted-foreground">
           <GripVertical className="h-3.5 w-3.5" />
         </button>
 
@@ -139,55 +139,55 @@ function SortableStepItem({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-900 truncate">{step.question || "(sin pregunta)"}</span>
+            <span className="text-sm font-medium text-foreground truncate">{step.question || "(sin pregunta)"}</span>
             {step.required === false && (
               <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">opcional</span>
             )}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[10px] text-gray-400 flex items-center gap-1">
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
               {typeInfo?.icon}
               {typeInfo?.label}
             </span>
-            <span className="text-[10px] text-gray-300">·</span>
-            <span className="text-[10px] text-gray-400 font-mono">{step.field || "—"}</span>
+            <span className="text-[10px] text-muted-foreground">·</span>
+            <span className="text-[10px] text-muted-foreground font-mono">{step.field || "—"}</span>
             {step.aiInterpretation && (
               <>
-                <span className="text-[10px] text-gray-300">·</span>
+                <span className="text-[10px] text-muted-foreground">·</span>
                 <span className="text-[10px] text-purple-500 flex items-center gap-0.5"><Sparkles className="h-2.5 w-2.5" />IA</span>
               </>
             )}
           </div>
         </div>
 
-        <button type="button" onClick={onToggleExpand} className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+        <button type="button" onClick={onToggleExpand} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-muted-foreground">
           {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
         </button>
       </div>
 
       {/* Expanded Content */}
       {expanded && (
-        <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
+        <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
           {/* Question */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Pregunta</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Pregunta</label>
             <textarea
               value={step.question}
               onChange={(e) => onUpdate({ question: e.target.value })}
               placeholder="Ej: ¿Cual es tu nombre completo?"
               rows={2}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
             />
           </div>
 
           {/* Type + Field */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de respuesta</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Tipo de respuesta</label>
               <select
                 value={step.type}
                 onChange={(e) => onUpdate({ type: e.target.value as FlowStep["type"] })}
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                className="w-full px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
               >
                 {STEP_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>{t.label} — {t.description}</option>
@@ -195,12 +195,12 @@ function SortableStepItem({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Campo destino</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Campo destino</label>
               {fieldsAvailable.length > 0 ? (
                 <select
                   value={step.field}
                   onChange={(e) => onUpdate({ field: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                  className="w-full px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                 >
                   <option value="">Seleccionar campo...</option>
                   {fieldsAvailable.map((f) => (
@@ -213,7 +213,7 @@ function SortableStepItem({
                   value={step.field}
                   onChange={(e) => onUpdate({ field: e.target.value })}
                   placeholder="Ej: firstName, custom:cedula"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                  className="w-full px-3 py-2 rounded-lg border border-border text-sm font-mono text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                 />
               )}
             </div>
@@ -222,7 +222,7 @@ function SortableStepItem({
           {/* Select options */}
           {step.type === "select" && (
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Opciones (una por linea)</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Opciones (una por linea)</label>
               <textarea
                 value={(step.validation?.options || []).join("\n")}
                 onChange={(e) => {
@@ -231,7 +231,7 @@ function SortableStepItem({
                 }}
                 placeholder={"Opcion 1\nOpcion 2\nOpcion 3"}
                 rows={3}
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
+                className="w-full px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
               />
             </div>
           )}
@@ -239,13 +239,13 @@ function SortableStepItem({
           {/* Regex pattern */}
           {step.type === "regex" && (
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Patron (regex)</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Patron (regex)</label>
               <input
                 type="text"
                 value={step.validation?.pattern || ""}
                 onChange={(e) => onUpdate({ validation: { ...step.validation, pattern: e.target.value, errorMessage: step.validation?.errorMessage || "El formato no es valido." } })}
                 placeholder="Ej: ^[0-9]{6,10}$"
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                className="w-full px-3 py-2 rounded-lg border border-border text-sm font-mono text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
               />
             </div>
           )}
@@ -254,23 +254,23 @@ function SortableStepItem({
           {step.type === "number" && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Minimo</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Minimo</label>
                 <input
                   type="number"
                   value={step.validation?.min ?? ""}
                   onChange={(e) => onUpdate({ validation: { ...step.validation, min: e.target.value ? Number(e.target.value) : undefined, errorMessage: step.validation?.errorMessage || "Numero fuera de rango." } })}
                   placeholder="Sin limite"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                  className="w-full px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Maximo</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Maximo</label>
                 <input
                   type="number"
                   value={step.validation?.max ?? ""}
                   onChange={(e) => onUpdate({ validation: { ...step.validation, max: e.target.value ? Number(e.target.value) : undefined, errorMessage: step.validation?.errorMessage || "Numero fuera de rango." } })}
                   placeholder="Sin limite"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                  className="w-full px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                 />
               </div>
             </div>
@@ -286,7 +286,7 @@ function SortableStepItem({
 
               {/* Consent type */}
               <div>
-                <label className="block text-[10px] font-medium text-gray-600 mb-1">Tipo de consentimiento</label>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1">Tipo de consentimiento</label>
                 <div className="flex flex-wrap gap-1.5">
                   {[
                     { value: "data_collection", label: "Recoleccion de datos" },
@@ -296,7 +296,7 @@ function SortableStepItem({
                   ].map((ct) => (
                     <button key={ct.value} type="button"
                       onClick={() => onUpdate({ consent: { ...step.consent, consentType: ct.value as any, legalText: step.consent?.legalText || "" } })}
-                      className={`px-2.5 py-1 rounded-md text-[10px] font-medium border transition-colors ${(step.consent?.consentType || "custom") === ct.value ? "border-purple-300 bg-purple-100 text-purple-700" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-medium border transition-colors ${(step.consent?.consentType || "custom") === ct.value ? "border-purple-300 bg-purple-100 text-purple-700" : "border-border text-muted-foreground hover:border-border"}`}
                     >{ct.label}</button>
                   ))}
                 </div>
@@ -304,49 +304,49 @@ function SortableStepItem({
 
               {/* Legal text */}
               <div>
-                <label className="block text-[10px] font-medium text-gray-600 mb-1">Texto legal / Autorizacion</label>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1">Texto legal / Autorizacion</label>
                 <textarea
                   value={step.consent?.legalText || ""}
                   onChange={(e) => onUpdate({ consent: { ...step.consent, legalText: e.target.value } })}
                   placeholder="Ej: Autorizo el tratamiento de mis datos personales conforme a la politica de privacidad..."
                   rows={3}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
+                  className="w-full px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
                 />
               </div>
 
               {/* Terms URL */}
               <div>
-                <label className="block text-[10px] font-medium text-gray-600 mb-1 flex items-center gap-1"><Link className="h-2.5 w-2.5" />Enlace a terminos y condiciones</label>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1 flex items-center gap-1"><Link className="h-2.5 w-2.5" />Enlace a terminos y condiciones</label>
                 <input
                   type="url"
                   value={step.consent?.termsUrl || ""}
                   onChange={(e) => onUpdate({ consent: { ...step.consent, legalText: step.consent?.legalText || "", termsUrl: e.target.value } })}
                   placeholder="https://tu-sitio.com/terminos"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                  className="w-full px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                 />
               </div>
 
               {/* Reject action */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-medium text-gray-600 mb-1">Si rechaza</label>
+                  <label className="block text-[10px] font-medium text-muted-foreground mb-1">Si rechaza</label>
                   <select
                     value={step.consent?.rejectAction || "end"}
                     onChange={(e) => onUpdate({ consent: { ...step.consent, legalText: step.consent?.legalText || "", rejectAction: e.target.value as any } })}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                    className="w-full px-3 py-2 rounded-lg border border-border text-xs text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                   >
                     <option value="end">Finalizar conversacion</option>
                     <option value="handoff">Transferir a agente</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-medium text-gray-600 mb-1">Mensaje al rechazar</label>
+                  <label className="block text-[10px] font-medium text-muted-foreground mb-1">Mensaje al rechazar</label>
                   <input
                     type="text"
                     value={step.consent?.rejectMessage || ""}
                     onChange={(e) => onUpdate({ consent: { ...step.consent, legalText: step.consent?.legalText || "", rejectMessage: e.target.value } })}
                     placeholder="Entendido. Sin tu autorizacion no podemos continuar."
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                    className="w-full px-3 py-2 rounded-lg border border-border text-xs text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                   />
                 </div>
               </div>
@@ -356,19 +356,19 @@ function SortableStepItem({
           {/* Validation error message (not for consent) */}
           {step.type !== "consent" && (
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Mensaje de error</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Mensaje de error</label>
             <input
               type="text"
               value={step.validation?.errorMessage || ""}
               onChange={(e) => onUpdate({ validation: { ...step.validation, errorMessage: e.target.value } })}
               placeholder="Ej: Por favor ingresa un dato valido."
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+              className="w-full px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
             />
           </div>
           )}
 
           {/* Options row */}
-          <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-gray-100">
+          <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-border">
             {/* Required */}
             <label className="flex items-center gap-2 cursor-pointer">
               <button
@@ -378,7 +378,7 @@ function SortableStepItem({
               >
                 <span className={`absolute top-0.5 left-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${step.required !== false ? "translate-x-3.5" : ""}`} />
               </button>
-              <span className="text-xs text-gray-600">Obligatorio</span>
+              <span className="text-xs text-muted-foreground">Obligatorio</span>
             </label>
 
             {/* AI Interpretation */}
@@ -390,19 +390,19 @@ function SortableStepItem({
               >
                 <span className={`absolute top-0.5 left-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${step.aiInterpretation ? "translate-x-3.5" : ""}`} />
               </button>
-              <span className="text-xs text-gray-600 flex items-center gap-1"><Sparkles className="h-3 w-3 text-purple-500" />Interpretar con IA</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1"><Sparkles className="h-3 w-3 text-purple-500" />Interpretar con IA</span>
             </label>
 
             {/* Retries */}
             <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-600">Reintentos:</span>
+              <span className="text-xs text-muted-foreground">Reintentos:</span>
               <input
                 type="number"
                 min={1}
                 max={5}
                 value={step.retries ?? 2}
                 onChange={(e) => onUpdate({ retries: Math.max(1, Math.min(5, parseInt(e.target.value) || 2)) })}
-                className="w-12 px-2 py-1 rounded border border-gray-200 text-xs text-center focus:outline-none focus:border-brand-300"
+                className="w-12 px-2 py-1 rounded border border-border text-xs text-center focus:outline-none focus:border-brand-300"
               />
             </div>
 
@@ -414,17 +414,17 @@ function SortableStepItem({
 
           {/* onCollected webhook */}
           <details className="group">
-            <summary className="text-[10px] text-gray-400 cursor-pointer hover:text-gray-600 flex items-center gap-1">
+            <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-muted-foreground flex items-center gap-1">
               <ChevronDown className="h-2.5 w-2.5 group-open:rotate-180 transition-transform" />
               <Globe className="h-2.5 w-2.5" /> Webhook al recolectar (avanzado)
             </summary>
-            <div className="mt-2 space-y-2 p-3 bg-gray-50 rounded-lg border border-gray-100">
-              <p className="text-[9px] text-gray-400">Se ejecuta despues de validar el dato de este paso. Recibe el valor y datos acumulados.</p>
+            <div className="mt-2 space-y-2 p-3 bg-muted rounded-lg border border-border">
+              <p className="text-[9px] text-muted-foreground">Se ejecuta despues de validar el dato de este paso. Recibe el valor y datos acumulados.</p>
               <div className="flex gap-2">
                 <select
                   value={step.onCollected?.method || "POST"}
                   onChange={(e) => onUpdate({ onCollected: { ...step.onCollected, url: step.onCollected?.url || "", method: e.target.value as any } })}
-                  className="w-20 px-2 py-1.5 rounded border border-gray-200 text-[10px] focus:outline-none focus:border-brand-300"
+                  className="w-20 px-2 py-1.5 rounded border border-border text-[10px] focus:outline-none focus:border-brand-300"
                 >
                   <option value="POST">POST</option>
                   <option value="GET">GET</option>
@@ -436,7 +436,7 @@ function SortableStepItem({
                   value={step.onCollected?.url || ""}
                   onChange={(e) => onUpdate({ onCollected: e.target.value ? { ...step.onCollected, url: e.target.value, method: step.onCollected?.method || "POST" } : undefined })}
                   placeholder="https://api.example.com/webhook"
-                  className="flex-1 px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300"
+                  className="flex-1 px-2 py-1.5 rounded border border-border text-xs font-mono focus:outline-none focus:border-brand-300"
                 />
               </div>
             </div>
@@ -444,7 +444,7 @@ function SortableStepItem({
 
           {/* Skip condition */}
           <details className="group">
-            <summary className="text-[10px] text-gray-400 cursor-pointer hover:text-gray-600 flex items-center gap-1">
+            <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-muted-foreground flex items-center gap-1">
               <ChevronDown className="h-2.5 w-2.5 group-open:rotate-180 transition-transform" />
               Condicion para omitir (avanzado)
             </summary>
@@ -454,7 +454,7 @@ function SortableStepItem({
                 value={step.skipIf || ""}
                 onChange={(e) => onUpdate({ skipIf: e.target.value || undefined })}
                 placeholder="Ej: collectedData.phone (omitir si ya tiene telefono)"
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-xs font-mono text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                className="w-full px-3 py-2 rounded-lg border border-border text-xs font-mono text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
               />
             </div>
           </details>
@@ -545,14 +545,14 @@ export function BotFlowEditor({ steps, config, onStepsChange, onConfigChange, te
   return (
     <div className="space-y-6">
       {/* Flow Steps List */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-card rounded-xl border border-border p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="flex items-center gap-2">
                   <List className="h-4 w-4 text-brand-600" />
-                  <h3 className="text-sm font-semibold text-gray-900">Pasos del flujo</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Pasos del flujo</h3>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Define las preguntas que el bot hara en orden. Arrastra para reordenar.</p>
+                <p className="text-xs text-muted-foreground mt-1">Define las preguntas que el bot hara en orden. Arrastra para reordenar.</p>
               </div>
               <button
                 type="button"
@@ -564,10 +564,10 @@ export function BotFlowEditor({ steps, config, onStepsChange, onConfigChange, te
             </div>
 
             {steps.length === 0 ? (
-              <div className="text-center py-10 border border-dashed border-gray-200 rounded-xl">
-                <List className="h-8 w-8 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm text-gray-500 font-medium">No hay pasos configurados</p>
-                <p className="text-xs text-gray-400 mt-1">Agrega el primer paso para comenzar a construir tu flujo.</p>
+              <div className="text-center py-10 border border-dashed border-border rounded-xl">
+                <List className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground font-medium">No hay pasos configurados</p>
+                <p className="text-xs text-muted-foreground mt-1">Agrega el primer paso para comenzar a construir tu flujo.</p>
                 <button
                   type="button"
                   onClick={addStep}
@@ -598,7 +598,7 @@ export function BotFlowEditor({ steps, config, onStepsChange, onConfigChange, te
             )}
 
             {steps.length > 0 && (
-              <div className="mt-3 flex items-center gap-2 text-[10px] text-gray-400">
+              <div className="mt-3 flex items-center gap-2 text-[10px] text-muted-foreground">
                 <AlertCircle className="h-3 w-3" />
                 <span>Arrastra los pasos para cambiar el orden. El bot preguntara en la secuencia definida aqui.</span>
               </div>
@@ -606,28 +606,28 @@ export function BotFlowEditor({ steps, config, onStepsChange, onConfigChange, te
           </div>
 
           {/* Flow Configuration */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="bg-card rounded-xl border border-border p-6">
             <div className="flex items-center gap-2 mb-4">
               <MessageCircle className="h-4 w-4 text-brand-600" />
-              <h3 className="text-sm font-semibold text-gray-900">Configuracion del flujo</h3>
+              <h3 className="text-sm font-semibold text-foreground">Configuracion del flujo</h3>
             </div>
 
             <div className="space-y-4">
               {/* Completion message */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Mensaje de finalizacion</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Mensaje de finalizacion</label>
                 <textarea
                   value={config.completionMessage || ""}
                   onChange={(e) => onConfigChange({ ...config, completionMessage: e.target.value })}
                   placeholder="Gracias, hemos recopilado toda la informacion necesaria."
                   rows={2}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
+                  className="w-full px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
                 />
               </div>
 
               {/* Completion action */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Accion al completar</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Accion al completar</label>
                 <div className="grid grid-cols-3 gap-2">
                   {COMPLETION_ACTIONS.map((a) => (
                     <button
@@ -637,11 +637,11 @@ export function BotFlowEditor({ steps, config, onStepsChange, onConfigChange, te
                       className={`flex flex-col items-start gap-0.5 p-3 rounded-lg border text-left transition-colors ${
                         (config.completionAction || "none") === a.value
                           ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200"
-                          : "border-gray-200 hover:border-gray-300"
+                          : "border-border hover:border-border"
                       }`}
                     >
-                      <span className={`text-xs font-medium ${(config.completionAction || "none") === a.value ? "text-brand-700" : "text-gray-700"}`}>{a.label}</span>
-                      <span className="text-[10px] text-gray-400">{a.description}</span>
+                      <span className={`text-xs font-medium ${(config.completionAction || "none") === a.value ? "text-brand-700" : "text-foreground"}`}>{a.label}</span>
+                      <span className="text-[10px] text-muted-foreground">{a.description}</span>
                     </button>
                   ))}
                 </div>
@@ -650,8 +650,8 @@ export function BotFlowEditor({ steps, config, onStepsChange, onConfigChange, te
               {/* Allow skip */}
               <div className="flex items-center justify-between py-2">
                 <div>
-                  <p className="text-xs font-medium text-gray-700">Permitir omitir pasos opcionales</p>
-                  <p className="text-[10px] text-gray-400">Los usuarios pueden escribir la palabra clave para saltar preguntas no obligatorias</p>
+                  <p className="text-xs font-medium text-foreground">Permitir omitir pasos opcionales</p>
+                  <p className="text-[10px] text-muted-foreground">Los usuarios pueden escribir la palabra clave para saltar preguntas no obligatorias</p>
                 </div>
                 <button
                   type="button"
@@ -664,35 +664,35 @@ export function BotFlowEditor({ steps, config, onStepsChange, onConfigChange, te
 
               {config.allowSkip && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Palabra clave para omitir</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Palabra clave para omitir</label>
                   <input
                     type="text"
                     value={config.skipKeyword || ""}
                     onChange={(e) => onConfigChange({ ...config, skipKeyword: e.target.value })}
                     placeholder="omitir"
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                    className="w-full px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                   />
                 </div>
               )}
 
               {/* Max global retries */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Maximo de errores globales antes de transferir</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Maximo de errores globales antes de transferir</label>
                 <input
                   type="number"
                   min={0}
                   max={20}
                   value={config.maxGlobalRetries ?? 10}
                   onChange={(e) => onConfigChange({ ...config, maxGlobalRetries: Math.max(0, parseInt(e.target.value) || 10) })}
-                  className="w-32 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                  className="w-32 px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                 />
-                <p className="text-[10px] text-gray-400 mt-1">Si el usuario acumula este numero de respuestas invalidas en total, el bot transferira a un agente.</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Si el usuario acumula este numero de respuestas invalidas en total, el bot transferira a un agente.</p>
               </div>
 
               {/* Off-topic behavior */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Mensajes fuera de tema</label>
-                <p className="text-[10px] text-gray-400 mb-2">Que hacer cuando el usuario envia un mensaje que no responde a la pregunta actual (ej: hace una pregunta).</p>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Mensajes fuera de tema</label>
+                <p className="text-[10px] text-muted-foreground mb-2">Que hacer cuando el usuario envia un mensaje que no responde a la pregunta actual (ej: hace una pregunta).</p>
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { value: "ignore", label: "Ignorar", description: "Tratar como respuesta invalida" },
@@ -701,10 +701,10 @@ export function BotFlowEditor({ steps, config, onStepsChange, onConfigChange, te
                   ].map((b) => (
                     <button key={b.value} type="button"
                       onClick={() => onConfigChange({ ...config, offTopicBehavior: b.value as any })}
-                      className={`flex flex-col items-start gap-0.5 p-3 rounded-lg border text-left transition-colors ${(config.offTopicBehavior || "ignore") === b.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}
+                      className={`flex flex-col items-start gap-0.5 p-3 rounded-lg border text-left transition-colors ${(config.offTopicBehavior || "ignore") === b.value ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200" : "border-border hover:border-border"}`}
                     >
-                      <span className={`text-[10px] font-medium ${(config.offTopicBehavior || "ignore") === b.value ? "text-brand-700" : "text-gray-700"}`}>{b.label}</span>
-                      <span className="text-[9px] text-gray-400 leading-tight">{b.description}</span>
+                      <span className={`text-[10px] font-medium ${(config.offTopicBehavior || "ignore") === b.value ? "text-brand-700" : "text-foreground"}`}>{b.label}</span>
+                      <span className="text-[9px] text-muted-foreground leading-tight">{b.description}</span>
                     </button>
                   ))}
                 </div>
@@ -712,28 +712,28 @@ export function BotFlowEditor({ steps, config, onStepsChange, onConfigChange, te
 
               {config.offTopicBehavior === "redirect" && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Mensaje de redireccion</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Mensaje de redireccion</label>
                   <input
                     type="text"
                     value={config.offTopicMessage || ""}
                     onChange={(e) => onConfigChange({ ...config, offTopicMessage: e.target.value })}
                     placeholder="Ej: Entiendo, pero necesito que respondas la pregunta para continuar."
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
+                    className="w-full px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
                   />
                 </div>
               )}
 
               {/* Completion webhook */}
-              <div className="pt-3 border-t border-gray-100">
-                <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1.5">
-                  <Globe className="h-3 w-3 text-gray-500" /> Webhook al completar flujo
+              <div className="pt-3 border-t border-border">
+                <label className="block text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1.5">
+                  <Globe className="h-3 w-3 text-muted-foreground" /> Webhook al completar flujo
                 </label>
-                <p className="text-[10px] text-gray-400 mb-2">Se ejecuta cuando todos los pasos se completan. Recibe todos los datos recopilados.</p>
+                <p className="text-[10px] text-muted-foreground mb-2">Se ejecuta cuando todos los pasos se completan. Recibe todos los datos recopilados.</p>
                 <div className="flex gap-2">
                   <select
                     value={config.onCompletionWebhook?.method || "POST"}
                     onChange={(e) => onConfigChange({ ...config, onCompletionWebhook: { ...config.onCompletionWebhook, url: config.onCompletionWebhook?.url || "", method: e.target.value as any } })}
-                    className="w-20 px-2 py-1.5 rounded border border-gray-200 text-[10px] focus:outline-none focus:border-brand-300"
+                    className="w-20 px-2 py-1.5 rounded border border-border text-[10px] focus:outline-none focus:border-brand-300"
                   >
                     <option value="POST">POST</option>
                     <option value="GET">GET</option>
@@ -745,7 +745,7 @@ export function BotFlowEditor({ steps, config, onStepsChange, onConfigChange, te
                     value={config.onCompletionWebhook?.url || ""}
                     onChange={(e) => onConfigChange({ ...config, onCompletionWebhook: e.target.value ? { url: e.target.value, method: config.onCompletionWebhook?.method || "POST" } : undefined })}
                     placeholder="https://api.example.com/flow-completed"
-                    className="flex-1 px-2 py-1.5 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:border-brand-300"
+                    className="flex-1 px-2 py-1.5 rounded border border-border text-xs font-mono focus:outline-none focus:border-brand-300"
                   />
                 </div>
               </div>

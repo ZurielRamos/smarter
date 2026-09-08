@@ -126,10 +126,10 @@ export function CallEditor({
   const canSave = useAudio ? !!audioCode.trim() : !!templateId;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <div className="bg-card rounded-xl border border-border p-6">
       <div className="flex items-center gap-2 mb-4">
         <Phone className="h-5 w-5 text-brand-600" />
-        <h2 className="text-base font-semibold text-gray-900">
+        <h2 className="text-base font-semibold text-foreground">
           {channel === "sms" ? "Configuración de SMS" : "Configuración de Llamada"}
         </h2>
       </div>
@@ -143,7 +143,7 @@ export function CallEditor({
             "px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all",
             !useAudio
               ? "border-brand-500 bg-brand-50 text-brand-800"
-              : "border-gray-200 text-gray-600 hover:border-gray-300"
+              : "border-border text-muted-foreground hover:border-border"
           )}
         >
           Mensaje de texto a voz
@@ -154,7 +154,7 @@ export function CallEditor({
             "px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all",
             useAudio
               ? "border-brand-500 bg-brand-50 text-brand-800"
-              : "border-gray-200 text-gray-600 hover:border-gray-300"
+              : "border-border text-muted-foreground hover:border-border"
           )}
         >
           Audio pregrabado
@@ -166,21 +166,21 @@ export function CallEditor({
         <>
           {/* Template selector */}
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-2">
+            <label className="text-sm font-medium text-foreground block mb-2">
               {channel === "sms" ? "Plantilla de SMS" : "Plantilla de llamada"}
             </label>
             {loadingTemplates ? (
               <div className="flex items-center gap-2 py-3">
-                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                <span className="text-xs text-gray-400">Cargando plantillas...</span>
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Cargando plantillas...</span>
               </div>
             ) : templates.length === 0 ? (
-              <div className="p-4 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-center">
-                <FileText className="h-5 w-5 text-gray-300 mx-auto mb-1" />
-                <p className="text-xs text-gray-400">
+              <div className="p-4 rounded-lg border border-dashed border-border bg-muted text-center">
+                <FileText className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
+                <p className="text-xs text-muted-foreground">
                   {channel === "sms" ? "No hay plantillas de SMS" : "No hay plantillas de llamada"}
                 </p>
-                <p className="text-[10px] text-gray-400 mt-0.5">Crea una desde la sección Plantillas</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Crea una desde la sección Plantillas</p>
               </div>
             ) : (
               <TemplateDropdown
@@ -192,9 +192,9 @@ export function CallEditor({
 
             {/* Preview of selected template */}
             {selectedTemplate && selectedBody && (
-              <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-[10px] font-medium text-gray-400 uppercase mb-1">Mensaje de la plantilla</p>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedBody}</p>
+              <div className="mt-3 p-3 bg-muted rounded-lg border border-border">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase mb-1">Mensaje de la plantilla</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{selectedBody}</p>
 
                 {/* Variable mapping */}
                 {(() => {
@@ -216,12 +216,12 @@ export function CallEditor({
 
                   return (
                     <div className="mt-3">
-                      <p className="text-[10px] font-medium text-gray-400 uppercase mb-2">Mapeo de variables</p>
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase mb-2">Mapeo de variables</p>
                       <div className="space-y-2">
                         {uniqueVars.map((varName) => (
                           <div key={varName} className="flex items-center gap-2">
                             <code className="text-[11px] font-mono text-brand-700 bg-brand-50 px-1.5 py-1 rounded shrink-0 w-[130px] truncate">{`{{${varName}}}`}</code>
-                            <span className="text-gray-300 shrink-0">→</span>
+                            <span className="text-muted-foreground shrink-0">→</span>
                             <FieldDropdown
                               fields={AVAILABLE_VARIABLES}
                               value={effectiveMapping[varName] || ""}
@@ -237,9 +237,9 @@ export function CallEditor({
                   );
                 })()}
 
-                <div className="mt-3 p-3 bg-white rounded-lg border border-gray-100">
-                  <p className="text-[10px] font-medium text-gray-400 uppercase mb-1">Vista previa (lo que escuchará el cliente)</p>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{getPreview()}</p>
+                <div className="mt-3 p-3 bg-card rounded-lg border border-border">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase mb-1">Vista previa (lo que escuchará el cliente)</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{getPreview()}</p>
                 </div>
                 {selectedTemplate.translations.length > 1 && (
                   <p className="text-[10px] text-brand-600 mt-2">
@@ -253,7 +253,7 @@ export function CallEditor({
       ) : (
         /* Audio code input */
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1.5">
+          <label className="text-sm font-medium text-foreground block mb-1.5">
             Código de Audio (Onurix)
           </label>
           <input
@@ -261,9 +261,9 @@ export function CallEditor({
             value={audioCode}
             onChange={(e) => onAudioCodeChange(e.target.value)}
             placeholder="Ej: abc123def456"
-            className="w-full max-w-md px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+            className="w-full max-w-md px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
-          <p className="text-xs text-gray-400 mt-1.5">
+          <p className="text-xs text-muted-foreground mt-1.5">
             ID único del audio cargado en la plataforma de Onurix. No se puede usar junto con mensaje de texto a voz.
           </p>
         </div>
@@ -273,24 +273,24 @@ export function CallEditor({
       {channel === "llamada" && (
       <div className="grid grid-cols-2 gap-4 mt-5">
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1.5">
+          <label className="text-sm font-medium text-foreground block mb-1.5">
             Reintentos
           </label>
           <select
             value={retries}
             onChange={(e) => onRetriesChange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+            className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           >
             <option value="">Por defecto (1)</option>
             <option value="1">1</option>
             <option value="2">2</option>
             <option value="3">3</option>
           </select>
-          <p className="text-xs text-gray-400 mt-1">Número de intentos si no contestan (máx. 3)</p>
+          <p className="text-xs text-muted-foreground mt-1">Número de intentos si no contestan (máx. 3)</p>
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1.5">
+          <label className="text-sm font-medium text-foreground block mb-1.5">
             Buzón de voz
           </label>
           <button
@@ -308,7 +308,7 @@ export function CallEditor({
               )}
             />
           </button>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {leaveVoicemail
               ? "Dejará mensaje en buzón si no contestan"
               : "No dejará mensaje en buzón"}
@@ -352,27 +352,27 @@ function TemplateDropdown({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-200 hover:border-gray-300 bg-white text-left transition-colors focus:outline-none focus:ring-2 focus:ring-brand-400"
+        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-border hover:border-border bg-card text-left transition-colors focus:outline-none focus:ring-2 focus:ring-brand-400"
       >
-        <span className={cn("text-sm", selected ? "text-gray-900" : "text-gray-400")}>
+        <span className={cn("text-sm", selected ? "text-foreground" : "text-muted-foreground")}>
           {selected ? selected.name : "Seleccionar plantilla..."}
         </span>
-        <ChevronDown className={cn("h-4 w-4 text-gray-400 transition-transform", open && "rotate-180")} />
+        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50 max-h-[200px] overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-popover text-popover-foreground rounded-xl shadow-lg border border-border py-1 z-50 max-h-[200px] overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
             {/* Clear option */}
             <button
               onClick={() => { onSelect(null); setOpen(false); }}
               className={cn(
                 "w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors",
-                !selectedId ? "bg-gray-50 text-gray-500" : "text-gray-400 hover:bg-gray-50"
+                !selectedId ? "bg-muted text-muted-foreground" : "text-muted-foreground hover:bg-muted"
               )}
             >
-              <span className="text-gray-400">Sin plantilla</span>
+              <span className="text-muted-foreground">Sin plantilla</span>
             </button>
             {templates.map((t) => {
               const isActive = t.id === selectedId;
@@ -383,12 +383,12 @@ function TemplateDropdown({
                   onClick={() => { onSelect(t.id); setOpen(false); }}
                   className={cn(
                     "w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors",
-                    isActive ? "bg-brand-50 text-brand-700" : "text-gray-700 hover:bg-gray-50"
+                    isActive ? "bg-brand-50 text-brand-700" : "text-foreground hover:bg-muted"
                   )}
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{t.name}</p>
-                    {body && <p className="text-[11px] text-gray-400 truncate mt-0.5">{body.substring(0, 50)}{body.length > 50 ? "..." : ""}</p>}
+                    {body && <p className="text-[11px] text-muted-foreground truncate mt-0.5">{body.substring(0, 50)}{body.length > 50 ? "..." : ""}</p>}
                   </div>
                   {isActive && <Check className="h-4 w-4 text-brand-600 shrink-0" />}
                 </button>
@@ -434,7 +434,7 @@ function FieldDropdown({
         onClick={() => setOpen(!open)}
         className={cn(
           "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-left text-xs transition-colors",
-          selected ? "border-gray-200 bg-white text-gray-800"
+          selected ? "border-border bg-card text-foreground"
             : isManual ? "border-blue-200 bg-blue-50 text-blue-700"
             : "border-amber-200 bg-amber-50 text-amber-600"
         )}
@@ -442,27 +442,27 @@ function FieldDropdown({
         <span className="truncate">
           {selected ? selected.label : isManual ? `"${value}"` : "Seleccionar campo..."}
         </span>
-        <ChevronDown className="h-3 w-3 text-gray-400 shrink-0" />
+        <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
       </button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => { setOpen(false); setManualMode(false); }} />
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 max-h-[220px] overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 z-50 max-h-[220px] overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
             {/* Manual input option */}
             {!manualMode ? (
               <button
                 onClick={() => { setManualMode(true); setManualValue(isManual ? value : ""); }}
                 className={cn(
-                  "w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors border-b border-gray-100",
-                  isManual ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-500 hover:bg-gray-50"
+                  "w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors border-b border-border",
+                  isManual ? "bg-blue-50 text-blue-700 font-medium" : "text-muted-foreground hover:bg-muted"
                 )}
               >
                 <span className="text-[10px]">✏️</span>
                 <span>Texto manual{isManual ? `: "${value}"` : ""}</span>
               </button>
             ) : (
-              <div className="px-2 py-2 border-b border-gray-100">
+              <div className="px-2 py-2 border-b border-border">
                 <div className="flex gap-1">
                   <input
                     type="text"
@@ -470,7 +470,7 @@ function FieldDropdown({
                     onChange={(e) => setManualValue(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") handleManualConfirm(); }}
                     placeholder="Texto fijo..."
-                    className="flex-1 px-2 py-1.5 rounded-md border border-gray-200 text-xs focus:outline-none focus:ring-1 focus:ring-brand-300"
+                    className="flex-1 px-2 py-1.5 rounded-md border border-border text-xs focus:outline-none focus:ring-1 focus:ring-brand-300"
                     autoFocus
                   />
                   <button
@@ -491,12 +491,12 @@ function FieldDropdown({
                 onClick={() => { onChange(f.field); setOpen(false); setManualMode(false); }}
                 className={cn(
                   "w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors",
-                  f.field === value ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"
+                  f.field === value ? "bg-brand-50 text-brand-700 font-medium" : "text-foreground hover:bg-muted"
                 )}
               >
                 {f.field === value && <Check className="h-3 w-3 text-brand-600 shrink-0" />}
                 <span className="truncate">{f.label}</span>
-                <span className="text-[9px] text-gray-400 ml-auto">{f.field}</span>
+                <span className="text-[9px] text-muted-foreground ml-auto">{f.field}</span>
               </button>
             ))}
           </div>

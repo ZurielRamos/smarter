@@ -68,49 +68,49 @@ export function TemplateSelector({ inboxId, onSelect, iconOnly }: TemplateSelect
       <button
         onClick={() => setOpen((v) => !v)}
         className={iconOnly
-          ? "p-2.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors"
-          : "px-3 py-1.5 text-xs font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 transition-colors flex items-center gap-1"}
+          ? "p-2.5 rounded-lg text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10 transition-colors"
+          : "px-3 py-1.5 text-xs font-medium rounded-lg text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-500/10 hover:bg-green-100 dark:hover:bg-green-500/20 transition-colors flex items-center gap-1"}
         title="Enviar plantilla"
       >
         <FileText className={iconOnly ? "h-5 w-5" : "h-3.5 w-3.5"} />
         {!iconOnly && <><span>Plantilla</span><ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} /></>}
       </button>
       {open && (
-        <div className="absolute bottom-full right-0 mb-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden z-50">
-          <div className="p-2 border-b border-gray-100">
+        <div className="absolute bottom-full right-0 mb-2 w-80 bg-popover text-popover-foreground rounded-xl shadow-xl border border-border overflow-hidden z-50">
+          <div className="p-2 border-b border-border">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar plantilla..."
-                className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-brand-500"
+                className="w-full pl-8 pr-3 py-1.5 border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg text-xs outline-none focus:border-brand-500"
                 autoFocus
               />
             </div>
           </div>
           <div className="max-h-64 overflow-y-auto">
             {loading ? (
-              <div className="p-4 text-center text-xs text-gray-400">Cargando...</div>
+              <div className="p-4 text-center text-xs text-muted-foreground">Cargando...</div>
             ) : filtered.length === 0 ? (
-              <div className="p-4 text-center text-xs text-gray-400">Sin resultados</div>
+              <div className="p-4 text-center text-xs text-muted-foreground">Sin resultados</div>
             ) : (
               filtered.map((t) => (
                 <button
                   key={`${t.name}-${t.language}`}
                   onClick={() => { onSelect(t); setOpen(false); setSearch(""); }}
-                  className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
+                  className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-muted transition-colors border-b border-border last:border-0"
                 >
-                  <div className="h-7 w-7 rounded-md bg-green-50 flex items-center justify-center shrink-0 mt-0.5">
-                    <FileText className="h-3.5 w-3.5 text-green-600" />
+                  <div className="h-7 w-7 rounded-md bg-green-50 dark:bg-green-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <FileText className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-900 truncate">{t.name}</p>
-                    <p className="text-[10px] text-gray-500 line-clamp-1 mt-0.5">{getBodyText(t)}</p>
+                    <p className="text-xs font-medium text-foreground truncate">{t.name}</p>
+                    <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">{getBodyText(t)}</p>
                     <div className="flex items-center gap-1.5 mt-1">
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{t.language}</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">{t.category}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{t.language}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400">{t.category}</span>
                     </div>
                   </div>
                 </button>
@@ -282,14 +282,14 @@ export function TemplateConfigModal({ template, conversationId, senderId, contac
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className={`relative bg-white rounded-xl shadow-xl mx-4 max-h-[85vh] flex flex-col ${hasVariables ? "w-full max-w-3xl" : "w-full max-w-md"}`}>
+      <div className={`relative bg-card rounded-xl shadow-xl mx-4 max-h-[85vh] flex flex-col ${hasVariables ? "w-full max-w-3xl" : "w-full max-w-md"}`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">Enviar plantilla</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Revisa el mensaje antes de enviarlo al contacto</p>
+            <h3 className="text-base font-semibold text-foreground">Enviar plantilla</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Revisa el mensaje antes de enviarlo al contacto</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -297,8 +297,8 @@ export function TemplateConfigModal({ template, conversationId, senderId, contac
         {/* Content */}
         <div className={`flex-1 overflow-y-auto ${hasVariables ? "flex" : ""}`}>
           {/* Preview side */}
-          <div className={`p-5 ${hasVariables ? "w-[45%] border-r border-gray-100 shrink-0" : ""}`}>
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Vista previa</p>
+          <div className={`p-5 ${hasVariables ? "w-[45%] border-r border-border shrink-0" : ""}`}>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Vista previa</p>
             <div className="bg-[#e5ddd5] rounded-xl p-4">
               <div className="bg-white rounded-lg p-3.5 shadow-sm">
                 {headerText ? (
@@ -330,31 +330,31 @@ export function TemplateConfigModal({ template, conversationId, senderId, contac
               </div>
             </div>
             <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 truncate max-w-[120px]">{template.name}</span>
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">{template.language}</span>
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600">{template.category}</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground truncate max-w-[120px]">{template.name}</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{template.language}</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400">{template.category}</span>
             </div>
           </div>
 
           {/* Variables side */}
           {hasVariables && (
             <div className="flex-1 p-5 overflow-y-auto">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Personalizar mensaje</p>
-              <p className="text-xs text-gray-500 mb-4">Completa los campos para personalizar el mensaje. Los valores se reflejarán en la vista previa en tiempo real.</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Personalizar mensaje</p>
+              <p className="text-xs text-muted-foreground mb-4">Completa los campos para personalizar el mensaje. Los valores se reflejarán en la vista previa en tiempo real.</p>
               <div className="space-y-3">
                 {template.components.find((c) => c.type === "HEADER" && (c.format === "IMAGE" || c.format === "VIDEO" || c.format === "DOCUMENT")) && (
                   <>
-                    <p className="text-[11px] font-medium text-gray-600">
+                    <p className="text-[11px] font-medium text-muted-foreground">
                       {template.components.find((c) => c.type === "HEADER")?.format === "IMAGE" ? "📷 Imagen del encabezado" :
                        template.components.find((c) => c.type === "HEADER")?.format === "VIDEO" ? "🎬 Video del encabezado" : "📄 Documento del encabezado"}
                     </p>
                     {headerImageUrl ? (
                       <div className="relative">
                         {template.components.find((c) => c.type === "HEADER")?.format === "IMAGE" && headerImagePreview ? (
-                          <img src={headerImagePreview} alt="Header" className="w-full h-24 object-cover rounded-lg border border-gray-200" />
+                          <img src={headerImagePreview} alt="Header" className="w-full h-24 object-cover rounded-lg border border-border" />
                         ) : (
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50">
-                            <span className="text-xs text-gray-600 truncate flex-1">Archivo cargado ✓</span>
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-muted">
+                            <span className="text-xs text-muted-foreground truncate flex-1">Archivo cargado ✓</span>
                           </div>
                         )}
                         <button
@@ -364,7 +364,7 @@ export function TemplateConfigModal({ template, conversationId, senderId, contac
                       </div>
                     ) : (
                       <div>
-                        <label className="flex flex-col items-center justify-center h-20 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-brand-300 hover:bg-brand-50/30 transition-colors">
+                        <label className="flex flex-col items-center justify-center h-20 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-brand-300 hover:bg-brand-50/30 transition-colors">
                           <input
                             type="file"
                             className="hidden"
@@ -387,21 +387,21 @@ export function TemplateConfigModal({ template, conversationId, senderId, contac
                             }}
                           />
                           {uploadingMedia ? (
-                            <span className="text-xs text-gray-400">Subiendo...</span>
+                            <span className="text-xs text-muted-foreground">Subiendo...</span>
                           ) : (
                             <>
                               <span className="text-lg mb-1">{template.components.find((c) => c.type === "HEADER")?.format === "IMAGE" ? "📷" : template.components.find((c) => c.type === "HEADER")?.format === "VIDEO" ? "🎬" : "📄"}</span>
-                              <span className="text-[11px] text-gray-500">Clic para subir archivo</span>
+                              <span className="text-[11px] text-muted-foreground">Clic para subir archivo</span>
                             </>
                           )}
                         </label>
-                        <p className="text-[10px] text-gray-400 mt-1.5 text-center">O pega una URL pública:</p>
+                        <p className="text-[10px] text-muted-foreground mt-1.5 text-center">O pega una URL pública:</p>
                         <input
                           type="url"
                           value={headerImageUrl}
                           onChange={(e) => setHeaderImageUrl(e.target.value)}
                           placeholder="https://..."
-                          className="w-full mt-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-brand-500"
+                          className="w-full mt-1 px-3 py-1.5 border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg text-xs outline-none focus:border-brand-500"
                         />
                       </div>
                     )}
@@ -409,17 +409,17 @@ export function TemplateConfigModal({ template, conversationId, senderId, contac
                 )}
                 {headerVarCount > 0 && (
                   <>
-                    <p className="text-[11px] font-medium text-gray-600">Encabezado</p>
+                    <p className="text-[11px] font-medium text-muted-foreground">Encabezado</p>
                     {Array.from({ length: headerVarCount }, (_, i) => (
                       <div key={`h${i}`}>
-                        <label className="block text-[11px] text-gray-400 mb-1">{`Variable {{${i + 1}}}`}</label>
+                        <label className="block text-[11px] text-muted-foreground mb-1">{`Variable {{${i + 1}}}`}</label>
                         <div className="flex gap-1.5">
                           <input
                             type="text"
                             value={variables[`h${i + 1}`] || ""}
                             onChange={(e) => setVariables({ ...variables, [`h${i + 1}`]: e.target.value })}
                             placeholder="Escribe el valor..."
-                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-200"
+                            className="flex-1 px-3 py-2 border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg text-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-200"
                           />
                           <ContactFieldPicker onSelect={(val) => setVariables({ ...variables, [`h${i + 1}`]: val })} />
                         </div>
@@ -429,17 +429,17 @@ export function TemplateConfigModal({ template, conversationId, senderId, contac
                 )}
                 {bodyVarCount > 0 && (
                   <>
-                    <p className="text-[11px] font-medium text-gray-600 mt-2">Cuerpo del mensaje</p>
+                    <p className="text-[11px] font-medium text-muted-foreground mt-2">Cuerpo del mensaje</p>
                     {Array.from({ length: bodyVarCount }, (_, i) => (
                       <div key={i}>
-                        <label className="block text-[11px] text-gray-400 mb-1">{`Variable {{${i + 1}}}`}</label>
+                        <label className="block text-[11px] text-muted-foreground mb-1">{`Variable {{${i + 1}}}`}</label>
                         <div className="flex gap-1.5">
                           <input
                             type="text"
                             value={variables[String(i + 1)] || ""}
                             onChange={(e) => setVariables({ ...variables, [String(i + 1)]: e.target.value })}
                             placeholder="Escribe el valor..."
-                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-200"
+                            className="flex-1 px-3 py-2 border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg text-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-200"
                           />
                           <ContactFieldPicker onSelect={(val) => setVariables({ ...variables, [String(i + 1)]: val })} />
                         </div>
@@ -453,20 +453,20 @@ export function TemplateConfigModal({ template, conversationId, senderId, contac
                   const cards = carousel?.cards || [];
                   return (
                     <>
-                      <p className="text-[11px] font-medium text-gray-600 mt-3">🎠 Imágenes del carousel ({cards.length} cards)</p>
-                      <p className="text-[10px] text-gray-400 mb-2">Sube una imagen para cada tarjeta del carousel</p>
+                      <p className="text-[11px] font-medium text-muted-foreground mt-3">🎠 Imágenes del carousel ({cards.length} cards)</p>
+                      <p className="text-[10px] text-muted-foreground mb-2">Sube una imagen para cada tarjeta del carousel</p>
                       <div className="space-y-2">
                         {cards.map((card: any, i: number) => (
                           <div key={i} className="flex items-center gap-2">
-                            <span className="text-[10px] text-gray-400 w-14 shrink-0">Card {i + 1}</span>
+                            <span className="text-[10px] text-muted-foreground w-14 shrink-0">Card {i + 1}</span>
                             {carouselImages[i] ? (
                               <div className="flex items-center gap-2 flex-1">
                                 <img src={carouselImages[i]} alt="" className="h-10 w-10 rounded object-cover border" />
-                                <span className="text-[10px] text-green-600">✓ Subida</span>
-                                <button onClick={() => { const imgs = [...carouselImages]; imgs[i] = ""; setCarouselImages(imgs); }} className="text-[10px] text-red-500 ml-auto">Quitar</button>
+                                <span className="text-[10px] text-green-600 dark:text-green-400">✓ Subida</span>
+                                <button onClick={() => { const imgs = [...carouselImages]; imgs[i] = ""; setCarouselImages(imgs); }} className="text-[10px] text-red-500 dark:text-red-400 ml-auto">Quitar</button>
                               </div>
                             ) : (
-                              <label className="flex-1 flex items-center justify-center h-10 border border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-brand-300 text-[10px] text-gray-400 hover:text-brand-600 transition-colors">
+                              <label className="flex-1 flex items-center justify-center h-10 border border-dashed border-border rounded-lg cursor-pointer hover:border-brand-300 text-[10px] text-muted-foreground hover:text-brand-600 transition-colors">
                                 <input type="file" className="hidden" accept="image/*" onChange={async (e) => {
                                   const file = e.target.files?.[0];
                                   if (!file) return;
@@ -495,12 +495,12 @@ export function TemplateConfigModal({ template, conversationId, senderId, contac
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
-          <p className="text-[11px] text-gray-400">
+        <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+          <p className="text-[11px] text-muted-foreground">
             {hasVariables ? "Completa todos los campos requeridos" : "Esta plantilla no requiere personalización"}
           </p>
           <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 font-medium transition-colors">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground rounded-lg hover:bg-muted font-medium transition-colors">
               Cancelar
             </button>
             <button
@@ -543,21 +543,21 @@ function ContactFieldPicker({ onSelect }: { onSelect: (value: string) => void })
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="h-[38px] px-2.5 border border-gray-200 rounded-lg text-gray-400 hover:text-brand-600 hover:border-brand-300 transition-colors"
+        className="h-[38px] px-2.5 border border-border rounded-lg text-muted-foreground hover:text-brand-600 hover:border-brand-300 transition-colors"
         title="Insertar campo del contacto"
       >
         <User className="h-4 w-4" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-[100]">
-          <p className="px-3 py-1 text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Campo del contacto</p>
+        <div className="absolute right-0 top-full mt-1 w-44 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 z-[100]">
+          <p className="px-3 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Campo del contacto</p>
           {CONTACT_FIELDS.map((field) => (
             <button
               key={field.key}
               onClick={() => { onSelect(field.key); setOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors text-left"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors text-left"
             >
-              <span className="text-gray-400">⊕</span>
+              <span className="text-muted-foreground">⊕</span>
               {field.label}
             </button>
           ))}

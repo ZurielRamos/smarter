@@ -87,33 +87,33 @@ export function AdminDashboard() {
       >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Overview */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4">
               Resumen General
             </h2>
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <div className="h-16 w-16 rounded-full bg-brand-50 flex items-center justify-center mb-3">
                 <TrendingUp className="h-7 w-7 text-brand-400" />
               </div>
-              <p className="text-gray-500 text-sm">
+              <p className="text-muted-foreground text-sm">
                 Panel de administración superior
               </p>
-              <p className="text-gray-400 text-xs mt-1">
+              <p className="text-muted-foreground text-xs mt-1">
                 Gestiona cuentas de usuarios y staff desde aquí
               </p>
             </div>
           </div>
 
           {/* Recent Activity */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4">
               Actividad Reciente
             </h2>
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <div className="h-16 w-16 rounded-full bg-accent-50 flex items-center justify-center mb-3">
                 <ShieldCheck className="h-7 w-7 text-accent-500" />
               </div>
-              <p className="text-gray-500 text-sm">
+              <p className="text-muted-foreground text-sm">
                 No hay actividad reciente
               </p>
             </div>

@@ -142,12 +142,12 @@ export function ExportModal({ open, onClose, filters, assignedTo, assignedTeamId
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
             <div>
-              <h3 className="text-base font-semibold text-gray-900">Exportar contactos</h3>
-              <p className="text-xs text-gray-500 mt-0.5">{total.toLocaleString()} contactos serán exportados con los filtros actuales</p>
+              <h3 className="text-base font-semibold text-foreground">Exportar contactos</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">{total.toLocaleString()} contactos serán exportados con los filtros actuales</p>
             </div>
-            <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+            <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -155,25 +155,25 @@ export function ExportModal({ open, onClose, filters, assignedTo, assignedTeamId
           {/* Content */}
           <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
             {loading ? (
-              <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>
+              <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
             ) : (
               <div className="space-y-5">
                 {/* Field selection */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-medium text-gray-900">Campos a exportar</h4>
+                    <h4 className="text-sm font-medium text-foreground">Campos a exportar</h4>
                     <div className="flex items-center gap-2">
                       <button onClick={selectAll} className="text-xs text-brand-600 hover:text-brand-700 font-medium">Todos</button>
-                      <span className="text-gray-300">|</span>
-                      <button onClick={selectNone} className="text-xs text-gray-500 hover:text-gray-700 font-medium">Ninguno</button>
-                      <span className="text-xs text-gray-400 ml-2">{selectedFields.length} seleccionados</span>
+                      <span className="text-muted-foreground">|</span>
+                      <button onClick={selectNone} className="text-xs text-muted-foreground hover:text-foreground font-medium">Ninguno</button>
+                      <span className="text-xs text-muted-foreground ml-2">{selectedFields.length} seleccionados</span>
                     </div>
                   </div>
 
-                  <div className="space-y-3 max-h-[40vh] overflow-y-auto border border-gray-200 rounded-lg p-3">
+                  <div className="space-y-3 max-h-[40vh] overflow-y-auto border border-border rounded-lg p-3">
                     {Object.entries(groupedFields).map(([group, fields]) => (
                       <div key={group}>
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 capitalize">{group}</p>
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 capitalize">{group}</p>
                         <div className="grid grid-cols-2 gap-1">
                           {fields.map((field) => {
                             const isSelected = selectedFields.some((f) => f.key === field.key);
@@ -182,12 +182,12 @@ export function ExportModal({ open, onClose, filters, assignedTo, assignedTeamId
                                 key={field.key}
                                 type="button"
                                 onClick={() => toggleField(field)}
-                                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors ${isSelected ? "bg-brand-50" : "hover:bg-gray-50"}`}
+                                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors ${isSelected ? "bg-brand-50 dark:bg-brand-700" : "hover:bg-muted"}`}
                               >
-                                <div className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? "bg-brand-600 border-brand-600" : "border-gray-300"}`}>
+                                <div className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? "bg-brand-600 border-brand-600" : "border-border"}`}>
                                   {isSelected && <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                                 </div>
-                                <span className={`text-xs ${isSelected ? "text-brand-700 font-medium" : "text-gray-600"}`}>{field.label}</span>
+                                <span className={`text-xs ${isSelected ? "text-brand-700 dark:text-brand-100 font-medium" : "text-muted-foreground"}`}>{field.label}</span>
                               </button>
                             );
                           })}
@@ -200,13 +200,13 @@ export function ExportModal({ open, onClose, filters, assignedTo, assignedTeamId
                 {/* Selected fields order */}
                 {selectedFields.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Orden de columnas</h4>
-                    <p className="text-xs text-gray-400 mb-2">Arrastra para reordenar</p>
-                    <Reorder.Group axis="y" values={selectedFields} onReorder={setSelectedFields} className="space-y-1 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                    <h4 className="text-sm font-medium text-foreground mb-2">Orden de columnas</h4>
+                    <p className="text-xs text-muted-foreground mb-2">Arrastra para reordenar</p>
+                    <Reorder.Group axis="y" values={selectedFields} onReorder={setSelectedFields} className="space-y-1 max-h-32 overflow-y-auto border border-border rounded-lg p-2">
                       {selectedFields.map((field) => (
-                        <Reorder.Item key={field.key} value={field} className="flex items-center gap-2 px-2 py-1.5 rounded bg-white border border-gray-100 cursor-grab active:cursor-grabbing active:shadow-sm">
-                          <GripVertical className="h-3 w-3 text-gray-300" />
-                          <span className="text-xs text-gray-700">{field.label}</span>
+                        <Reorder.Item key={field.key} value={field} className="flex items-center gap-2 px-2 py-1.5 rounded bg-card border border-border cursor-grab active:cursor-grabbing active:shadow-sm">
+                          <GripVertical className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-foreground">{field.label}</span>
                         </Reorder.Item>
                       ))}
                     </Reorder.Group>
@@ -216,33 +216,33 @@ export function ExportModal({ open, onClose, filters, assignedTo, assignedTeamId
                 {/* Options */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Separador</h4>
+                    <h4 className="text-sm font-medium text-foreground mb-2">Separador</h4>
                     <div className="space-y-1.5">
                       {SEPARATORS.map((sep) => (
-                        <label key={sep.value} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${separator === sep.value ? "border-brand-500 bg-brand-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                        <label key={sep.value} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${separator === sep.value ? "border-brand-500 bg-brand-50 dark:bg-brand-700" : "border-border hover:bg-muted"}`}>
                           <input type="radio" name="separator" checked={separator === sep.value} onChange={() => setSeparator(sep.value)} className="h-3.5 w-3.5 text-brand-600 focus:ring-brand-500" />
                           <div>
-                            <p className={`text-xs ${separator === sep.value ? "text-brand-700 font-medium" : "text-gray-700"}`}>{sep.label}</p>
-                            <p className="text-[10px] text-gray-400">{sep.desc}</p>
+                            <p className={`text-xs ${separator === sep.value ? "text-brand-700 dark:text-brand-100 font-medium" : "text-foreground"}`}>{sep.label}</p>
+                            <p className="text-[10px] text-muted-foreground">{sep.desc}</p>
                           </div>
                         </label>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Opciones</h4>
-                    <label className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50">
-                      <span className="text-xs text-gray-700">Incluir encabezados</span>
+                    <h4 className="text-sm font-medium text-foreground mb-2">Opciones</h4>
+                    <label className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border cursor-pointer hover:bg-muted">
+                      <span className="text-xs text-foreground">Incluir encabezados</span>
                       <button
                         type="button"
                         onClick={() => setIncludeHeaders(!includeHeaders)}
-                        className={`relative w-9 h-5 rounded-full transition-colors ${includeHeaders ? "bg-brand-600" : "bg-gray-300"}`}
+                        className={`relative w-9 h-5 rounded-full transition-colors ${includeHeaders ? "bg-brand-600" : "bg-gray-300 dark:bg-gray-600"}`}
                       >
                         <span className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full bg-white shadow transition-transform ${includeHeaders ? "translate-x-4" : ""}`} />
                       </button>
                     </label>
-                    <div className="mt-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-100">
-                      <p className="text-[11px] text-gray-500">El archivo se descargará con codificación UTF-8 y BOM para compatibilidad con Excel.</p>
+                    <div className="mt-3 px-3 py-2.5 rounded-lg bg-muted border border-border">
+                      <p className="text-[11px] text-muted-foreground">El archivo se descargará con codificación UTF-8 y BOM para compatibilidad con Excel.</p>
                     </div>
                   </div>
                 </div>
@@ -251,10 +251,10 @@ export function ExportModal({ open, onClose, filters, assignedTo, assignedTeamId
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 shrink-0">
-            <p className="text-xs text-gray-400">{selectedFields.length} campos · {total.toLocaleString()} registros</p>
+          <div className="flex items-center justify-between px-6 py-4 border-t border-border shrink-0">
+            <p className="text-xs text-muted-foreground">{selectedFields.length} campos · {total.toLocaleString()} registros</p>
             <div className="flex items-center gap-2">
-              <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors">Cancelar</button>
+              <button onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors">Cancelar</button>
               <button
                 onClick={handleExport}
                 disabled={exporting || selectedFields.length === 0}

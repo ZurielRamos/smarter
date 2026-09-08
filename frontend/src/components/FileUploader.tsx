@@ -38,7 +38,7 @@ export function FileUploader({ onFileSelected, isLoading }: FileUploaderProps) {
         "border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all",
         isDragActive
           ? "border-indigo-400 bg-indigo-50"
-          : "border-gray-300 bg-gray-50/50 hover:border-indigo-300 hover:bg-indigo-50/30",
+          : "border-border bg-muted/50 hover:border-indigo-300 hover:bg-indigo-50/30",
         isLoading && "cursor-not-allowed opacity-60"
       )}
     >
@@ -48,8 +48,8 @@ export function FileUploader({ onFileSelected, isLoading }: FileUploaderProps) {
           <div className="animate-spin text-indigo-500">
             <Upload className="h-10 w-10" />
           </div>
-          <p className="text-lg text-gray-600">Procesando archivo...</p>
-          <p className="text-sm text-gray-400">Esto puede tomar unos minutos para archivos grandes</p>
+          <p className="text-lg text-muted-foreground">Procesando archivo...</p>
+          <p className="text-sm text-muted-foreground">Esto puede tomar unos minutos para archivos grandes</p>
         </div>
       ) : isDragActive ? (
         <div className="flex flex-col items-center gap-3">
@@ -60,12 +60,12 @@ export function FileUploader({ onFileSelected, isLoading }: FileUploaderProps) {
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3">
-          <FileSpreadsheet className="h-12 w-12 text-gray-400" />
+          <FileSpreadsheet className="h-12 w-12 text-muted-foreground" />
           <div>
-            <p className="text-lg font-medium text-gray-700">
+            <p className="text-lg font-medium text-foreground">
               Arrastra un archivo CSV o Excel aquí
             </p>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               o haz clic para seleccionar (.csv, .xlsx, .xls)
             </p>
           </div>

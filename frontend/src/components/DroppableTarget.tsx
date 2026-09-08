@@ -65,20 +65,20 @@ export function DroppableTarget({
         isInvalid && isOver && "border-red-400 bg-red-50",
         !isInvalid && isOver && "border-indigo-400 bg-indigo-50",
         !isOver && hasMappings && "border-solid border-green-300 bg-green-50",
-        !isOver && !hasMappings && "border-gray-200 bg-gray-50/50"
+        !isOver && !hasMappings && "border-border bg-muted/50"
       )}
     >
       {/* Target label + type icon */}
       <div className="w-[200px] shrink-0">
         <div className="flex items-center gap-1.5">
           <Icon className={cn("h-3.5 w-3.5 shrink-0", typeColors[type])} />
-          <span className="text-sm font-medium text-gray-700">{label}</span>
+          <span className="text-sm font-medium text-foreground">{label}</span>
           {required && (
             <span className="text-xs text-red-500 font-bold">*</span>
           )}
         </div>
         <div className="flex items-center gap-1.5 mt-0.5">
-          <span className="text-[11px] text-gray-400">{typeLabels[type]}</span>
+          <span className="text-[11px] text-muted-foreground">{typeLabels[type]}</span>
           {allowMultiple && (
             <span className="text-[11px] text-indigo-400">• múltiple</span>
           )}
@@ -86,7 +86,7 @@ export function DroppableTarget({
       </div>
 
       {/* Arrow */}
-      <div className="text-gray-300 shrink-0">←</div>
+      <div className="text-muted-foreground shrink-0">←</div>
 
       {/* Drop zone */}
       <div
@@ -94,9 +94,9 @@ export function DroppableTarget({
         className={cn(
           "flex-1 min-w-0 rounded-md px-3 py-2 text-sm transition-all min-h-[36px]",
           isInvalid && isOver && "bg-red-100 border border-red-300",
-          !isInvalid && hasMappings && "bg-white border border-green-200",
+          !isInvalid && hasMappings && "bg-card border border-green-200",
           !isInvalid && !hasMappings && isOver && "bg-indigo-100 border border-indigo-300",
-          !isInvalid && !hasMappings && !isOver && "bg-white border border-dashed border-gray-300"
+          !isInvalid && !hasMappings && !isOver && "bg-card border border-dashed border-border"
         )}
       >
         {isInvalid && isOver ? (
@@ -127,7 +127,7 @@ export function DroppableTarget({
             ))}
           </div>
         ) : (
-          <span className="text-gray-400 text-xs">
+          <span className="text-muted-foreground text-xs">
             {isOver ? "Soltar aquí" : "Arrastra uno o más campos aquí"}
           </span>
         )}

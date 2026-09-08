@@ -1,16 +1,24 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { User, LogOut, Settings2, Coins, Users } from "lucide-react";
+import { User, LogOut, Settings2, Coins, Users, Sun, Moon, Monitor } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme, type ThemePreference } from "@/context/ThemeContext";
 import { api } from "@/services/api";
 import { PresenceIndicator } from "@/components/ui/PresenceIndicator";
 import { usePresence } from "@/hooks/usePresence";
+
+const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
+  { value: "light", label: "Claro", icon: Sun },
+  { value: "dark", label: "Oscuro", icon: Moon },
+  { value: "system", label: "Sistema", icon: Monitor },
+];
 
 export function UserMenu() {
   const [open, setOpen] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
   const { user, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const { slug } = useParams();
   const location = useLocation();
@@ -89,21 +97,21 @@ export function UserMenu() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute right-0 top-12 w-64 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50 origin-top-right"
+            className="absolute right-0 top-12 w-64 bg-popover text-popover-foreground rounded-xl shadow-lg border border-border py-2 z-50 origin-top-right"
           >
             {/* User info */}
-            <div className="px-4 py-3 border-b border-gray-100">
-              <p className="text-sm font-medium text-gray-900 truncate">
+            <div className="px-4 py-3 border-b border-border">
+              <p className="text-sm font-medium text-foreground truncate">
                 {user?.name}
               </p>
-              <p className="text-xs text-gray-500 truncate mt-0.5">
+              <p className="text-xs text-muted-foreground truncate mt-0.5">
                 {user?.email}
               </p>
               {isOnTenant && (() => {
                 if (!currentRole) return null;
                 return (
                   <span className={`inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                    currentRole.role === "owner" ? "bg-amber-100 text-amber-700" : currentRole.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"
+                    currentRole.role === "owner" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" : currentRole.role === "admin" ? "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300" : "bg-muted text-muted-foreground"
                   }`}>
                     {currentRole.role === "owner" ? "Propietario" : currentRole.role === "admin" ? "Administrador" : "Agente"}
                   </span>
@@ -113,10 +121,10 @@ export function UserMenu() {
 
             {/* Credits */}
             {isOnTenant && credits !== null && (
-              <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
+              <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
                 <Coins className="h-4 w-4 text-amber-500" />
-                <span className="text-sm font-medium text-gray-700">{credits.toLocaleString()}</span>
-                <span className="text-xs text-gray-400">créditos</span>
+                <span className="text-sm font-medium text-foreground">{credits.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground">créditos</span>
               </div>
             )}
 
@@ -127,9 +135,9 @@ export function UserMenu() {
                   setOpen(false);
                   navigate(`/${slug}/profile`);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
               >
-                <User className="h-4 w-4 text-gray-400" />
+                <User className="h-4 w-4 text-muted-foreground" />
                 Perfil
               </button>
               {isOnTenant && (currentRole?.role === "owner" || currentRole?.role === "admin" || isAdmin) && (
@@ -138,9 +146,9 @@ export function UserMenu() {
                     setOpen(false);
                     navigate(`/${slug}/settings`);
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
                 >
-                  <Settings2 className="h-4 w-4 text-gray-400" />
+                  <Settings2 className="h-4 w-4 text-muted-foreground" />
                   Configurar cuenta
                 </button>
               )}
@@ -150,9 +158,9 @@ export function UserMenu() {
                     setOpen(false);
                     navigate(`/${slug}/team`);
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
                 >
-                  <Users className="h-4 w-4 text-gray-400" />
+                  <Users className="h-4 w-4 text-muted-foreground" />
                   Administrar equipo
                 </button>
               )}
@@ -162,15 +170,43 @@ export function UserMenu() {
                     setOpen(false);
                     navigate("/admin/billing?config=1");
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
                 >
-                  <Coins className="h-4 w-4 text-gray-400" />
+                  <Coins className="h-4 w-4 text-muted-foreground" />
                   Configurar consumos
                 </button>
               )}
+              {/* Theme selector */}
+              <div className="px-4 py-2.5 border-t border-border">
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                  Apariencia
+                </p>
+                <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
+                  {THEME_OPTIONS.map((opt) => {
+                    const Icon = opt.icon;
+                    const active = theme === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => setTheme(opt.value)}
+                        className={`flex flex-col items-center gap-1 rounded-md py-1.5 text-[11px] font-medium transition-colors ${
+                          active
+                            ? "bg-card text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                        aria-pressed={active}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-t border-border"
               >
                 <LogOut className="h-4 w-4 text-red-400" />
                 Cerrar sesión

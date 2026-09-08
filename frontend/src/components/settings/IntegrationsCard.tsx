@@ -54,10 +54,10 @@ export function IntegrationsCard() {
   const navigate = useNavigate();
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-        <Puzzle className="h-4 w-4 text-gray-400" />
-        <h2 className="text-sm font-semibold text-gray-900">Integraciones</h2>
+    <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+        <Puzzle className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-sm font-semibold text-foreground">Integraciones</h2>
       </div>
       <div className="divide-y divide-gray-50">
         {INTEGRATIONS.map((integration) => {
@@ -75,7 +75,7 @@ export function IntegrationsCard() {
                 }
               }}
               className={`w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors ${
-                isClickable ? "hover:bg-gray-50 cursor-pointer" : "opacity-60 cursor-default"
+                isClickable ? "hover:bg-muted cursor-pointer" : "opacity-60 cursor-default"
               }`}
             >
               <div className={`h-8 w-8 rounded-lg ${integration.bg} flex items-center justify-center shrink-0`}>
@@ -83,14 +83,14 @@ export function IntegrationsCard() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-gray-900">{integration.name}</p>
+                  <p className="text-sm font-medium text-foreground">{integration.name}</p>
                   {integration.status === "soon" && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">Próximamente</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Próximamente</span>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">{integration.description}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{integration.description}</p>
               </div>
-              {isClickable && <ChevronRight className="h-4 w-4 text-gray-300 shrink-0" />}
+              {isClickable && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
             </button>
           );
         })}

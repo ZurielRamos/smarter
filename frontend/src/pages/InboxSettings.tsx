@@ -261,7 +261,7 @@ export function InboxSettings() {
 
   if (!inbox && !loading) return null;
 
-  const meta = inbox ? (CHANNEL_META[inbox.channel] || { label: inbox.channel, icon: MessageSquare, color: "text-gray-600", bg: "bg-gray-50" }) : { label: "", icon: MessageSquare, color: "text-gray-600", bg: "bg-gray-50" };
+  const meta = inbox ? (CHANNEL_META[inbox.channel] || { label: inbox.channel, icon: MessageSquare, color: "text-muted-foreground", bg: "bg-muted" }) : { label: "", icon: MessageSquare, color: "text-muted-foreground", bg: "bg-muted" };
   const Icon = meta.icon;
 
   return (
@@ -283,40 +283,40 @@ export function InboxSettings() {
       <div className="flex-1 overflow-y-auto p-8">
         {loading || !inbox ? (
           <div className="max-w-2xl mx-auto space-y-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
+            <div className="bg-card rounded-xl border border-border p-6 animate-pulse">
               <div className="h-4 w-40 bg-gray-200 rounded mb-4" />
               <div className="space-y-3">
-                <div className="h-10 bg-gray-100 rounded-lg" />
-                <div className="h-10 bg-gray-100 rounded-lg" />
+                <div className="h-10 bg-muted rounded-lg" />
+                <div className="h-10 bg-muted rounded-lg" />
               </div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
+            <div className="bg-card rounded-xl border border-border p-6 animate-pulse">
               <div className="h-4 w-36 bg-gray-200 rounded mb-4" />
-              <div className="h-10 bg-gray-100 rounded-lg" />
+              <div className="h-10 bg-muted rounded-lg" />
             </div>
           </div>
         ) : (
         <div className="max-w-2xl mx-auto space-y-6">
           {/* General info */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">Información general</h2>
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-sm font-semibold text-foreground mb-4">Información general</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre de la bandeja</label>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Nombre de la bandeja</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Canal</label>
-                <div className="flex items-center gap-3 px-3 py-2.5 border border-gray-200 rounded-lg bg-gray-50">
+                <label className="block text-sm font-medium text-foreground mb-1.5">Canal</label>
+                <div className="flex items-center gap-3 px-3 py-2.5 border border-border rounded-lg bg-muted">
                   <div className={`h-8 w-8 rounded-md flex items-center justify-center ${meta.bg}`}>
                     <Icon className={`h-4 w-4 ${meta.color}`} />
                   </div>
-                  <span className="text-sm text-gray-700 font-medium">{meta.label}</span>
+                  <span className="text-sm text-foreground font-medium">{meta.label}</span>
                 </div>
               </div>
               <div className="pt-2">
@@ -334,9 +334,9 @@ export function InboxSettings() {
 
           {/* Connection status / Form builder link / Email config */}
           {inbox.channel === "form" ? (
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-sm font-semibold text-gray-900 mb-4">Formulario</h2>
-              <p className="text-xs text-gray-500 mb-4">
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h2 className="text-sm font-semibold text-foreground mb-4">Formulario</h2>
+              <p className="text-xs text-muted-foreground mb-4">
                 Configura los campos y apariencia del formulario público vinculado a esta bandeja.
               </p>
               <button
@@ -353,9 +353,9 @@ export function InboxSettings() {
               </button>
             </div>
           ) : inbox.channel === "chat" ? (
-            <div className="bg-white rounded-xl border border-teal-200 p-6">
-              <h2 className="text-sm font-semibold text-gray-900 mb-4">Chat Widget</h2>
-              <p className="text-xs text-gray-500 mb-4">
+            <div className="bg-card rounded-xl border border-teal-200 p-6">
+              <h2 className="text-sm font-semibold text-foreground mb-4">Chat Widget</h2>
+              <p className="text-xs text-muted-foreground mb-4">
                 Configura la apariencia del widget de chat y obtén el código para instalarlo en tu sitio web.
               </p>
               <button
@@ -366,24 +366,24 @@ export function InboxSettings() {
               </button>
             </div>
           ) : inbox.channel === "email" ? (
-          <div className="bg-white rounded-xl border border-orange-200 p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">Configuración SMTP</h2>
-            <p className="text-[11px] text-gray-500 mb-4">Configura las credenciales SMTP para enviar correos desde esta bandeja.</p>
+          <div className="bg-card rounded-xl border border-orange-200 p-6">
+            <h2 className="text-sm font-semibold text-foreground mb-3">Configuración SMTP</h2>
+            <p className="text-[11px] text-muted-foreground mb-4">Configura las credenciales SMTP para enviar correos desde esta bandeja.</p>
 
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Servidor SMTP</label>
-                  <input type="text" value={smtpForm.host} onChange={(e) => setSmtpForm({ ...smtpForm, host: e.target.value })} placeholder="smtp.gmail.com" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Servidor SMTP</label>
+                  <input type="text" value={smtpForm.host} onChange={(e) => setSmtpForm({ ...smtpForm, host: e.target.value })} placeholder="smtp.gmail.com" className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Puerto</label>
-                    <input type="number" value={smtpForm.port} onChange={(e) => setSmtpForm({ ...smtpForm, port: parseInt(e.target.value) || 465 })} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Puerto</label>
+                    <input type="number" value={smtpForm.port} onChange={(e) => setSmtpForm({ ...smtpForm, port: parseInt(e.target.value) || 465 })} className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">SSL/TLS</label>
-                    <button type="button" onClick={() => setSmtpForm({ ...smtpForm, secure: !smtpForm.secure })} className={`w-full px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${smtpForm.secure ? "border-green-300 bg-green-50 text-green-700" : "border-gray-200 text-gray-500"}`}>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">SSL/TLS</label>
+                    <button type="button" onClick={() => setSmtpForm({ ...smtpForm, secure: !smtpForm.secure })} className={`w-full px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${smtpForm.secure ? "border-green-300 bg-green-50 text-green-700" : "border-border text-muted-foreground"}`}>
                       {smtpForm.secure ? "Sí" : "No"}
                     </button>
                   </div>
@@ -391,28 +391,28 @@ export function InboxSettings() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Usuario</label>
-                  <input type="text" value={smtpForm.user} onChange={(e) => setSmtpForm({ ...smtpForm, user: e.target.value })} placeholder="usuario@dominio.com" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Usuario</label>
+                  <input type="text" value={smtpForm.user} onChange={(e) => setSmtpForm({ ...smtpForm, user: e.target.value })} placeholder="usuario@dominio.com" className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Contraseña</label>
-                  <input type="password" value={smtpForm.pass} onChange={(e) => setSmtpForm({ ...smtpForm, pass: e.target.value })} placeholder="••••••••" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Contraseña</label>
+                  <input type="password" value={smtpForm.pass} onChange={(e) => setSmtpForm({ ...smtpForm, pass: e.target.value })} placeholder="••••••••" className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Nombre remitente</label>
-                  <input type="text" value={smtpForm.fromName} onChange={(e) => setSmtpForm({ ...smtpForm, fromName: e.target.value })} placeholder="Mi Empresa" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Nombre remitente</label>
+                  <input type="text" value={smtpForm.fromName} onChange={(e) => setSmtpForm({ ...smtpForm, fromName: e.target.value })} placeholder="Mi Empresa" className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Email remitente</label>
-                  <input type="email" value={smtpForm.fromEmail} onChange={(e) => setSmtpForm({ ...smtpForm, fromEmail: e.target.value })} placeholder="correo@dominio.com" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Email remitente</label>
+                  <input type="email" value={smtpForm.fromEmail} onChange={(e) => setSmtpForm({ ...smtpForm, fromEmail: e.target.value })} placeholder="correo@dominio.com" className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Asunto por defecto (conversaciones)</label>
-                <input type="text" value={smtpForm.defaultSubject} onChange={(e) => setSmtpForm({ ...smtpForm, defaultSubject: e.target.value })} placeholder="Nuevo mensaje" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                <p className="text-[10px] text-gray-400 mt-1">Se usa cuando se envía un mensaje desde la conversación</p>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Asunto por defecto (conversaciones)</label>
+                <input type="text" value={smtpForm.defaultSubject} onChange={(e) => setSmtpForm({ ...smtpForm, defaultSubject: e.target.value })} placeholder="Nuevo mensaje" className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                <p className="text-[10px] text-muted-foreground mt-1">Se usa cuando se envía un mensaje desde la conversación</p>
               </div>
             </div>
 
@@ -438,24 +438,24 @@ export function InboxSettings() {
             )}
           </div>
           ) : inbox.channel === "email_transaccional" ? (
-          <div className="bg-white rounded-xl border border-red-200 p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">Email Transaccional — Mailgun</h2>
-            <p className="text-[11px] text-gray-500 mb-4">Configura tu dominio de envío. Los correos se envían vía Mailgun API.</p>
+          <div className="bg-card rounded-xl border border-red-200 p-6">
+            <h2 className="text-sm font-semibold text-foreground mb-3">Email Transaccional — Mailgun</h2>
+            <p className="text-[11px] text-muted-foreground mb-4">Configura tu dominio de envío. Los correos se envían vía Mailgun API.</p>
 
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Nombre remitente</label>
-                  <input type="text" value={mailgunForm.fromName} onChange={(e) => setMailgunForm({ ...mailgunForm, fromName: e.target.value })} placeholder="Mi Empresa" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Nombre remitente</label>
+                  <input type="text" value={mailgunForm.fromName} onChange={(e) => setMailgunForm({ ...mailgunForm, fromName: e.target.value })} placeholder="Mi Empresa" className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Email remitente</label>
-                  <input type="email" value={mailgunForm.fromEmail} onChange={(e) => setMailgunForm({ ...mailgunForm, fromEmail: e.target.value })} placeholder="noreply@tu-dominio.com" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Email remitente</label>
+                  <input type="email" value={mailgunForm.fromEmail} onChange={(e) => setMailgunForm({ ...mailgunForm, fromEmail: e.target.value })} placeholder="noreply@tu-dominio.com" className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Asunto por defecto</label>
-                <input type="text" value={mailgunForm.defaultSubject} onChange={(e) => setMailgunForm({ ...mailgunForm, defaultSubject: e.target.value })} placeholder="Nuevo mensaje" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Asunto por defecto</label>
+                <input type="text" value={mailgunForm.defaultSubject} onChange={(e) => setMailgunForm({ ...mailgunForm, defaultSubject: e.target.value })} placeholder="Nuevo mensaje" className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
               </div>
             </div>
 
@@ -474,30 +474,30 @@ export function InboxSettings() {
 
             {/* Domain DNS records */}
             {mailgunDomain && (
-              <div className="mt-4 border border-gray-200 rounded-lg p-4">
-                <h3 className="text-xs font-semibold text-gray-800 mb-2">Registros DNS para: <span className="text-red-600">{mailgunDomain}</span></h3>
-                <p className="text-[10px] text-gray-500 mb-3">Agrega estos registros en tu proveedor de DNS para verificar tu dominio.</p>
+              <div className="mt-4 border border-border rounded-lg p-4">
+                <h3 className="text-xs font-semibold text-foreground mb-2">Registros DNS para: <span className="text-red-600">{mailgunDomain}</span></h3>
+                <p className="text-[10px] text-muted-foreground mb-3">Agrega estos registros en tu proveedor de DNS para verificar tu dominio.</p>
 
                 {mailgunDnsRecords.length > 0 ? (
                   <div className="space-y-2">
                     {mailgunDnsRecords.map((record, idx) => (
-                      <div key={idx} className={`p-2.5 rounded-lg border text-[11px] ${record.valid ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"}`}>
+                      <div key={idx} className={`p-2.5 rounded-lg border text-[11px] ${record.valid ? "bg-green-50 border-green-200" : "bg-muted border-border"}`}>
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-gray-700">{record.type}</span>
+                          <span className="font-medium text-foreground">{record.type}</span>
                           {record.valid !== undefined && (
                             <span className={`text-[10px] font-medium ${record.valid ? "text-green-600" : "text-amber-600"}`}>
                               {record.valid ? "✓ Verificado" : "⚠ Pendiente"}
                             </span>
                           )}
                         </div>
-                        <div className="text-gray-600"><span className="font-medium">Name:</span> {record.name}</div>
-                        <div className="text-gray-600 break-all"><span className="font-medium">Value:</span> {record.value}</div>
-                        {record.purpose && <div className="text-gray-400 mt-1">{record.purpose}</div>}
+                        <div className="text-muted-foreground"><span className="font-medium">Name:</span> {record.name}</div>
+                        <div className="text-muted-foreground break-all"><span className="font-medium">Value:</span> {record.value}</div>
+                        {record.purpose && <div className="text-muted-foreground mt-1">{record.purpose}</div>}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-[11px] text-gray-400">Guarda la configuración para ver los registros DNS requeridos.</p>
+                  <p className="text-[11px] text-muted-foreground">Guarda la configuración para ver los registros DNS requeridos.</p>
                 )}
 
                 {mailgunVerifyResult && (
@@ -518,21 +518,21 @@ export function InboxSettings() {
             )}
           </div>
           ) : inbox.channel === "sms" ? (
-          <div className="bg-white rounded-xl border border-sky-200 p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">Configuración SMS</h2>
+          <div className="bg-card rounded-xl border border-sky-200 p-6">
+            <h2 className="text-sm font-semibold text-foreground mb-4">Configuración SMS</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Remitente (Sender ID)</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Remitente (Sender ID)</label>
                 <input
                   type="text"
                   value={smsSender}
                   onChange={(e) => { setSmsSender(e.target.value); setSmsSaved(false); }}
                   placeholder="ej: MiEmpresa (máx. 11 caracteres)"
                   maxLength={11}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Solo caracteres alfanuméricos (a-z, A-Z, 0-9). Máximo 11 caracteres.
                 </p>
               </div>
@@ -555,12 +555,12 @@ export function InboxSettings() {
             </div>
           </div>
           ) : inbox.channel === "llamada" ? (
-          <div className="bg-white rounded-xl border border-purple-200 p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">Configuración de Llamadas</h2>
+          <div className="bg-card rounded-xl border border-purple-200 p-6">
+            <h2 className="text-sm font-semibold text-foreground mb-4">Configuración de Llamadas</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Voz para las llamadas</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Voz para las llamadas</label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {["Mariana", "Penelope", "Conchita", "Mia", "Lucia", "Enrique", "Miguel"].map((voice) => (
                     <button
@@ -570,14 +570,14 @@ export function InboxSettings() {
                       className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
                         callVoice === voice
                           ? "border-purple-500 bg-purple-50 text-purple-700"
-                          : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                          : "border-border text-muted-foreground hover:bg-muted"
                       }`}
                     >
                       {voice}
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="text-xs text-muted-foreground mt-2">
                   Selecciona la voz que se utilizará para las llamadas automáticas de esta bandeja.
                 </p>
               </div>
@@ -593,8 +593,8 @@ export function InboxSettings() {
             </div>
           </div>
           ) : inbox.channel === "evolution" ? (
-          <div className="bg-white rounded-xl border border-emerald-200 p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">Chat Genérico — Estado de conexión</h2>
+          <div className="bg-card rounded-xl border border-emerald-200 p-6">
+            <h2 className="text-sm font-semibold text-foreground mb-4">Chat Genérico — Estado de conexión</h2>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {inbox.status === "connected" ? (
@@ -614,7 +614,7 @@ export function InboxSettings() {
                   </div>
                 )}
                 {inbox.channelName && (
-                  <span className="text-xs text-gray-400">· +{inbox.channelName}</span>
+                  <span className="text-xs text-muted-foreground">· +{inbox.channelName}</span>
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -628,7 +628,7 @@ export function InboxSettings() {
                           setInbox(data);
                         } catch {}
                       }}
-                      className="px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg hover:bg-muted transition-colors"
                     >
                       Reconectar
                     </button>
@@ -665,16 +665,16 @@ export function InboxSettings() {
             </div>
 
             {inbox.status === "connected" && inbox.metadata?.evolutionInstanceName && (
-              <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+              <div className="mt-4 pt-4 border-t border-border space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500">Instancia</span>
-                  <span className="text-gray-700 font-mono">{inbox.metadata.evolutionInstanceName}</span>
+                  <span className="text-muted-foreground">Instancia</span>
+                  <span className="text-foreground font-mono">{inbox.metadata.evolutionInstanceName}</span>
                 </div>
               </div>
             )}
 
             {(inbox.status === "pending" || showEvolutionQr) && (
-              <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="mt-4 pt-4 border-t border-border">
                 <EvolutionQrConnect
                   inboxId={inbox.id}
                   onConnected={async () => {
@@ -687,8 +687,8 @@ export function InboxSettings() {
             )}
           </div>
           ) : (
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">Estado de conexión</h2>
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-sm font-semibold text-foreground mb-4">Estado de conexión</h2>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {inbox.status === "connected" ? (
@@ -703,7 +703,7 @@ export function InboxSettings() {
                   </div>
                 )}
                 {inbox.channelName && (
-                  <span className="text-xs text-gray-400">· {inbox.channelName}</span>
+                  <span className="text-xs text-muted-foreground">· {inbox.channelName}</span>
                 )}
               </div>
               {inbox.status === "connected" ? (
@@ -724,23 +724,23 @@ export function InboxSettings() {
             </div>
 
             {inbox.status === "connected" && (
-              <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+              <div className="mt-4 pt-4 border-t border-border space-y-2">
                 {inbox.phoneNumberId && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">Phone Number ID</span>
-                    <span className="text-gray-700 font-mono">{inbox.phoneNumberId}</span>
+                    <span className="text-muted-foreground">Phone Number ID</span>
+                    <span className="text-foreground font-mono">{inbox.phoneNumberId}</span>
                   </div>
                 )}
                 {inbox.wabaId && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">WABA ID</span>
-                    <span className="text-gray-700 font-mono">{inbox.wabaId}</span>
+                    <span className="text-muted-foreground">WABA ID</span>
+                    <span className="text-foreground font-mono">{inbox.wabaId}</span>
                   </div>
                 )}
                 {inbox.pageId && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">Page ID</span>
-                    <span className="text-gray-700 font-mono">{inbox.pageId}</span>
+                    <span className="text-muted-foreground">Page ID</span>
+                    <span className="text-foreground font-mono">{inbox.pageId}</span>
                   </div>
                 )}
               </div>
@@ -749,9 +749,9 @@ export function InboxSettings() {
           )}
 
           {/* Danger zone */}
-          <div className="bg-white rounded-xl border border-red-200 p-6">
+          <div className="bg-card rounded-xl border border-red-200 p-6">
             <h2 className="text-sm font-semibold text-red-600 mb-2">Zona de peligro</h2>
-            <p className="text-xs text-gray-500 mb-4">
+            <p className="text-xs text-muted-foreground mb-4">
               Eliminar esta bandeja borrará todas las conversaciones y mensajes asociados. Esta acción no se puede deshacer.
             </p>
             {!showDeleteConfirm ? (
@@ -772,7 +772,7 @@ export function InboxSettings() {
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="px-4 py-2 text-sm rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors"
+                  className="px-4 py-2 text-sm rounded-lg text-muted-foreground hover:bg-muted font-medium transition-colors"
                 >
                   Cancelar
                 </button>

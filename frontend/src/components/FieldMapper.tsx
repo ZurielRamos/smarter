@@ -216,12 +216,12 @@ export function FieldMapper({
       onDragEnd={handleDragEnd}
     >
       <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">
+            <h3 className="text-base font-semibold text-foreground">
               Mapeo de Campos
             </h3>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               Arrastra las columnas del archivo hacia los campos destino.
             </p>
           </div>
@@ -234,26 +234,26 @@ export function FieldMapper({
         {onMatchFieldChange && (
           <div className="flex items-center gap-3 mx-5 mt-4 px-4 py-3 rounded-lg bg-brand-50 border border-brand-100 shrink-0">
             <div className="flex-1">
-              <p className="text-xs font-medium text-gray-700">Actualizar contactos existentes</p>
-              <p className="text-[11px] text-gray-500">Si se encuentra un registro con el mismo valor en el campo clave, se actualizará en lugar de crear uno nuevo.</p>
+              <p className="text-xs font-medium text-foreground">Actualizar contactos existentes</p>
+              <p className="text-[11px] text-muted-foreground">Si se encuentra un registro con el mismo valor en el campo clave, se actualizará en lugar de crear uno nuevo.</p>
             </div>
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setMatchSelectorOpen((v) => !v)}
-                className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 flex items-center gap-2 min-w-[140px] justify-between"
+                className="px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-medium text-foreground flex items-center gap-2 min-w-[140px] justify-between"
               >
                 <span>{matchField === "none" ? "No actualizar" : targetFields.find((f) => f.field === matchField)?.label || matchField}</span>
-                <svg className={`h-3.5 w-3.5 text-gray-400 transition-transform ${matchSelectorOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                <svg className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${matchSelectorOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </button>
               {matchSelectorOpen && (
-                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50 max-h-48 overflow-auto">
-                  <button onClick={() => { onMatchFieldChange("none"); setMatchSelectorOpen(false); }} className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${matchField === "none" ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}>
+                <div className="absolute right-0 top-full mt-1 w-48 bg-popover text-popover-foreground rounded-lg border border-border shadow-lg py-1 z-50 max-h-48 overflow-auto">
+                  <button onClick={() => { onMatchFieldChange("none"); setMatchSelectorOpen(false); }} className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${matchField === "none" ? "bg-brand-50 text-brand-700 font-medium" : "text-foreground hover:bg-muted"}`}>
                     No actualizar (crear nuevos)
                   </button>
                   {targetFields.map((f) => (
-                    <button key={f.field} onClick={() => { onMatchFieldChange(f.field); setMatchSelectorOpen(false); }} className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${matchField === f.field ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}>
-                      {f.label} <span className="text-gray-400 font-mono">({f.field})</span>
+                    <button key={f.field} onClick={() => { onMatchFieldChange(f.field); setMatchSelectorOpen(false); }} className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${matchField === f.field ? "bg-brand-50 text-brand-700 font-medium" : "text-foreground hover:bg-muted"}`}>
+                      {f.label} <span className="text-muted-foreground font-mono">({f.field})</span>
                     </button>
                   ))}
                 </div>
@@ -298,7 +298,7 @@ export function FieldMapper({
               <div className="space-y-3 h-full overflow-y-auto pr-1">
                 {Object.entries(categories).map(([category, fields]) => (
                   <div key={category}>
-                    <h4 className="text-xs font-semibold uppercase text-gray-400 tracking-wider mb-2 px-1">
+                    <h4 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2 px-1">
                       {category}
                     </h4>
                     <div className="space-y-2">
@@ -320,7 +320,7 @@ export function FieldMapper({
                           </div>
                           <button
                               onClick={() => setTransformModalField(field.field)}
-                              className={`mt-2 p-1.5 rounded-lg transition-colors ${transforms[field.field]?.type && transforms[field.field].type !== 'none' ? 'bg-purple-50 text-purple-600' : 'text-gray-300 hover:text-purple-500 hover:bg-purple-50'}`}
+                              className={`mt-2 p-1.5 rounded-lg transition-colors ${transforms[field.field]?.type && transforms[field.field].type !== 'none' ? 'bg-purple-50 text-purple-600' : 'text-muted-foreground hover:text-purple-500 hover:bg-purple-50'}`}
                               title="Transformar valor"
                             >
                               <Zap className="h-3.5 w-3.5" />
@@ -336,7 +336,7 @@ export function FieldMapper({
         </div>
 
         {/* Botón guardar */}
-        <div className="px-5 py-3 shrink-0 flex justify-end border-t border-gray-100">
+        <div className="px-5 py-3 shrink-0 flex justify-end border-t border-border">
           <Button
             onClick={() => onSubmit(transforms)}
             disabled={isLoading || mappedTargetCount === 0}

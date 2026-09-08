@@ -107,19 +107,19 @@ export function BulkActionBar({ count, allSelected, total, fields, onClear, onSe
           <ChevronDown className="h-3 w-3 opacity-60" />
         </button>
         {editOpen && (
-          <div className="absolute bottom-full mb-2 left-0 w-72 bg-white rounded-lg shadow-lg border border-gray-200 overflow-visible">
+          <div className="absolute bottom-full mb-2 left-0 w-72 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border overflow-visible">
             {!selectedField ? (
               // Step 1: Choose field
               <div className="max-h-64 overflow-auto py-1">
-                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase">Selecciona un campo</p>
+                <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase">Selecciona un campo</p>
                 {editableFields.map((f) => (
                   <button
                     key={f.fieldKey}
                     onClick={() => { setSelectedField(f); setFieldValue(""); }}
-                    className="w-full px-3 py-2 text-xs text-left text-gray-700 hover:bg-gray-50 flex items-center justify-between"
+                    className="w-full px-3 py-2 text-xs text-left text-foreground hover:bg-muted flex items-center justify-between"
                   >
                     <span>{f.fieldLabel}</span>
-                    <span className="text-[10px] text-gray-400">{f.fieldType}</span>
+                    <span className="text-[10px] text-muted-foreground">{f.fieldType}</span>
                   </button>
                 ))}
               </div>
@@ -127,7 +127,7 @@ export function BulkActionBar({ count, allSelected, total, fields, onClear, onSe
               // Step 2: Set value
               <div className="p-3 space-y-3 overflow-visible">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-gray-700">{selectedField.fieldLabel}</p>
+                  <p className="text-xs font-medium text-foreground">{selectedField.fieldLabel}</p>
                   <button onClick={() => setSelectedField(null)} className="text-[10px] text-brand-600 hover:text-brand-700">← Cambiar</button>
                 </div>
 
@@ -136,23 +136,23 @@ export function BulkActionBar({ count, allSelected, total, fields, onClear, onSe
                   <div className="relative" ref={valueRef}>
                     <button
                       onClick={() => setValueOpen((v) => !v)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs text-left flex items-center justify-between"
+                      className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg text-xs text-left flex items-center justify-between"
                     >
-                      <span className={fieldValue ? "text-gray-800 capitalize" : "text-gray-400"}>{fieldValue || "Seleccionar..."}</span>
-                      <ChevronDown className="h-3 w-3 text-gray-400" />
+                      <span className={fieldValue ? "text-foreground capitalize" : "text-muted-foreground"}>{fieldValue || "Seleccionar..."}</span>
+                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
                     </button>
                     {valueOpen && (
-                      <div className="absolute left-0 right-0 bottom-full mb-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 max-h-36 overflow-auto z-10">
+                      <div className="absolute left-0 right-0 bottom-full mb-1 bg-popover text-popover-foreground rounded-lg border border-border shadow-lg py-1 max-h-36 overflow-auto z-10">
                         {selectedField.options.map((opt) => (
-                          <button key={opt} onClick={() => { setFieldValue(opt); setValueOpen(false); }} className={`w-full px-3 py-1.5 text-xs text-left capitalize transition-colors ${fieldValue === opt ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}>{opt}</button>
+                          <button key={opt} onClick={() => { setFieldValue(opt); setValueOpen(false); }} className={`w-full px-3 py-1.5 text-xs text-left capitalize transition-colors ${fieldValue === opt ? "bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100 font-medium" : "text-foreground hover:bg-muted"}`}>{opt}</button>
                         ))}
                       </div>
                     )}
                   </div>
                 ) : selectedField.fieldType === "boolean" ? (
                   <div className="flex items-center gap-3">
-                    <button onClick={() => setFieldValue("true")} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${fieldValue === "true" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>Sí</button>
-                    <button onClick={() => setFieldValue("false")} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${fieldValue === "false" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>No</button>
+                    <button onClick={() => setFieldValue("true")} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${fieldValue === "true" ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100" : "border-border text-muted-foreground hover:bg-muted"}`}>Sí</button>
+                    <button onClick={() => setFieldValue("false")} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${fieldValue === "false" ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100" : "border-border text-muted-foreground hover:bg-muted"}`}>No</button>
                   </div>
                 ) : (
                   <input
@@ -160,7 +160,7 @@ export function BulkActionBar({ count, allSelected, total, fields, onClear, onSe
                     value={fieldValue}
                     onChange={(e) => setFieldValue(e.target.value)}
                     placeholder={`Nuevo valor para ${selectedField.fieldLabel}...`}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    className="w-full px-3 py-2 border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
                     autoFocus
                     onKeyDown={(e) => { if (e.key === "Enter") handleApplyEdit(); }}
                   />
@@ -187,15 +187,15 @@ export function BulkActionBar({ count, allSelected, total, fields, onClear, onSe
           <ChevronDown className="h-3 w-3 opacity-60" />
         </button>
         {tagOpen && (
-          <div className="absolute bottom-full mb-2 left-0 w-60 bg-white rounded-lg shadow-lg border border-gray-200 p-3">
-            <p className="text-xs font-medium text-gray-700 mb-2">Agregar tag a seleccionados</p>
+          <div className="absolute bottom-full mb-2 left-0 w-60 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border p-3">
+            <p className="text-xs font-medium text-foreground mb-2">Agregar tag a seleccionados</p>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={tagValue}
                 onChange={(e) => setTagValue(e.target.value)}
                 placeholder="Nombre del tag..."
-                className="flex-1 min-w-0 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                className="flex-1 min-w-0 px-3 py-2 border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-brand-500"
                 autoFocus
                 onKeyDown={(e) => { if (e.key === "Enter") handleAddTag(); }}
               />

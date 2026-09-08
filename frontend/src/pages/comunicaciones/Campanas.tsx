@@ -43,10 +43,10 @@ const channelMeta: Record<string, { label: string; icon: React.ComponentType<{ c
 };
 
 const statusColors: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-600",
-  active: "bg-green-100 text-green-700",
-  paused: "bg-yellow-100 text-yellow-700",
-  completed: "bg-blue-100 text-blue-700",
+  draft: "bg-muted text-muted-foreground",
+  active: "bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300",
+  paused: "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300",
+  completed: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
 };
 
 const statusLabels: Record<string, string> = {
@@ -147,19 +147,19 @@ export function Campanas() {
       case "whatsapp": return <WhatsAppIcon className="h-4 w-4 text-green-500" />;
       case "email": return <Mail className="h-4 w-4 text-purple-500" />;
       case "llamada": return <Phone className="h-4 w-4 text-orange-500" />;
-      default: return <Megaphone className="h-4 w-4 text-gray-400" />;
+      default: return <Megaphone className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
   return (
     <>
       {/* Campaign list sidebar */}
-      <div className="w-80 border-r border-gray-200 flex flex-col shrink-0">
-        <div className="px-3 py-3 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase">Campañas</h3>
+      <div className="w-80 border-r border-border flex flex-col shrink-0">
+        <div className="px-3 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase">Campañas</h3>
           <button
             onClick={() => setShowModal(true)}
-            className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             title="Nueva campaña"
           >
             <Plus className="h-4 w-4" />
@@ -173,9 +173,9 @@ export function Campanas() {
             </div>
           ) : campaigns.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-6">
-              <Megaphone className="h-8 w-8 text-gray-300 mb-2" />
-              <p className="text-sm text-gray-500">Sin campañas</p>
-              <p className="text-[11px] text-gray-400 mt-1">Crea tu primera campaña para empezar</p>
+              <Megaphone className="h-8 w-8 text-muted-foreground/40 mb-2" />
+              <p className="text-sm text-muted-foreground">Sin campañas</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Crea tu primera campaña para empezar</p>
             </div>
           ) : (
             campaigns.map((c) => (
@@ -183,19 +183,19 @@ export function Campanas() {
                 key={c.id}
                 onClick={() => navigate(`/${slug}/comunicaciones/campanas/${c.id}`)}
                 onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, campaign: c }); }}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b border-gray-50 transition-colors ${campaignId === c.id ? "bg-brand-50" : "hover:bg-gray-50"}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b border-border transition-colors ${campaignId === c.id ? "bg-brand-50 dark:bg-brand-700/40" : "hover:bg-muted"}`}
               >
-                <div className="h-9 w-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   {channelIcon(c.channel)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900 truncate">{c.name}</p>
+                    <p className="text-sm font-medium text-foreground truncate">{c.name}</p>
                     <span className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-medium shrink-0 ${statusColors[c.status] || statusColors.draft}`}>
                       {statusLabels[c.status] || c.status}
                     </span>
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                  <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
                     {c.channel || "sin canal"}
                   </p>
                 </div>
@@ -212,12 +212,12 @@ export function Campanas() {
       {contextMenu && (
         <div
           ref={contextMenuRef}
-          className="fixed z-[60] w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1 animate-in fade-in zoom-in-95 duration-100"
+          className="fixed z-[60] w-44 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 animate-in fade-in zoom-in-95 duration-100"
           style={{ top: contextMenu.y, left: contextMenu.x }}
         >
           <button
             onClick={() => handleDeleteCampaign(contextMenu.campaign)}
-            className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
           >
             <Trash2 className="h-4 w-4 text-red-400" />
             Eliminar campaña
@@ -238,27 +238,27 @@ export function Campanas() {
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+              <div className="bg-card text-card-foreground rounded-2xl shadow-xl w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className="px-6 pt-6 pb-4 border-b border-border">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-900">Nueva Campaña</h2>
-                      <p className="text-sm text-gray-500 mt-0.5">Define los datos básicos de tu campaña.</p>
+                      <h2 className="text-lg font-semibold text-foreground">Nueva Campaña</h2>
+                      <p className="text-sm text-muted-foreground mt-0.5">Define los datos básicos de tu campaña.</p>
                     </div>
-                    <button onClick={() => { setShowModal(false); resetForm(); }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                    <button onClick={() => { setShowModal(false); resetForm(); }} className="text-muted-foreground hover:text-foreground transition-colors">
                       <X className="h-5 w-5" />
                     </button>
                   </div>
                 </div>
                 <div className="px-6 py-5 space-y-5">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Bandeja</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">Bandeja</label>
                     {loadingInboxes ? (
                       <div className="flex items-center justify-center py-6">
                         <div className="h-5 w-5 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
                       </div>
                     ) : inboxes.filter((i) => CAMPAIGN_CHANNELS.includes(i.channel) && i.status === "connected").length === 0 ? (
-                      <div className="text-center py-4 text-sm text-gray-500 border border-dashed border-gray-300 rounded-lg">
+                      <div className="text-center py-4 text-sm text-muted-foreground border border-dashed border-border rounded-lg">
                         No hay bandejas conectadas para campañas
                       </div>
                     ) : (
@@ -275,17 +275,17 @@ export function Campanas() {
                               onClick={() => setSelectedInboxId(inbox.id)}
                               className={cn(
                                 "flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer text-left",
-                                isActive ? meta.activeColor : "border-gray-200 hover:border-gray-300 bg-white"
+                                isActive ? meta.activeColor : "border-border hover:bg-muted bg-card"
                               )}
                             >
-                              <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", isActive ? "" : "bg-gray-100")}>
-                                <Icon className={cn("h-4 w-4", isActive ? "" : "text-gray-400")} />
+                              <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", isActive ? "" : "bg-muted")}>
+                                <Icon className={cn("h-4 w-4", isActive ? "" : "text-muted-foreground")} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={cn("text-sm font-medium truncate", isActive ? "" : "text-gray-700")}>{inbox.name}</p>
-                                <p className="text-[11px] text-gray-400 truncate">{meta.label}{inbox.channelName ? ` · ${inbox.channelName}` : ""}</p>
+                                <p className={cn("text-sm font-medium truncate", isActive ? "" : "text-foreground")}>{inbox.name}</p>
+                                <p className="text-[11px] text-muted-foreground truncate">{meta.label}{inbox.channelName ? ` · ${inbox.channelName}` : ""}</p>
                               </div>
-                              <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-medium bg-green-100 text-green-700")}>
+                              <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-medium bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300")}>
                                 Conectada
                               </span>
                             </button>
@@ -295,15 +295,15 @@ export function Campanas() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre</label>
-                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Promoción fin de semana" className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all" />
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Nombre</label>
+                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Promoción fin de semana" className="w-full px-4 py-2.5 border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Descripción <span className="text-gray-400 font-normal">(opcional)</span></label>
-                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción de la campaña" rows={3} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all resize-none" />
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Descripción <span className="text-muted-foreground font-normal">(opcional)</span></label>
+                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción de la campaña" rows={3} className="w-full px-4 py-2.5 border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all resize-none" />
                   </div>
                 </div>
-                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-3">
+                <div className="px-6 py-4 border-t border-border bg-muted flex items-center justify-end gap-3">
                   <Button onClick={() => { setShowModal(false); resetForm(); }} variant="outline" size="sm">Cancelar</Button>
                   <Button onClick={handleCreate} disabled={saving || !name.trim() || !selectedInboxId} size="sm" className="bg-brand-800 hover:bg-brand-700 text-white">
                     {saving ? "Creando..." : "Crear Campaña"}

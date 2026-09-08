@@ -225,14 +225,14 @@ export function TeamCard() {
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-card rounded-xl border border-border p-6">
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-semibold text-gray-900">Equipo</h2>
+          <h2 className="text-lg font-semibold text-foreground">Equipo</h2>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-gray-400" />
-              <span className="text-sm text-gray-600 font-medium">{currentCount}</span>
-              <span className="text-sm text-gray-400">/ {maxUsers}</span>
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground font-medium">{currentCount}</span>
+              <span className="text-sm text-muted-foreground">/ {maxUsers}</span>
             </div>
             {canAdd && (
               <Button
@@ -246,25 +246,25 @@ export function TeamCard() {
             )}
           </div>
         </div>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Gestiona los miembros y permisos del equipo en esta cuenta.
         </p>
 
         {loading ? (
           <div className="flex items-center justify-center py-6">
-            <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <>
             {/* Progress bar */}
             <div className="flex items-center gap-3 mb-5">
-              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all bg-accent-500"
                   style={{ width: `${Math.min((currentCount / maxUsers) * 100, 100)}%` }}
                 />
               </div>
-              <span className="text-xs text-gray-400 shrink-0">
+              <span className="text-xs text-muted-foreground shrink-0">
                 {maxUsers - currentCount} disponibles
               </span>
             </div>
@@ -275,16 +275,16 @@ export function TeamCard() {
                 <button
                   key={member.id}
                   onClick={() => openEdit(member)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
                 >
                   <div className="h-9 w-9 rounded-full bg-brand-100 flex items-center justify-center text-xs font-bold text-brand-700 shrink-0">
                     {getInitials(member.user.name)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p className="text-sm font-medium text-foreground truncate">
                       {member.user.name}
                     </p>
-                    <p className="text-xs text-gray-400 truncate">
+                    <p className="text-xs text-muted-foreground truncate">
                       {member.user.email}
                     </p>
                   </div>
@@ -292,7 +292,7 @@ export function TeamCard() {
                     "text-xs font-medium px-2 py-0.5 rounded-full",
                     member.role === "owner" ? "bg-amber-100 text-amber-700" :
                     member.role === "admin" ? "bg-brand-100 text-brand-700" :
-                    "bg-gray-100 text-gray-600"
+                    "bg-muted text-muted-foreground"
                   )}>
                     {member.role === "owner" ? "Propietario" : member.role === "admin" ? "Administrador" : "Agente"}
                   </span>
@@ -321,19 +321,19 @@ export function TeamCard() {
               transition={{ duration: 0.2, ease: "easeOut" }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
             >
-              <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="bg-card rounded-2xl shadow-xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className="px-6 pt-6 pb-4 border-b border-border flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Editar miembro</h3>
-                    <p className="text-sm text-gray-500 mt-0.5">{editingMember.user.name}</p>
+                    <h3 className="text-lg font-semibold text-foreground">Editar miembro</h3>
+                    <p className="text-sm text-muted-foreground mt-0.5">{editingMember.user.name}</p>
                   </div>
-                  <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
+                  <button onClick={closeModal} className="text-muted-foreground hover:text-muted-foreground">
                     <X className="h-5 w-5" />
                   </button>
                 </div>
 
                 <div className="px-6 py-5">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Rol</label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Rol</label>
                   <div className="space-y-2">
                     {roles.map((role) => (
                       <button
@@ -344,25 +344,25 @@ export function TeamCard() {
                           "w-full flex items-center gap-3 px-4 py-3 rounded-lg border-2 text-left transition-all",
                           selectedRole === role.value
                             ? "border-brand-500 bg-brand-50"
-                            : "border-gray-200 hover:border-gray-300"
+                            : "border-border hover:border-border"
                         )}
                       >
                         <div className={cn(
                           "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                          selectedRole === role.value ? "border-brand-500" : "border-gray-300"
+                          selectedRole === role.value ? "border-brand-500" : "border-border"
                         )}>
                           {selectedRole === role.value && <div className="h-2 w-2 rounded-full bg-brand-500" />}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{role.label}</p>
-                          <p className="text-xs text-gray-400">{role.description}</p>
+                          <p className="text-sm font-medium text-foreground">{role.label}</p>
+                          <p className="text-xs text-muted-foreground">{role.description}</p>
                         </div>
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+                <div className="px-6 py-4 border-t border-border bg-muted flex items-center justify-between">
                   <button
                     onClick={handleRemove}
                     disabled={saving}
@@ -407,19 +407,19 @@ export function TeamCard() {
               transition={{ duration: 0.2, ease: "easeOut" }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
             >
-              <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-card rounded-2xl shadow-xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 {/* Header */}
-                <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex items-center justify-between">
+                <div className="px-6 pt-6 pb-4 border-b border-border flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Agregar miembro</h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
+                    <h3 className="text-lg font-semibold text-foreground">Agregar miembro</h3>
+                    <p className="text-sm text-muted-foreground mt-0.5">
                       {addStep === "email" && "Ingresa el correo electrónico del usuario"}
                       {addStep === "existing-role" && "Usuario encontrado — asígnale un rol"}
                       {addStep === "new-user" && "Usuario nuevo — completa los datos"}
                       {addStep === "done" && "Miembro agregado exitosamente"}
                     </p>
                   </div>
-                  <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
+                  <button onClick={closeModal} className="text-muted-foreground hover:text-muted-foreground">
                     <X className="h-5 w-5" />
                   </button>
                 </div>
@@ -432,12 +432,12 @@ export function TeamCard() {
                       <div className="h-12 w-12 rounded-full bg-brand-50 flex items-center justify-center mx-auto mb-2">
                         <Mail className="h-6 w-6 text-brand-600" />
                       </div>
-                      <p className="text-center text-sm text-gray-500">
+                      <p className="text-center text-sm text-muted-foreground">
                         Si el usuario ya existe en la plataforma, se agregará directamente al equipo.
                         Si no, podrás crear una cuenta nueva.
                       </p>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label className="block text-sm font-medium text-foreground mb-1.5">
                           Correo electrónico
                         </label>
                         <input
@@ -448,7 +448,7 @@ export function TeamCard() {
                           placeholder="nombre@empresa.com"
                           className={cn(
                             "w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none",
-                            emailError ? "border-red-300" : "border-gray-300"
+                            emailError ? "border-red-300" : "border-border"
                           )}
                         />
                         {emailError && (
@@ -470,7 +470,7 @@ export function TeamCard() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-sm font-medium text-foreground mb-2">
                           Asignar rol en este equipo
                         </label>
                         <div className="space-y-2">
@@ -483,18 +483,18 @@ export function TeamCard() {
                                 "w-full flex items-center gap-3 px-4 py-3 rounded-lg border-2 text-left transition-all",
                                 selectedRole === role.value
                                   ? "border-brand-500 bg-brand-50"
-                                  : "border-gray-200 hover:border-gray-300"
+                                  : "border-border hover:border-border"
                               )}
                             >
                               <div className={cn(
                                 "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                                selectedRole === role.value ? "border-brand-500" : "border-gray-300"
+                                selectedRole === role.value ? "border-brand-500" : "border-border"
                               )}>
                                 {selectedRole === role.value && <div className="h-2 w-2 rounded-full bg-brand-500" />}
                               </div>
                               <div>
-                                <p className="text-sm font-medium text-gray-900">{role.label}</p>
-                                <p className="text-xs text-gray-400">{role.description}</p>
+                                <p className="text-sm font-medium text-foreground">{role.label}</p>
+                                <p className="text-xs text-muted-foreground">{role.description}</p>
                               </div>
                             </button>
                           ))}
@@ -515,30 +515,30 @@ export function TeamCard() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre completo</label>
+                        <label className="block text-sm font-medium text-foreground mb-1.5">Nombre completo</label>
                         <input
                           type="text"
                           value={newName}
                           onChange={(e) => setNewName(e.target.value)}
                           placeholder="Juan Pérez"
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+                          className="w-full px-4 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Contraseña temporal</label>
+                        <label className="block text-sm font-medium text-foreground mb-1.5">Contraseña temporal</label>
                         <input
                           type="text"
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="Mín. 6 caracteres"
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+                          className="w-full px-4 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
                         />
-                        <p className="text-xs text-gray-400 mt-1">El usuario deberá cambiarla al primer ingreso.</p>
+                        <p className="text-xs text-muted-foreground mt-1">El usuario deberá cambiarla al primer ingreso.</p>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Rol</label>
+                        <label className="block text-sm font-medium text-foreground mb-2">Rol</label>
                         <div className="space-y-2">
                           {roles.map((role) => (
                             <button
@@ -549,18 +549,18 @@ export function TeamCard() {
                                 "w-full flex items-center gap-3 px-4 py-3 rounded-lg border-2 text-left transition-all",
                                 selectedRole === role.value
                                   ? "border-brand-500 bg-brand-50"
-                                  : "border-gray-200 hover:border-gray-300"
+                                  : "border-border hover:border-border"
                               )}
                             >
                               <div className={cn(
                                 "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                                selectedRole === role.value ? "border-brand-500" : "border-gray-300"
+                                selectedRole === role.value ? "border-brand-500" : "border-border"
                               )}>
                                 {selectedRole === role.value && <div className="h-2 w-2 rounded-full bg-brand-500" />}
                               </div>
                               <div>
-                                <p className="text-sm font-medium text-gray-900">{role.label}</p>
-                                <p className="text-xs text-gray-400">{role.description}</p>
+                                <p className="text-sm font-medium text-foreground">{role.label}</p>
+                                <p className="text-xs text-muted-foreground">{role.description}</p>
                               </div>
                             </button>
                           ))}
@@ -575,8 +575,8 @@ export function TeamCard() {
                       <div className="h-14 w-14 rounded-full bg-accent-50 flex items-center justify-center mx-auto mb-3">
                         <CheckCircle className="h-7 w-7 text-accent-500" />
                       </div>
-                      <h4 className="text-lg font-semibold text-gray-900">Miembro agregado</h4>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <h4 className="text-lg font-semibold text-foreground">Miembro agregado</h4>
+                      <p className="text-sm text-muted-foreground mt-1">
                         {foundUser?.name} ahora forma parte del equipo como <strong className="capitalize">{selectedRole}</strong>.
                       </p>
                     </div>
@@ -584,7 +584,7 @@ export function TeamCard() {
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-3">
+                <div className="px-6 py-4 border-t border-border bg-muted flex items-center justify-end gap-3">
                   {addStep === "email" && (
                     <>
                       <Button onClick={closeModal} variant="outline" size="sm">Cancelar</Button>

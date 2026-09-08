@@ -24,9 +24,9 @@ interface BotItem {
 }
 
 const statusColors: Record<string, string> = {
-  active: "bg-green-100 text-green-700",
-  inactive: "bg-gray-100 text-gray-600",
-  draft: "bg-yellow-100 text-yellow-700",
+  active: "bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300",
+  inactive: "bg-muted text-muted-foreground",
+  draft: "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300",
 };
 
 const statusLabels: Record<string, string> = {
@@ -95,27 +95,27 @@ export function Bots() {
   return (
     <>
       {/* List panel */}
-      <div className="w-80 border-r border-gray-100 flex flex-col shrink-0">
+      <div className="w-80 border-r border-border flex flex-col shrink-0">
         {/* Header */}
-        <div className="px-3 py-3 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase">Bots</h3>
+        <div className="px-3 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase">Bots</h3>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             title="Nuevo bot"
           >
             <Plus className="h-4 w-4" />
           </button>
         </div>
-        <div className="px-3 py-2 border-b border-gray-100">
+        <div className="px-3 py-2 border-b border-border">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="text"
               placeholder="Buscar bot..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400"
+              className="w-full pl-8 pr-3 py-1.5 text-xs border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400"
             />
           </div>
         </div>
@@ -125,13 +125,13 @@ export function Bots() {
           {loading ? (
             <div className="p-4 space-y-3">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-14 bg-gray-100 rounded-lg animate-pulse" />
+                <div key={i} className="h-14 bg-muted rounded-lg animate-pulse" />
               ))}
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-4 text-center">
-              <Bot className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-xs text-gray-500">No hay bots</p>
+              <Bot className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">No hay bots</p>
             </div>
           ) : (
             <div className="p-2 space-y-1">
@@ -142,22 +142,22 @@ export function Bots() {
                   className={cn(
                     "w-full text-left p-3 rounded-lg transition-colors",
                     botId === bot.id
-                      ? "bg-brand-50 border border-brand-200"
-                      : "hover:bg-gray-50 border border-transparent",
+                      ? "bg-brand-50 dark:bg-brand-700/40 border border-brand-200 dark:border-brand-600"
+                      : "hover:bg-muted border border-transparent",
                   )}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-900 truncate">{bot.name}</span>
-                    <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", statusColors[bot.status] || "bg-gray-100 text-gray-600")}>
+                    <span className="text-sm font-medium text-foreground truncate">{bot.name}</span>
+                    <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", statusColors[bot.status] || "bg-muted text-muted-foreground")}>
                       {statusLabels[bot.status] || bot.status}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-medium", bot.type === "sequential" ? "bg-blue-50 text-blue-600" : bot.type === "hybrid" ? "bg-purple-50 text-purple-600" : "bg-gray-50 text-gray-500")}>
+                    <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-medium", bot.type === "sequential" ? "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300" : bot.type === "hybrid" ? "bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-300" : "bg-muted text-muted-foreground")}>
                       {bot.type === "sequential" ? "Secuencial" : bot.type === "hybrid" ? "Híbrido" : "Libre"}
                     </span>
                     {bot.description && (
-                      <p className="text-[10px] text-gray-400 truncate">{bot.description}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{bot.description}</p>
                     )}
                   </div>
                 </button>

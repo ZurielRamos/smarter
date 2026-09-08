@@ -56,10 +56,10 @@ export function DraggableField({ id, label, type, isMapped }: DraggableFieldProp
         isDragging && "opacity-30 border-dashed border-indigo-300 bg-indigo-50/50",
         !isDragging && isMapped
           ? "bg-green-50 border-green-200 text-green-700"
-          : !isDragging && "bg-white border-gray-200 hover:border-indigo-300 hover:bg-indigo-50"
+          : !isDragging && "bg-card border-border hover:border-indigo-300 hover:bg-indigo-50"
       )}
     >
-      <GripVertical className="h-4 w-4 text-gray-400 shrink-0" />
+      <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
       <span className="truncate flex-1">{label}</span>
       <span className={cn("inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium", typeBgColors[type])}>
         <Icon className="h-3 w-3" />

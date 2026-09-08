@@ -279,12 +279,12 @@ export function Team() {
           <div>
             {/* Usage bar */}
             <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center gap-1.5 text-sm text-gray-500">
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 <Users className="h-4 w-4" />
                 <span className="font-medium">{agents.length}</span>
-                <span className="text-gray-400">/ {maxAgents} miembros</span>
+                <span className="text-muted-foreground">/ {maxAgents} miembros</span>
               </div>
-              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${isAtLimit ? "bg-red-500" : isNearLimit ? "bg-amber-500" : "bg-brand-500"}`}
                   style={{ width: `${usagePercent}%` }}
@@ -298,16 +298,16 @@ export function Team() {
             {/* Members list */}
             {loading ? (
               <div className="flex justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
                 {agents.map((agent, i) => (
                   <div
                     key={agent.id}
                     onContextMenu={(e) => handleContextMenu(e, agent)}
-                    className={`flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors cursor-default ${
-                      i > 0 ? "border-t border-gray-100" : ""
+                    className={`flex items-center gap-4 px-5 py-4 hover:bg-muted transition-colors cursor-default ${
+                      i > 0 ? "border-t border-border" : ""
                     }`}
                   >
                     <div className="h-10 w-10 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 shrink-0">
@@ -315,19 +315,19 @@ export function Team() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-gray-900 truncate">{agent.user.name}</p>
+                        <p className="text-sm font-medium text-foreground truncate">{agent.user.name}</p>
                         {agent.status === "pending" && (
                           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium border border-amber-200">
                             Pendiente
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-400 truncate">{agent.user.email}</p>
+                      <p className="text-xs text-muted-foreground truncate">{agent.user.email}</p>
                     </div>
                     <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                      agent.role === "owner" ? "bg-amber-100 text-amber-700" :
-                      agent.role === "admin" ? "bg-purple-100 text-purple-700" :
-                      "bg-gray-100 text-gray-600"
+                      agent.role === "owner" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" :
+                      agent.role === "admin" ? "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300" :
+                      "bg-muted text-muted-foreground"
                     }`}>
                       {agent.role === "owner" ? "Propietario" : agent.role === "admin" ? "Administrador" : "Agente"}
                     </span>
@@ -338,13 +338,13 @@ export function Team() {
           </div>
 
           {/* Right: Teams */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col max-h-[calc(100vh-220px)]">
+          <div className="bg-card rounded-xl border border-border overflow-hidden flex flex-col max-h-[calc(100vh-220px)]">
             {/* Teams header */}
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
-              <h3 className="text-sm font-semibold text-gray-900">Equipos</h3>
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
+              <h3 className="text-sm font-semibold text-foreground">Equipos</h3>
               <button
                 onClick={() => setShowCreateTeam(true)}
-                className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-muted-foreground transition-colors"
                 title="Crear equipo"
               >
                 <Plus className="h-4 w-4" />
@@ -355,8 +355,8 @@ export function Team() {
             <div className="flex-1 overflow-y-auto">
               {teams.length === 0 ? (
                 <div className="py-8 text-center">
-                  <Users className="h-6 w-6 text-gray-300 mx-auto mb-2" />
-                  <p className="text-xs text-gray-400">Sin equipos creados</p>
+                  <Users className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-xs text-muted-foreground">Sin equipos creados</p>
                   <button
                     onClick={() => setShowCreateTeam(true)}
                     className="mt-2 text-xs text-brand-600 hover:text-brand-800 font-medium"
@@ -371,7 +371,7 @@ export function Team() {
                       key={team.id}
                       onClick={() => setSelectedTeam(selectedTeam?.id === team.id ? null : team)}
                       onContextMenu={(e) => { e.preventDefault(); setTeamContextMenu({ x: e.clientX, y: e.clientY, team }); }}
-                      className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${
+                      className={`w-full text-left px-4 py-3 border-b border-border hover:bg-muted transition-colors ${
                         selectedTeam?.id === team.id ? "bg-brand-50" : ""
                       }`}
                     >
@@ -380,9 +380,9 @@ export function Team() {
                           <Users className="h-4 w-4 text-brand-600" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{team.name}</p>
+                          <p className="text-sm font-medium text-foreground truncate">{team.name}</p>
                           {team.description && (
-                            <p className="text-[10px] text-gray-400 truncate">{team.description}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{team.description}</p>
                           )}
                         </div>
                       </div>
@@ -391,21 +391,21 @@ export function Team() {
 
                   {/* Selected team members */}
                   {selectedTeam && (
-                    <div className="border-t border-gray-200">
-                      <div className="px-4 py-2.5 bg-gray-50 flex items-center justify-between">
-                        <p className="text-xs font-medium text-gray-600">{selectedTeam.name} · {teamMembers.length} miembros</p>
+                    <div className="border-t border-border">
+                      <div className="px-4 py-2.5 bg-muted flex items-center justify-between">
+                        <p className="text-xs font-medium text-muted-foreground">{selectedTeam.name} · {teamMembers.length} miembros</p>
                       </div>
                       {teamMembers.map((m) => (
-                        <div key={m.id} className="flex items-center gap-2.5 px-4 py-2 border-b border-gray-50 hover:bg-gray-50">
+                        <div key={m.id} className="flex items-center gap-2.5 px-4 py-2 border-b border-border hover:bg-muted">
                           <div className="h-7 w-7 rounded-full bg-brand-100 flex items-center justify-center text-[10px] font-bold text-brand-700 shrink-0">
                             {m.user.name.charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-gray-900 truncate">{m.user.name}</p>
+                            <p className="text-xs font-medium text-foreground truncate">{m.user.name}</p>
                           </div>
                           <button
                             onClick={() => handleRemoveTeamMember(m.userId)}
-                            className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                            className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -413,20 +413,20 @@ export function Team() {
                       ))}
                       {/* Add to team */}
                       {availableForTeam.length > 0 && (
-                        <div className="px-4 py-2 border-t border-gray-100">
-                          <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">Agregar</p>
+                        <div className="px-4 py-2 border-t border-border">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1.5">Agregar</p>
                           {availableForTeam.slice(0, 5).map((a) => (
                             <button
                               key={a.userId}
                               onClick={() => handleAddTeamMember(a.userId)}
-                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-gray-600 hover:bg-brand-50 hover:text-brand-700 transition-colors"
+                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-brand-50 hover:text-brand-700 transition-colors"
                             >
                               <UserPlus className="h-3 w-3" />
                               {a.user.name}
                             </button>
                           ))}
                           {availableForTeam.length > 5 && (
-                            <p className="text-[10px] text-gray-400 mt-1 px-2">+{availableForTeam.length - 5} más</p>
+                            <p className="text-[10px] text-muted-foreground mt-1 px-2">+{availableForTeam.length - 5} más</p>
                           )}
                         </div>
                       )}
@@ -443,15 +443,15 @@ export function Team() {
       {contextMenu && (
         <div
           ref={contextMenuRef}
-          className="fixed z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 animate-in fade-in zoom-in-95 duration-100"
+          className="fixed z-50 w-48 bg-card rounded-lg shadow-lg border border-border py-1 animate-in fade-in zoom-in-95 duration-100"
           style={{ top: contextMenu.y, left: contextMenu.x }}
         >
           {contextMenu.agent.status === "pending" && (
             <button
               onClick={() => handleResendInvite(contextMenu.agent)}
-              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
             >
-              <Mail className="h-4 w-4 text-gray-400" />
+              <Mail className="h-4 w-4 text-muted-foreground" />
               Reenviar invitación
             </button>
           )}
@@ -459,12 +459,12 @@ export function Team() {
             <>
               <button
                 onClick={() => { setRoleChangeAgent(contextMenu.agent); setContextMenu(null); }}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
               >
-                <Pencil className="h-4 w-4 text-gray-400" />
+                <Pencil className="h-4 w-4 text-muted-foreground" />
                 Cambiar rol
               </button>
-              <div className="border-t border-gray-100 my-1" />
+              <div className="border-t border-border my-1" />
               <button
                 onClick={() => { setRemoveAgent(contextMenu.agent); setContextMenu(null); }}
                 className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
@@ -485,12 +485,11 @@ export function Team() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-2xl shadow-2xl border border-white/30 p-6"
-            style={{ background: "rgba(255, 255, 255, 0.95)", backdropFilter: "blur(20px)" }}
+            className="w-full max-w-sm rounded-2xl shadow-2xl border border-border bg-card/95 text-card-foreground p-6" style={{ backdropFilter: "blur(20px)" }}
           >
             <div className="mb-4">
-              <h3 className="text-base font-semibold text-gray-900">Cambiar rol</h3>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <h3 className="text-base font-semibold text-foreground">Cambiar rol</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {roleChangeAgent.user.name} · {roleChangeAgent.user.email}
               </p>
             </div>
@@ -502,18 +501,18 @@ export function Team() {
                 className={`p-3 rounded-xl border-2 text-left transition-all disabled:opacity-70 ${
                   roleChangeAgent.role === "agent"
                     ? "border-brand-500 bg-brand-50"
-                    : "border-gray-200 hover:border-gray-300"
+                    : "border-border hover:border-border"
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
                   {changingRole === "agent" ? (
                     <Loader2 className="h-4 w-4 text-brand-600 animate-spin" />
                   ) : (
-                    <Users className={`h-4 w-4 ${roleChangeAgent.role === "agent" ? "text-brand-600" : "text-gray-500"}`} />
+                    <Users className={`h-4 w-4 ${roleChangeAgent.role === "agent" ? "text-brand-600" : "text-muted-foreground"}`} />
                   )}
-                  <span className={`text-sm font-semibold ${roleChangeAgent.role === "agent" ? "text-brand-700" : "text-gray-700"}`}>Agente</span>
+                  <span className={`text-sm font-semibold ${roleChangeAgent.role === "agent" ? "text-brand-700" : "text-foreground"}`}>Agente</span>
                 </div>
-                <p className="text-[10px] text-gray-500">Responde conversaciones</p>
+                <p className="text-[10px] text-muted-foreground">Responde conversaciones</p>
               </button>
               <button
                 onClick={() => handleChangeRole(roleChangeAgent, "admin")}
@@ -521,23 +520,23 @@ export function Team() {
                 className={`p-3 rounded-xl border-2 text-left transition-all disabled:opacity-70 ${
                   roleChangeAgent.role === "admin"
                     ? "border-purple-500 bg-purple-50"
-                    : "border-gray-200 hover:border-gray-300"
+                    : "border-border hover:border-border"
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
                   {changingRole === "admin" ? (
                     <Loader2 className="h-4 w-4 text-purple-600 animate-spin" />
                   ) : (
-                    <Users className={`h-4 w-4 ${roleChangeAgent.role === "admin" ? "text-purple-600" : "text-gray-500"}`} />
+                    <Users className={`h-4 w-4 ${roleChangeAgent.role === "admin" ? "text-purple-600" : "text-muted-foreground"}`} />
                   )}
-                  <span className={`text-sm font-semibold ${roleChangeAgent.role === "admin" ? "text-purple-700" : "text-gray-700"}`}>Administrador</span>
+                  <span className={`text-sm font-semibold ${roleChangeAgent.role === "admin" ? "text-purple-700" : "text-foreground"}`}>Administrador</span>
                 </div>
-                <p className="text-[10px] text-gray-500">Acceso total</p>
+                <p className="text-[10px] text-muted-foreground">Acceso total</p>
               </button>
             </div>
 
             <div className="mt-4 text-right">
-              <button onClick={() => setRoleChangeAgent(null)} className="text-xs text-gray-500 hover:text-gray-700">
+              <button onClick={() => setRoleChangeAgent(null)} className="text-xs text-muted-foreground hover:text-foreground">
                 Cancelar
               </button>
             </div>
@@ -553,47 +552,46 @@ export function Team() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl shadow-2xl border border-white/30 p-6"
-            style={{ background: "rgba(255, 255, 255, 0.95)", backdropFilter: "blur(20px)" }}
+            className="w-full max-w-md rounded-2xl shadow-2xl border border-border bg-card/95 text-card-foreground p-6" style={{ backdropFilter: "blur(20px)" }}
           >
             <div className="flex items-center justify-between mb-5">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Agregar miembro al equipo</h3>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <h3 className="text-lg font-semibold text-foreground">Agregar miembro al equipo</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Invita a un nuevo miembro. Recibirá un correo con las instrucciones.
                 </p>
               </div>
-              <button onClick={() => { setShowInviteModal(false); setInviteResult(null); }} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+              <button onClick={() => { setShowInviteModal(false); setInviteResult(null); }} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Nombre completo</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Nombre completo</label>
                 <input
                   type="text"
                   value={inviteForm.name}
                   onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
                   placeholder="Ej: María García"
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Correo electrónico</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Correo electrónico</label>
                 <input
                   type="email"
                   value={inviteForm.email}
                   onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
                   placeholder="maria@empresa.com"
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
-                <p className="text-[10px] text-gray-400 mt-1">
+                <p className="text-[10px] text-muted-foreground mt-1">
                   Si ya tiene cuenta, se le dará acceso. Si no, se le creará una cuenta nueva.
                 </p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">Rol en la cuenta</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-2">Rol en la cuenta</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -601,16 +599,16 @@ export function Team() {
                     className={`p-3 rounded-xl border-2 text-left transition-all ${
                       inviteForm.role === "agent"
                         ? "border-brand-500 bg-brand-50"
-                        : "border-gray-200 hover:border-gray-300"
+                        : "border-border hover:border-border"
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-1.5">
-                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${inviteForm.role === "agent" ? "bg-brand-100" : "bg-gray-100"}`}>
-                        <Users className={`h-4 w-4 ${inviteForm.role === "agent" ? "text-brand-600" : "text-gray-500"}`} />
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${inviteForm.role === "agent" ? "bg-brand-100" : "bg-muted"}`}>
+                        <Users className={`h-4 w-4 ${inviteForm.role === "agent" ? "text-brand-600" : "text-muted-foreground"}`} />
                       </div>
-                      <span className={`text-sm font-semibold ${inviteForm.role === "agent" ? "text-brand-700" : "text-gray-700"}`}>Agente</span>
+                      <span className={`text-sm font-semibold ${inviteForm.role === "agent" ? "text-brand-700" : "text-foreground"}`}>Agente</span>
                     </div>
-                    <p className="text-[10px] text-gray-500 leading-tight">
+                    <p className="text-[10px] text-muted-foreground leading-tight">
                       Puede ver y responder conversaciones asignadas.
                     </p>
                   </button>
@@ -620,16 +618,16 @@ export function Team() {
                     className={`p-3 rounded-xl border-2 text-left transition-all ${
                       inviteForm.role === "admin"
                         ? "border-purple-500 bg-purple-50"
-                        : "border-gray-200 hover:border-gray-300"
+                        : "border-border hover:border-border"
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-1.5">
-                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${inviteForm.role === "admin" ? "bg-purple-100" : "bg-gray-100"}`}>
-                        <Users className={`h-4 w-4 ${inviteForm.role === "admin" ? "text-purple-600" : "text-gray-500"}`} />
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${inviteForm.role === "admin" ? "bg-purple-100" : "bg-muted"}`}>
+                        <Users className={`h-4 w-4 ${inviteForm.role === "admin" ? "text-purple-600" : "text-muted-foreground"}`} />
                       </div>
-                      <span className={`text-sm font-semibold ${inviteForm.role === "admin" ? "text-purple-700" : "text-gray-700"}`}>Administrador</span>
+                      <span className={`text-sm font-semibold ${inviteForm.role === "admin" ? "text-purple-700" : "text-foreground"}`}>Administrador</span>
                     </div>
-                    <p className="text-[10px] text-gray-500 leading-tight">
+                    <p className="text-[10px] text-muted-foreground leading-tight">
                       Acceso total: canales, campañas, contactos y configuraciones.
                     </p>
                   </button>
@@ -650,10 +648,10 @@ export function Team() {
               </div>
             )}
 
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
               <button
                 onClick={() => { setShowInviteModal(false); setInviteResult(null); }}
-                className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
               >
                 Cancelar
               </button>
@@ -701,7 +699,7 @@ export function Team() {
       {teamContextMenu && (
         <div
           ref={teamContextRef}
-          className="fixed z-50 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1 animate-in fade-in zoom-in-95 duration-100"
+          className="fixed z-50 w-44 bg-card rounded-lg shadow-lg border border-border py-1 animate-in fade-in zoom-in-95 duration-100"
           style={{ top: teamContextMenu.y, left: teamContextMenu.x }}
         >
           <button
@@ -711,12 +709,12 @@ export function Team() {
               setEditDesc(teamContextMenu.team.description || "");
               setTeamContextMenu(null);
             }}
-            className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
           >
-            <Pencil className="h-4 w-4 text-gray-400" />
+            <Pencil className="h-4 w-4 text-muted-foreground" />
             Editar
           </button>
-          <div className="border-t border-gray-100 my-1" />
+          <div className="border-t border-border my-1" />
           <button
             onClick={() => { setDeleteTeam(teamContextMenu.team); setTeamContextMenu(null); }}
             className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
@@ -730,16 +728,16 @@ export function Team() {
       {/* Create Team Modal */}
       {showCreateTeam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4" onClick={() => setShowCreateTeam(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl shadow-2xl border border-white/30 p-6" style={{ background: "rgba(255, 255, 255, 0.95)", backdropFilter: "blur(20px)" }}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl shadow-2xl border border-border bg-card/95 text-card-foreground p-6" style={{ backdropFilter: "blur(20px)" }}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-gray-900">Nuevo equipo</h3>
-              <button onClick={() => setShowCreateTeam(false)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+              <h3 className="text-base font-semibold text-foreground">Nuevo equipo</h3>
+              <button onClick={() => setShowCreateTeam(false)} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Nombre</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Nombre</label>
                 <input
                   type="text"
                   value={newTeamName}
@@ -747,22 +745,22 @@ export function Team() {
                   onKeyDown={(e) => { if (e.key === "Enter") handleCreateTeam(); }}
                   placeholder="Ej: Soporte, Ventas, Marketing"
                   autoFocus
-                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Descripción <span className="text-gray-400">(opcional)</span></label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Descripción <span className="text-muted-foreground">(opcional)</span></label>
                 <input
                   type="text"
                   value={newTeamDesc}
                   onChange={(e) => setNewTeamDesc(e.target.value)}
                   placeholder="Descripción del equipo"
-                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-gray-100">
-              <button onClick={() => setShowCreateTeam(false)} className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-border">
+              <button onClick={() => setShowCreateTeam(false)} className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted">
                 Cancelar
               </button>
               <button
@@ -781,38 +779,38 @@ export function Team() {
       {/* Edit Team Modal */}
       {editingTeam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4" onClick={() => setEditingTeam(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl shadow-2xl border border-white/30 p-6" style={{ background: "rgba(255, 255, 255, 0.95)", backdropFilter: "blur(20px)" }}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl shadow-2xl border border-border bg-card/95 text-card-foreground p-6" style={{ backdropFilter: "blur(20px)" }}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-gray-900">Editar equipo</h3>
-              <button onClick={() => setEditingTeam(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+              <h3 className="text-base font-semibold text-foreground">Editar equipo</h3>
+              <button onClick={() => setEditingTeam(null)} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Nombre</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Nombre</label>
                 <input
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") handleEditTeam(); }}
                   autoFocus
-                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Descripción</label>
                 <input
                   type="text"
                   value={editDesc}
                   onChange={(e) => setEditDesc(e.target.value)}
                   placeholder="Descripción del equipo"
-                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-gray-100">
-              <button onClick={() => setEditingTeam(null)} className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-border">
+              <button onClick={() => setEditingTeam(null)} className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted">
                 Cancelar
               </button>
               <button

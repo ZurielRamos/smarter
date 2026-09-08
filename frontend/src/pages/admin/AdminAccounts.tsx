@@ -270,28 +270,28 @@ export function AdminAccounts() {
         {/* Search */}
         <div className="mb-6">
           <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Buscar cuentas..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             />
           </div>
         </div>
 
         {/* List or empty */}
         {filteredTenants.length === 0 && !showForm ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12">
+          <div className="bg-card rounded-xl border border-border p-12">
             <div className="flex flex-col items-center justify-center text-center">
               <div className="h-16 w-16 rounded-full bg-brand-50 flex items-center justify-center mb-4">
                 <Building2 className="h-7 w-7 text-brand-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+              <h3 className="text-lg font-semibold text-foreground mb-1">
                 Sin cuentas registradas
               </h3>
-              <p className="text-gray-500 text-sm max-w-sm">
+              <p className="text-muted-foreground text-sm max-w-sm">
                 Aún no hay cuentas creadas. Crea la primera cuenta para comenzar a gestionar organizaciones.
               </p>
               <Button
@@ -310,7 +310,7 @@ export function AdminAccounts() {
                 key={tenant.id}
                 onClick={() => navigate(`/admin/accounts/${tenant.id}`)}
                 onContextMenu={(e) => handleContextMenu(e, tenant)}
-                className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer select-none"
+                className="bg-card rounded-xl border border-border p-5 hover:shadow-md transition-shadow cursor-pointer select-none"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
@@ -328,8 +328,8 @@ export function AdminAccounts() {
                       </div>
                     )}
                     <div>
-                      <h3 className="font-semibold text-gray-900">{tenant.name}</h3>
-                      <p className="text-xs text-gray-400">/{tenant.slug}</p>
+                      <h3 className="font-semibold text-foreground">{tenant.name}</h3>
+                      <p className="text-xs text-muted-foreground">/{tenant.slug}</p>
                     </div>
                   </div>
                   <span
@@ -351,24 +351,24 @@ export function AdminAccounts() {
         {contextMenu && (
           <div
             ref={contextMenuRef}
-            className="fixed z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 animate-in fade-in zoom-in-95 duration-100"
+            className="fixed z-50 w-48 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 animate-in fade-in zoom-in-95 duration-100"
             style={{ top: contextMenu.y, left: contextMenu.x }}
           >
             <button
               onClick={() => openRechargeModal(contextMenu.tenant)}
-              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
             >
-              <Coins className="h-4 w-4 text-gray-400" />
+              <Coins className="h-4 w-4 text-muted-foreground" />
               Cargar créditos
             </button>
             <button
               onClick={() => handleToggleActive(contextMenu.tenant)}
-              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
             >
-              <Power className="h-4 w-4 text-gray-400" />
+              <Power className="h-4 w-4 text-muted-foreground" />
               {contextMenu.tenant.isActive ? "Desactivar" : "Activar"}
             </button>
-            <div className="border-t border-gray-100 my-1" />
+            <div className="border-t border-border my-1" />
             <button
               onClick={() => handleDeleteTenant(contextMenu.tenant)}
               className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
@@ -403,14 +403,14 @@ export function AdminAccounts() {
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                <div className="flex items-center justify-between p-6 border-b border-border">
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900">Nueva Cuenta</h2>
-                    <p className="text-xs text-gray-400 mt-0.5">Configura una nueva cuenta para una organización</p>
+                    <h2 className="text-lg font-semibold text-foreground">Nueva Cuenta</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Configura una nueva cuenta para una organización</p>
                   </div>
                   <button
                     onClick={() => { setShowForm(false); resetForm(); }}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-muted-foreground hover:text-muted-foreground"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -421,7 +421,7 @@ export function AdminAccounts() {
                   <div className="grid grid-cols-[1fr_auto] gap-4 items-start">
                     {/* Nombre */}
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
                         <Building2 size={18} />
                       </span>
                       <input
@@ -440,17 +440,17 @@ export function AdminAccounts() {
                             ? "border-red-400"
                             : nameStatus === "available"
                             ? "border-green-400"
-                            : "border-gray-300"
+                            : "border-border"
                         }`}
                       />
                       <label
                         htmlFor="orgName"
-                        className="absolute left-11 top-1/2 -translate-y-1/2 text-sm text-gray-500 transition-all duration-200 pointer-events-none peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-xs peer-focus:text-brand-600 peer-[:not(:placeholder-shown)]:top-2 peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-xs"
+                        className="absolute left-11 top-1/2 -translate-y-1/2 text-sm text-muted-foreground transition-all duration-200 pointer-events-none peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-xs peer-focus:text-brand-600 peer-[:not(:placeholder-shown)]:top-2 peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-xs"
                       >
                         Nombre de la organización
                       </label>
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        {nameStatus === "checking" && <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />}
+                        {nameStatus === "checking" && <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />}
                         {nameStatus === "available" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
                         {nameStatus === "taken" && <XCircle className="h-4 w-4 text-red-500" />}
                       </div>
@@ -458,54 +458,54 @@ export function AdminAccounts() {
                         <p className="text-xs text-red-500 mt-1">Este nombre ya está en uso</p>
                       )}
                       {form.name && nameStatus === "available" && (
-                        <p className="text-xs text-gray-400 mt-1">Identificador: <span className="font-mono">{generateSlug(form.name)}</span></p>
+                        <p className="text-xs text-muted-foreground mt-1">Identificador: <span className="font-mono">{generateSlug(form.name)}</span></p>
                       )}
                     </div>
 
                     {/* Icono */}
-                    <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-dashed border-gray-300 hover:border-brand-400 hover:bg-brand-50/50 cursor-pointer transition-colors h-full">
+                    <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-dashed border-border hover:border-brand-400 hover:bg-brand-50/50 cursor-pointer transition-colors h-full">
                       {iconPreview ? (
-                        <img src={iconPreview} alt="icon" className="h-10 w-10 rounded-lg object-cover border border-gray-200" />
+                        <img src={iconPreview} alt="icon" className="h-10 w-10 rounded-lg object-cover border border-border" />
                       ) : (
-                        <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                          <Upload className="h-4 w-4 text-gray-400" />
+                        <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                          <Upload className="h-4 w-4 text-muted-foreground" />
                         </div>
                       )}
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-brand-600 truncate">
                           {iconPreview ? "Cambiar" : "Icono"}
                         </p>
-                        <p className="text-xs text-gray-400">PNG / JPG</p>
+                        <p className="text-xs text-muted-foreground">PNG / JPG</p>
                       </div>
                       <input type="file" accept="image/*" onChange={handleIconChange} className="hidden" />
                     </label>
                   </div>
 
                   {/* Owner + Config in 2 columns */}
-                  <div className="grid grid-cols-2 gap-6 pt-4 border-t border-gray-200">
+                  <div className="grid grid-cols-2 gap-6 pt-4 border-t border-border">
                     {/* Left column: Owner */}
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Propietario de la cuenta</p>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Propietario de la cuenta</p>
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">Email del propietario</label>
+                          <label className="block text-sm font-medium text-foreground mb-1.5">Email del propietario</label>
                           <input
                             type="email"
                             value={form.ownerEmail}
                             onChange={(e) => setForm({ ...form, ownerEmail: e.target.value })}
                             placeholder="owner@empresa.com"
-                            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                           />
-                          <p className="text-xs text-gray-400 mt-1">Se le enviará una invitación como propietario</p>
+                          <p className="text-xs text-muted-foreground mt-1">Se le enviará una invitación como propietario</p>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre del propietario</label>
+                          <label className="block text-sm font-medium text-foreground mb-1.5">Nombre del propietario</label>
                           <input
                             type="text"
                             value={form.ownerName}
                             onChange={(e) => setForm({ ...form, ownerName: e.target.value })}
                             placeholder="Nombre completo (opcional)"
-                            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                           />
                         </div>
                       </div>
@@ -513,25 +513,25 @@ export function AdminAccounts() {
 
                     {/* Right column: Config */}
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Configuración</p>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Configuración</p>
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">Máximo de agentes</label>
+                          <label className="block text-sm font-medium text-foreground mb-1.5">Máximo de agentes</label>
                           <input
                             type="number"
                             min={1}
                             value={form.maxAgents}
                             onChange={(e) => setForm({ ...form, maxAgents: parseInt(e.target.value) || 1 })}
-                            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                           />
-                          <p className="text-xs text-gray-400 mt-1">Número máximo de usuarios permitidos</p>
+                          <p className="text-xs text-muted-foreground mt-1">Número máximo de usuarios permitidos</p>
                         </div>
 
                         {/* isDev toggle */}
-                        <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                        <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/50">
                           <div>
-                            <p className="text-sm font-medium text-gray-700">Cuenta de desarrollo</p>
-                            <p className="text-xs text-gray-400 mt-0.5">Webhooks al entorno de desarrollo</p>
+                            <p className="text-sm font-medium text-foreground">Cuenta de desarrollo</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Webhooks al entorno de desarrollo</p>
                           </div>
                           <button
                             type="button"
@@ -541,7 +541,7 @@ export function AdminAccounts() {
                             }`}
                           >
                             <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                              className={`inline-block h-4 w-4 transform rounded-full bg-card transition-transform shadow-sm ${
                                 form.isDev ? 'translate-x-6' : 'translate-x-1'
                               }`}
                             />
@@ -552,27 +552,27 @@ export function AdminAccounts() {
                   </div>
 
                   {/* Plan de créditos - 2 columns */}
-                  <div className="pt-4 border-t border-gray-200">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Plan de créditos</p>
+                  <div className="pt-4 border-t border-border">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Plan de créditos</p>
                     <div className="grid grid-cols-2 gap-4">
                       {/* Monthly credits */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Créditos mensuales</label>
+                        <label className="block text-sm font-medium text-foreground mb-1.5">Créditos mensuales</label>
                         <input
                           type="number"
                           min={0}
                           value={form.monthlyCredits}
                           onChange={(e) => setForm({ ...form, monthlyCredits: parseInt(e.target.value) || 0 })}
-                          className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                          className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                         />
-                        <p className="text-xs text-gray-400 mt-1">Créditos otorgados al inicio de cada mes</p>
+                        <p className="text-xs text-muted-foreground mt-1">Créditos otorgados al inicio de cada mes</p>
                       </div>
 
                       {/* Rollover toggle */}
-                      <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50/50 self-start">
+                      <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/50 self-start">
                         <div>
-                          <p className="text-sm font-medium text-gray-700">Acumular créditos</p>
-                          <p className="text-xs text-gray-400 mt-0.5">Los no usados se acumulan al renovar</p>
+                          <p className="text-sm font-medium text-foreground">Acumular créditos</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Los no usados se acumulan al renovar</p>
                         </div>
                         <button
                           type="button"
@@ -582,7 +582,7 @@ export function AdminAccounts() {
                           }`}
                         >
                           <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                            className={`inline-block h-4 w-4 transform rounded-full bg-card transition-transform shadow-sm ${
                               form.rollover ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
@@ -592,11 +592,11 @@ export function AdminAccounts() {
                   </div>
 
                   {/* Submit */}
-                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                  <div className="flex justify-end gap-3 pt-4 border-t border-border">
                     <button
                       type="button"
                       onClick={() => { setShowForm(false); resetForm(); }}
-                      className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
                     >
                       Cancelar
                     </button>
@@ -664,10 +664,10 @@ export function AdminAccounts() {
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Cargar créditos</h3>
-                  <p className="text-xs text-gray-400 mt-0.5">{rechargeModalTenant.name}</p>
+                  <h3 className="text-lg font-semibold text-foreground">Cargar créditos</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">{rechargeModalTenant.name}</p>
                 </div>
-                <button onClick={() => setRechargeModalTenant(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                <button onClick={() => setRechargeModalTenant(null)} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -684,23 +684,23 @@ export function AdminAccounts() {
 
               {/* Amount input */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Créditos a cargar</label>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Créditos a cargar</label>
                 <input
                   type="number"
                   min={1}
                   value={rechargeValue || ''}
                   placeholder="0"
                   onChange={(e) => setRechargeValue(parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
               </div>
 
               {/* Actions */}
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setRechargeModalTenant(null)}
-                  className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
                 >
                   Cancelar
                 </button>

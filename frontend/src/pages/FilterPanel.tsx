@@ -71,15 +71,15 @@ export function FilterPanel({ open, onClose, filters, onChange, fields }: Filter
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
         transition={{ duration: 0.2 }}
-        className="border-b border-gray-200 bg-white"
+        className="border-b border-border bg-card"
       >
         <div className="px-4 py-3">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Filter className="h-3.5 w-3.5 text-gray-500" />
-              <span className="text-xs font-semibold text-gray-700">Filtros avanzados</span>
+              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold text-foreground">Filtros avanzados</span>
               {filters.length > 0 && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-50 text-brand-700 font-medium">{filters.length}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100 font-medium">{filters.length}</span>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -88,7 +88,7 @@ export function FilterPanel({ open, onClose, filters, onChange, fields }: Filter
                   Limpiar todo
                 </button>
               )}
-              <button onClick={onClose} className="h-6 w-6 rounded flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+              <button onClick={onClose} className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted">
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -158,7 +158,7 @@ function FilterRow({ filter, fields, operators, fieldOptions, fieldType, onUpdat
   return (
     <div className="flex items-center gap-2">
       {/* AND label */}
-      <span className="text-[10px] text-gray-400 font-medium w-6 text-center shrink-0">
+      <span className="text-[10px] text-muted-foreground font-medium w-6 text-center shrink-0">
         {isFirst ? "Si" : "Y"}
       </span>
 
@@ -166,17 +166,17 @@ function FilterRow({ filter, fields, operators, fieldOptions, fieldType, onUpdat
       <div className="relative" ref={fieldRef}>
         <button
           onClick={() => setFieldOpen((v) => !v)}
-          className={`px-2.5 py-1.5 rounded-md border text-xs text-left min-w-[120px] transition-all ${fieldOpen ? "border-brand-500 ring-1 ring-brand-500" : "border-gray-200 hover:border-gray-300"}`}
+          className={`px-2.5 py-1.5 rounded-md border text-xs text-left min-w-[120px] transition-all ${fieldOpen ? "border-brand-500 ring-1 ring-brand-500" : "border-border hover:border-gray-300"}`}
         >
-          <span className="text-gray-800">{currentField?.fieldLabel || filter.field}</span>
+          <span className="text-foreground">{currentField?.fieldLabel || filter.field}</span>
         </button>
         {fieldOpen && (
-          <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 max-h-48 overflow-auto">
+          <div className="absolute left-0 top-full mt-1 w-48 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 z-50 max-h-48 overflow-auto">
             {fields.map((f) => (
               <button
                 key={f.fieldKey}
                 onClick={() => { onUpdate({ field: f.fieldKey, operator: "equals", value: "" }); setFieldOpen(false); }}
-                className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${filter.field === f.fieldKey ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${filter.field === f.fieldKey ? "bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100 font-medium" : "text-foreground hover:bg-muted"}`}
               >
                 {f.fieldLabel}
               </button>
@@ -189,17 +189,17 @@ function FilterRow({ filter, fields, operators, fieldOptions, fieldType, onUpdat
       <div className="relative" ref={operatorRef}>
         <button
           onClick={() => setOperatorOpen((v) => !v)}
-          className={`px-2.5 py-1.5 rounded-md border text-xs text-left min-w-[110px] transition-all ${operatorOpen ? "border-brand-500 ring-1 ring-brand-500" : "border-gray-200 hover:border-gray-300"}`}
+          className={`px-2.5 py-1.5 rounded-md border text-xs text-left min-w-[110px] transition-all ${operatorOpen ? "border-brand-500 ring-1 ring-brand-500" : "border-border hover:border-gray-300"}`}
         >
-          <span className="text-gray-600">{operators.find((o) => o.value === filter.operator)?.label || filter.operator}</span>
+          <span className="text-muted-foreground">{operators.find((o) => o.value === filter.operator)?.label || filter.operator}</span>
         </button>
         {operatorOpen && (
-          <div className="absolute left-0 top-full mt-1 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+          <div className="absolute left-0 top-full mt-1 w-44 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 z-50">
             {operators.map((op) => (
               <button
                 key={op.value}
                 onClick={() => { onUpdate({ operator: op.value }); setOperatorOpen(false); }}
-                className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${filter.operator === op.value ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${filter.operator === op.value ? "bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100 font-medium" : "text-foreground hover:bg-muted"}`}
               >
                 {op.label}
               </button>
@@ -215,17 +215,17 @@ function FilterRow({ filter, fields, operators, fieldOptions, fieldType, onUpdat
             <div className="relative" ref={valueRef}>
               <button
                 onClick={() => setValueOpen((v) => !v)}
-                className={`px-2.5 py-1.5 rounded-md border text-xs text-left min-w-[120px] transition-all ${valueOpen ? "border-brand-500 ring-1 ring-brand-500" : "border-gray-200 hover:border-gray-300"}`}
+                className={`px-2.5 py-1.5 rounded-md border text-xs text-left min-w-[120px] transition-all ${valueOpen ? "border-brand-500 ring-1 ring-brand-500" : "border-border hover:border-gray-300"}`}
               >
-                <span className={filter.value ? "text-gray-800 capitalize" : "text-gray-400"}>{filter.value || "Seleccionar..."}</span>
+                <span className={filter.value ? "text-foreground capitalize" : "text-muted-foreground"}>{filter.value || "Seleccionar..."}</span>
               </button>
               {valueOpen && (
-                <div className="absolute left-0 top-full mt-1 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 max-h-48 overflow-auto">
+                <div className="absolute left-0 top-full mt-1 w-44 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 z-50 max-h-48 overflow-auto">
                   {fieldOptions.map((opt) => (
                     <button
                       key={opt}
                       onClick={() => { onUpdate({ value: opt }); setValueOpen(false); }}
-                      className={`w-full px-3 py-1.5 text-xs text-left capitalize transition-colors ${filter.value === opt ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                      className={`w-full px-3 py-1.5 text-xs text-left capitalize transition-colors ${filter.value === opt ? "bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100 font-medium" : "text-foreground hover:bg-muted"}`}
                     >
                       {opt}
                     </button>
@@ -239,14 +239,14 @@ function FilterRow({ filter, fields, operators, fieldOptions, fieldType, onUpdat
               value={filter.value}
               onChange={(e) => onUpdate({ value: e.target.value })}
               placeholder="Valor..."
-              className="px-2.5 py-1.5 rounded-md border border-gray-200 text-xs min-w-[120px] focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-all"
+              className="px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground text-xs min-w-[120px] focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-all"
             />
           )}
         </>
       )}
 
       {/* Remove */}
-      <button onClick={onRemove} className="h-6 w-6 rounded flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0">
+      <button onClick={onRemove} className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors shrink-0">
         <Trash2 className="h-3 w-3" />
       </button>
     </div>

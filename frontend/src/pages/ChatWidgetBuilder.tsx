@@ -126,7 +126,7 @@ export function ChatWidgetBuilder() {
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-gray-400">Cargando...</p>
+        <p className="text-sm text-muted-foreground">Cargando...</p>
       </div>
     );
   }
@@ -157,28 +157,28 @@ export function ChatWidgetBuilder() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden flex">
+      <div className="flex-1 overflow-hidden flex bg-card">
         {/* Left panel — Settings */}
-        <div className="w-[380px] border-r border-gray-200 flex flex-col overflow-hidden">
+        <div className="w-[380px] border-r border-border flex flex-col overflow-hidden">
           {/* Tabs */}
-          <div className="flex border-b border-gray-200 px-4 pt-4">
+          <div className="flex border-b border-border px-4 pt-4">
             <button
               onClick={() => setActiveTab("design")}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "design" ? "border-brand-600 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "design" ? "border-brand-600 text-brand-700" : "border-transparent text-muted-foreground hover:text-foreground"}`}
             >
               <Palette className="h-3.5 w-3.5" />
               Diseño
             </button>
             <button
               onClick={() => setActiveTab("content")}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "content" ? "border-brand-600 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "content" ? "border-brand-600 text-brand-700" : "border-transparent text-muted-foreground hover:text-foreground"}`}
             >
               <Settings2 className="h-3.5 w-3.5" />
               Contenido
             </button>
             <button
               onClick={() => setActiveTab("code")}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "code" ? "border-brand-600 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "code" ? "border-brand-600 text-brand-700" : "border-transparent text-muted-foreground hover:text-foreground"}`}
             >
               <Code className="h-3.5 w-3.5" />
               Instalación
@@ -190,19 +190,19 @@ export function ChatWidgetBuilder() {
               <>
                 {/* Color */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">Color principal</label>
+                  <label className="block text-xs font-medium text-foreground mb-2">Color principal</label>
                   <div className="flex items-center gap-3">
                     <input
                       type="color"
                       value={config.primaryColor}
                       onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
-                      className="h-9 w-9 rounded-lg border border-gray-200 cursor-pointer"
+                      className="h-9 w-9 rounded-lg border border-border cursor-pointer"
                     />
                     <input
                       type="text"
                       value={config.primaryColor}
                       onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
-                      className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="flex-1 px-3 py-2 border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
                   <div className="flex gap-2 mt-2">
@@ -210,7 +210,7 @@ export function ChatWidgetBuilder() {
                       <button
                         key={c}
                         onClick={() => setConfig({ ...config, primaryColor: c })}
-                        className={`h-6 w-6 rounded-full border-2 transition-transform hover:scale-110 ${config.primaryColor === c ? "border-gray-800 scale-110" : "border-gray-200"}`}
+                        className={`h-6 w-6 rounded-full border-2 transition-transform hover:scale-110 ${config.primaryColor === c ? "border-foreground scale-110" : "border-border"}`}
                         style={{ backgroundColor: c }}
                       />
                     ))}
@@ -219,17 +219,17 @@ export function ChatWidgetBuilder() {
 
                 {/* Position */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">Posición del widget</label>
+                  <label className="block text-xs font-medium text-foreground mb-2">Posición del widget</label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => setConfig({ ...config, position: "left" })}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${config.position === "left" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${config.position === "left" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-border text-muted-foreground hover:bg-muted"}`}
                     >
                       Izquierda
                     </button>
                     <button
                       onClick={() => setConfig({ ...config, position: "right" })}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${config.position === "right" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${config.position === "right" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-border text-muted-foreground hover:bg-muted"}`}
                     >
                       Derecha
                     </button>
@@ -238,14 +238,14 @@ export function ChatWidgetBuilder() {
 
                 {/* Avatar */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">Avatar / Logo</label>
+                  <label className="block text-xs font-medium text-foreground mb-2">Avatar / Logo</label>
                   <div className="flex items-center gap-3">
                     {/* Preview */}
-                    <div className="relative h-14 w-14 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <div className="relative h-14 w-14 rounded-full bg-muted border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
                       {config.avatarUrl ? (
                         <img src={config.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
                       ) : (
-                        <MessageCircle className="h-6 w-6 text-gray-300" />
+                        <MessageCircle className="h-6 w-6 text-muted-foreground" />
                       )}
                       {uploadingAvatar && (
                         <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
@@ -258,7 +258,7 @@ export function ChatWidgetBuilder() {
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploadingAvatar}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50"
                       >
                         <Upload className="h-3 w-3" />
                         {config.avatarUrl ? "Cambiar" : "Subir imagen"}
@@ -282,7 +282,7 @@ export function ChatWidgetBuilder() {
                     className="hidden"
                     onChange={handleAvatarSelect}
                   />
-                  <p className="text-[10px] text-gray-400 mt-2">
+                  <p className="text-[10px] text-muted-foreground mt-2">
                     Recomendado: imagen cuadrada de al menos 200×200px.
                   </p>
                 </div>
@@ -292,39 +292,39 @@ export function ChatWidgetBuilder() {
             {activeTab === "content" && (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Título del encabezado</label>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Título del encabezado</label>
                   <input
                     type="text"
                     value={config.headerTitle}
                     onChange={(e) => setConfig({ ...config, headerTitle: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Subtítulo del encabezado</label>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Subtítulo del encabezado</label>
                   <input
                     type="text"
                     value={config.headerSubtitle}
                     onChange={(e) => setConfig({ ...config, headerSubtitle: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Mensaje de bienvenida</label>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Mensaje de bienvenida</label>
                   <textarea
                     value={config.welcomeMessage}
                     onChange={(e) => setConfig({ ...config, welcomeMessage: e.target.value })}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Placeholder del input</label>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Placeholder del input</label>
                   <input
                     type="text"
                     value={config.inputPlaceholder}
                     onChange={(e) => setConfig({ ...config, inputPlaceholder: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
               </>
@@ -333,9 +333,9 @@ export function ChatWidgetBuilder() {
             {activeTab === "code" && (
               <>
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900 mb-2">Código de instalación</h3>
-                  <p className="text-xs text-gray-500 mb-4">
-                    Copia y pega este script en el HTML de tu sitio web, justo antes de la etiqueta <code className="bg-gray-100 px-1 rounded">&lt;/body&gt;</code>.
+                  <h3 className="text-sm font-semibold text-foreground mb-2">Código de instalación</h3>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Copia y pega este script en el HTML de tu sitio web, justo antes de la etiqueta <code className="bg-muted px-1 rounded">&lt;/body&gt;</code>.
                   </p>
                   <div className="relative">
                     <pre className="bg-gray-900 text-green-400 p-4 rounded-xl text-xs overflow-x-auto whitespace-pre-wrap break-all">
@@ -370,7 +370,7 @@ export function ChatWidgetBuilder() {
         {/* Right panel — Preview */}
         <div className="flex-1 bg-gray-50 flex items-center justify-center p-8 relative overflow-hidden">
           <div className="text-center mb-4 absolute top-4 left-1/2 -translate-x-1/2">
-            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Eye className="h-3.5 w-3.5" />
               Vista previa
             </div>
@@ -379,7 +379,7 @@ export function ChatWidgetBuilder() {
           {/* Preview mockup */}
           <div className="relative w-full max-w-sm">
             {/* Chat window preview */}
-            <div className="w-[360px] mx-auto rounded-2xl overflow-hidden shadow-2xl border border-gray-100 bg-white">
+            <div className="w-[360px] mx-auto rounded-2xl overflow-hidden shadow-2xl border border-border bg-white">
               {/* Header */}
               <div className="px-5 py-4 flex items-center gap-3 relative" style={{ backgroundColor: config.primaryColor }}>
                 {/* Avatar */}
@@ -406,7 +406,7 @@ export function ChatWidgetBuilder() {
               <div className="p-5 space-y-3 min-h-[260px] bg-gray-50">
                 {/* Welcome message */}
                 <div className="max-w-[82%]">
-                  <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-white border border-gray-200 text-gray-800 text-[13px] leading-relaxed shadow-sm">
+                  <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-white border border-border text-foreground text-[13px] leading-relaxed shadow-sm">
                     {config.welcomeMessage}
                   </div>
                 </div>
@@ -421,15 +421,15 @@ export function ChatWidgetBuilder() {
                 </div>
                 {/* Sample agent response */}
                 <div className="max-w-[82%]">
-                  <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-white border border-gray-200 text-gray-800 text-[13px] leading-relaxed shadow-sm">
+                  <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-white border border-border text-foreground text-[13px] leading-relaxed shadow-sm">
                     ¡Con gusto! ¿En qué puedo ayudarte?
                   </div>
                 </div>
               </div>
 
               {/* Input */}
-              <div className="px-4 py-3.5 border-t border-gray-100 flex items-center gap-2.5 bg-white">
-                <div className="flex-1 px-4 py-2.5 border-[1.5px] border-gray-300 rounded-full text-[13px] text-gray-400">
+              <div className="px-4 py-3.5 border-t border-border flex items-center gap-2.5 bg-white">
+                <div className="flex-1 px-4 py-2.5 border-[1.5px] border-border rounded-full text-[13px] text-muted-foreground">
                   {config.inputPlaceholder}
                 </div>
                 <div

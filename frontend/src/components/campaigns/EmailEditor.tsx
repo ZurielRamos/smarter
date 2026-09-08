@@ -103,18 +103,18 @@ export function EmailEditor({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <div className="bg-card rounded-xl border border-border p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Mail className="h-5 w-5 text-orange-600" />
-          <h2 className="text-base font-semibold text-gray-900">Contenido del Email</h2>
+          <h2 className="text-base font-semibold text-foreground">Contenido del Email</h2>
         </div>
-        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+        <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
           <button
             onClick={() => setViewMode("edit")}
             className={cn(
               "flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
-              viewMode === "edit" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              viewMode === "edit" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             )}
           >
             <Code className="h-3 w-3" /> Editar
@@ -123,7 +123,7 @@ export function EmailEditor({
             onClick={() => setViewMode("preview")}
             className={cn(
               "flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
-              viewMode === "preview" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              viewMode === "preview" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             )}
           >
             <Eye className="h-3 w-3" /> Vista previa
@@ -135,7 +135,7 @@ export function EmailEditor({
       {templates.length > 0 && (
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs font-medium text-gray-600">Usar plantilla</label>
+            <label className="block text-xs font-medium text-muted-foreground">Usar plantilla</label>
             <button
               onClick={() => setShowTemplates(!showTemplates)}
               className="text-[10px] text-brand-600 hover:text-brand-700 font-medium"
@@ -144,7 +144,7 @@ export function EmailEditor({
             </button>
           </div>
           {showTemplates && (
-            <div className="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="grid grid-cols-2 gap-2 p-3 bg-muted rounded-lg border border-border">
               {templates.map((tpl) => (
                 <button
                   key={tpl.id}
@@ -153,10 +153,10 @@ export function EmailEditor({
                     onBodyChange(tpl.html || tpl.body || "");
                     setShowTemplates(false);
                   }}
-                  className="text-left px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50/50 transition-colors"
+                  className="text-left px-3 py-2 rounded-lg border border-border bg-card hover:border-orange-300 hover:bg-orange-50/50 transition-colors"
                 >
-                  <p className="text-xs font-medium text-gray-800 truncate">{tpl.name}</p>
-                  <p className="text-[10px] text-gray-400 truncate mt-0.5">{tpl.subject}</p>
+                  <p className="text-xs font-medium text-foreground truncate">{tpl.name}</p>
+                  <p className="text-[10px] text-muted-foreground truncate mt-0.5">{tpl.subject}</p>
                 </button>
               ))}
             </div>
@@ -166,29 +166,29 @@ export function EmailEditor({
 
       {/* Subject */}
       <div className="mb-4">
-        <label className="block text-xs font-medium text-gray-600 mb-1">Asunto</label>
+        <label className="block text-xs font-medium text-muted-foreground mb-1">Asunto</label>
         <input
           type="text"
           value={subject}
           onChange={(e) => onSubjectChange(e.target.value)}
           placeholder="Ej: Hola {{firstName}}, tenemos una oferta para ti"
-          className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+          className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
         />
-        <p className="text-[10px] text-gray-400 mt-1">Puedes usar variables como {"{{firstName}}"} en el asunto</p>
+        <p className="text-[10px] text-muted-foreground mt-1">Puedes usar variables como {"{{firstName}}"} en el asunto</p>
       </div>
 
       <div className="flex gap-4">
         {/* Variables panel */}
         <div className="w-[160px] shrink-0">
-          <p className="text-xs font-medium text-gray-500 mb-2">Variables</p>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Variables</p>
           <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
             {AVAILABLE_VARIABLES.map((v) => (
               <button
                 key={v.field}
                 onClick={() => insertVariable(v.field)}
-                className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-white border-gray-200 hover:border-orange-400 hover:bg-orange-50 text-xs font-medium text-gray-700 transition-colors text-left"
+                className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-card border-border hover:border-orange-400 hover:bg-orange-50 text-xs font-medium text-foreground transition-colors text-left"
               >
-                <GripVertical className="h-3 w-3 text-gray-400 shrink-0" />
+                <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
                 <span className="truncate">{v.label}</span>
               </button>
             ))}
@@ -203,25 +203,25 @@ export function EmailEditor({
               value={body}
               onChange={(e) => onBodyChange(e.target.value)}
               placeholder={"<h1>Hola {{firstName}}</h1>\n<p>Te invitamos a descubrir nuestras novedades...</p>"}
-              className="w-full min-h-[250px] px-4 py-3 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-400 resize-y"
+              className="w-full min-h-[250px] px-4 py-3 border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-400 resize-y"
             />
           ) : (
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                <p className="text-xs text-gray-500">
+            <div className="border border-border rounded-lg overflow-hidden">
+              <div className="bg-muted px-4 py-2 border-b border-border">
+                <p className="text-xs text-muted-foreground">
                   <strong>Asunto:</strong> {getPreview(subject) || "(sin asunto)"}
                 </p>
               </div>
               <div
                 className="p-4 min-h-[220px] text-sm"
-                dangerouslySetInnerHTML={{ __html: getPreview(body) || '<p class="text-gray-400">Sin contenido</p>' }}
+                dangerouslySetInnerHTML={{ __html: getPreview(body) || '<p class="text-muted-foreground">Sin contenido</p>' }}
               />
             </div>
           )}
 
           {/* Footer */}
           <div className="flex items-center justify-between mt-3">
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-muted-foreground">
               Soporta HTML · Las variables se reemplazan al enviar
             </span>
             <button

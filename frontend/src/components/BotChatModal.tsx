@@ -149,30 +149,30 @@ export function BotChatModal({ open, onClose, botId, botName }: BotChatModalProp
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-150" onClick={onClose} />
 
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 h-[600px] max-h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative bg-card rounded-2xl shadow-xl w-full max-w-lg mx-4 h-[600px] max-h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-brand-50 flex items-center justify-center">
               <Bot className="h-4 w-4 text-brand-600" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-900">Probar Bot</h3>
-              <p className="text-[10px] text-gray-500">{botName}</p>
+              <h3 className="text-sm font-semibold text-foreground">Probar Bot</h3>
+              <p className="text-[10px] text-muted-foreground">{botName}</p>
             </div>
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={handleClear}
               disabled={messages.length === 0 || sending}
-              className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-muted-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               title="Limpiar historial"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-muted-foreground transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
@@ -183,11 +183,11 @@ export function BotChatModal({ open, onClose, botId, botName }: BotChatModalProp
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                <Bot className="h-6 w-6 text-gray-400" />
+              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                <Bot className="h-6 w-6 text-muted-foreground" />
               </div>
-              <p className="text-sm text-gray-500 font-medium">Inicia una conversación</p>
-              <p className="text-xs text-gray-400 mt-1">Envía un mensaje para probar el bot con su configuración actual</p>
+              <p className="text-sm text-muted-foreground font-medium">Inicia una conversación</p>
+              <p className="text-xs text-muted-foreground mt-1">Envía un mensaje para probar el bot con su configuración actual</p>
             </div>
           )}
 
@@ -208,14 +208,14 @@ export function BotChatModal({ open, onClose, botId, botName }: BotChatModalProp
                     className={`max-w-[80%] px-3 py-2 rounded-xl text-sm leading-relaxed ${
                       msg.role === "user"
                         ? "bg-brand-600 text-white rounded-br-sm"
-                        : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                        : "bg-muted text-foreground rounded-bl-sm"
                     }`}
                   >
                     <p className="whitespace-pre-wrap">{msg.content}</p>
                   </div>
                   {msg.role === "user" && (
                     <div className="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center shrink-0 mt-0.5">
-                      <User className="h-3 w-3 text-gray-600" />
+                      <User className="h-3 w-3 text-muted-foreground" />
                     </div>
                   )}
                 </>
@@ -228,7 +228,7 @@ export function BotChatModal({ open, onClose, botId, botName }: BotChatModalProp
               <div className="h-6 w-6 rounded-full bg-brand-50 flex items-center justify-center shrink-0 mt-0.5">
                 <Bot className="h-3 w-3 text-brand-600" />
               </div>
-              <div className="bg-gray-100 px-3 py-2 rounded-xl rounded-bl-sm">
+              <div className="bg-muted px-3 py-2 rounded-xl rounded-bl-sm">
                 <div className="flex items-center gap-1">
                   <div className="h-1.5 w-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
                   <div className="h-1.5 w-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
@@ -242,7 +242,7 @@ export function BotChatModal({ open, onClose, botId, botName }: BotChatModalProp
         </div>
 
         {/* Input */}
-        <div className="px-4 py-3 border-t border-gray-100 shrink-0">
+        <div className="px-4 py-3 border-t border-border shrink-0">
           <div className="flex items-end gap-2">
             <textarea
               ref={inputRef}
@@ -252,7 +252,7 @@ export function BotChatModal({ open, onClose, botId, botName }: BotChatModalProp
               placeholder="Escribe un mensaje..."
               rows={1}
               disabled={sending}
-              className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none max-h-24 disabled:opacity-50"
+              className="flex-1 px-3 py-2 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none max-h-24 disabled:opacity-50"
               style={{ minHeight: "38px" }}
               onInput={(e) => {
                 const target = e.target as HTMLTextAreaElement;
@@ -268,7 +268,7 @@ export function BotChatModal({ open, onClose, botId, botName }: BotChatModalProp
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </button>
           </div>
-          <p className="text-[10px] text-gray-400 mt-1.5 text-center">
+          <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
             Enter para enviar · Shift+Enter para nueva línea
           </p>
         </div>

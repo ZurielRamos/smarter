@@ -3,14 +3,14 @@ import { createPortal } from "react-dom";
 import { HexColorPicker } from "react-colorful";
 import { Lock, Unlock, ChevronDown, Check } from "lucide-react";
 
-export const inputCls = "w-full px-2.5 py-1.5 rounded-md border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500";
-export const labelCls = "block text-[10px] font-medium text-gray-500 uppercase mb-1";
+export const inputCls = "w-full px-2.5 py-1.5 rounded-md border border-border text-xs focus:outline-none focus:ring-2 focus:ring-brand-500";
+export const labelCls = "block text-[10px] font-medium text-muted-foreground uppercase mb-1";
 
 export function AlignButtons({ value, onSelect }: { value: string; onSelect: (v: string) => void }) {
   return (
     <div className="flex gap-1">
       {(["left", "center", "right"] as const).map((a) => (
-        <button key={a} onClick={() => onSelect(a)} className={`flex-1 py-1 rounded text-xs font-medium border transition-colors ${value === a ? "bg-brand-50 border-brand-300 text-brand-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+        <button key={a} onClick={() => onSelect(a)} className={`flex-1 py-1 rounded text-xs font-medium border transition-colors ${value === a ? "bg-brand-50 border-brand-300 text-brand-700" : "border-border text-muted-foreground hover:bg-muted"}`}>
           {a === "left" ? "Izq" : a === "center" ? "Centro" : "Der"}
         </button>
       ))}
@@ -22,7 +22,7 @@ export function VerticalAlignButtons({ value, onSelect }: { value: string; onSel
   return (
     <div className="flex gap-1">
       {(["top", "middle", "bottom"] as const).map((a) => (
-        <button key={a} onClick={() => onSelect(a)} className={`flex-1 py-1 rounded text-xs font-medium border transition-colors ${value === a ? "bg-brand-50 border-brand-300 text-brand-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+        <button key={a} onClick={() => onSelect(a)} className={`flex-1 py-1 rounded text-xs font-medium border transition-colors ${value === a ? "bg-brand-50 border-brand-300 text-brand-700" : "border-border text-muted-foreground hover:bg-muted"}`}>
           {a === "top" ? "Arriba" : a === "middle" ? "Centro" : "Abajo"}
         </button>
       ))}
@@ -32,15 +32,15 @@ export function VerticalAlignButtons({ value, onSelect }: { value: string; onSel
 
 export function Stepper({ value, onChange, min = 0, max = 200 }: { value: number; onChange: (v: number) => void; min?: number; max?: number }) {
   return (
-    <div className="inline-flex items-center border border-gray-200 rounded-full overflow-hidden">
-      <button onClick={() => onChange(Math.max(min, value - 1))} className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors text-sm">&minus;</button>
+    <div className="inline-flex items-center border border-border rounded-full overflow-hidden">
+      <button onClick={() => onChange(Math.max(min, value - 1))} className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors text-sm">&minus;</button>
       <input
         type="number"
         value={value}
         onChange={(e) => onChange(Math.max(min, Math.min(max, parseInt(e.target.value) || 0)))}
-        className="w-10 h-8 text-center text-xs font-semibold text-gray-700 border-x border-gray-200 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className="w-10 h-8 text-center text-xs font-semibold text-foreground border-x border-border focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
-      <button onClick={() => onChange(Math.min(max, value + 1))} className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors text-sm">+</button>
+      <button onClick={() => onChange(Math.min(max, value + 1))} className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors text-sm">+</button>
     </div>
   );
 }
@@ -49,7 +49,7 @@ function LockButton({ locked, onClick }: { locked: boolean; onClick: () => void 
   return (
     <button
       onClick={onClick}
-      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors ${locked ? "border-green-400 bg-green-50 text-green-600" : "border-gray-300 text-gray-400 hover:border-gray-400"}`}
+      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors ${locked ? "border-green-400 bg-green-50 text-green-600" : "border-border text-muted-foreground hover:border-muted-foreground/50"}`}
     >
       {locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
     </button>
@@ -111,28 +111,28 @@ export function ColorPicker({ value, onChange, fullWidth }: { value: string; onC
       <div ref={triggerRef} className="flex items-center gap-2">
         <button
           onClick={openPicker}
-          className="w-8 h-8 rounded-lg border border-gray-200 shadow-sm cursor-pointer shrink-0 transition-transform hover:scale-105"
+          className="w-8 h-8 rounded-lg border border-border shadow-sm cursor-pointer shrink-0 transition-transform hover:scale-105"
           style={{ backgroundColor: value }}
         />
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`${fullWidth ? "flex-1" : "w-20"} px-2.5 py-1.5 rounded-md border border-gray-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-500`}
+          className={`${fullWidth ? "flex-1" : "w-20"} px-2.5 py-1.5 rounded-md border border-border text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-500`}
         />
       </div>
 
       {open && createPortal(
         <div ref={popoverRef} className="fixed z-[9999]" style={{ top: coords.top, left: coords.left }}>
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-200 p-3 w-[220px]">
+          <div className="bg-card rounded-xl shadow-2xl border border-border p-3 w-[220px]">
             <HexColorPicker color={value} onChange={onChange} style={{ width: "100%", height: "160px" }} />
             <div className="mt-3 flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md border border-gray-200" style={{ backgroundColor: value }} />
-              <input type="text" value={value} onChange={(e) => onChange(e.target.value)} className="flex-1 px-2 py-1 rounded-md border border-gray-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-500" />
+              <div className="w-6 h-6 rounded-md border border-border" style={{ backgroundColor: value }} />
+              <input type="text" value={value} onChange={(e) => onChange(e.target.value)} className="flex-1 px-2 py-1 rounded-md border border-border text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-500" />
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {["#000000", "#ffffff", "#f44336", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5", "#2196f3", "#03a9f4", "#009688", "#4caf50", "#8bc34a", "#ffeb3b", "#ff9800", "#ff5722", "#795548"].map((c) => (
-                <button key={c} onClick={() => onChange(c)} className="w-5 h-5 rounded-md border border-gray-200 transition-transform hover:scale-110" style={{ backgroundColor: c }} />
+                <button key={c} onClick={() => onChange(c)} className="w-5 h-5 rounded-md border border-border transition-transform hover:scale-110" style={{ backgroundColor: c }} />
               ))}
             </div>
           </div>
@@ -187,16 +187,16 @@ export function FontSelector({ value, onChange }: { value: string; onChange: (v:
       <button
         ref={triggerRef}
         onClick={handleOpen}
-        className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors text-left"
+        className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg border border-border hover:border-border transition-colors text-left"
       >
-        <span className="text-xs text-gray-700" style={{ fontFamily: selectedFont.value }}>{selectedFont.label}</span>
-        <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+        <span className="text-xs text-foreground" style={{ fontFamily: selectedFont.value }}>{selectedFont.label}</span>
+        <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && createPortal(
         <div
           ref={popoverRef}
-          className="fixed z-[9999] bg-white rounded-xl shadow-2xl border border-gray-200 py-1 overflow-hidden"
+          className="fixed z-[9999] bg-card rounded-xl shadow-2xl border border-border py-1 overflow-hidden"
           style={{ top: coords.top, left: coords.left, width: coords.width }}
         >
           <div className="max-h-[240px] overflow-y-auto">
@@ -204,9 +204,9 @@ export function FontSelector({ value, onChange }: { value: string; onChange: (v:
               <button
                 key={font.value}
                 onClick={() => { onChange(font.value); setOpen(false); }}
-                className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-gray-50 transition-colors ${value === font.value ? "bg-brand-50" : ""}`}
+                className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-muted transition-colors ${value === font.value ? "bg-brand-50" : ""}`}
               >
-                <span className="text-sm text-gray-700" style={{ fontFamily: font.value }}>{font.label}</span>
+                <span className="text-sm text-foreground" style={{ fontFamily: font.value }}>{font.label}</span>
                 {value === font.value && <Check className="h-3.5 w-3.5 text-brand-600" />}
               </button>
             ))}

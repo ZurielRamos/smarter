@@ -15,16 +15,16 @@ export function HeadingProperties({ props: p, onChange }: Props) {
   return (
     <div>
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-3">
+      <div className="flex border-b border-border mb-3">
         <button
           onClick={() => setActiveTab("content")}
-          className={`flex-1 pb-2 text-[10px] font-semibold uppercase tracking-wide border-b-2 transition-colors ${activeTab === "content" ? "border-brand-500 text-brand-700" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+          className={`flex-1 pb-2 text-[10px] font-semibold uppercase tracking-wide border-b-2 transition-colors ${activeTab === "content" ? "border-brand-500 text-brand-700" : "border-transparent text-muted-foreground hover:text-muted-foreground"}`}
         >
           Contenido
         </button>
         <button
           onClick={() => setActiveTab("spacing")}
-          className={`flex-1 pb-2 text-[10px] font-semibold uppercase tracking-wide border-b-2 transition-colors ${activeTab === "spacing" ? "border-brand-500 text-brand-700" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+          className={`flex-1 pb-2 text-[10px] font-semibold uppercase tracking-wide border-b-2 transition-colors ${activeTab === "spacing" ? "border-brand-500 text-brand-700" : "border-transparent text-muted-foreground hover:text-muted-foreground"}`}
         >
           Espacios
         </button>
@@ -38,7 +38,7 @@ export function HeadingProperties({ props: p, onChange }: Props) {
           </div>
           <div>
             <label className={labelCls}>Nivel</label>
-            <select value={p.level} onChange={(e) => update("level", e.target.value)} className="w-full px-2.5 py-1.5 rounded-md border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <select value={p.level} onChange={(e) => update("level", e.target.value)} className="w-full px-2.5 py-1.5 rounded-md border border-border text-xs focus:outline-none focus:ring-2 focus:ring-brand-500">
               <option value="h1">H1 - Grande</option>
               <option value="h2">H2 - Mediano</option>
               <option value="h3">H3 - Pequeno</option>
@@ -64,9 +64,9 @@ export function HeadingProperties({ props: p, onChange }: Props) {
       )}
 
       {activeTab === "spacing" && (
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-border">
           <div className="py-3">
-            <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-3">Relleno (padding)</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">Relleno (padding)</p>
             <FourSideEditor
               top={p.paddingTop ?? 0}
               right={p.paddingRight ?? 0}
@@ -76,11 +76,11 @@ export function HeadingProperties({ props: p, onChange }: Props) {
             />
           </div>
           <div className="py-3">
-            <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-3">Alineacion horizontal</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">Alineacion horizontal</p>
             <AlignButtons value={p.align} onSelect={(v) => update("align", v)} />
           </div>
           <div className="py-3">
-            <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-3">Alineacion vertical</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">Alineacion vertical</p>
             <VerticalAlignButtons value={p.verticalAlign || "top"} onSelect={(v) => update("verticalAlign", v)} />
           </div>
         </div>

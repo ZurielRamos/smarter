@@ -90,7 +90,7 @@ export function Integraciones() {
                       navigate(`/${slug}/integraciones/${integration.id}`);
                     }
                   } : undefined}
-                  className={`bg-white rounded-xl border border-gray-200 p-5 transition-colors ${isClickable ? "hover:border-brand-300 hover:bg-brand-50/20 cursor-pointer" : "hover:border-gray-300"}`}
+                  className={`bg-card rounded-xl border border-border p-5 transition-colors ${isClickable ? "hover:border-brand-300 hover:bg-brand-50/20 cursor-pointer" : "hover:border-border"}`}
                 >
                   <div className="flex items-start gap-4">
                     <div className={`h-10 w-10 rounded-lg ${integration.bg} flex items-center justify-center shrink-0`}>
@@ -98,12 +98,12 @@ export function Integraciones() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold text-gray-900">{integration.name}</h3>
+                        <h3 className="text-sm font-semibold text-foreground">{integration.name}</h3>
                         {integration.status === "soon" && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">Próximamente</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Próximamente</span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">{integration.description}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{integration.description}</p>
                     </div>
                   </div>
                 </div>
@@ -111,9 +111,9 @@ export function Integraciones() {
             })}
           </div>
 
-          <div className="mt-8 p-5 rounded-xl bg-gray-50 border border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">¿Necesitas una integración específica?</h3>
-            <p className="text-xs text-gray-500">Contáctanos para discutir integraciones personalizadas con tus herramientas actuales.</p>
+          <div className="mt-8 p-5 rounded-xl bg-muted border border-border">
+            <h3 className="text-sm font-semibold text-foreground mb-1">¿Necesitas una integración específica?</h3>
+            <p className="text-xs text-muted-foreground">Contáctanos para discutir integraciones personalizadas con tus herramientas actuales.</p>
           </div>
         </div>
       </div>

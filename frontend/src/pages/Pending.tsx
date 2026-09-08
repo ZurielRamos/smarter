@@ -27,14 +27,14 @@ export function Pending() {
   if (!user?.pendingInvites?.length) {
     // No pending invites — show no access message
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-muted p-4">
         <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-            <div className="h-14 w-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-              <LogOut className="h-6 w-6 text-gray-400" />
+          <div className="bg-card rounded-2xl shadow-sm border border-border p-8 text-center">
+            <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+              <LogOut className="h-6 w-6 text-muted-foreground" />
             </div>
-            <h1 className="text-xl font-bold text-gray-900">Sin acceso</h1>
-            <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto">
+            <h1 className="text-xl font-bold text-foreground">Sin acceso</h1>
+            <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto">
               Tu cuenta no tiene acceso a ninguna organización. Contacta a un administrador para que te invite.
             </p>
             <button
@@ -51,22 +51,22 @@ export function Pending() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-muted p-4">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+        <div className="bg-card rounded-2xl shadow-sm border border-border p-8">
           <div className="text-center mb-6">
             <div className="h-14 w-14 rounded-full bg-brand-50 flex items-center justify-center mx-auto mb-4">
               <Mail className="h-6 w-6 text-brand-600" />
             </div>
-            <h1 className="text-xl font-bold text-gray-900">Invitaciones pendientes</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="text-xl font-bold text-foreground">Invitaciones pendientes</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               Acepta una invitación para acceder a la plataforma
             </p>
           </div>
 
           <div className="space-y-3">
             {user.pendingInvites.map((invite) => (
-              <div key={invite.tenantId} className="p-4 rounded-xl border border-gray-200 bg-gray-50/50">
+              <div key={invite.tenantId} className="p-4 rounded-xl border border-border bg-muted/50">
                 <div className="flex items-center gap-3 mb-3">
                   {invite.tenant.iconPath ? (
                     <img
@@ -80,8 +80,8 @@ export function Pending() {
                     </div>
                   )}
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">{invite.tenant.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-semibold text-foreground">{invite.tenant.name}</p>
+                    <p className="text-xs text-muted-foreground">
                       Rol: {invite.role === "owner" ? "Propietario" : invite.role === "admin" ? "Administrador" : "Agente"}
                     </p>
                   </div>
@@ -97,7 +97,7 @@ export function Pending() {
                   </button>
                   <button
                     onClick={() => declineInvite(invite.tenantId)}
-                    className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 text-sm font-medium transition-colors"
+                    className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-colors"
                   >
                     <X className="h-4 w-4" />
                     Rechazar
@@ -111,7 +111,7 @@ export function Pending() {
         <div className="text-center mt-4">
           <button
             onClick={handleLogout}
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <LogOut className="h-3.5 w-3.5" />
             Cerrar sesión

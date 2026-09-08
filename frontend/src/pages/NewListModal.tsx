@@ -257,10 +257,10 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">{isEdit ? "Editar lista" : "Nueva lista"}</h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">{isEdit ? "Modifica las condiciones de la lista" : "Crea una lista estática o dinámica de contactos"}</p>
+            <h3 className="text-base font-semibold text-foreground">{isEdit ? "Editar lista" : "Nueva lista"}</h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{isEdit ? "Modifica las condiciones de la lista" : "Crea una lista estática o dinámica de contactos"}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -268,45 +268,45 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
         <div className="space-y-5">
           {/* Name */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Nombre de la lista</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Nombre de la lista</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej: Clientes VIP, Inactivos 30 días..."
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-inset focus:ring-brand-500 focus:border-brand-500 outline-none transition-all"
+              className="w-full px-3 py-2.5 border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg text-sm focus:ring-2 focus:ring-inset focus:ring-brand-500 focus:border-brand-500 outline-none transition-all"
             />
           </div>
 
           {/* Type */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Tipo de lista</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Tipo de lista</label>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setType("static")} className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-all ${type === "static" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}>
+              <button type="button" onClick={() => setType("static")} className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-all ${type === "static" ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100" : "border-border text-muted-foreground hover:border-muted-foreground/40"}`}>
                 <span className="block text-sm font-medium">Estática</span>
-                <span className="block text-[10px] text-gray-400 mt-0.5">Contactos fijos</span>
+                <span className="block text-[10px] text-muted-foreground mt-0.5">Contactos fijos</span>
               </button>
-              <button type="button" onClick={() => setType("dynamic")} className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-all ${type === "dynamic" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}>
+              <button type="button" onClick={() => setType("dynamic")} className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-all ${type === "dynamic" ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100" : "border-border text-muted-foreground hover:border-muted-foreground/40"}`}>
                 <span className="block text-sm font-medium">Dinámica</span>
-                <span className="block text-[10px] text-gray-400 mt-0.5">Basada en filtros</span>
+                <span className="block text-[10px] text-muted-foreground mt-0.5">Basada en filtros</span>
               </button>
             </div>
           </div>
 
           {/* Dynamic filters */}
           {type === "dynamic" && (
-            <div className="space-y-4 pt-3 border-t border-gray-100">
+            <div className="space-y-4 pt-3 border-t border-border">
               {/* Preview badge */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Layers className="h-4 w-4 text-brand-500" />
-                  <span className="text-xs font-semibold text-gray-700">Condiciones</span>
+                  <span className="text-xs font-semibold text-foreground">Condiciones</span>
                 </div>
                 <div className="flex items-center gap-3">
                   {previewCount !== null && (
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-50 border border-brand-200">
-                      <Users className="h-3.5 w-3.5 text-brand-600" />
-                      <span className="text-xs font-semibold text-brand-700">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-50 dark:bg-brand-700 border border-brand-200">
+                      <Users className="h-3.5 w-3.5 text-brand-600 dark:text-brand-100" />
+                      <span className="text-xs font-semibold text-brand-700 dark:text-brand-100">
                         {previewLoading ? "..." : previewCount.toLocaleString()}
                       </span>
                       <span className="text-[10px] text-brand-500">contactos</span>
@@ -325,7 +325,7 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
                         <button
                           type="button"
                           onClick={() => setGroupLogic(groupLogic === "and" ? "or" : "and")}
-                          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all cursor-pointer ${groupLogic === "and" ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"}`}
+                          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all cursor-pointer ${groupLogic === "and" ? "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/20 hover:bg-blue-100 dark:hover:bg-blue-500/20" : "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20"}`}
                         >
                           {groupLogic === "and" ? "Y además" : "O también"}
                         </button>
@@ -333,11 +333,11 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
                     )}
 
                     {/* Group card */}
-                    <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-3 space-y-2">
+                    <div className="rounded-xl border border-border bg-muted/50 p-3 space-y-2">
                       {/* Group header */}
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-medium text-gray-400 uppercase">Grupo {gi + 1}</span>
+                          <span className="text-[10px] font-medium text-muted-foreground uppercase">Grupo {gi + 1}</span>
                           <button
                             type="button"
                             onClick={() => updateGroupLogic(gi, group.logic === "and" ? "or" : "and")}
@@ -347,7 +347,7 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
                           </button>
                         </div>
                         {groups.length > 1 && (
-                          <button type="button" onClick={() => removeGroup(gi)} className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
+                          <button type="button" onClick={() => removeGroup(gi)} className="p-1 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-colors">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         )}
@@ -367,7 +367,7 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
                                 </span>
                               </div>
                             )}
-                            <div className="flex items-center gap-2 p-2 rounded-lg bg-white border border-gray-100">
+                            <div className="flex items-center gap-2 p-2 rounded-lg bg-card border border-border">
                               <div className="flex-1 flex items-center gap-2 flex-wrap">
                                 <Dropdown
                                   value={cond.field}
@@ -402,15 +402,15 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
                                         placeholder="Valor"
                                       />
                                     ) : fieldDef?.type === "date" ? (
-                                      <input type="date" value={cond.value} onChange={(e) => updateCondition(gi, ci, "value", e.target.value)} className="px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white focus:ring-2 focus:ring-inset focus:ring-brand-500 outline-none" />
+                                      <input type="date" value={cond.value} onChange={(e) => updateCondition(gi, ci, "value", e.target.value)} className="px-2 py-1.5 rounded-lg border border-border text-xs bg-background text-foreground focus:ring-2 focus:ring-inset focus:ring-brand-500 outline-none" />
                                     ) : (
-                                      <input type={fieldDef?.type === "number" ? "number" : "text"} value={cond.value} onChange={(e) => updateCondition(gi, ci, "value", e.target.value)} placeholder="Valor" className="flex-1 min-w-[100px] px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs bg-white focus:ring-2 focus:ring-inset focus:ring-brand-500 outline-none" />
+                                      <input type={fieldDef?.type === "number" ? "number" : "text"} value={cond.value} onChange={(e) => updateCondition(gi, ci, "value", e.target.value)} placeholder="Valor" className="flex-1 min-w-[100px] px-2.5 py-1.5 rounded-lg border border-border text-xs bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-inset focus:ring-brand-500 outline-none" />
                                     )}
                                   </>
                                 )}
                               </div>
                               {group.conditions.length > 1 && (
-                                <button type="button" onClick={() => removeCondition(gi, ci)} className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0">
+                                <button type="button" onClick={() => removeCondition(gi, ci)} className="p-1 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-colors shrink-0">
                                   <Trash2 className="h-3 w-3" />
                                 </button>
                               )}
@@ -429,7 +429,7 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
               </div>
 
               {/* Add group */}
-              <button type="button" onClick={addGroup} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-brand-600 font-medium px-3 py-2 rounded-lg border border-dashed border-gray-300 hover:border-brand-300 hover:bg-brand-50/30 transition-all w-full justify-center">
+              <button type="button" onClick={addGroup} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-brand-600 font-medium px-3 py-2 rounded-lg border border-dashed border-border hover:border-brand-300 hover:bg-brand-50/30 dark:hover:bg-brand-700/20 transition-all w-full justify-center">
                 <Plus className="h-3.5 w-3.5" /> Agregar grupo de condiciones
               </button>
             </div>
@@ -439,7 +439,7 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
           {error && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+          <div className="flex items-center justify-between pt-3 border-t border-border">
             {isEdit ? (
               <button
                 type="button"
@@ -450,7 +450,7 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
               </button>
             ) : <div />}
             <div className="flex items-center gap-3">
-              <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 font-medium transition-colors">
+              <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground rounded-lg hover:bg-muted font-medium transition-colors">
                 Cancelar
               </button>
               <button
@@ -516,22 +516,22 @@ function Dropdown({ value, options, onChange, width = "w-40", placeholder = "Sel
       <button
         type="button"
         onClick={() => { setOpen(!open); setSearch(""); }}
-        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs bg-white hover:border-gray-300 transition-colors text-left"
+        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg border border-border text-xs bg-background hover:bg-muted transition-colors text-left"
       >
-        <span className={selected ? "text-gray-800" : "text-gray-400"}>{selected?.label || placeholder}</span>
-        <ChevronDown className={`h-3 w-3 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+        <span className={selected ? "text-foreground" : "text-muted-foreground"}>{selected?.label || placeholder}</span>
+        <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 w-full min-w-[160px] bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+        <div className="absolute z-50 top-full left-0 mt-1 w-full min-w-[160px] bg-popover text-popover-foreground border border-border rounded-lg shadow-lg overflow-hidden">
           {options.length > 6 && (
-            <div className="p-1.5 border-b border-gray-100">
+            <div className="p-1.5 border-b border-border">
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar..."
                 autoFocus
-                className="w-full px-2 py-1 text-xs rounded border border-gray-200 outline-none focus:ring-1 focus:ring-brand-500"
+                className="w-full px-2 py-1 text-xs rounded border border-border bg-background text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-brand-500"
               />
             </div>
           )}
@@ -541,13 +541,13 @@ function Dropdown({ value, options, onChange, width = "w-40", placeholder = "Sel
                 key={o.value}
                 type="button"
                 onClick={() => { onChange(o.value); setOpen(false); }}
-                className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition-colors ${o.value === value ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition-colors ${o.value === value ? "bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100 font-medium" : "text-foreground hover:bg-muted"}`}
               >
                 <span>{o.label}</span>
-                {o.sublabel && <span className="text-[9px] text-gray-400 ml-2">{o.sublabel}</span>}
+                {o.sublabel && <span className="text-[9px] text-muted-foreground ml-2">{o.sublabel}</span>}
               </button>
             ))}
-            {filtered.length === 0 && <p className="px-3 py-2 text-[10px] text-gray-400">Sin resultados</p>}
+            {filtered.length === 0 && <p className="px-3 py-2 text-[10px] text-muted-foreground">Sin resultados</p>}
           </div>
         </div>
       )}

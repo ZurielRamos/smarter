@@ -33,15 +33,15 @@ interface Props {
 // Tab: Espacios
 function SpacingTab({ style, onChange }: Props) {
   return (
-    <div className="divide-y divide-gray-100">
+    <div className="divide-y divide-border">
       <div className="py-4">
-        <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-3">Alto de la fila</p>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">Alto de la fila</p>
         <div className="flex gap-1 mb-3">
           {(["auto", "fixed", "min"] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => onChange({ ...style, heightMode: mode })}
-              className={`flex-1 py-1.5 rounded-md text-[10px] font-medium border transition-colors ${style.heightMode === mode ? "bg-brand-50 border-brand-300 text-brand-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
+              className={`flex-1 py-1.5 rounded-md text-[10px] font-medium border transition-colors ${style.heightMode === mode ? "bg-brand-50 border-brand-300 text-brand-700" : "border-border text-muted-foreground hover:bg-muted"}`}
             >
               {mode === "auto" ? "Automatico" : mode === "fixed" ? "Fijo" : "Minimo"}
             </button>
@@ -49,20 +49,20 @@ function SpacingTab({ style, onChange }: Props) {
         </div>
         {style.heightMode === "fixed" && (
           <div className="flex items-center gap-2">
-            <span className="text-[9px] text-gray-400">Altura (px)</span>
+            <span className="text-[9px] text-muted-foreground">Altura (px)</span>
             <Stepper value={style.height} onChange={(v) => onChange({ ...style, height: v })} min={20} max={800} />
           </div>
         )}
         {style.heightMode === "min" && (
           <div className="flex items-center gap-2">
-            <span className="text-[9px] text-gray-400">Minimo (px)</span>
+            <span className="text-[9px] text-muted-foreground">Minimo (px)</span>
             <Stepper value={style.minHeight} onChange={(v) => onChange({ ...style, minHeight: v })} min={20} max={800} />
           </div>
         )}
       </div>
 
       <div className="py-4">
-        <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-3">Relleno (padding)</p>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">Relleno (padding)</p>
         <FourSideEditor
           top={style.paddingTop}
           right={style.paddingRight}
@@ -73,14 +73,14 @@ function SpacingTab({ style, onChange }: Props) {
       </div>
 
       <div className="py-4">
-        <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-3">Espacio entre columnas (gap)</p>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">Espacio entre columnas (gap)</p>
         <div className="flex justify-center">
           <Stepper value={style.gap} onChange={(v) => onChange({ ...style, gap: v })} />
         </div>
       </div>
 
       <div className="py-4">
-        <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-3">Margenes</p>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">Margenes</p>
         <FourSideEditor
           top={style.marginTop}
           right={style.marginRight}
@@ -98,13 +98,13 @@ function StylesTab({ style, onChange }: Props) {
   const update = (key: keyof RowStyle, value: any) => onChange({ ...style, [key]: value });
 
   return (
-    <div className="divide-y divide-gray-100">
+    <div className="divide-y divide-border">
       <div className="py-4">
-        <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-3">Color de fondo</p>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">Color de fondo</p>
         <div className="flex items-center gap-2 mb-2">
           <button
             onClick={() => update("backgroundColor", "transparent")}
-            className={`px-2.5 py-1 rounded-md text-[10px] font-medium border transition-colors ${style.backgroundColor === "transparent" ? "bg-brand-50 border-brand-300 text-brand-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
+            className={`px-2.5 py-1 rounded-md text-[10px] font-medium border transition-colors ${style.backgroundColor === "transparent" ? "bg-brand-50 border-brand-300 text-brand-700" : "border-border text-muted-foreground hover:bg-muted"}`}
           >
             Sin fondo
           </button>
@@ -120,19 +120,19 @@ function StylesTab({ style, onChange }: Props) {
       </div>
 
       <div className="py-4">
-        <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-3">Imagen de fondo</p>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">Imagen de fondo</p>
         <ImageUploader value={style.backgroundImage} onChange={(v) => update("backgroundImage", v)} compact />
         {style.backgroundImage && (
           <div className="mt-3 space-y-2.5">
             {/* Size */}
             <div>
-              <span className="text-[9px] text-gray-400 block mb-1">Tamano</span>
+              <span className="text-[9px] text-muted-foreground block mb-1">Tamano</span>
               <div className="flex gap-1">
                 {["cover", "contain", "auto"].map((opt) => (
                   <button
                     key={opt}
                     onClick={() => update("backgroundSize", opt)}
-                    className={`flex-1 py-1.5 rounded-md text-[10px] font-medium border transition-colors ${style.backgroundSize === opt ? "bg-brand-50 border-brand-300 text-brand-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
+                    className={`flex-1 py-1.5 rounded-md text-[10px] font-medium border transition-colors ${style.backgroundSize === opt ? "bg-brand-50 border-brand-300 text-brand-700" : "border-border text-muted-foreground hover:bg-muted"}`}
                   >
                     {opt === "cover" ? "Cubrir" : opt === "contain" ? "Contener" : "Auto"}
                   </button>
@@ -141,13 +141,13 @@ function StylesTab({ style, onChange }: Props) {
             </div>
             {/* Position */}
             <div>
-              <span className="text-[9px] text-gray-400 block mb-1">Posicion</span>
+              <span className="text-[9px] text-muted-foreground block mb-1">Posicion</span>
               <div className="grid grid-cols-3 gap-1">
                 {["top left", "top center", "top right", "center left", "center", "center right", "bottom left", "bottom center", "bottom right"].map((pos) => (
                   <button
                     key={pos}
                     onClick={() => update("backgroundPosition", pos)}
-                    className={`py-1.5 rounded-md text-[9px] border transition-colors ${style.backgroundPosition === pos ? "bg-brand-50 border-brand-300 text-brand-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
+                    className={`py-1.5 rounded-md text-[9px] border transition-colors ${style.backgroundPosition === pos ? "bg-brand-50 border-brand-300 text-brand-700" : "border-border text-muted-foreground hover:bg-muted"}`}
                   >
                     {pos.split(" ").map((w) => w === "top" ? "Arr" : w === "bottom" ? "Aba" : w === "left" ? "Izq" : w === "right" ? "Der" : "Cen").join(" ")}
                   </button>
@@ -156,13 +156,13 @@ function StylesTab({ style, onChange }: Props) {
             </div>
             {/* Repeat */}
             <div>
-              <span className="text-[9px] text-gray-400 block mb-1">Repetir</span>
+              <span className="text-[9px] text-muted-foreground block mb-1">Repetir</span>
               <div className="flex gap-1">
                 {["no-repeat", "repeat", "repeat-x", "repeat-y"].map((opt) => (
                   <button
                     key={opt}
                     onClick={() => update("backgroundRepeat", opt)}
-                    className={`flex-1 py-1.5 rounded-md text-[9px] font-medium border transition-colors ${style.backgroundRepeat === opt ? "bg-brand-50 border-brand-300 text-brand-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
+                    className={`flex-1 py-1.5 rounded-md text-[9px] font-medium border transition-colors ${style.backgroundRepeat === opt ? "bg-brand-50 border-brand-300 text-brand-700" : "border-border text-muted-foreground hover:bg-muted"}`}
                   >
                     {opt === "no-repeat" ? "No" : opt === "repeat" ? "Si" : opt === "repeat-x" ? "Horiz" : "Vert"}
                   </button>
@@ -174,20 +174,20 @@ function StylesTab({ style, onChange }: Props) {
       </div>
 
       <div className="py-4">
-        <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-3">Borde</p>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">Borde</p>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <span className="text-[9px] text-gray-400 block mb-1">Grosor</span>
+            <span className="text-[9px] text-muted-foreground block mb-1">Grosor</span>
             <Stepper value={style.borderWidth} onChange={(v) => update("borderWidth", v)} />
           </div>
           <div>
-            <span className="text-[9px] text-gray-400 block mb-1">Radio</span>
+            <span className="text-[9px] text-muted-foreground block mb-1">Radio</span>
             <Stepper value={style.borderRadius} onChange={(v) => update("borderRadius", v)} />
           </div>
         </div>
         {style.borderWidth > 0 && (
           <div className="mt-3">
-            <span className="text-[9px] text-gray-400 block mb-1">Color</span>
+            <span className="text-[9px] text-muted-foreground block mb-1">Color</span>
             <ColorPicker value={style.borderColor} onChange={(v) => update("borderColor", v)} fullWidth />
           </div>
         )}
@@ -202,16 +202,16 @@ export function RowProperties({ style, onChange }: Props) {
   return (
     <div>
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-3">
+      <div className="flex border-b border-border mb-3">
         <button
           onClick={() => setActiveTab("spacing")}
-          className={`flex-1 pb-2 text-[10px] font-semibold uppercase tracking-wide border-b-2 transition-colors ${activeTab === "spacing" ? "border-brand-500 text-brand-700" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+          className={`flex-1 pb-2 text-[10px] font-semibold uppercase tracking-wide border-b-2 transition-colors ${activeTab === "spacing" ? "border-brand-500 text-brand-700" : "border-transparent text-muted-foreground hover:text-muted-foreground"}`}
         >
           Espacios
         </button>
         <button
           onClick={() => setActiveTab("styles")}
-          className={`flex-1 pb-2 text-[10px] font-semibold uppercase tracking-wide border-b-2 transition-colors ${activeTab === "styles" ? "border-brand-500 text-brand-700" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+          className={`flex-1 pb-2 text-[10px] font-semibold uppercase tracking-wide border-b-2 transition-colors ${activeTab === "styles" ? "border-brand-500 text-brand-700" : "border-transparent text-muted-foreground hover:text-muted-foreground"}`}
         >
           Estilos
         </button>

@@ -60,9 +60,8 @@ function GlassModal({ open, onClose, children, wide }: { open: boolean; onClose:
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             onClick={(e) => e.stopPropagation()}
-            className={`w-full rounded-2xl shadow-2xl border border-white/30 ${wide ? 'max-w-3xl' : 'max-w-lg'}`}
+            className={`w-full rounded-2xl shadow-2xl border border-border bg-card/90 text-card-foreground ${wide ? 'max-w-3xl' : 'max-w-lg'}`}
             style={{
-              background: 'rgba(255, 255, 255, 0.88)',
               backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)',
             }}
@@ -79,11 +78,11 @@ function GlassModal({ open, onClose, children, wide }: { open: boolean; onClose:
 function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm text-gray-700">{label}</span>
+      <span className="text-sm text-foreground">{label}</span>
       <button
         type="button"
         onClick={() => onChange(!value)}
-        className={`relative w-10 h-[22px] rounded-full transition-colors ${value ? "bg-brand-600" : "bg-gray-300"}`}
+        className={`relative w-10 h-[22px] rounded-full transition-colors ${value ? "bg-brand-600" : "bg-gray-300 dark:bg-gray-600"}`}
       >
         <span className={`absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white shadow transition-transform ${value ? "translate-x-[18px]" : ""}`} />
       </button>
@@ -120,17 +119,17 @@ function GroupAutocomplete({ value, onChange, existingGroups }: { value: string;
         onBlur={() => { setTimeout(() => onChange(inputValue.trim() || "general"), 150); }}
         onKeyDown={(e) => { if (e.key === "Enter") { onChange(inputValue.trim() || "general"); setOpen(false); } }}
         placeholder="Escribe o selecciona un grupo..."
-        className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
       />
       {open && filtered.length > 0 && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50 max-h-48 overflow-auto">
+        <div className="absolute left-0 right-0 top-full mt-1 bg-popover text-popover-foreground rounded-lg border border-border shadow-lg py-1 z-50 max-h-48 overflow-auto">
           {filtered.map((group) => (
             <button
               key={group}
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => { onChange(group); setInputValue(group); setOpen(false); }}
-              className={`w-full px-4 py-2 text-sm text-left transition-colors capitalize ${value === group ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+              className={`w-full px-4 py-2 text-sm text-left transition-colors capitalize ${value === group ? "bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100 font-medium" : "text-foreground hover:bg-muted"}`}
             >
               {group}
             </button>
@@ -149,7 +148,7 @@ function ChipItem({ chip, onRemove }: { chip: string; onRemove: () => void }) {
   return (
     <Reorder.Item
       value={chip}
-      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-200 text-gray-700 text-xs font-medium cursor-grab active:cursor-grabbing select-none active:shadow-md active:scale-105 active:bg-brand-100 active:text-brand-800 transition-colors"
+      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-muted text-foreground text-xs font-medium cursor-grab active:cursor-grabbing select-none active:shadow-md active:scale-105 active:bg-brand-100 active:text-brand-800 transition-colors"
       whileDrag={{ scale: 1.08, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
     >
       {chip}
@@ -157,7 +156,7 @@ function ChipItem({ chip, onRemove }: { chip: string; onRemove: () => void }) {
         type="button"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        className="h-3.5 w-3.5 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors"
+        className="h-3.5 w-3.5 rounded-full flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/15 transition-colors"
       >
         <X className="h-2.5 w-2.5" />
       </button>
@@ -190,7 +189,7 @@ function ChipInput({ value, onChange }: { value: string[]; onChange: (v: string[
 
   return (
     <div
-      className="flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-brand-500 focus-within:border-transparent min-h-[42px] cursor-text"
+      className="flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-background focus-within:ring-2 focus-within:ring-brand-500 focus-within:border-transparent min-h-[42px] cursor-text"
       onClick={() => inputRef.current?.focus()}
     >
       <Reorder.Group
@@ -215,7 +214,7 @@ function ChipInput({ value, onChange }: { value: string[]; onChange: (v: string[
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
         placeholder={value.length === 0 ? "Escribe y presiona , o Enter" : ""}
-        className="flex-1 min-w-[80px] text-sm outline-none bg-transparent placeholder:text-gray-400"
+        className="flex-1 min-w-[80px] text-sm outline-none bg-transparent text-foreground placeholder:text-muted-foreground"
       />
     </div>
   );
@@ -230,12 +229,12 @@ function DefaultValueSelector({ options, value, onChange }: { options: string[];
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+        className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
       >
-        <span className={value ? "text-gray-800" : "text-gray-400"}>
+        <span className={value ? "text-foreground" : "text-muted-foreground"}>
           {value || "Sin valor por defecto"}
         </span>
-        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       <AnimatePresence>
         {open && (
@@ -244,12 +243,12 @@ function DefaultValueSelector({ options, value, onChange }: { options: string[];
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50 max-h-40 overflow-auto"
+            className="absolute left-0 right-0 top-full mt-1 bg-popover text-popover-foreground rounded-lg border border-border shadow-lg py-1 z-50 max-h-40 overflow-auto"
           >
             <button
               type="button"
               onClick={() => { onChange(""); setOpen(false); }}
-              className={`w-full px-4 py-2 text-sm text-left transition-colors ${!value ? 'bg-brand-50 text-brand-700 font-medium' : 'text-gray-500 italic hover:bg-gray-50'}`}
+              className={`w-full px-4 py-2 text-sm text-left transition-colors ${!value ? 'bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100 font-medium' : 'text-muted-foreground italic hover:bg-muted'}`}
             >
               Sin valor por defecto
             </button>
@@ -258,7 +257,7 @@ function DefaultValueSelector({ options, value, onChange }: { options: string[];
                 key={opt}
                 type="button"
                 onClick={() => { onChange(opt); setOpen(false); }}
-                className={`w-full px-4 py-2 text-sm text-left transition-colors ${value === opt ? 'bg-brand-50 text-brand-700 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+                className={`w-full px-4 py-2 text-sm text-left transition-colors ${value === opt ? 'bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100 font-medium' : 'text-foreground hover:bg-muted'}`}
               >
                 {opt}
               </button>
@@ -362,39 +361,39 @@ function ComputedFieldBuilder({
   };
 
   return (
-    <div className="space-y-4 pt-3 border-t border-gray-100">
+    <div className="space-y-4 pt-3 border-t border-border">
       <div className="flex items-center gap-2">
-        <div className="h-6 w-6 rounded-lg bg-purple-50 flex items-center justify-center">
+        <div className="h-6 w-6 rounded-lg bg-purple-50 dark:bg-purple-500/15 flex items-center justify-center">
           <Zap className="h-3.5 w-3.5 text-purple-600" />
         </div>
-        <p className="text-xs font-semibold text-gray-700">Campo inteligente</p>
-        <span className="text-[10px] text-gray-400">— Se calcula automáticamente</span>
+        <p className="text-xs font-semibold text-foreground">Campo inteligente</p>
+        <span className="text-[10px] text-muted-foreground">— Se calcula automáticamente</span>
       </div>
 
       {/* Step 1: Operation */}
-      <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+      <div className="bg-muted rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2">
           <span className="h-5 w-5 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">1</span>
-          <span className="text-xs font-medium text-gray-700">¿Qué operación quieres realizar?</span>
+          <span className="text-xs font-medium text-foreground">¿Qué operación quieres realizar?</span>
         </div>
 
         <div className="relative">
           <button
             type="button"
             onClick={() => setOpSelectorOpen((v) => !v)}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="w-full px-4 py-2.5 rounded-lg border border-border bg-card text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <div className="flex items-center gap-2">
               {selectedOp ? (
                 <>
-                  <span className="text-gray-800 font-medium">{selectedOp.label}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600">{OPERATIONS.find((c) => c.ops.includes(selectedOp))?.category}</span>
+                  <span className="text-foreground font-medium">{selectedOp.label}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-300">{OPERATIONS.find((c) => c.ops.includes(selectedOp))?.category}</span>
                 </>
               ) : (
-                <span className="text-gray-400">Selecciona una operación...</span>
+                <span className="text-muted-foreground">Selecciona una operación...</span>
               )}
             </div>
-            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${opSelectorOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${opSelectorOpen ? 'rotate-180' : ''}`} />
           </button>
           <AnimatePresence>
             {opSelectorOpen && (
@@ -403,11 +402,11 @@ function ComputedFieldBuilder({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.15 }}
-                className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50 max-h-60 overflow-auto"
+                className="absolute left-0 right-0 top-full mt-1 bg-popover text-popover-foreground rounded-lg border border-border shadow-lg py-1 z-50 max-h-60 overflow-auto"
               >
                 {OPERATIONS.map((cat) => (
                   <div key={cat.category}>
-                    <p className="px-4 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50">{cat.category}</p>
+                    <p className="px-4 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted">{cat.category}</p>
                     {cat.ops.map((op) => (
                       <button
                         key={op.value}
@@ -416,10 +415,10 @@ function ComputedFieldBuilder({
                           onChange({ ...value, operation: op.value, fields: [], outputType: op.outputType });
                           setOpSelectorOpen(false);
                         }}
-                        className={`w-full px-4 py-2.5 text-left transition-colors ${value.operation === op.value ? 'bg-brand-50' : 'hover:bg-gray-50'}`}
+                        className={`w-full px-4 py-2.5 text-left transition-colors ${value.operation === op.value ? 'bg-brand-50 dark:bg-brand-700/40' : 'hover:bg-muted'}`}
                       >
-                        <span className={`text-sm ${value.operation === op.value ? 'font-medium text-brand-700' : 'text-gray-700'}`}>{op.label}</span>
-                        <p className="text-[11px] text-gray-400 mt-0.5">{op.description}</p>
+                        <span className={`text-sm ${value.operation === op.value ? 'font-medium text-brand-700 dark:text-brand-100' : 'text-foreground'}`}>{op.label}</span>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{op.description}</p>
                       </button>
                     ))}
                   </div>
@@ -430,9 +429,9 @@ function ComputedFieldBuilder({
         </div>
 
         {selectedOp && (
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white border border-gray-100">
-            <div className="text-[11px] text-gray-500">{selectedOp.description}</div>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-600 font-medium shrink-0">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-card border border-border">
+            <div className="text-[11px] text-muted-foreground">{selectedOp.description}</div>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-600 dark:bg-brand-700 dark:text-brand-100 font-medium shrink-0">
               Resultado: {selectedOp.outputType === "text" ? "Texto" : "Número"}
             </span>
           </div>
@@ -441,13 +440,13 @@ function ComputedFieldBuilder({
 
       {/* Step 2: Fields (if needed) */}
       {selectedOp && selectedOp.maxFields > 0 && (
-        <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+        <div className="bg-muted rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="h-5 w-5 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">2</span>
-              <span className="text-xs font-medium text-gray-700">¿Con cuáles campos?</span>
+              <span className="text-xs font-medium text-foreground">¿Con cuáles campos?</span>
             </div>
-            <span className="text-[10px] text-gray-400">{value.fields.length} de {selectedOp.maxFields} máx.</span>
+            <span className="text-[10px] text-muted-foreground">{value.fields.length} de {selectedOp.maxFields} máx.</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -458,11 +457,11 @@ function ComputedFieldBuilder({
                   key={`${fieldKey}-${i}`}
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-xs font-medium text-gray-700 shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-xs font-medium text-foreground shadow-sm"
                 >
-                  <span className="text-[10px] text-gray-400 font-mono">{i + 1}.</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">{i + 1}.</span>
                   {f?.label || fieldKey}
-                  <button type="button" onClick={() => removeField(i)} className="h-4 w-4 rounded flex items-center justify-center hover:bg-red-50 hover:text-red-500 text-gray-400 transition-colors">
+                  <button type="button" onClick={() => removeField(i)} className="h-4 w-4 rounded flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 text-muted-foreground transition-colors">
                     <X className="h-3 w-3" />
                   </button>
                 </motion.span>
@@ -474,7 +473,7 @@ function ComputedFieldBuilder({
                 <button
                   type="button"
                   onClick={() => setFieldSelectorOpen((v) => !v)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-dashed border-gray-300 hover:border-brand-400 text-xs text-gray-500 hover:text-brand-600 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-dashed border-border hover:border-brand-400 text-xs text-muted-foreground hover:text-brand-600 transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Campo
@@ -486,17 +485,17 @@ function ComputedFieldBuilder({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -4 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute left-0 top-full mt-1 w-52 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50 max-h-48 overflow-auto"
+                      className="absolute left-0 top-full mt-1 w-52 bg-popover text-popover-foreground rounded-lg border border-border shadow-lg py-1 z-50 max-h-48 overflow-auto"
                     >
                       {availableFields.map((af) => (
                         <button
                           key={af.key}
                           type="button"
                           onClick={() => addField(af.key)}
-                          className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                          className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-muted transition-colors flex items-center justify-between"
                         >
                           <span>{af.label}</span>
-                          <span className="text-[10px] text-gray-400 font-mono">{af.key}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">{af.key}</span>
                         </button>
                       ))}
                     </motion.div>
@@ -510,36 +509,36 @@ function ComputedFieldBuilder({
 
       {/* Step 3: Extra config */}
       {selectedOp && (selectedOp.hasSeparator || selectedOp.hasTemplate || selectedOp.hasCondition) && (
-        <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+        <div className="bg-muted rounded-xl p-4 space-y-3">
           <div className="flex items-center gap-2">
             <span className="h-5 w-5 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">3</span>
-            <span className="text-xs font-medium text-gray-700">Configuración adicional</span>
+            <span className="text-xs font-medium text-foreground">Configuración adicional</span>
           </div>
 
           {selectedOp.hasSeparator && (
             <div>
-              <label className="block text-xs text-gray-600 mb-1">Separador entre valores</label>
+              <label className="block text-xs text-muted-foreground mb-1">Separador entre valores</label>
               <input
                 type="text"
                 value={value.separator || ""}
                 onChange={(e) => onChange({ ...value, separator: e.target.value })}
                 placeholder='Ej: " " (espacio), " - ", ", "'
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
               />
             </div>
           )}
 
           {selectedOp.hasTemplate && (
             <div>
-              <label className="block text-xs text-gray-600 mb-1">Plantilla de texto</label>
+              <label className="block text-xs text-muted-foreground mb-1">Plantilla de texto</label>
               <input
                 type="text"
                 value={value.template || ""}
                 onChange={(e) => onChange({ ...value, template: e.target.value })}
                 placeholder="Hola {{firstName}}, tu estado es {{status}}"
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono"
               />
-              <p className="text-[11px] text-gray-400 mt-1">Usa {"{{campo}}"} para insertar valores dinámicos</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Usa {"{{campo}}"} para insertar valores dinámicos</p>
             </div>
           )}
 
@@ -547,42 +546,42 @@ function ComputedFieldBuilder({
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] text-gray-500 mb-1">Si el campo...</label>
+                  <label className="block text-[11px] text-muted-foreground mb-1">Si el campo...</label>
                   <ConditionOperatorSelector
                     value={value.condition?.operator || "equals"}
                     onChange={(op) => onChange({ ...value, condition: { operator: op, value: value.condition?.value || "", thenValue: value.condition?.thenValue || "", elseValue: value.condition?.elseValue || "" } })}
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-gray-500 mb-1">Este valor:</label>
+                  <label className="block text-[11px] text-muted-foreground mb-1">Este valor:</label>
                   <input
                     type="text"
                     value={value.condition?.value || ""}
                     onChange={(e) => onChange({ ...value, condition: { ...value.condition!, value: e.target.value } })}
                     placeholder="Valor"
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] text-gray-500 mb-1">✓ Entonces retorna:</label>
+                  <label className="block text-[11px] text-muted-foreground mb-1">✓ Entonces retorna:</label>
                   <input
                     type="text"
                     value={value.condition?.thenValue || ""}
                     onChange={(e) => onChange({ ...value, condition: { ...value.condition!, thenValue: e.target.value } })}
                     placeholder="Resultado verdadero"
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-gray-500 mb-1">✗ Si no, retorna:</label>
+                  <label className="block text-[11px] text-muted-foreground mb-1">✗ Si no, retorna:</label>
                   <input
                     type="text"
                     value={value.condition?.elseValue || ""}
                     onChange={(e) => onChange({ ...value, condition: { ...value.condition!, elseValue: e.target.value } })}
                     placeholder="Resultado falso"
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -635,10 +634,10 @@ function ConditionOperatorSelector({ value, onChange }: { value: string; onChang
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
       >
-        <span className="text-gray-700">{selected?.label || "Seleccionar"}</span>
-        <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <span className="text-foreground">{selected?.label || "Seleccionar"}</span>
+        <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       <AnimatePresence>
         {open && (
@@ -647,14 +646,14 @@ function ConditionOperatorSelector({ value, onChange }: { value: string; onChang
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50"
+            className="absolute left-0 right-0 top-full mt-1 bg-popover text-popover-foreground rounded-lg border border-border shadow-lg py-1 z-50"
           >
             {operators.map((op) => (
               <button
                 key={op.value}
                 type="button"
                 onClick={() => { onChange(op.value); setOpen(false); }}
-                className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${value === op.value ? 'bg-brand-50 text-brand-700 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+                className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${value === op.value ? 'bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100 font-medium' : 'text-foreground hover:bg-muted'}`}
               >
                 {op.label}
               </button>
@@ -806,31 +805,31 @@ export function ClientSchema() {
   const renderFieldCard = (field: CustomField, isSystem: boolean) => (
     <div
       key={field.id}
-      className={`flex flex-col p-4 rounded-xl border hover:shadow-sm transition-all group cursor-pointer ${isSystem ? "bg-gray-50/80 border-gray-100 hover:border-gray-200" : "bg-emerald-50/30 border-emerald-100/60 hover:border-emerald-200"}`}
+      className={`flex flex-col p-4 rounded-xl border hover:shadow-sm transition-all group cursor-pointer ${isSystem ? "bg-muted/60 border-border hover:bg-muted" : "bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-100/60 dark:border-emerald-500/20 hover:border-emerald-200"}`}
       onClick={() => openEditModal(field)}
     >
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-gray-800">{field.fieldLabel}</span>
+        <span className="text-sm font-semibold text-foreground">{field.fieldLabel}</span>
         <div className="flex items-center gap-1">
           {!isSystem && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">Custom</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 font-medium">Custom</span>
           )}
-          <button className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white text-gray-400 hover:text-brand-600 transition-all">
+          <button className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-card text-muted-foreground hover:text-brand-600 transition-all">
             <Settings2 className="h-3.5 w-3.5" />
           </button>
           {!isSystem && (
             <button
               onClick={(e) => { e.stopPropagation(); handleDelete(field.id); }}
-              className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500 transition-all"
+              className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-all"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
       </div>
-      <span className="text-xs text-gray-400 mt-1 font-mono">{field.fieldKey}</span>
+      <span className="text-xs text-muted-foreground mt-1 font-mono">{field.fieldKey}</span>
       <div className="flex items-center gap-2 mt-2 flex-wrap">
-        <span className="text-[11px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 font-medium">
+        <span className="text-[11px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100 font-medium">
           {FIELD_TYPES.find((t) => t.value === field.fieldType)?.label || field.fieldType}
         </span>
         {field.isRequired && (
@@ -843,15 +842,15 @@ export function ClientSchema() {
       {field.fieldType === "select" && field.options && field.options.length > 0 && (
         <div className="mt-2 flex items-center gap-1 flex-wrap">
           {field.options.slice(0, 4).map((opt) => (
-            <span key={opt} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200/80 text-gray-600">{opt}</span>
+            <span key={opt} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{opt}</span>
           ))}
           {field.options.length > 4 && (
-            <span className="text-[10px] text-gray-400">+{field.options.length - 4}</span>
+            <span className="text-[10px] text-muted-foreground">+{field.options.length - 4}</span>
           )}
         </div>
       )}
       {field.defaultValue && (
-        <span className="text-[11px] text-gray-400 mt-1.5">Default: {field.defaultValue}</span>
+        <span className="text-[11px] text-muted-foreground mt-1.5">Default: {field.defaultValue}</span>
       )}
     </div>
   );
@@ -885,13 +884,13 @@ export function ClientSchema() {
 
       {/* Content - All fields unified in one card */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1, ease: "easeOut" }} className="flex-1 min-h-0 overflow-auto py-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center gap-2 mb-5">
-            <h2 className="text-base font-semibold text-gray-800">Campos del esquema</h2>
-            <span className="text-xs text-gray-400">{allFields.length} campos · Click para editar</span>
+            <h2 className="text-base font-semibold text-foreground">Campos del esquema</h2>
+            <span className="text-xs text-muted-foreground">{allFields.length} campos · Click para editar</span>
           </div>
           {loading ? (
-            <p className="text-sm text-gray-500">Cargando...</p>
+            <p className="text-sm text-muted-foreground">Cargando...</p>
           ) : (() => {
             // Merge all fields, group by fieldGroup
             const allUniqueFields = [...systemFields, ...customFields];
@@ -916,7 +915,7 @@ export function ClientSchema() {
 
             return groupKeys.map((g) => (
               <div key={g} className="mb-5 last:mb-0">
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2.5 px-1">{g}</h3>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5 px-1">{g}</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {grouped[g].map((f) => renderFieldCard(f, f.isSystem || SYSTEM_FIELD_KEYS.includes(f.fieldKey)))}
                 </div>
@@ -931,31 +930,31 @@ export function ClientSchema() {
         <div className="p-6 max-h-[80vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Configurar campo</h3>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Modifica las propiedades de <span className="font-mono text-gray-500">{editField?.fieldKey}</span>
+              <h3 className="text-lg font-semibold text-foreground">Configurar campo</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Modifica las propiedades de <span className="font-mono text-muted-foreground">{editField?.fieldKey}</span>
               </p>
             </div>
-            <button onClick={() => setEditField(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X className="h-5 w-5" /></button>
+            <button onClick={() => setEditField(null)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-5 w-5" /></button>
           </div>
 
           <div className="space-y-4">
             {/* Label */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Etiqueta</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Etiqueta</label>
               <input
                 autoFocus
                 type="text"
                 value={editForm.fieldLabel}
                 onChange={(e) => setEditForm((f) => ({ ...f, fieldLabel: e.target.value }))}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
               />
-              <p className="text-xs text-gray-400 mt-1">API: <span className="font-mono text-gray-500">{editField?.fieldKey}</span> · Tipo: <span className="text-brand-600">{FIELD_TYPES.find((t) => t.value === editField?.fieldType)?.label}</span></p>
+              <p className="text-xs text-muted-foreground mt-1">API: <span className="font-mono text-muted-foreground">{editField?.fieldKey}</span> · Tipo: <span className="text-brand-600 dark:text-brand-300">{FIELD_TYPES.find((t) => t.value === editField?.fieldType)?.label}</span></p>
             </div>
 
             {/* Group - autocomplete */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Agrupación</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Agrupación</label>
               <GroupAutocomplete
                 value={editForm.fieldGroup}
                 onChange={(v) => setEditForm((f) => ({ ...f, fieldGroup: v }))}
@@ -966,7 +965,7 @@ export function ClientSchema() {
             {/* Options (if select) */}
             {editField?.fieldType === "select" && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Valores permitidos</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Valores permitidos</label>
                 <ChipInput
                   value={editForm.options}
                   onChange={(v) => setEditForm((f) => ({ ...f, options: v }))}
@@ -976,7 +975,7 @@ export function ClientSchema() {
 
             {/* Default value */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Valor por defecto</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Valor por defecto</label>
               {editField?.fieldType === "select" && editForm.options.length > 0 ? (
                 <DefaultValueSelector
                   options={editForm.options}
@@ -989,83 +988,83 @@ export function ClientSchema() {
                   value={editForm.defaultValue}
                   onChange={(e) => setEditForm((f) => ({ ...f, defaultValue: e.target.value }))}
                   placeholder="Dejar vacío si no aplica"
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
               )}
             </div>
 
             {/* Type-specific configurations */}
             {editField?.fieldType === "text" && (
-              <div className="space-y-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Configuración de texto</p>
+              <div className="space-y-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuración de texto</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Longitud máxima</label>
+                    <label className="block text-xs text-muted-foreground mb-1">Longitud máxima</label>
                     <input
                       type="number"
                       value={editForm.validations.maxLength || ""}
                       onChange={(e) => setEditForm((f) => ({ ...f, validations: { ...f.validations, maxLength: e.target.value ? Number(e.target.value) : undefined } }))}
                       placeholder="Sin límite"
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Patrón (regex)</label>
+                    <label className="block text-xs text-muted-foreground mb-1">Patrón (regex)</label>
                     <input
                       type="text"
                       value={editForm.validations.pattern || ""}
                       onChange={(e) => setEditForm((f) => ({ ...f, validations: { ...f.validations, pattern: e.target.value || undefined } }))}
                       placeholder="Ej: ^[A-Z].*"
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Placeholder</label>
+                  <label className="block text-xs text-muted-foreground mb-1">Placeholder</label>
                   <input
                     type="text"
                     value={editForm.validations.placeholder || ""}
                     onChange={(e) => setEditForm((f) => ({ ...f, validations: { ...f.validations, placeholder: e.target.value || undefined } }))}
                     placeholder="Texto de ayuda en el campo"
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   />
                 </div>
               </div>
             )}
 
             {editField?.fieldType === "number" && (
-              <div className="space-y-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Configuración numérica</p>
+              <div className="space-y-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuración numérica</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Mínimo</label>
+                    <label className="block text-xs text-muted-foreground mb-1">Mínimo</label>
                     <input
                       type="number"
                       value={editForm.validations.min ?? ""}
                       onChange={(e) => setEditForm((f) => ({ ...f, validations: { ...f.validations, min: e.target.value !== "" ? Number(e.target.value) : undefined } }))}
                       placeholder="—"
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Máximo</label>
+                    <label className="block text-xs text-muted-foreground mb-1">Máximo</label>
                     <input
                       type="number"
                       value={editForm.validations.max ?? ""}
                       onChange={(e) => setEditForm((f) => ({ ...f, validations: { ...f.validations, max: e.target.value !== "" ? Number(e.target.value) : undefined } }))}
                       placeholder="—"
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Decimales</label>
+                    <label className="block text-xs text-muted-foreground mb-1">Decimales</label>
                     <input
                       type="number"
                       min="0"
                       value={editForm.validations.decimals ?? ""}
                       onChange={(e) => setEditForm((f) => ({ ...f, validations: { ...f.validations, decimals: e.target.value !== "" ? Number(e.target.value) : undefined } }))}
                       placeholder="0"
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -1073,25 +1072,25 @@ export function ClientSchema() {
             )}
 
             {editField?.fieldType === "date" && (
-              <div className="space-y-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Configuración de fecha</p>
+              <div className="space-y-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuración de fecha</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Fecha mínima</label>
+                    <label className="block text-xs text-muted-foreground mb-1">Fecha mínima</label>
                     <input
                       type="date"
                       value={editForm.validations.minDate || ""}
                       onChange={(e) => setEditForm((f) => ({ ...f, validations: { ...f.validations, minDate: e.target.value || undefined } }))}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Fecha máxima</label>
+                    <label className="block text-xs text-muted-foreground mb-1">Fecha máxima</label>
                     <input
                       type="date"
                       value={editForm.validations.maxDate || ""}
                       onChange={(e) => setEditForm((f) => ({ ...f, validations: { ...f.validations, maxDate: e.target.value || undefined } }))}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -1099,8 +1098,8 @@ export function ClientSchema() {
             )}
 
             {editField?.fieldType === "select" && (
-              <div className="space-y-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Configuración de selección</p>
+              <div className="space-y-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuración de selección</p>
                 <Toggle
                   label="Permitir selección múltiple"
                   value={editForm.validations.multiple || false}
@@ -1110,27 +1109,27 @@ export function ClientSchema() {
             )}
 
             {editField?.fieldType === "boolean" && (
-              <div className="space-y-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Configuración booleano</p>
+              <div className="space-y-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuración booleano</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Etiqueta para Sí</label>
+                    <label className="block text-xs text-muted-foreground mb-1">Etiqueta para Sí</label>
                     <input
                       type="text"
                       value={editForm.validations.trueLabel || ""}
                       onChange={(e) => setEditForm((f) => ({ ...f, validations: { ...f.validations, trueLabel: e.target.value || undefined } }))}
                       placeholder="Sí"
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Etiqueta para No</label>
+                    <label className="block text-xs text-muted-foreground mb-1">Etiqueta para No</label>
                     <input
                       type="text"
                       value={editForm.validations.falseLabel || ""}
                       onChange={(e) => setEditForm((f) => ({ ...f, validations: { ...f.validations, falseLabel: e.target.value || undefined } }))}
                       placeholder="No"
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -1138,8 +1137,8 @@ export function ClientSchema() {
             )}
 
             {editField?.fieldType === "url" && (
-              <div className="space-y-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Configuración de URL</p>
+              <div className="space-y-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuración de URL</p>
                 <Toggle
                   label="Validar formato URL"
                   value={editForm.validations.validateFormat !== false}
@@ -1149,28 +1148,28 @@ export function ClientSchema() {
             )}
 
             {editField?.fieldType === "array" && (
-              <div className="space-y-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Configuración de lista</p>
+              <div className="space-y-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuración de lista</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Máximo de elementos</label>
+                    <label className="block text-xs text-muted-foreground mb-1">Máximo de elementos</label>
                     <input
                       type="number"
                       min="1"
                       value={editForm.validations.maxItems || ""}
                       onChange={(e) => setEditForm((f) => ({ ...f, validations: { ...f.validations, maxItems: e.target.value ? Number(e.target.value) : undefined } }))}
                       placeholder="Sin límite"
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Separador</label>
+                    <label className="block text-xs text-muted-foreground mb-1">Separador</label>
                     <input
                       type="text"
                       value={editForm.validations.separator || ""}
                       onChange={(e) => setEditForm((f) => ({ ...f, validations: { ...f.validations, separator: e.target.value || undefined } }))}
                       placeholder=","
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -1186,14 +1185,14 @@ export function ClientSchema() {
             )}
 
             {/* General toggles - inline */}
-            <div className="flex items-center gap-6 pt-3 border-t border-gray-100">
+            <div className="flex items-center gap-6 pt-3 border-t border-border">
               <Toggle label="Requerido" value={editForm.isRequired} onChange={(v) => setEditForm((f) => ({ ...f, isRequired: v }))} />
               <Toggle label="Único" value={editForm.isUnique} onChange={(v) => setEditForm((f) => ({ ...f, isUnique: v }))} />
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex justify-between gap-3 mt-6 pt-4 border-t border-gray-100">
+          <div className="flex justify-between gap-3 mt-6 pt-4 border-t border-border">
             <div className="flex items-center gap-3">
               {editField?.fieldType === "computed" && (
                 <button
@@ -1213,7 +1212,7 @@ export function ClientSchema() {
               )}
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setEditField(null)} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors">Cancelar</button>
+              <button onClick={() => setEditField(null)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors">Cancelar</button>
               <button
                 onClick={handleSaveEdit}
                 disabled={saving || !editForm.fieldLabel.trim()}
@@ -1232,45 +1231,45 @@ export function ClientSchema() {
         <div className="p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Nuevo campo</h3>
-              <p className="text-xs text-gray-400 mt-0.5">Agrega un campo personalizado al esquema de contactos</p>
+              <h3 className="text-lg font-semibold text-foreground">Nuevo campo</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Agrega un campo personalizado al esquema de contactos</p>
             </div>
-            <button onClick={() => { setShowCreateModal(false); setFieldTypeOpen(false); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X className="h-5 w-5" /></button>
+            <button onClick={() => { setShowCreateModal(false); setFieldTypeOpen(false); }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-5 w-5" /></button>
           </div>
 
           <div className="space-y-4">
             {/* Row 1: Label + Type side by side */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Etiqueta</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Etiqueta</label>
                 <input
                   autoFocus
                   type="text"
                   value={createForm.fieldLabel}
                   onChange={(e) => setCreateForm((f) => ({ ...f, fieldLabel: e.target.value }))}
                   placeholder="Ej: Empresa, Cargo..."
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
                 {createForm.fieldLabel && (
-                  <p className="text-xs text-gray-400 mt-1">Key: <span className="font-mono text-gray-500">{slugify(createForm.fieldLabel)}</span></p>
+                  <p className="text-xs text-muted-foreground mt-1">Key: <span className="font-mono text-muted-foreground">{slugify(createForm.fieldLabel)}</span></p>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de campo</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Tipo de campo</label>
                 <div className="relative" ref={fieldTypeRef}>
                   <button
                     type="button"
                     onClick={() => setFieldTypeOpen((v) => !v)}
-                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   >
                     <span>{FIELD_TYPES.find((t) => t.value === createForm.fieldType)?.label}</span>
-                    <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${fieldTypeOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${fieldTypeOpen ? 'rotate-180' : ''}`} />
                   </button>
                   <AnimatePresence>
                     {fieldTypeOpen && (
-                      <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }} className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50">
+                      <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }} className="absolute left-0 right-0 top-full mt-1 bg-popover text-popover-foreground rounded-lg border border-border shadow-lg py-1 z-50">
                         {FIELD_TYPES.map((t) => (
-                          <button key={t.value} type="button" onClick={() => { setCreateForm((f) => ({ ...f, fieldType: t.value })); setFieldTypeOpen(false); }} className={`w-full px-4 py-2 text-sm text-left transition-colors ${createForm.fieldType === t.value ? 'bg-brand-50 text-brand-700 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}>
+                          <button key={t.value} type="button" onClick={() => { setCreateForm((f) => ({ ...f, fieldType: t.value })); setFieldTypeOpen(false); }} className={`w-full px-4 py-2 text-sm text-left transition-colors ${createForm.fieldType === t.value ? 'bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100 font-medium' : 'text-foreground hover:bg-muted'}`}>
                             {t.label}
                           </button>
                         ))}
@@ -1284,7 +1283,7 @@ export function ClientSchema() {
             {/* Row 2: Options + Default value side by side */}
             {createForm.fieldType === "select" && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Opciones</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Opciones</label>
                 <ChipInput
                   value={createForm.options}
                   onChange={(v) => setCreateForm((f) => ({ ...f, options: v }))}
@@ -1294,7 +1293,7 @@ export function ClientSchema() {
 
             {/* Default value */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Valor por defecto</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Valor por defecto</label>
               {createForm.fieldType === "select" && createForm.options.length > 0 ? (
                 <DefaultValueSelector
                   options={createForm.options}
@@ -1302,104 +1301,104 @@ export function ClientSchema() {
                   onChange={(v) => setCreateForm((f) => ({ ...f, defaultValue: v }))}
                 />
               ) : (
-                <input type="text" value={createForm.defaultValue} onChange={(e) => setCreateForm((f) => ({ ...f, defaultValue: e.target.value }))} placeholder="Opcional" className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                <input type="text" value={createForm.defaultValue} onChange={(e) => setCreateForm((f) => ({ ...f, defaultValue: e.target.value }))} placeholder="Opcional" className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
               )}
             </div>
 
             {/* Type-specific configurations */}
             {createForm.fieldType === "text" && (
-              <div className="space-y-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Configuración de texto</p>
+              <div className="space-y-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuración de texto</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Longitud máxima</label>
-                    <input type="number" value={createForm.validations.maxLength || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, maxLength: e.target.value ? Number(e.target.value) : undefined } }))} placeholder="Sin límite" className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                    <label className="block text-xs text-muted-foreground mb-1">Longitud máxima</label>
+                    <input type="number" value={createForm.validations.maxLength || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, maxLength: e.target.value ? Number(e.target.value) : undefined } }))} placeholder="Sin límite" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Placeholder</label>
-                    <input type="text" value={createForm.validations.placeholder || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, placeholder: e.target.value || undefined } }))} placeholder="Texto de ayuda" className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                    <label className="block text-xs text-muted-foreground mb-1">Placeholder</label>
+                    <input type="text" value={createForm.validations.placeholder || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, placeholder: e.target.value || undefined } }))} placeholder="Texto de ayuda" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
                   </div>
                 </div>
               </div>
             )}
 
             {createForm.fieldType === "number" && (
-              <div className="space-y-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Configuración numérica</p>
+              <div className="space-y-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuración numérica</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Mínimo</label>
-                    <input type="number" value={createForm.validations.min ?? ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, min: e.target.value !== "" ? Number(e.target.value) : undefined } }))} placeholder="—" className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                    <label className="block text-xs text-muted-foreground mb-1">Mínimo</label>
+                    <input type="number" value={createForm.validations.min ?? ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, min: e.target.value !== "" ? Number(e.target.value) : undefined } }))} placeholder="—" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Máximo</label>
-                    <input type="number" value={createForm.validations.max ?? ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, max: e.target.value !== "" ? Number(e.target.value) : undefined } }))} placeholder="—" className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                    <label className="block text-xs text-muted-foreground mb-1">Máximo</label>
+                    <input type="number" value={createForm.validations.max ?? ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, max: e.target.value !== "" ? Number(e.target.value) : undefined } }))} placeholder="—" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Decimales</label>
-                    <input type="number" min="0" value={createForm.validations.decimals ?? ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, decimals: e.target.value !== "" ? Number(e.target.value) : undefined } }))} placeholder="0" className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                    <label className="block text-xs text-muted-foreground mb-1">Decimales</label>
+                    <input type="number" min="0" value={createForm.validations.decimals ?? ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, decimals: e.target.value !== "" ? Number(e.target.value) : undefined } }))} placeholder="0" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
                   </div>
                 </div>
               </div>
             )}
 
             {createForm.fieldType === "date" && (
-              <div className="space-y-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Configuración de fecha</p>
+              <div className="space-y-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuración de fecha</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Fecha mínima</label>
-                    <input type="date" value={createForm.validations.minDate || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, minDate: e.target.value || undefined } }))} className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                    <label className="block text-xs text-muted-foreground mb-1">Fecha mínima</label>
+                    <input type="date" value={createForm.validations.minDate || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, minDate: e.target.value || undefined } }))} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Fecha máxima</label>
-                    <input type="date" value={createForm.validations.maxDate || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, maxDate: e.target.value || undefined } }))} className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                    <label className="block text-xs text-muted-foreground mb-1">Fecha máxima</label>
+                    <input type="date" value={createForm.validations.maxDate || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, maxDate: e.target.value || undefined } }))} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
                   </div>
                 </div>
               </div>
             )}
 
             {createForm.fieldType === "select" && (
-              <div className="space-y-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Configuración de selección</p>
+              <div className="space-y-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuración de selección</p>
                 <Toggle label="Permitir selección múltiple" value={createForm.validations.multiple || false} onChange={(v) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, multiple: v } }))} />
               </div>
             )}
 
             {createForm.fieldType === "boolean" && (
-              <div className="space-y-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Configuración booleano</p>
+              <div className="space-y-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuración booleano</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Etiqueta para Sí</label>
-                    <input type="text" value={createForm.validations.trueLabel || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, trueLabel: e.target.value || undefined } }))} placeholder="Sí" className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                    <label className="block text-xs text-muted-foreground mb-1">Etiqueta para Sí</label>
+                    <input type="text" value={createForm.validations.trueLabel || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, trueLabel: e.target.value || undefined } }))} placeholder="Sí" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Etiqueta para No</label>
-                    <input type="text" value={createForm.validations.falseLabel || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, falseLabel: e.target.value || undefined } }))} placeholder="No" className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                    <label className="block text-xs text-muted-foreground mb-1">Etiqueta para No</label>
+                    <input type="text" value={createForm.validations.falseLabel || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, falseLabel: e.target.value || undefined } }))} placeholder="No" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
                   </div>
                 </div>
               </div>
             )}
 
             {createForm.fieldType === "url" && (
-              <div className="space-y-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Configuración de URL</p>
+              <div className="space-y-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuración de URL</p>
                 <Toggle label="Validar formato URL" value={createForm.validations.validateFormat !== false} onChange={(v) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, validateFormat: v } }))} />
               </div>
             )}
 
             {createForm.fieldType === "array" && (
-              <div className="space-y-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Configuración de lista</p>
+              <div className="space-y-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuración de lista</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Máximo de elementos</label>
-                    <input type="number" min="1" value={createForm.validations.maxItems || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, maxItems: e.target.value ? Number(e.target.value) : undefined } }))} placeholder="Sin límite" className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                    <label className="block text-xs text-muted-foreground mb-1">Máximo de elementos</label>
+                    <input type="number" min="1" value={createForm.validations.maxItems || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, maxItems: e.target.value ? Number(e.target.value) : undefined } }))} placeholder="Sin límite" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Separador</label>
-                    <input type="text" value={createForm.validations.separator || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, separator: e.target.value || undefined } }))} placeholder="," className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                    <label className="block text-xs text-muted-foreground mb-1">Separador</label>
+                    <input type="text" value={createForm.validations.separator || ""} onChange={(e) => setCreateForm((f) => ({ ...f, validations: { ...f.validations, separator: e.target.value || undefined } }))} placeholder="," className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
                   </div>
                 </div>
               </div>
@@ -1414,15 +1413,15 @@ export function ClientSchema() {
             )}
 
             {/* Toggles - inline */}
-            <div className="flex items-center gap-6 pt-3 border-t border-gray-100">
+            <div className="flex items-center gap-6 pt-3 border-t border-border">
               <Toggle label="Campo requerido" value={createForm.isRequired} onChange={(v) => setCreateForm((f) => ({ ...f, isRequired: v }))} />
               <Toggle label="Valor único" value={createForm.isUnique} onChange={(v) => setCreateForm((f) => ({ ...f, isUnique: v }))} />
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
-            <button onClick={() => { setShowCreateModal(false); setFieldTypeOpen(false); }} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors">Cancelar</button>
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
+            <button onClick={() => { setShowCreateModal(false); setFieldTypeOpen(false); }} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors">Cancelar</button>
             {createForm.fieldType === "computed" && (
               <button
                 onClick={() => handleCreate(true)}
@@ -1453,17 +1452,17 @@ export function ClientSchema() {
               <Zap className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-900">Generar valores</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Esta acción recalculará el campo para todos los contactos existentes</p>
+              <h3 className="text-sm font-semibold text-foreground">Generar valores</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Esta acción recalculará el campo para todos los contactos existentes</p>
             </div>
           </div>
-          <p className="text-sm text-gray-600 mb-5">
+          <p className="text-sm text-muted-foreground mb-5">
             Se generarán/actualizarán los valores del campo <strong>{editField?.fieldLabel}</strong> en todos los contactos del tenant. Esto puede tardar unos segundos dependiendo de la cantidad de contactos.
           </p>
           <div className="flex justify-end gap-3">
             <button
               onClick={() => setShowGenerateConfirm(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors"
             >
               Cancelar
             </button>

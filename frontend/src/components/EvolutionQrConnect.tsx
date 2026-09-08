@@ -125,9 +125,9 @@ export function EvolutionQrConnect({ inboxId, onConnected, onError }: EvolutionQ
           <CheckCircle2 className="h-8 w-8 text-green-600" />
         </div>
         <div className="text-center">
-          <p className="text-sm font-semibold text-gray-900">WhatsApp conectado</p>
+          <p className="text-sm font-semibold text-foreground">WhatsApp conectado</p>
           {phoneNumber && (
-            <p className="text-xs text-gray-500 mt-1">Número: +{phoneNumber}</p>
+            <p className="text-xs text-muted-foreground mt-1">Número: +{phoneNumber}</p>
           )}
         </div>
       </div>
@@ -141,12 +141,12 @@ export function EvolutionQrConnect({ inboxId, onConnected, onError }: EvolutionQ
           <WifiOff className="h-8 w-8 text-red-500" />
         </div>
         <div className="text-center">
-          <p className="text-sm font-semibold text-gray-900">Error de conexión</p>
-          <p className="text-xs text-gray-500 mt-1">{error}</p>
+          <p className="text-sm font-semibold text-foreground">Error de conexión</p>
+          <p className="text-xs text-muted-foreground mt-1">{error}</p>
         </div>
         <button
           onClick={handleRetry}
-          className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 font-medium text-gray-700"
+          className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted font-medium text-foreground"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Reintentar
@@ -159,8 +159,8 @@ export function EvolutionQrConnect({ inboxId, onConnected, onError }: EvolutionQ
     <div className="flex flex-col items-center gap-5 py-4">
       {/* Instrucciones */}
       <div className="text-center">
-        <p className="text-sm font-semibold text-gray-900">Conectar WhatsApp</p>
-        <p className="text-xs text-gray-500 mt-1 max-w-xs">
+        <p className="text-sm font-semibold text-foreground">Conectar WhatsApp</p>
+        <p className="text-xs text-muted-foreground mt-1 max-w-xs">
           Escanea el código QR con tu WhatsApp para vincular este número a la bandeja.
         </p>
       </div>
@@ -168,7 +168,7 @@ export function EvolutionQrConnect({ inboxId, onConnected, onError }: EvolutionQ
       {/* QR Code */}
       <div className="relative">
         {qrBase64 ? (
-          <div className="p-3 bg-white border-2 border-gray-200 rounded-2xl shadow-sm">
+          <div className="p-3 bg-card border-2 border-border rounded-2xl shadow-sm">
             <img
               src={qrBase64.startsWith("data:") ? qrBase64 : `data:image/png;base64,${qrBase64}`}
               alt="QR Code WhatsApp"
@@ -176,9 +176,9 @@ export function EvolutionQrConnect({ inboxId, onConnected, onError }: EvolutionQ
             />
           </div>
         ) : (
-          <div className="w-56 h-56 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-2 bg-gray-50">
-            <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
-            <p className="text-xs text-gray-400">Generando código QR...</p>
+          <div className="w-56 h-56 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center gap-2 bg-muted">
+            <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />
+            <p className="text-xs text-muted-foreground">Generando código QR...</p>
           </div>
         )}
 
@@ -193,15 +193,15 @@ export function EvolutionQrConnect({ inboxId, onConnected, onError }: EvolutionQ
       {/* Pairing code alternativo */}
       {pairingCode && (
         <div className="text-center">
-          <p className="text-[11px] text-gray-400">O usa el código de vinculación:</p>
-          <p className="text-lg font-mono font-bold text-gray-800 tracking-widest mt-1">{pairingCode}</p>
+          <p className="text-[11px] text-muted-foreground">O usa el código de vinculación:</p>
+          <p className="text-lg font-mono font-bold text-foreground tracking-widest mt-1">{pairingCode}</p>
         </div>
       )}
 
       {/* Pasos */}
-      <div className="bg-gray-50 rounded-xl p-4 w-full max-w-xs">
-        <p className="text-[11px] font-semibold text-gray-700 mb-2">Instrucciones:</p>
-        <ol className="text-[11px] text-gray-500 space-y-1.5 list-decimal list-inside">
+      <div className="bg-muted rounded-xl p-4 w-full max-w-xs">
+        <p className="text-[11px] font-semibold text-foreground mb-2">Instrucciones:</p>
+        <ol className="text-[11px] text-muted-foreground space-y-1.5 list-decimal list-inside">
           <li>Abre WhatsApp en tu teléfono</li>
           <li>Ve a <span className="font-medium">Dispositivos vinculados</span></li>
           <li>Toca <span className="font-medium">Vincular un dispositivo</span></li>
@@ -212,7 +212,7 @@ export function EvolutionQrConnect({ inboxId, onConnected, onError }: EvolutionQ
       {/* Refresh */}
       <button
         onClick={handleRetry}
-        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
       >
         <RefreshCw className="h-3 w-3" />
         Generar nuevo código

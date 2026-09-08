@@ -20,12 +20,8 @@ export function AppLayout() {
 
   return (
     <div
-      className="h-screen flex flex-col overflow-hidden p-4"
-      style={{
-        backgroundImage: `url(${whiteBg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
+      className="h-screen flex flex-col overflow-hidden p-4 bg-app-shell bg-cover bg-center"
+      style={{ backgroundImage: `var(--shell-bg, url(${whiteBg}))` }}
     >
       <div className="flex flex-col flex-1 min-h-0 rounded-2xl overflow-hidden relative">
         {/* Header floating on top without background */}

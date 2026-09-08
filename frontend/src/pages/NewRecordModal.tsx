@@ -133,12 +133,12 @@ export function NewRecordModal({ tenantId, onClose, onCreated }: Props) {
         style={{ background: "rgba(255, 255, 255, 0.94)", backdropFilter: "blur(24px)" }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">Nuevo contacto</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Completa la información del contacto</p>
+            <h3 className="text-base font-semibold text-foreground">Nuevo contacto</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Completa la información del contacto</p>
           </div>
-          <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -147,12 +147,12 @@ export function NewRecordModal({ tenantId, onClose, onCreated }: Props) {
         <form onSubmit={handleSubmit} autoComplete="off" className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : (
             groupKeys.map((group) => (
               <div key={group}>
-                <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3 capitalize">{group}</h4>
+                <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3 capitalize">{group}</h4>
                 <div className="grid grid-cols-2 gap-3">
                   {grouped[group].map((field) => (
                     <FieldInput
@@ -168,15 +168,15 @@ export function NewRecordModal({ tenantId, onClose, onCreated }: Props) {
           )}
 
           {error && (
-            <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+            <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>
           )}
         </form>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 shrink-0">
-          <p className="text-[11px] text-gray-400">Los campos marcados con * son requeridos</p>
+        <div className="flex items-center justify-between px-6 py-4 border-t border-border shrink-0">
+          <p className="text-[11px] text-muted-foreground">Los campos marcados con * son requeridos</p>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors">
               Cancelar
             </button>
             <button
@@ -203,7 +203,7 @@ function FieldInput({ field, value, onChange }: { field: CustomField; value: str
   if (isSelect) {
     return (
       <div>
-        <label className="block text-xs text-gray-500 mb-1">
+        <label className="block text-xs text-muted-foreground mb-1">
           {field.fieldLabel}{field.isRequired && <span className="text-red-400 ml-0.5">*</span>}
         </label>
         <SelectInput value={value} onChange={onChange} options={field.options!} placeholder="Seleccionar..." />
@@ -214,13 +214,13 @@ function FieldInput({ field, value, onChange }: { field: CustomField; value: str
   if (isBoolean) {
     return (
       <div className="flex items-center justify-between py-2">
-        <label className="text-sm text-gray-700">
+        <label className="text-sm text-foreground">
           {field.fieldLabel}{field.isRequired && <span className="text-red-400 ml-0.5">*</span>}
         </label>
         <button
           type="button"
           onClick={() => onChange(value === "true" ? "false" : "true")}
-          className={`relative w-9 h-5 rounded-full transition-colors ${value === "true" ? "bg-brand-600" : "bg-gray-300"}`}
+          className={`relative w-9 h-5 rounded-full transition-colors ${value === "true" ? "bg-brand-600" : "bg-gray-300 dark:bg-gray-600"}`}
         >
           <span className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full bg-white shadow transition-transform ${value === "true" ? "translate-x-4" : ""}`} />
         </button>
@@ -230,7 +230,7 @@ function FieldInput({ field, value, onChange }: { field: CustomField; value: str
 
   return (
     <div>
-      <label className="block text-xs text-gray-500 mb-1">
+      <label className="block text-xs text-muted-foreground mb-1">
         {field.fieldLabel}{field.isRequired && <span className="text-red-400 ml-0.5">*</span>}
       </label>
       <input
@@ -238,7 +238,7 @@ function FieldInput({ field, value, onChange }: { field: CustomField; value: str
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.validations?.placeholder || ""}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+        className="w-full px-3 py-2 border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
       />
     </div>
   );
@@ -260,17 +260,17 @@ function SelectInput({ value, onChange, options, placeholder }: { value: string;
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-left flex items-center justify-between transition-all ${open ? "ring-2 ring-brand-500 border-transparent" : "hover:border-gray-400"}`}
+        className={`w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg text-sm text-left flex items-center justify-between transition-all ${open ? "ring-2 ring-brand-500 border-transparent" : "hover:border-gray-400"}`}
       >
-        <span className={value ? "text-gray-900" : "text-gray-400"}>{value || placeholder}</span>
-        <svg className={`h-4 w-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        <span className={value ? "text-foreground" : "text-muted-foreground"}>{value || placeholder}</span>
+        <svg className={`h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
       </button>
       {open && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50 max-h-48 overflow-auto">
+        <div className="absolute left-0 right-0 top-full mt-1 bg-popover text-popover-foreground rounded-lg border border-border shadow-lg py-1 z-50 max-h-48 overflow-auto">
           <button
             type="button"
             onClick={() => { onChange(""); setOpen(false); }}
-            className={`w-full px-3 py-2 text-sm text-left transition-colors ${!value ? "bg-gray-50 text-gray-400 italic" : "text-gray-400 hover:bg-gray-50"}`}
+            className={`w-full px-3 py-2 text-sm text-left transition-colors ${!value ? "bg-muted text-muted-foreground italic" : "text-muted-foreground hover:bg-muted"}`}
           >
             {placeholder}
           </button>
@@ -279,7 +279,7 @@ function SelectInput({ value, onChange, options, placeholder }: { value: string;
               key={opt}
               type="button"
               onClick={() => { onChange(opt); setOpen(false); }}
-              className={`w-full px-3 py-2 text-sm text-left transition-colors capitalize ${value === opt ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+              className={`w-full px-3 py-2 text-sm text-left transition-colors capitalize ${value === opt ? "bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100 font-medium" : "text-foreground hover:bg-muted"}`}
             >
               {opt}
             </button>

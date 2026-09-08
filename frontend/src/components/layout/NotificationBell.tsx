@@ -157,22 +157,22 @@ export function NotificationBell() {
               toast.dismiss(id);
               handleMarkAsRead(notification);
             }}
-            className="w-[360px] cursor-pointer rounded-xl border border-gray-200 bg-white p-4 shadow-xl flex items-start gap-3"
+            className="w-[360px] cursor-pointer rounded-xl border border-border bg-popover text-popover-foreground p-4 shadow-xl flex items-start gap-3"
           >
             <div className={`mt-0.5 shrink-0 h-9 w-9 rounded-full flex items-center justify-center ${
-              typeConfig[notification.type]?.color || "text-gray-400"
-            } bg-gray-100`}>
+              typeConfig[notification.type]?.color || "text-muted-foreground"
+            } bg-muted`}>
               {(() => {
                 const Icon = typeConfig[notification.type]?.icon || Bell;
                 return <Icon className="h-4 w-4" />;
               })()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">{notification.title}</p>
+              <p className="text-sm font-semibold text-foreground truncate">{notification.title}</p>
               {notification.body && (
-                <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{notification.body}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notification.body}</p>
               )}
-              <p className="text-[10px] text-gray-400 mt-1">Ahora</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Ahora</p>
             </div>
           </div>
         ), { duration: 5000 });
@@ -284,16 +284,16 @@ export function NotificationBell() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -5 }}
             transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute right-0 top-full mt-2 w-[380px] max-h-[480px] rounded-2xl shadow-2xl border border-white/20 overflow-hidden z-50"
-            style={{ background: "rgba(255, 255, 255, 0.97)", backdropFilter: "blur(24px)" }}
+            className="absolute right-0 top-full mt-2 w-[380px] max-h-[480px] rounded-2xl shadow-2xl border border-border overflow-hidden z-50 bg-popover text-popover-foreground"
+            style={{ backdropFilter: "blur(24px)" }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900">Notificaciones</h3>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <h3 className="text-sm font-semibold text-foreground">Notificaciones</h3>
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}
-                  className="flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+                  className="flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium transition-colors"
                 >
                   <Check className="h-3 w-3" />
                   Marcar todas como leídas
@@ -305,8 +305,8 @@ export function NotificationBell() {
             <div className="overflow-y-auto max-h-[380px]">
               {notifications.length === 0 ? (
                 <div className="px-4 py-10 text-center">
-                  <Bell className="h-8 w-8 text-gray-200 mx-auto mb-2" />
-                  <p className="text-sm text-gray-400">Sin notificaciones</p>
+                  <Bell className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Sin notificaciones</p>
                 </div>
               ) : (
                 <div className="py-1">
@@ -318,26 +318,26 @@ export function NotificationBell() {
                       <button
                         key={notification.id}
                         onClick={() => handleMarkAsRead(notification)}
-                        className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
-                          !notification.read ? "bg-indigo-50/40" : ""
+                        className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors ${
+                          !notification.read ? "bg-indigo-50/40 dark:bg-indigo-500/10" : ""
                         }`}
                       >
                         {/* Icon */}
-                        <div className={`mt-0.5 shrink-0 h-7 w-7 rounded-full flex items-center justify-center bg-gray-100 ${config.color}`}>
+                        <div className={`mt-0.5 shrink-0 h-7 w-7 rounded-full flex items-center justify-center bg-muted ${config.color}`}>
                           <Icon className="h-3.5 w-3.5" />
                         </div>
 
                         {/* Content */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
+                          <p className="text-sm font-medium text-foreground truncate">
                             {notification.title}
                           </p>
                           {notification.body && (
-                            <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">
+                            <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
                               {notification.body}
                             </p>
                           )}
-                          <p className="text-[11px] text-gray-400 mt-1">
+                          <p className="text-[11px] text-muted-foreground mt-1">
                             {timeAgo(notification.createdAt)}
                           </p>
                         </div>
@@ -355,8 +355,8 @@ export function NotificationBell() {
 
             {/* Footer */}
             {notifications.length > 0 && (
-              <div className="border-t border-gray-100 px-4 py-2.5">
-                <p className="text-[11px] text-center text-gray-400">Ver todas</p>
+              <div className="border-t border-border px-4 py-2.5">
+                <p className="text-[11px] text-center text-muted-foreground">Ver todas</p>
               </div>
             )}
           </motion.div>

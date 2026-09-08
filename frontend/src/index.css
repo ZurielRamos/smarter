@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Dark mode driven by a `.dark` class on <html> */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* Primary - Deep Navy Blue (base: rgb(10, 21, 32) = #0a1520) */
   --color-brand-900: #0a1520;
@@ -44,6 +47,35 @@
     --input: 214 32% 91%;
     --ring: 210 53% 8%;
     --radius: 0.5rem;
+
+    /* App shell surface behind the floating header/content */
+    --app-shell: 210 40% 98%;
+  }
+
+  .dark {
+    --background: 210 40% 6%;
+    --foreground: 210 20% 92%;
+    --card: 210 36% 9%;
+    --card-foreground: 210 20% 92%;
+    --popover: 210 36% 10%;
+    --popover-foreground: 210 20% 92%;
+    --primary: 210 20% 92%;
+    --primary-foreground: 210 53% 8%;
+    --secondary: 210 30% 16%;
+    --secondary-foreground: 210 20% 92%;
+    --muted: 210 28% 15%;
+    --muted-foreground: 214 15% 62%;
+    --accent: 168 70% 42%;
+    --accent-foreground: 210 53% 8%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 25% 20%;
+    --input: 210 25% 20%;
+    --ring: 210 20% 70%;
+
+    --app-shell: 210 42% 5%;
+    /* Remove the light background image in dark mode; solid app-shell shows */
+    --shell-bg: none;
   }
 }
 
@@ -78,4 +110,41 @@
 
 @utility text-foreground {
   color: hsl(var(--foreground));
+}
+
+/* Semantic surface utilities (usable in claro/oscuro) */
+@utility bg-card {
+  background-color: hsl(var(--card));
+}
+
+@utility text-card-foreground {
+  color: hsl(var(--card-foreground));
+}
+
+@utility bg-popover {
+  background-color: hsl(var(--popover));
+}
+
+@utility text-popover-foreground {
+  color: hsl(var(--popover-foreground));
+}
+
+@utility bg-muted {
+  background-color: hsl(var(--muted));
+}
+
+@utility text-muted-foreground {
+  color: hsl(var(--muted-foreground));
+}
+
+@utility bg-secondary {
+  background-color: hsl(var(--secondary));
+}
+
+@utility text-secondary-foreground {
+  color: hsl(var(--secondary-foreground));
+}
+
+@utility bg-app-shell {
+  background-color: hsl(var(--app-shell));
 }

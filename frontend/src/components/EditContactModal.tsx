@@ -81,7 +81,7 @@ export function EditContactModal({ client, onClose, onSaved }: { client: ClientR
 
   if (loadingFields) return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-xl p-8"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>
+      <div className="bg-card rounded-xl shadow-xl p-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
     </div>
   );
 
@@ -93,12 +93,12 @@ export function EditContactModal({ client, onClose, onSaved }: { client: ClientR
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">Editar contacto</h3>
-            <p className="text-xs text-gray-400 mt-0.5">{fullName} · {client.phone || client.email || ""}</p>
+            <h3 className="text-base font-semibold text-foreground">Editar contacto</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">{fullName} · {client.phone || client.email || ""}</p>
           </div>
-          <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -109,7 +109,7 @@ export function EditContactModal({ client, onClose, onSaved }: { client: ClientR
             const groupFields = groups[groupKey] || [];
             return (
               <div key={groupKey}>
-                <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3 capitalize">{groupKey}</h4>
+                <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3 capitalize">{groupKey}</h4>
                 <div className="grid grid-cols-2 gap-3">
                   {groupFields.map((f: any) => (
                     <EditFieldInput key={f.id} field={f} value={form[f.fieldKey] ?? ""} onChange={(val) => set(f.fieldKey, val)} />
@@ -121,22 +121,22 @@ export function EditContactModal({ client, onClose, onSaved }: { client: ClientR
 
           {/* Tags */}
           <div>
-            <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Etiquetas</h4>
+            <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Etiquetas</h4>
             <input
               type="text"
               value={form._tags || ""}
               onChange={(e) => set("_tags", e.target.value)}
               placeholder="vip, nuevo, referido (separados por coma)"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+              className="w-full px-3 py-2 border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
             />
           </div>
 
-          {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+          {error && <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 shrink-0">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors">
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border shrink-0">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors">
             Cancelar
           </button>
           <button
@@ -167,7 +167,7 @@ function EditFieldInput({ field, value, onChange }: { field: any; value: any; on
   if (field.fieldType === "boolean") {
     return (
       <div className="flex items-center justify-between py-2">
-        <label className="text-sm text-gray-700">{field.fieldLabel}</label>
+        <label className="text-sm text-foreground">{field.fieldLabel}</label>
         <button
           type="button"
           onClick={() => onChange(value === "true" ? "false" : "true")}
@@ -182,21 +182,21 @@ function EditFieldInput({ field, value, onChange }: { field: any; value: any; on
   if (field.fieldType === "select" && field.options?.length) {
     return (
       <div>
-        <label className="block text-xs text-gray-500 mb-1">{field.fieldLabel}</label>
+        <label className="block text-xs text-muted-foreground mb-1">{field.fieldLabel}</label>
         <div className="relative" ref={selectRef}>
           <button
             type="button"
             onClick={() => setSelectOpen((v) => !v)}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-left flex items-center justify-between transition-all ${selectOpen ? "ring-2 ring-brand-500 border-transparent" : "hover:border-gray-400"}`}
+            className={`w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg text-sm text-left flex items-center justify-between transition-all ${selectOpen ? "ring-2 ring-brand-500 border-transparent" : "hover:border-muted-foreground/50"}`}
           >
-            <span className={value ? "text-gray-900 capitalize" : "text-gray-400"}>{value || "Seleccionar..."}</span>
-            <svg className={`h-4 w-4 text-gray-400 transition-transform ${selectOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            <span className={value ? "text-foreground capitalize" : "text-muted-foreground"}>{value || "Seleccionar..."}</span>
+            <svg className={`h-4 w-4 text-muted-foreground transition-transform ${selectOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
           </button>
           {selectOpen && (
-            <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50 max-h-48 overflow-auto">
-              <button type="button" onClick={() => { onChange(""); setSelectOpen(false); }} className="w-full px-3 py-2 text-sm text-left text-gray-400 hover:bg-gray-50 italic">Ninguno</button>
+            <div className="absolute left-0 right-0 top-full mt-1 bg-popover text-popover-foreground rounded-lg border border-border shadow-lg py-1 z-50 max-h-48 overflow-auto">
+              <button type="button" onClick={() => { onChange(""); setSelectOpen(false); }} className="w-full px-3 py-2 text-sm text-left text-muted-foreground hover:bg-muted italic">Ninguno</button>
               {field.options.map((opt: string) => (
-                <button key={opt} type="button" onClick={() => { onChange(opt); setSelectOpen(false); }} className={`w-full px-3 py-2 text-sm text-left transition-colors capitalize ${value === opt ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}>{opt}</button>
+                <button key={opt} type="button" onClick={() => { onChange(opt); setSelectOpen(false); }} className={`w-full px-3 py-2 text-sm text-left transition-colors capitalize ${value === opt ? "bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100 font-medium" : "text-foreground hover:bg-muted"}`}>{opt}</button>
               ))}
             </div>
           )}
@@ -207,13 +207,13 @@ function EditFieldInput({ field, value, onChange }: { field: any; value: any; on
 
   return (
     <div>
-      <label className="block text-xs text-gray-500 mb-1">{field.fieldLabel}</label>
+      <label className="block text-xs text-muted-foreground mb-1">{field.fieldLabel}</label>
       <input
         type={field.fieldType === "date" ? "date" : field.fieldType === "number" ? "number" : field.fieldKey === "email" ? "email" : "text"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.validations?.placeholder || ""}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+        className="w-full px-3 py-2 border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
       />
     </div>
   );

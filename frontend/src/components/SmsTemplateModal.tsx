@@ -150,9 +150,9 @@ export function SmsTemplateModal({ open, onClose, onSave, translations, defaultL
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 animate-in fade-in duration-150" onClick={saving ? undefined : onClose} />
 
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-visible animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative bg-card rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-visible animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-3">
             <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${channel === "llamada" ? "bg-purple-50" : "bg-sky-50"}`}>
               {channel === "llamada"
@@ -160,7 +160,7 @@ export function SmsTemplateModal({ open, onClose, onSave, translations, defaultL
                 : <MessageSquare className="h-3.5 w-3.5 text-sky-600" />
               }
             </div>
-            <h3 className="text-sm font-semibold text-gray-900">
+            <h3 className="text-sm font-semibold text-foreground">
               {channel === "llamada" ? "Contenido Llamada" : "Contenido SMS"}
             </h3>
 
@@ -168,26 +168,26 @@ export function SmsTemplateModal({ open, onClose, onSave, translations, defaultL
             <div className="relative">
               <button
                 onClick={() => setLangDropdownOpen(!langDropdownOpen)}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-gray-200 hover:border-gray-300 text-xs transition-colors"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-border hover:border-border text-xs transition-colors"
               >
-                <Globe className="h-3 w-3 text-gray-500" />
-                <span className="font-medium text-gray-700">{currentLanguage.toUpperCase()}</span>
+                <Globe className="h-3 w-3 text-muted-foreground" />
+                <span className="font-medium text-foreground">{currentLanguage.toUpperCase()}</span>
                 {isNewTranslation && (
                   <span className="text-[8px] bg-amber-100 text-amber-700 px-1 rounded font-medium">nueva</span>
                 )}
-                <ChevronDown className="h-2.5 w-2.5 text-gray-400" />
+                <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" />
               </button>
 
               {langDropdownOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setLangDropdownOpen(false)} />
-                  <div className="absolute top-full left-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="absolute top-full left-0 mt-1 w-44 bg-popover text-popover-foreground rounded-xl shadow-lg border border-border py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
                     {existingLangs.map((lang) => (
                       <button
                         key={lang}
                         onClick={() => handleLanguageChange(lang)}
                         className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors ${
-                          lang === currentLanguage ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"
+                          lang === currentLanguage ? "bg-brand-50 text-brand-700 font-medium" : "text-foreground hover:bg-muted"
                         }`}
                       >
                         <span className="text-[10px] font-bold w-5">{lang.toUpperCase()}</span>
@@ -196,17 +196,17 @@ export function SmsTemplateModal({ open, onClose, onSave, translations, defaultL
                     ))}
                     {availableLangs.length > 0 && (
                       <>
-                        <div className="border-t border-gray-100 my-1" />
+                        <div className="border-t border-border my-1" />
                         <div className="px-3 py-1">
-                          <p className="text-[9px] text-gray-400 font-medium uppercase">Agregar idioma</p>
+                          <p className="text-[9px] text-muted-foreground font-medium uppercase">Agregar idioma</p>
                         </div>
                         {availableLangs.map((opt) => (
                           <button
                             key={opt.code}
                             onClick={() => handleLanguageChange(opt.code)}
-                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left text-gray-500 hover:bg-gray-50 transition-colors"
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left text-muted-foreground hover:bg-muted transition-colors"
                           >
-                            <Plus className="h-3 w-3 text-gray-400" />
+                            <Plus className="h-3 w-3 text-muted-foreground" />
                             <span>{opt.label}</span>
                           </button>
                         ))}
@@ -221,7 +221,7 @@ export function SmsTemplateModal({ open, onClose, onSave, translations, defaultL
           <button
             onClick={onClose}
             disabled={saving}
-            className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+            className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-muted-foreground transition-colors disabled:opacity-50"
           >
             <X className="h-4 w-4" />
           </button>
@@ -229,7 +229,7 @@ export function SmsTemplateModal({ open, onClose, onSave, translations, defaultL
 
         {/* Body */}
         <div className="px-5 py-4">
-          <label className="block text-[10px] font-medium text-gray-500 uppercase mb-1.5">Mensaje</label>
+          <label className="block text-[10px] font-medium text-muted-foreground uppercase mb-1.5">Mensaje</label>
           <div className="relative">
             <textarea
               ref={textareaRef}
@@ -240,7 +240,7 @@ export function SmsTemplateModal({ open, onClose, onSave, translations, defaultL
               onBlur={() => setTimeout(() => setAutocomplete(null), 150)}
               placeholder={channel === "llamada" ? "Escribe el mensaje de voz... Usa {{ para insertar variables" : "Escribe el mensaje SMS... Usa {{ para insertar variables"}
               rows={5}
-              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
+              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm text-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 resize-none"
             />
 
             {/* Autocomplete dropdown */}
@@ -285,7 +285,7 @@ export function SmsTemplateModal({ open, onClose, onSave, translations, defaultL
               const pos = getCaretCoords();
               return createPortal(
                 <div
-                  className="fixed z-[9999] bg-white rounded-lg shadow-xl border border-gray-200 w-[220px] max-h-[180px] overflow-y-auto py-1"
+                  className="fixed z-[9999] bg-popover text-popover-foreground rounded-lg shadow-xl border border-border w-[220px] max-h-[180px] overflow-y-auto py-1"
                   style={{ top: pos.top, left: Math.min(pos.left, window.innerWidth - 230) }}
                 >
                   {filtered.map((v, i) => (
@@ -293,12 +293,12 @@ export function SmsTemplateModal({ open, onClose, onSave, translations, defaultL
                       key={v.field}
                       onMouseDown={(e) => { e.preventDefault(); selectVariable(v); }}
                       className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center gap-2 ${
-                        i === autocompleteIndex ? "bg-brand-50 text-brand-700" : "text-gray-700 hover:bg-gray-50"
+                        i === autocompleteIndex ? "bg-brand-50 text-brand-700" : "text-foreground hover:bg-muted"
                       }`}
                     >
-                      <Braces className="h-3 w-3 text-gray-400 shrink-0" />
+                      <Braces className="h-3 w-3 text-muted-foreground shrink-0" />
                       <span className="truncate flex-1">{v.label}</span>
-                      <span className="text-[9px] text-gray-400">{v.field}</span>
+                      <span className="text-[9px] text-muted-foreground">{v.field}</span>
                     </button>
                   ))}
                 </div>,
@@ -309,21 +309,21 @@ export function SmsTemplateModal({ open, onClose, onSave, translations, defaultL
 
           {/* Char counter */}
           <div className="flex items-center justify-between mt-2">
-            <p className="text-[10px] text-gray-400">
-              Usa <code className="bg-gray-100 px-1 rounded">{"{{variable}}"}</code> para personalizar
+            <p className="text-[10px] text-muted-foreground">
+              Usa <code className="bg-muted px-1 rounded">{"{{variable}}"}</code> para personalizar
             </p>
-            <p className={`text-[10px] font-medium ${rawLength > 160 && channel === "sms" ? "text-amber-600" : "text-gray-400"}`}>
+            <p className={`text-[10px] font-medium ${rawLength > 160 && channel === "sms" ? "text-amber-600" : "text-muted-foreground"}`}>
               {rawLength} chars{channel === "sms" ? ` · ${smsCount} SMS` : ""}
             </p>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-end gap-2">
+        <div className="px-5 py-3 border-t border-border flex items-center justify-end gap-2">
           <button
             onClick={onClose}
             disabled={saving}
-            className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>

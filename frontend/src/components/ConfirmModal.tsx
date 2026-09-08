@@ -59,15 +59,15 @@ export function ConfirmModal({
 
   const variantStyles = {
     danger: {
-      icon: "bg-red-50 text-red-600",
+      icon: "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400",
       button: "bg-red-600 hover:bg-red-700 text-white",
     },
     warning: {
-      icon: "bg-amber-50 text-amber-600",
+      icon: "bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400",
       button: "bg-amber-600 hover:bg-amber-700 text-white",
     },
     default: {
-      icon: "bg-brand-50 text-brand-600",
+      icon: "bg-brand-50 text-brand-600 dark:bg-brand-700 dark:text-brand-100",
       button: "bg-brand-700 hover:bg-brand-600 text-white",
     },
   };
@@ -83,12 +83,12 @@ export function ConfirmModal({
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative bg-card text-card-foreground rounded-2xl shadow-xl w-full max-w-sm mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Close button */}
         <button
           onClick={onClose}
           disabled={busy}
-          className="absolute top-3 right-3 p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+          className="absolute top-3 right-3 p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
         >
           <X className="h-4 w-4" />
         </button>
@@ -100,9 +100,9 @@ export function ConfirmModal({
               <AlertTriangle className="h-4.5 w-4.5" />
             </div>
             <div className="flex-1 min-w-0 pt-0.5">
-              <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+              <h3 className="text-sm font-semibold text-foreground">{title}</h3>
               {description && (
-                <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">{description}</p>
+                <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">{description}</p>
               )}
             </div>
           </div>
@@ -110,8 +110,8 @@ export function ConfirmModal({
           {/* Verification input */}
           {needsVerification && (
             <div className="mt-4">
-              <p className="text-[11px] text-gray-500 mb-1.5">
-                Escribe <span className="font-mono font-semibold text-gray-700">{verificationText}</span> para confirmar
+              <p className="text-[11px] text-muted-foreground mb-1.5">
+                Escribe <span className="font-mono font-semibold text-foreground">{verificationText}</span> para confirmar
               </p>
               <input
                 ref={inputRef}
@@ -119,7 +119,7 @@ export function ConfirmModal({
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder={verificationPlaceholder || verificationText}
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 font-mono"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 font-mono placeholder:text-muted-foreground"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && isVerified) handleConfirm();
                 }}
@@ -129,11 +129,11 @@ export function ConfirmModal({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-end gap-2">
+        <div className="px-5 py-3 border-t border-border flex items-center justify-end gap-2">
           <button
             onClick={onClose}
             disabled={busy}
-            className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
           >
             {cancelLabel}
           </button>

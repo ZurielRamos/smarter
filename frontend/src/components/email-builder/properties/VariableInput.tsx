@@ -127,7 +127,7 @@ export function VariableInput({ value, onChange, variables, placeholder, classNa
         if (filtered.length === 0) return null;
         return createPortal(
           <div
-            className="fixed z-[9999] bg-white rounded-lg shadow-xl border border-gray-200 w-[220px] max-h-[180px] overflow-y-auto py-1"
+            className="fixed z-[9999] bg-popover text-popover-foreground rounded-lg shadow-xl border border-border w-[220px] max-h-[180px] overflow-y-auto py-1"
             style={{ top: coords.top, left: Math.min(coords.left, window.innerWidth - 230) }}
           >
             {filtered.map((v, i) => (
@@ -135,12 +135,12 @@ export function VariableInput({ value, onChange, variables, placeholder, classNa
                 key={v.field}
                 onMouseDown={(e) => { e.preventDefault(); selectVariable(v); }}
                 className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center gap-2 ${
-                  i === autocompleteIndex ? "bg-brand-50 text-brand-700" : "text-gray-700 hover:bg-gray-50"
+                  i === autocompleteIndex ? "bg-brand-50 text-brand-700" : "text-foreground hover:bg-muted"
                 }`}
               >
-                <Braces className="h-3 w-3 text-gray-400 shrink-0" />
+                <Braces className="h-3 w-3 text-muted-foreground shrink-0" />
                 <span className="truncate flex-1">{v.label}</span>
-                <span className="text-[9px] text-gray-400">{v.field}</span>
+                <span className="text-[9px] text-muted-foreground">{v.field}</span>
               </button>
             ))}
           </div>,

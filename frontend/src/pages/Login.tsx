@@ -121,17 +121,17 @@ export function Login() {
               alt="Smarter"
               className="h-14 mb-4"
             />
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-foreground">
               Bienvenido a Smarter
             </h1>
           </div>
 
           {/* Heading */}
           <div className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-800">
+            <h2 className="text-lg font-semibold text-foreground">
               Inicia sesión
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               Ingresa tus credenciales para acceder a la plataforma
             </p>
           </div>
@@ -140,7 +140,7 @@ export function Login() {
           <form onSubmit={handleSubmit} noValidate className="space-y-5">
             <div>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors peer-focus:text-brand-600">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors peer-focus:text-brand-600">
                   <Mail size={18} />
                 </span>
                 <input
@@ -151,11 +151,11 @@ export function Login() {
                   required
                   autoComplete="email"
                   placeholder=" "
-                  className={`peer w-full pl-11 pr-4 pt-5 pb-2 border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all bg-transparent ${error ? 'border-red-400' : 'border-gray-300'}`}
+                  className={`peer w-full pl-11 pr-4 pt-5 pb-2 border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all bg-transparent ${error ? 'border-red-400' : 'border-border'}`}
                 />
                 <label
                   htmlFor="email"
-                  className="absolute left-11 top-1/2 -translate-y-1/2 text-sm text-gray-500 transition-all duration-200 pointer-events-none peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-xs peer-focus:text-brand-600 peer-[:not(:placeholder-shown)]:top-2 peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-xs"
+                  className="absolute left-11 top-1/2 -translate-y-1/2 text-sm text-muted-foreground transition-all duration-200 pointer-events-none peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-xs peer-focus:text-brand-600 peer-[:not(:placeholder-shown)]:top-2 peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-xs"
                 >
                   Correo electrónico
                 </label>
@@ -164,7 +164,7 @@ export function Login() {
 
             <div>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors peer-focus:text-brand-600">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors peer-focus:text-brand-600">
                   <Lock size={18} />
                 </span>
                 <input
@@ -175,18 +175,18 @@ export function Login() {
                   required
                   autoComplete="current-password"
                   placeholder=" "
-                  className={`peer w-full pl-11 pr-11 pt-5 pb-2 border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all bg-transparent ${error ? 'border-red-400' : 'border-gray-300'}`}
+                  className={`peer w-full pl-11 pr-11 pt-5 pb-2 border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all bg-transparent ${error ? 'border-red-400' : 'border-border'}`}
                 />
                 <label
                   htmlFor="password"
-                  className="absolute left-11 top-1/2 -translate-y-1/2 text-sm text-gray-500 transition-all duration-200 pointer-events-none peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-xs peer-focus:text-brand-600 peer-[:not(:placeholder-shown)]:top-2 peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-xs"
+                  className="absolute left-11 top-1/2 -translate-y-1/2 text-sm text-muted-foreground transition-all duration-200 pointer-events-none peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-xs peer-focus:text-brand-600 peer-[:not(:placeholder-shown)]:top-2 peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-xs"
                 >
                   Contraseña
                 </label>
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground transition-colors"
                   aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -208,7 +208,7 @@ export function Login() {
                   className={`h-5 w-5 rounded border-2 flex items-center justify-center transition-all duration-200 cursor-pointer ${
                     rememberMe
                       ? 'bg-brand-800 border-brand-800'
-                      : 'border-gray-300 bg-transparent hover:border-brand-500'
+                      : 'border-border bg-transparent hover:border-brand-500'
                   }`}
                 >
                   <motion.svg
@@ -230,7 +230,7 @@ export function Login() {
                 </button>
                 <label
                   onClick={() => setRememberMe(!rememberMe)}
-                  className="text-sm text-gray-600 cursor-pointer select-none"
+                  className="text-sm text-muted-foreground cursor-pointer select-none"
                 >
                   Recordarme
                 </label>
@@ -296,10 +296,10 @@ export function Login() {
             {/* Divider */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
+                <div className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="bg-white/60 px-3 text-gray-400">o continúa con</span>
+                <span className="bg-white/60 px-3 text-muted-foreground">o continúa con</span>
               </div>
             </div>
 
@@ -307,7 +307,7 @@ export function Login() {
             <button
               type="button"
               onClick={() => googleLogin()}
-              className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+              className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-lg border border-border bg-card hover:bg-muted transition-colors text-sm font-medium text-foreground"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -320,7 +320,7 @@ export function Login() {
           </form>
 
           {/* Footer */}
-          <p className="mt-8 text-center text-xs text-gray-400">
+          <p className="mt-8 text-center text-xs text-muted-foreground">
             © 2026 Smarter · Reach further, connect smarter
           </p>
         </motion.div>
@@ -351,7 +351,7 @@ export function Login() {
             <h2 className="text-2xl font-bold text-white mb-3">
               Gestiona tus campañas
             </h2>
-            <p className="text-gray-300 text-sm max-w-sm mx-auto">
+            <p className="text-muted-foreground text-sm max-w-sm mx-auto">
               Plataforma integral para la gestión de campañas, clientes y comunicaciones multicanal.
             </p>
           </div>

@@ -175,6 +175,50 @@ export class RecordsController {
     return this.recordsService.getActivities(recordId, +page, +limit);
   }
 
+  @Post('normalize-phones/preview')
+  previewPhoneNormalization(
+    @Body() body: { tenantId: string; country?: string; cleanFormat?: boolean; custom?: { code?: string; digits?: number[] } },
+  ) {
+    return this.recordsService.previewPhoneNormalization(
+      body.tenantId,
+      body.country || 'CO',
+      body.cleanFormat !== false,
+      body.custom,
+    );
+  }
+
+  @Post('normalize-phones/apply')
+  applyPhoneNormalization(
+    @Body() body: { tenantId: string; country?: string; cleanFormat?: boolean; custom?: { code?: string; digits?: number[] } },
+    @Req() req: any,
+  ) {
+    return this.recordsService.applyPhoneNormalization(
+      body.tenantId,
+      body.country || 'CO',
+      body.cleanFormat !== false,
+      { actorId: req.user?.id, actorName: req.user?.name },
+      body.custom,
+    );
+  }
+
+  @Post('duplicates/detect')
+  detectDuplicates(@Body() body: { tenantId: string; criteria?: string[] }) {
+    return this.recordsService.detectDuplicates(body.tenantId, body.criteria);
+  }
+
+  @Post('duplicates/merge')
+  mergeRecords(
+    @Body() body: { tenantId: string; winnerId: string; loserIds: string[] },
+    @Req() req: any,
+  ) {
+    return this.recordsService.mergeRecords(
+      body.tenantId,
+      body.winnerId,
+      body.loserIds,
+      { actorId: req.user?.id, actorName: req.user?.name },
+    );
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.recordsService.findOneById(id);

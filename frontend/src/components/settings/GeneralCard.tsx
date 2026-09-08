@@ -161,9 +161,9 @@ export function GeneralCard() {
 
   if (loading || !tenant) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-card rounded-xl border border-border p-6">
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       </div>
     );
@@ -175,9 +175,9 @@ export function GeneralCard() {
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">General</h2>
-        <p className="text-sm text-gray-500 mb-5">
+      <div className="bg-card rounded-xl border border-border p-6">
+        <h2 className="text-lg font-semibold text-foreground mb-1">General</h2>
+        <p className="text-sm text-muted-foreground mb-5">
           Información e identidad de la cuenta
         </p>
 
@@ -186,7 +186,7 @@ export function GeneralCard() {
           {/* Icon */}
           <button
             onClick={() => openEdit("icon")}
-            className="group relative h-14 w-14 rounded-xl border-2 border-dashed border-gray-200 hover:border-brand-400 flex items-center justify-center overflow-hidden transition-all bg-brand-800 shrink-0"
+            className="group relative h-14 w-14 rounded-xl border-2 border-dashed border-border hover:border-brand-400 flex items-center justify-center overflow-hidden transition-all bg-brand-800 shrink-0"
           >
             {iconUrl ? (
               <img src={iconUrl} alt="Ícono" className="h-full w-full object-cover" />
@@ -201,12 +201,12 @@ export function GeneralCard() {
           {/* Name */}
           <div className="flex-1 flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-700">Nombre</p>
-              <p className="text-sm text-gray-500">{tenant.name}</p>
+              <p className="text-sm font-medium text-foreground">Nombre</p>
+              <p className="text-sm text-muted-foreground">{tenant.name}</p>
             </div>
             <button
               onClick={() => openEdit("name")}
-              className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+              className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-brand-600 hover:bg-brand-50 transition-colors"
             >
               <Pencil className="h-3.5 w-3.5" />
             </button>
@@ -232,14 +232,14 @@ export function GeneralCard() {
               transition={{ duration: 0.2, ease: "easeOut" }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
             >
-              <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-card rounded-2xl shadow-xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 {/* Header */}
-                <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">
+                <div className="px-6 pt-6 pb-4 border-b border-border flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-foreground">
                     {editField === "name" && "Editar nombre"}
                     {editField === "icon" && "Cambiar ícono"}
                   </h3>
-                  <button onClick={closeEdit} className="text-gray-400 hover:text-gray-600">
+                  <button onClick={closeEdit} className="text-muted-foreground hover:text-muted-foreground">
                     <X className="h-5 w-5" />
                   </button>
                 </div>
@@ -248,21 +248,21 @@ export function GeneralCard() {
                 <div className="px-6 py-5">
                   {editField === "name" && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      <label className="block text-sm font-medium text-foreground mb-1.5">
                         Nombre de la cuenta
                       </label>
                       <input
                         type="text"
                         value={editValue}
                         onChange={(e) => handleNameChange(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+                        className="w-full px-4 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
                       />
                       {derivedSlug && (
                         <div className="mt-2 flex items-center gap-2">
-                          <span className="text-xs text-gray-400">URL:</span>
-                          <span className="text-xs font-mono text-gray-600">/{derivedSlug}</span>
+                          <span className="text-xs text-muted-foreground">URL:</span>
+                          <span className="text-xs font-mono text-muted-foreground">/{derivedSlug}</span>
                           {checkingSlug && (
-                            <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
                           )}
                           {!checkingSlug && slugAvailable === true && (
                             <span className="text-xs text-green-600 font-medium">✓ Disponible</span>
@@ -277,10 +277,10 @@ export function GeneralCard() {
 
                   {editField === "icon" && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                      <label className="block text-sm font-medium text-foreground mb-3">
                         Sube un ícono cuadrado (recomendado 128×128px)
                       </label>
-                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center">
+                      <div className="border-2 border-dashed border-border rounded-xl p-6 text-center">
                         {filePreview ? (
                           <img
                             src={filePreview}
@@ -288,7 +288,7 @@ export function GeneralCard() {
                             className="mx-auto h-20 object-contain mb-3"
                           />
                         ) : (
-                          <Upload className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+                          <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
                         )}
                         <label className="inline-block cursor-pointer px-4 py-2 bg-brand-50 text-brand-700 text-sm font-medium rounded-lg hover:bg-brand-100 transition-colors">
                           Seleccionar archivo
@@ -300,7 +300,7 @@ export function GeneralCard() {
                           />
                         </label>
                         {selectedFile && (
-                          <p className="text-xs text-gray-400 mt-2">{selectedFile.name}</p>
+                          <p className="text-xs text-muted-foreground mt-2">{selectedFile.name}</p>
                         )}
                       </div>
                     </div>
@@ -308,7 +308,7 @@ export function GeneralCard() {
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-3">
+                <div className="px-6 py-4 border-t border-border bg-muted flex items-center justify-end gap-3">
                   <Button onClick={closeEdit} variant="outline" size="sm">
                     Cancelar
                   </Button>

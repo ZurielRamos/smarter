@@ -41,10 +41,10 @@ export function ColumnConfigModal({
       >
         <div className="flex items-center justify-between mb-4 shrink-0">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Configurar tabla</h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">Arrastra para reordenar. Los cambios se aplican al aceptar.</p>
+            <h3 className="text-sm font-semibold text-foreground">Configurar tabla</h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Arrastra para reordenar. Los cambios se aplican al aceptar.</p>
           </div>
-          <button onClick={onCancel} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+          <button onClick={onCancel} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -69,18 +69,18 @@ export function ColumnConfigModal({
               <Reorder.Item
                 key={col.key}
                 value={col}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-100 shadow-sm cursor-grab active:cursor-grabbing active:shadow-md active:border-brand-200"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border border-border shadow-sm cursor-grab active:cursor-grabbing active:shadow-md active:border-brand-200"
                 whileDrag={{ scale: 1.02, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
               >
-                <svg className="h-4 w-4 text-gray-300 shrink-0" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/><circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/><circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/></svg>
-                <span className="text-sm text-gray-700 flex-1">{col.label}</span>
+                <svg className="h-4 w-4 text-muted-foreground shrink-0" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/><circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/><circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/></svg>
+                <span className="text-sm text-foreground flex-1">{col.label}</span>
                 {col.key.startsWith("custom_") && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-500 font-medium">Custom</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-500/10 text-purple-500 dark:text-purple-400 font-medium">Custom</span>
                 )}
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => setTempColumns(tempColumns.filter((c) => c.key !== col.key))}
-                  className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
+                  className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -90,8 +90,8 @@ export function ColumnConfigModal({
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 mt-4 pt-3 border-t border-gray-100 shrink-0">
-          <button onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors font-medium">
+        <div className="flex justify-end gap-3 mt-4 pt-3 border-t border-border shrink-0">
+          <button onClick={onCancel} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors font-medium">
             Cancelar
           </button>
           <button
@@ -116,7 +116,7 @@ function ColumnAddSelector({ available, onAdd }: { available: ColumnDef[]; onAdd
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-dashed border-gray-200 hover:border-brand-300 text-xs text-gray-500 hover:text-brand-600 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-dashed border-border hover:border-brand-300 text-xs text-muted-foreground hover:text-brand-600 transition-colors"
       >
         <span>+ Agregar columna</span>
       </button>
@@ -126,40 +126,40 @@ function ColumnAddSelector({ available, onAdd }: { available: ColumnDef[]; onAdd
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50 max-h-52 overflow-auto"
+            className="absolute left-0 right-0 top-full mt-1 bg-popover text-popover-foreground rounded-lg border border-border shadow-lg py-1 z-50 max-h-52 overflow-auto"
           >
             {systemAvailable.length > 0 && (
               <>
-                <p className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase bg-gray-50">Sistema</p>
+                <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase bg-muted">Sistema</p>
                 {systemAvailable.map((col) => (
                   <button
                     key={col.key}
                     onClick={() => { onAdd(col.key); setOpen(false); }}
-                    className="w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                    className="w-full px-3 py-2 text-left text-xs text-foreground hover:bg-muted transition-colors flex items-center justify-between"
                   >
                     <span>{col.label}</span>
-                    <span className="text-[10px] text-gray-400 font-mono">{col.key}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">{col.key}</span>
                   </button>
                 ))}
               </>
             )}
             {customAvailable.length > 0 && (
               <>
-                <p className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase bg-gray-50">Personalizados</p>
+                <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase bg-muted">Personalizados</p>
                 {customAvailable.map((col) => (
                   <button
                     key={col.key}
                     onClick={() => { onAdd(col.key); setOpen(false); }}
-                    className="w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                    className="w-full px-3 py-2 text-left text-xs text-foreground hover:bg-muted transition-colors flex items-center justify-between"
                   >
                     <span>{col.label}</span>
-                    <span className="text-[10px] text-purple-500 font-mono">{col.key.replace("custom_", "")}</span>
+                    <span className="text-[10px] text-purple-500 dark:text-purple-400 font-mono">{col.key.replace("custom_", "")}</span>
                   </button>
                 ))}
               </>
             )}
             {available.length === 0 && (
-              <p className="px-3 py-2 text-xs text-gray-400">Todas las columnas ya están agregadas</p>
+              <p className="px-3 py-2 text-xs text-muted-foreground">Todas las columnas ya están agregadas</p>
             )}
           </motion.div>
         )}

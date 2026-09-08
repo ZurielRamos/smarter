@@ -26,7 +26,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }>
   PENDING: { label: "En revisión", color: "bg-yellow-50 text-yellow-700 border-yellow-200", icon: Clock },
   REJECTED: { label: "Rechazada", color: "bg-red-50 text-red-700 border-red-200", icon: XCircle },
   PAUSED: { label: "Pausada", color: "bg-orange-50 text-orange-700 border-orange-200", icon: Pause },
-  DISABLED: { label: "Desactivada", color: "bg-gray-50 text-gray-700 border-gray-200", icon: XCircle },
+  DISABLED: { label: "Desactivada", color: "bg-muted text-foreground border-border", icon: XCircle },
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -64,14 +64,14 @@ function CustomSelect({ value, onChange, options, placeholder, compact }: {
 
   return (
     <div ref={ref} className="relative">
-      <button onClick={() => setOpen(!open)} className={`flex items-center justify-between gap-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition-colors ${compact ? "px-3 py-1.5 min-w-[120px]" : "w-full px-3 py-2.5"}`}>
-        <span className={selected && selected.value !== "all" ? "text-gray-900" : "text-gray-500"}>{selected?.label || placeholder}</span>
-        <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      <button onClick={() => setOpen(!open)} className={`flex items-center justify-between gap-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted transition-colors ${compact ? "px-3 py-1.5 min-w-[120px]" : "w-full px-3 py-2.5"}`}>
+        <span className={selected && selected.value !== "all" ? "text-foreground" : "text-muted-foreground"}>{selected?.label || placeholder}</span>
+        <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute z-20 mt-1 w-full min-w-[160px] bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-[200px] overflow-y-auto">
+        <div className="absolute z-20 mt-1 w-full min-w-[160px] bg-card border border-border rounded-lg shadow-lg py-1 max-h-[200px] overflow-y-auto">
           {options.map((opt) => (
-            <button key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); }} className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors ${value === opt.value ? "text-brand-700 font-medium bg-brand-50/50" : "text-gray-700"}`}>
+            <button key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); }} className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors ${value === opt.value ? "text-brand-700 font-medium bg-brand-50/50" : "text-foreground"}`}>
               {opt.label}
             </button>
           ))}
@@ -86,7 +86,7 @@ function Tooltip({ text }: { text: string }) {
   const [show, setShow] = useState(false);
   return (
     <span className="relative inline-flex">
-      <button type="button" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)} onClick={() => setShow(!show)} className="p-0.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+      <button type="button" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)} onClick={() => setShow(!show)} className="p-0.5 rounded-full text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors">
         <HelpCircle className="h-3.5 w-3.5" />
       </button>
       {show && (
@@ -119,17 +119,17 @@ function AddButtonDropdown({ onAdd }: { onAdd: (type: string) => void }) {
 
   return (
     <div ref={ref} className="relative mt-3">
-      <button onClick={() => setOpen(!open)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 font-medium transition-colors">
-        <Plus className="h-3.5 w-3.5" /> Agregar botón <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      <button onClick={() => setOpen(!open)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted font-medium transition-colors">
+        <Plus className="h-3.5 w-3.5" /> Agregar botón <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute z-20 bottom-full left-0 mb-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg py-1 overflow-hidden">
+        <div className="absolute z-20 bottom-full left-0 mb-1 w-72 bg-card border border-border rounded-xl shadow-lg py-1 overflow-hidden">
           {options.map(({ type, label, desc, icon: Icon }) => (
-            <button key={type} onClick={() => { onAdd(type); setOpen(false); }} className="w-full flex items-start gap-3 px-4 py-2.5 text-left hover:bg-gray-50 transition-colors">
-              <Icon className="h-4 w-4 text-gray-500 mt-0.5 shrink-0" />
+            <button key={type} onClick={() => { onAdd(type); setOpen(false); }} className="w-full flex items-start gap-3 px-4 py-2.5 text-left hover:bg-muted transition-colors">
+              <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm text-gray-900 font-medium">{label}</p>
-                <p className="text-[11px] text-gray-500">{desc}</p>
+                <p className="text-sm text-foreground font-medium">{label}</p>
+                <p className="text-[11px] text-muted-foreground">{desc}</p>
               </div>
             </button>
           ))}
@@ -157,19 +157,19 @@ function TemplatePreview({ headerType, headerText, bodyText, footerText, buttons
   return (
     <div className="rounded-xl bg-[#e5ddd5] p-4 flex items-center justify-center min-h-[300px]">
       <div className="w-[260px]">
-        <div className="bg-white rounded-lg shadow-sm p-3 space-y-1.5">
-          {headerType === "text" && previewHeader && <p className="text-sm font-semibold text-gray-900">{previewHeader}</p>}
-          {headerType === "image" && (headerMediaPreview ? <img src={headerMediaPreview} alt="Header" className="w-full h-28 object-cover rounded" /> : <div className="h-28 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">[Imagen]</div>)}
-          {headerType === "video" && <div className="h-28 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">[Video]</div>}
-          {headerType === "document" && <div className="h-12 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-500">[Documento]</div>}
-          {previewBody ? <p className="text-[13px] text-gray-800 whitespace-pre-wrap">{previewBody}</p> : <p className="text-[13px] text-gray-300 italic">Cuerpo del mensaje...</p>}
-          {footerText && <p className="text-[11px] text-gray-400">{footerText}</p>}
-          <p className="text-[10px] text-gray-300 text-right">11:59</p>
+        <div className="bg-card rounded-lg shadow-sm p-3 space-y-1.5">
+          {headerType === "text" && previewHeader && <p className="text-sm font-semibold text-foreground">{previewHeader}</p>}
+          {headerType === "image" && (headerMediaPreview ? <img src={headerMediaPreview} alt="Header" className="w-full h-28 object-cover rounded" /> : <div className="h-28 bg-gray-200 rounded flex items-center justify-center text-xs text-muted-foreground">[Imagen]</div>)}
+          {headerType === "video" && <div className="h-28 bg-gray-200 rounded flex items-center justify-center text-xs text-muted-foreground">[Video]</div>}
+          {headerType === "document" && <div className="h-12 bg-muted rounded flex items-center justify-center text-xs text-muted-foreground">[Documento]</div>}
+          {previewBody ? <p className="text-[13px] text-foreground whitespace-pre-wrap">{previewBody}</p> : <p className="text-[13px] text-muted-foreground italic">Cuerpo del mensaje...</p>}
+          {footerText && <p className="text-[11px] text-muted-foreground">{footerText}</p>}
+          <p className="text-[10px] text-muted-foreground text-right">11:59</p>
         </div>
         {buttons.length > 0 && (
           <div className="mt-1 space-y-0.5">
             {buttons.map((btn, i) => (
-              <div key={i} className="bg-white rounded-lg shadow-sm px-3 py-2 text-center text-[13px] text-blue-600 font-medium">{btn.text || "Botón"}</div>
+              <div key={i} className="bg-card rounded-lg shadow-sm px-3 py-2 text-center text-[13px] text-blue-600 font-medium">{btn.text || "Botón"}</div>
             ))}
           </div>
         )}
@@ -266,24 +266,24 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-white flex flex-col">
+    <div className="fixed inset-0 z-50 bg-card flex flex-col">
       {/* Header with stepper */}
-      <div className="border-b border-gray-200 px-6 py-3 flex items-center justify-between shrink-0">
-        <h2 className="text-sm font-semibold text-gray-900">Crear plantilla</h2>
+      <div className="border-b border-border px-6 py-3 flex items-center justify-between shrink-0">
+        <h2 className="text-sm font-semibold text-foreground">Crear plantilla</h2>
         <div className="flex items-center gap-0">
           {STEPS.map(({ n, label }, idx) => (
             <div key={n} className="flex items-center">
               {idx > 0 && <div className="w-4 h-px bg-gray-300 mx-1" />}
-              <button onClick={() => { if (n < step) setStep(n); }} className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${step === n ? "" : "hover:bg-gray-50"}`}>
-                <span className={`h-5 w-5 rounded-full flex items-center justify-center text-[11px] font-semibold ${step === n ? "bg-gray-900 text-white" : step > n ? "bg-green-600 text-white" : "bg-gray-200 text-gray-500"}`}>
+              <button onClick={() => { if (n < step) setStep(n); }} className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${step === n ? "" : "hover:bg-muted"}`}>
+                <span className={`h-5 w-5 rounded-full flex items-center justify-center text-[11px] font-semibold ${step === n ? "bg-gray-900 text-white" : step > n ? "bg-green-600 text-white" : "bg-gray-200 text-muted-foreground"}`}>
                   {step > n ? <CheckCircle2 className="h-3 w-3" /> : n}
                 </span>
-                <span className={`text-xs font-medium hidden md:inline ${step === n ? "text-gray-900" : "text-gray-500"}`}>{label}</span>
+                <span className={`text-xs font-medium hidden md:inline ${step === n ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
               </button>
             </div>
           ))}
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100"><X className="h-4 w-4 text-gray-500" /></button>
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted"><X className="h-4 w-4 text-muted-foreground" /></button>
       </div>
 
       {/* Body */}
@@ -294,11 +294,11 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
             {step === 1 && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Configura tu plantilla</h3>
-                  <p className="text-sm text-gray-500">Elige la categoría y el nombre para tu plantilla de mensaje.</p>
+                  <h3 className="text-lg font-semibold text-foreground mb-1">Configura tu plantilla</h3>
+                  <p className="text-sm text-muted-foreground">Elige la categoría y el nombre para tu plantilla de mensaje.</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Categoría</label>
+                  <label className="block text-sm font-medium text-foreground mb-3">Categoría</label>
                   <div className="grid grid-cols-3 gap-3">
                     {([
                       { id: "MARKETING", label: "Marketing", icon: Megaphone, desc: "Contenido promocional y ofertas para captar clientes.", color: "text-purple-600" },
@@ -307,10 +307,10 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                     ]).map((cat) => {
                       const Icon = cat.icon;
                       return (
-                        <button key={cat.id} onClick={() => setCategory(cat.id)} className={`p-4 rounded-xl border-2 text-left transition-all ${category === cat.id ? "border-brand-500 bg-brand-50/50 ring-1 ring-brand-200" : "border-gray-200 hover:border-gray-300"}`}>
+                        <button key={cat.id} onClick={() => setCategory(cat.id)} className={`p-4 rounded-xl border-2 text-left transition-all ${category === cat.id ? "border-brand-500 bg-brand-50/50 ring-1 ring-brand-200" : "border-border hover:border-border"}`}>
                           <Icon className={`h-5 w-5 ${cat.color}`} />
-                          <p className="text-sm font-semibold text-gray-900 mt-2">{cat.label}</p>
-                          <p className="text-[11px] text-gray-500 mt-1">{cat.desc}</p>
+                          <p className="text-sm font-semibold text-foreground mt-2">{cat.label}</p>
+                          <p className="text-[11px] text-muted-foreground mt-1">{cat.desc}</p>
                         </button>
                       );
                     })}
@@ -318,12 +318,12 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de la plantilla</label>
-                    <input type="text" value={name} onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_"))} placeholder="mi_plantilla" className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                    <p className="text-[11px] text-gray-400 mt-1">Minúsculas, números y guiones bajos.</p>
+                    <label className="block text-sm font-medium text-foreground mb-1">Nombre de la plantilla</label>
+                    <input type="text" value={name} onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_"))} placeholder="mi_plantilla" className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                    <p className="text-[11px] text-muted-foreground mt-1">Minúsculas, números y guiones bajos.</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Idioma</label>
+                    <label className="block text-sm font-medium text-foreground mb-1">Idioma</label>
                     <CustomSelect value={language} onChange={setLanguage} options={LANGUAGES.map(l => ({ value: l.code, label: l.label }))} placeholder="Selecciona idioma" />
                   </div>
                 </div>
@@ -336,19 +336,19 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                 <div className="flex items-center gap-3">
                   <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center"><FileText className="h-4 w-4 text-green-600" /></div>
                   <div>
-                    <h3 className="text-base font-semibold text-gray-900">{name}</h3>
-                    <p className="text-[11px] text-gray-400">{category} · {LANGUAGES.find(l => l.code === language)?.label}</p>
+                    <h3 className="text-base font-semibold text-foreground">{name}</h3>
+                    <p className="text-[11px] text-muted-foreground">{category} · {LANGUAGES.find(l => l.code === language)?.label}</p>
                   </div>
                 </div>
 
                 {/* Header section */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="bg-card rounded-xl border border-border p-5">
                   <div className="flex items-center gap-1.5 mb-1">
-                    <label className="text-sm font-medium text-gray-700">Encabezado</label>
-                    <span className="text-xs text-gray-400 font-normal">· Opcional</span>
+                    <label className="text-sm font-medium text-foreground">Encabezado</label>
+                    <span className="text-xs text-muted-foreground font-normal">· Opcional</span>
                     <Tooltip text="El encabezado aparece en la parte superior del mensaje. Puede ser texto corto o contenido multimedia que capture la atención." />
                   </div>
-                  <p className="text-[11px] text-gray-500 mb-3">Agrega un título o contenido multimedia que se muestra encima del cuerpo del mensaje.</p>
+                  <p className="text-[11px] text-muted-foreground mb-3">Agrega un título o contenido multimedia que se muestra encima del cuerpo del mensaje.</p>
                   <div className="flex gap-2 mb-3 flex-wrap">
                     {([
                       { key: "none", label: "Ninguno", icon: XCircle },
@@ -357,7 +357,7 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                       { key: "video", label: "Video", icon: PlayCircle },
                       { key: "document", label: "Documento", icon: FileText },
                     ] as const).map(({ key, label, icon: Icon }) => (
-                      <button key={key} onClick={() => setHeaderType(key)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${headerType === key ? "border-brand-500 bg-brand-50 text-brand-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                      <button key={key} onClick={() => setHeaderType(key)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${headerType === key ? "border-brand-500 bg-brand-50 text-brand-700" : "border-border text-muted-foreground hover:bg-muted"}`}>
                         <Icon className="h-3.5 w-3.5" />
                         {label}
                       </button>
@@ -365,25 +365,25 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                   </div>
                   {headerType === "text" && (
                     <div>
-                      <input type="text" value={headerText} onChange={(e) => setHeaderText(e.target.value)} placeholder="Ej: ¡Hola! Tenemos una oferta para ti" maxLength={60} className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                      <input type="text" value={headerText} onChange={(e) => setHeaderText(e.target.value)} placeholder="Ej: ¡Hola! Tenemos una oferta para ti" maxLength={60} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                       <div className="flex justify-between mt-1">
-                        <p className="text-[10px] text-gray-400">Texto breve y llamativo. Máximo 60 caracteres.</p>
-                        <span className="text-[10px] text-gray-400">{headerText.length}/60</span>
+                        <p className="text-[10px] text-muted-foreground">Texto breve y llamativo. Máximo 60 caracteres.</p>
+                        <span className="text-[10px] text-muted-foreground">{headerText.length}/60</span>
                       </div>
                       {headerText.match(/\{\{\d+\}\}/g) && (
                         <div className="mt-2 flex items-center gap-2">
-                          <span className="text-[11px] text-gray-500 font-mono shrink-0">{"{{1}}"}</span>
-                          <input type="text" value={headerExample} onChange={(e) => setHeaderExample(e.target.value)} placeholder="Ejemplo para la variable del encabezado" className="flex-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                          <span className="text-[11px] text-muted-foreground font-mono shrink-0">{"{{1}}"}</span>
+                          <input type="text" value={headerExample} onChange={(e) => setHeaderExample(e.target.value)} placeholder="Ejemplo para la variable del encabezado" className="flex-1 px-2.5 py-1.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                         </div>
                       )}
                     </div>
                   )}
                   {["image", "video", "document"].includes(headerType) && (
                     <div className="space-y-2">
-                      <p className="text-[11px] text-gray-500">Sube un archivo de ejemplo. Meta lo revisará como parte de la aprobación de la plantilla.</p>
+                      <p className="text-[11px] text-muted-foreground">Sube un archivo de ejemplo. Meta lo revisará como parte de la aprobación de la plantilla.</p>
                       {headerMediaPreview && headerType === "image" ? (
                         <div className="relative w-fit">
-                          <img src={headerMediaPreview} alt="Preview" className="h-24 rounded-lg border border-gray-200 object-cover" />
+                          <img src={headerMediaPreview} alt="Preview" className="h-24 rounded-lg border border-border object-cover" />
                           <button onClick={() => { setHeaderMediaHandle(""); setHeaderMediaPreview(""); }} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center"><X className="h-3 w-3" /></button>
                         </div>
                       ) : headerMediaHandle ? (
@@ -393,16 +393,16 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                           <button onClick={() => { setHeaderMediaHandle(""); setHeaderMediaPreview(""); }} className="ml-auto p-1 rounded hover:bg-green-100 text-green-600"><X className="h-3 w-3" /></button>
                         </div>
                       ) : (
-                        <label className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-dashed border-gray-300 hover:border-brand-400 hover:bg-brand-50/20 cursor-pointer transition-colors">
+                        <label className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-dashed border-border hover:border-brand-400 hover:bg-brand-50/20 cursor-pointer transition-colors">
                           {headerMediaUploading ? (
-                            <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                           ) : (
                             <>
-                              <Upload className="h-5 w-5 text-gray-400 mb-1" />
-                              <p className="text-xs text-gray-600 font-medium">
+                              <Upload className="h-5 w-5 text-muted-foreground mb-1" />
+                              <p className="text-xs text-muted-foreground font-medium">
                                 {headerType === "image" ? "Subir imagen (JPG, PNG)" : headerType === "video" ? "Subir video (MP4)" : "Subir documento (PDF)"}
                               </p>
-                              <p className="text-[10px] text-gray-400 mt-0.5">Arrastra o haz clic para seleccionar</p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">Arrastra o haz clic para seleccionar</p>
                             </>
                           )}
                           <input type="file" className="hidden" accept={headerType === "image" ? "image/jpeg,image/png" : headerType === "video" ? "video/mp4" : "application/pdf"} onChange={async (e) => {
@@ -428,24 +428,24 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                 </div>
 
                 {/* Body section */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="bg-card rounded-xl border border-border p-5">
                   <div className="flex items-center gap-1.5 mb-1">
-                    <label className="text-sm font-medium text-gray-700">Cuerpo</label>
+                    <label className="text-sm font-medium text-foreground">Cuerpo</label>
                     <span className="text-xs text-red-500">*</span>
                     <Tooltip text="El cuerpo es el contenido principal que verá tu cliente. Usa variables como {{1}} para personalizar cada mensaje con datos del contacto (nombre, número de pedido, etc)." />
                   </div>
-                  <p className="text-[11px] text-gray-500 mb-3">Escribe el contenido principal de tu mensaje. Usa variables para personalizar con datos de cada contacto.</p>
+                  <p className="text-[11px] text-muted-foreground mb-3">Escribe el contenido principal de tu mensaje. Usa variables para personalizar con datos de cada contacto.</p>
                   <div className="relative">
-                    <textarea value={bodyText} onChange={(e) => setBodyText(e.target.value)} placeholder="Ej: Hola {{1}}, tu pedido #{{2}} está listo para recoger en nuestra tienda. ¡Te esperamos!" rows={6} maxLength={1024} className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
-                    <span className="absolute bottom-2 right-2 text-[10px] text-gray-400">{bodyText.length}/1024</span>
+                    <textarea value={bodyText} onChange={(e) => setBodyText(e.target.value)} placeholder="Ej: Hola {{1}}, tu pedido #{{2}} está listo para recoger en nuestra tienda. ¡Te esperamos!" rows={6} maxLength={1024} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
+                    <span className="absolute bottom-2 right-2 text-[10px] text-muted-foreground">{bodyText.length}/1024</span>
                   </div>
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-1">
-                      <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400" title="Negrita: *texto*"><Bold className="h-3.5 w-3.5" /></button>
-                      <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400" title="Cursiva: _texto_"><Italic className="h-3.5 w-3.5" /></button>
-                      <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400" title="Tachado: ~texto~"><Strikethrough className="h-3.5 w-3.5" /></button>
-                      <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400" title="Código: ```texto```"><Code className="h-3.5 w-3.5" /></button>
-                      <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400" title="Insertar emoji"><Smile className="h-3.5 w-3.5" /></button>
+                      <button className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Negrita: *texto*"><Bold className="h-3.5 w-3.5" /></button>
+                      <button className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Cursiva: _texto_"><Italic className="h-3.5 w-3.5" /></button>
+                      <button className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Tachado: ~texto~"><Strikethrough className="h-3.5 w-3.5" /></button>
+                      <button className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Código: ```texto```"><Code className="h-3.5 w-3.5" /></button>
+                      <button className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Insertar emoji"><Smile className="h-3.5 w-3.5" /></button>
                     </div>
                     <button onClick={insertVariable} className="text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1">
                       <Plus className="h-3 w-3" /> Agregar variable
@@ -464,7 +464,7 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                               value={bodyExamples[i] || ""}
                               onChange={(e) => { const u = [...bodyExamples]; u[i] = e.target.value; setBodyExamples(u); }}
                               placeholder={i === 0 ? "Ej: Juan" : i === 1 ? "Ej: 12345" : `Ejemplo para ${v}`}
-                              className="flex-1 px-2.5 py-1.5 rounded-lg border border-blue-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                              className="flex-1 px-2.5 py-1.5 rounded-lg border border-blue-200 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                             />
                           </div>
                         ))}
@@ -474,124 +474,124 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                 </div>
 
                 {/* Footer section */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="bg-card rounded-xl border border-border p-5">
                   <div className="flex items-center gap-1.5 mb-1">
-                    <label className="text-sm font-medium text-gray-700">Pie de página</label>
-                    <span className="text-xs text-gray-400 font-normal">· Opcional</span>
+                    <label className="text-sm font-medium text-foreground">Pie de página</label>
+                    <span className="text-xs text-muted-foreground font-normal">· Opcional</span>
                     <Tooltip text="El pie de página aparece debajo del cuerpo en texto gris pequeño. Útil para disclaimers o información legal." />
                   </div>
-                  <p className="text-[11px] text-gray-500 mb-3">Texto breve que aparece al final del mensaje en gris. Ideal para notas o avisos legales.</p>
-                  <input type="text" value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="Ej: No responder a este mensaje" maxLength={60} className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                  <div className="text-right text-[10px] text-gray-400 mt-1">{footerText.length}/60</div>
+                  <p className="text-[11px] text-muted-foreground mb-3">Texto breve que aparece al final del mensaje en gris. Ideal para notas o avisos legales.</p>
+                  <input type="text" value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="Ej: No responder a este mensaje" maxLength={60} className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                  <div className="text-right text-[10px] text-muted-foreground mt-1">{footerText.length}/60</div>
                 </div>
 
                 {/* Buttons section */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="bg-card rounded-xl border border-border p-5">
                   <div className="flex items-center gap-1.5 mb-1">
-                    <label className="text-sm font-medium text-gray-700">Botones</label>
-                    <span className="text-xs text-gray-400 font-normal">· Opcional</span>
+                    <label className="text-sm font-medium text-foreground">Botones</label>
+                    <span className="text-xs text-muted-foreground font-normal">· Opcional</span>
                     <Tooltip text="Los botones permiten al cliente realizar acciones con un solo toque: responder, visitar un sitio web, llamar, copiar un código de oferta." />
                   </div>
-                  <p className="text-[11px] text-gray-500 mb-3">Crea botones para que los clientes puedan responder tu mensaje o realizar una acción. Si agregas más de 3, aparecerán en forma de lista.</p>
+                  <p className="text-[11px] text-muted-foreground mb-3">Crea botones para que los clientes puedan responder tu mensaje o realizar una acción. Si agregas más de 3, aparecerán en forma de lista.</p>
                   <div className="space-y-3">
                     {buttons.map((btn, i) => (
-                      <div key={i} className="p-3 rounded-lg border border-gray-200 bg-gray-50/30">
+                      <div key={i} className="p-3 rounded-lg border border-border bg-muted/30">
                         {/* URL Button */}
                         {btn.type === "URL" && (
                           <div>
-                            <p className="text-[11px] text-gray-500 font-medium mb-2">Ir al sitio web</p>
+                            <p className="text-[11px] text-muted-foreground font-medium mb-2">Ir al sitio web</p>
                             <div className="flex items-start gap-2">
                               <div className="flex-1 space-y-2">
                                 <div className="grid grid-cols-2 gap-2">
                                   <div>
-                                    <label className="text-[10px] text-gray-500 mb-0.5 block">Texto del botón</label>
+                                    <label className="text-[10px] text-muted-foreground mb-0.5 block">Texto del botón</label>
                                     <div className="relative">
-                                      <input type="text" value={btn.text} onChange={(e) => handleUpdateButton(i, "text", e.target.value)} placeholder="Visit website" maxLength={25} className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">{btn.text.length}/25</span>
+                                      <input type="text" value={btn.text} onChange={(e) => handleUpdateButton(i, "text", e.target.value)} placeholder="Visit website" maxLength={25} className="w-full px-2.5 py-1.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">{btn.text.length}/25</span>
                                     </div>
                                   </div>
                                   <div>
-                                    <label className="text-[10px] text-gray-500 mb-0.5 block">Tipo de URL</label>
+                                    <label className="text-[10px] text-muted-foreground mb-0.5 block">Tipo de URL</label>
                                     <CustomSelect value={btn.phone_number || "dynamic"} onChange={(v) => handleUpdateButton(i, "phone_number", v)} options={[{ value: "static", label: "Estática" }, { value: "dynamic", label: "Dinámica" }]} compact />
                                   </div>
                                 </div>
                                 <div>
-                                  <label className="text-[10px] text-gray-500 mb-0.5 block">URL del sitio web</label>
-                                  <input type="text" value={btn.url || ""} onChange={(e) => handleUpdateButton(i, "url", e.target.value)} placeholder="https://www.ejemplo.com/{{1}}" className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                                  <label className="text-[10px] text-muted-foreground mb-0.5 block">URL del sitio web</label>
+                                  <input type="text" value={btn.url || ""} onChange={(e) => handleUpdateButton(i, "url", e.target.value)} placeholder="https://www.ejemplo.com/{{1}}" className="w-full px-2.5 py-1.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                                 </div>
                               </div>
-                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
+                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
                             </div>
                           </div>
                         )}
                         {/* Phone Number Button */}
                         {btn.type === "PHONE_NUMBER" && (
                           <div>
-                            <p className="text-[11px] text-gray-500 font-medium mb-2">Llamar a número de teléfono</p>
+                            <p className="text-[11px] text-muted-foreground font-medium mb-2">Llamar a número de teléfono</p>
                             <div className="flex items-start gap-2">
                               <div className="flex-1">
                                 <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
                                   <div>
-                                    <label className="text-[10px] text-gray-500 mb-0.5 block">Texto del botón</label>
+                                    <label className="text-[10px] text-muted-foreground mb-0.5 block">Texto del botón</label>
                                     <div className="relative">
-                                      <input type="text" value={btn.text} onChange={(e) => handleUpdateButton(i, "text", e.target.value)} placeholder="Llamar" maxLength={25} className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">{btn.text.length}/25</span>
+                                      <input type="text" value={btn.text} onChange={(e) => handleUpdateButton(i, "text", e.target.value)} placeholder="Llamar" maxLength={25} className="w-full px-2.5 py-1.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">{btn.text.length}/25</span>
                                     </div>
                                   </div>
                                   <div>
-                                    <label className="text-[10px] text-gray-500 mb-0.5 block">País</label>
+                                    <label className="text-[10px] text-muted-foreground mb-0.5 block">País</label>
                                     <CustomSelect value="CO" onChange={() => {}} options={[{ value: "CO", label: "CO +57" }, { value: "US", label: "US +1" }, { value: "MX", label: "MX +52" }, { value: "ES", label: "ES +34" }]} compact />
                                   </div>
                                   <div>
-                                    <label className="text-[10px] text-gray-500 mb-0.5 block">Número de teléfono</label>
+                                    <label className="text-[10px] text-muted-foreground mb-0.5 block">Número de teléfono</label>
                                     <div className="relative">
-                                      <input type="text" value={btn.phone_number || ""} onChange={(e) => handleUpdateButton(i, "phone_number", e.target.value)} placeholder="3001234567" maxLength={20} className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">{(btn.phone_number || "").length}/20</span>
+                                      <input type="text" value={btn.phone_number || ""} onChange={(e) => handleUpdateButton(i, "phone_number", e.target.value)} placeholder="3001234567" maxLength={20} className="w-full px-2.5 py-1.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">{(btn.phone_number || "").length}/20</span>
                                     </div>
                                   </div>
                                 </div>
                               </div>
-                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
+                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
                             </div>
                           </div>
                         )}
                         {/* Copy Code Button */}
                         {btn.type === "COPY_CODE" && (
                           <div>
-                            <p className="text-[11px] text-gray-500 font-medium mb-2">Copiar código de oferta</p>
+                            <p className="text-[11px] text-muted-foreground font-medium mb-2">Copiar código de oferta</p>
                             <div className="flex items-start gap-2">
                               <div className="flex-1">
                                 <div className="grid grid-cols-2 gap-2">
                                   <div>
-                                    <label className="text-[10px] text-gray-500 mb-0.5 block">Texto del botón</label>
-                                    <input type="text" value="Copy offer code" disabled className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-sm bg-gray-50 text-gray-500" />
+                                    <label className="text-[10px] text-muted-foreground mb-0.5 block">Texto del botón</label>
+                                    <input type="text" value="Copy offer code" disabled className="w-full px-2.5 py-1.5 rounded-lg border border-border text-sm bg-muted text-muted-foreground" />
                                   </div>
                                   <div>
-                                    <label className="text-[10px] text-gray-500 mb-0.5 block">Código de oferta</label>
+                                    <label className="text-[10px] text-muted-foreground mb-0.5 block">Código de oferta</label>
                                     <div className="relative">
-                                      <input type="text" value={btn.text} onChange={(e) => handleUpdateButton(i, "text", e.target.value)} placeholder="Ingresa una muestra" maxLength={20} className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">{btn.text.length}/20</span>
+                                      <input type="text" value={btn.text} onChange={(e) => handleUpdateButton(i, "text", e.target.value)} placeholder="Ingresa una muestra" maxLength={20} className="w-full px-2.5 py-1.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">{btn.text.length}/20</span>
                                     </div>
                                   </div>
                                 </div>
                               </div>
-                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
+                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
                             </div>
                           </div>
                         )}
                         {/* Quick Reply Button */}
                         {btn.type === "QUICK_REPLY" && (
                           <div>
-                            <p className="text-[11px] text-gray-500 font-medium mb-2">Respuesta preconfigurada</p>
+                            <p className="text-[11px] text-muted-foreground font-medium mb-2">Respuesta preconfigurada</p>
                             <div className="flex items-center gap-2">
                               <div className="flex-1">
-                                <label className="text-[10px] text-gray-500 mb-0.5 block">Texto del botón</label>
+                                <label className="text-[10px] text-muted-foreground mb-0.5 block">Texto del botón</label>
                                 <div className="relative">
-                                  <input type="text" value={btn.text} onChange={(e) => handleUpdateButton(i, "text", e.target.value)} placeholder="Texto de respuesta" maxLength={25} className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">{btn.text.length}/25</span>
+                                  <input type="text" value={btn.text} onChange={(e) => handleUpdateButton(i, "text", e.target.value)} placeholder="Texto de respuesta" maxLength={25} className="w-full px-2.5 py-1.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">{btn.text.length}/25</span>
                                 </div>
                               </div>
-                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
+                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
                             </div>
                           </div>
                         )}
@@ -607,16 +607,16 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
             {step === 3 && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Enviar para revisión</h3>
-                  <p className="text-sm text-gray-500">Revisa tu plantilla. Meta la revisará y te notificará cuando esté aprobada.</p>
+                  <h3 className="text-lg font-semibold text-foreground mb-1">Enviar para revisión</h3>
+                  <p className="text-sm text-muted-foreground">Revisa tu plantilla. Meta la revisará y te notificará cuando esté aprobada.</p>
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
-                  <h4 className="text-sm font-semibold text-gray-900">Resumen</h4>
+                <div className="bg-card rounded-xl border border-border p-5 space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground">Resumen</h4>
                   <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div><span className="text-gray-500">Nombre:</span> <span className="font-medium">{name}</span></div>
-                    <div><span className="text-gray-500">Categoría:</span> <span className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${CATEGORY_COLORS[category]}`}>{category}</span></div>
-                    <div><span className="text-gray-500">Idioma:</span> <span className="font-medium">{LANGUAGES.find(l => l.code === language)?.label}</span></div>
-                    <div><span className="text-gray-500">Botones:</span> <span className="font-medium">{buttons.length}</span></div>
+                    <div><span className="text-muted-foreground">Nombre:</span> <span className="font-medium">{name}</span></div>
+                    <div><span className="text-muted-foreground">Categoría:</span> <span className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${CATEGORY_COLORS[category]}`}>{category}</span></div>
+                    <div><span className="text-muted-foreground">Idioma:</span> <span className="font-medium">{LANGUAGES.find(l => l.code === language)?.label}</span></div>
+                    <div><span className="text-muted-foreground">Botones:</span> <span className="font-medium">{buttons.length}</span></div>
                   </div>
                 </div>
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
@@ -629,18 +629,18 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
         </div>
         {/* Right panel: Preview */}
         {step >= 2 && (
-          <div className="w-[320px] border-l border-gray-200 bg-gray-50 p-5 shrink-0 hidden lg:flex flex-col">
-            <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Vista previa</h4>
+          <div className="w-[320px] border-l border-border bg-muted p-5 shrink-0 hidden lg:flex flex-col">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-3">Vista previa</h4>
             <TemplatePreview headerType={headerType} headerText={headerText} bodyText={bodyText} footerText={footerText} buttons={buttons} bodyExamples={bodyExamples} headerExample={headerExample} headerMediaPreview={headerMediaPreview} />
           </div>
         )}
       </div>
 
       {/* Footer */}
-      <div className="border-t border-gray-200 px-6 py-3 flex items-center justify-between shrink-0">
-        <button onClick={onClose} className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 font-medium">Descartar</button>
+      <div className="border-t border-border px-6 py-3 flex items-center justify-between shrink-0">
+        <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted font-medium">Descartar</button>
         <div className="flex items-center gap-2">
-          {step > 1 && <button onClick={() => setStep(step - 1)} className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 font-medium">Anterior</button>}
+          {step > 1 && <button onClick={() => setStep(step - 1)} className="px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted font-medium">Anterior</button>}
           {step < 3 ? (
             <button onClick={() => setStep(step + 1)} disabled={step === 1 ? !canGoStep2 : !canGoStep3} className="px-5 py-2 rounded-lg bg-brand-700 text-white text-sm font-medium hover:bg-brand-600 disabled:opacity-50">Siguiente</button>
           ) : (
@@ -669,15 +669,15 @@ function DeleteTemplateModal({ template, inboxId, onClose, onDeleted }: { templa
   };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 mx-4">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-md p-6 mx-4">
         <div className="flex items-center gap-2 mb-3">
           <AlertTriangle className="h-5 w-5 text-red-500" />
-          <h3 className="text-base font-semibold text-gray-900">Eliminar plantilla</h3>
+          <h3 className="text-base font-semibold text-foreground">Eliminar plantilla</h3>
         </div>
-        <p className="text-sm text-gray-600 mb-4">¿Eliminar <strong>{template.name}</strong> ({template.language})? Se eliminarán todas las versiones en todos los idiomas.</p>
+        <p className="text-sm text-muted-foreground mb-4">¿Eliminar <strong>{template.name}</strong> ({template.language})? Se eliminarán todas las versiones en todos los idiomas.</p>
         {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg mb-3">{error}</p>}
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
+          <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted">Cancelar</button>
           <button onClick={handleDelete} disabled={deleting} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 flex items-center gap-1.5">
             {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />} Eliminar
           </button>
@@ -698,24 +698,24 @@ function TemplateDetail({ template, onClose }: { template: Template; onClose: ()
   const StatusIcon = statusCfg.icon;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col mx-4">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col mx-4">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between shrink-0">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">{template.name}</h3>
+            <h3 className="text-base font-semibold text-foreground">{template.name}</h3>
             <div className="flex items-center gap-2 mt-1">
-              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${CATEGORY_COLORS[template.category] || "bg-gray-100 text-gray-600"}`}>{template.category}</span>
-              <span className="text-[10px] text-gray-400">{template.language}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${CATEGORY_COLORS[template.category] || "bg-muted text-muted-foreground"}`}>{template.category}</span>
+              <span className="text-[10px] text-muted-foreground">{template.language}</span>
               <span className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border font-medium ${statusCfg.color}`}><StatusIcon className="h-2.5 w-2.5" /> {statusCfg.label}</span>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4 text-gray-500" /></button>
+          <button onClick={onClose} className="p-1 rounded hover:bg-muted"><X className="h-4 w-4 text-muted-foreground" /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-5">
           <TemplatePreview headerType={header?.format?.toLowerCase() || (header?.text ? "text" : "none")} headerText={header?.text || ""} bodyText={body?.text || ""} footerText={footer?.text || ""} buttons={btns?.buttons || []} />
           <div className="mt-4 space-y-2">
-            {template.quality_score?.score && <div className="flex justify-between text-xs"><span className="text-gray-500">Calidad</span><span className="font-medium">{template.quality_score.score}</span></div>}
+            {template.quality_score?.score && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Calidad</span><span className="font-medium">{template.quality_score.score}</span></div>}
             {template.rejected_reason && <div className="p-2.5 rounded-lg bg-red-50 border border-red-200"><p className="text-xs text-red-700"><strong>Rechazo:</strong> {template.rejected_reason}</p></div>}
-            <div className="flex justify-between text-xs"><span className="text-gray-500">ID</span><span className="font-mono text-gray-700">{template.id}</span></div>
+            <div className="flex justify-between text-xs"><span className="text-muted-foreground">ID</span><span className="font-mono text-foreground">{template.id}</span></div>
           </div>
         </div>
       </div>
@@ -755,15 +755,15 @@ export function WhatsAppTemplatesManager({ inboxId }: { inboxId: string }) {
 
   const uniqueStatuses = [...new Set(templates.map((t) => t.status))];
 
-  if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>;
+  if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Toolbar */}
-      <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-3 shrink-0 flex-wrap">
+      <div className="px-5 py-3 border-b border-border flex items-center gap-3 shrink-0 flex-wrap">
         <div className="relative flex-1 min-w-[180px] max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..." className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..." className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
         </div>
         <CustomSelect value={filterCategory} onChange={setFilterCategory} options={[{ value: "all", label: "Categoría" }, { value: "MARKETING", label: "Marketing" }, { value: "UTILITY", label: "Utilidad" }, { value: "AUTHENTICATION", label: "Autenticación" }]} placeholder="Categoría" compact />
         <CustomSelect value={filterStatus} onChange={setFilterStatus} options={[{ value: "all", label: "Estado" }, ...uniqueStatuses.map(s => ({ value: s, label: STATUS_CONFIG[s]?.label || s }))]} placeholder="Estado" compact />
@@ -778,18 +778,18 @@ export function WhatsAppTemplatesManager({ inboxId }: { inboxId: string }) {
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <svg className="h-8 w-8 text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" /></svg>
-            <p className="text-sm text-gray-500">{search || filterCategory !== "all" || filterStatus !== "all" ? "Sin resultados" : "No hay plantillas"}</p>
+            <svg className="h-8 w-8 text-muted-foreground mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" /></svg>
+            <p className="text-sm text-muted-foreground">{search || filterCategory !== "all" || filterStatus !== "all" ? "Sin resultados" : "No hay plantillas"}</p>
           </div>
         ) : (
           <table className="w-full text-left">
-            <thead className="bg-gray-50 border-b border-gray-100 sticky top-0">
+            <thead className="bg-muted border-b border-border sticky top-0">
               <tr>
-                <th className="px-5 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Nombre</th>
-                <th className="px-3 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Categoría</th>
-                <th className="px-3 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Idioma</th>
-                <th className="px-3 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Estado</th>
-                <th className="px-3 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Calidad</th>
+                <th className="px-5 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase">Nombre</th>
+                <th className="px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase">Categoría</th>
+                <th className="px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase">Idioma</th>
+                <th className="px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase">Estado</th>
+                <th className="px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase">Calidad</th>
                 <th className="px-3 py-2.5 w-16"></th>
               </tr>
             </thead>
@@ -799,18 +799,18 @@ export function WhatsAppTemplatesManager({ inboxId }: { inboxId: string }) {
                 const statusCfg = STATUS_CONFIG[tpl.status] || STATUS_CONFIG.APPROVED;
                 const StatusIcon = statusCfg.icon;
                 const qs = tpl.quality_score?.score;
-                const qColor = qs === "GREEN" ? "text-green-600" : qs === "YELLOW" ? "text-yellow-600" : qs === "RED" ? "text-red-600" : "text-gray-400";
+                const qColor = qs === "GREEN" ? "text-green-600" : qs === "YELLOW" ? "text-yellow-600" : qs === "RED" ? "text-red-600" : "text-muted-foreground";
                 return (
-                  <tr key={tpl.id} className="hover:bg-gray-50/50 cursor-pointer" onClick={() => setDetailTarget(tpl)}>
+                  <tr key={tpl.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => setDetailTarget(tpl)}>
                     <td className="px-5 py-3">
-                      <p className="text-sm font-medium text-gray-900">{tpl.name}</p>
-                      {body?.text && <p className="text-[11px] text-gray-400 mt-0.5 truncate max-w-[280px]">{body.text.substring(0, 60)}{body.text.length > 60 ? "..." : ""}</p>}
+                      <p className="text-sm font-medium text-foreground">{tpl.name}</p>
+                      {body?.text && <p className="text-[11px] text-muted-foreground mt-0.5 truncate max-w-[280px]">{body.text.substring(0, 60)}{body.text.length > 60 ? "..." : ""}</p>}
                     </td>
-                    <td className="px-3 py-3"><span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${CATEGORY_COLORS[tpl.category] || "bg-gray-100 text-gray-600"}`}>{tpl.category}</span></td>
-                    <td className="px-3 py-3 text-xs text-gray-600">{tpl.language}</td>
+                    <td className="px-3 py-3"><span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${CATEGORY_COLORS[tpl.category] || "bg-muted text-muted-foreground"}`}>{tpl.category}</span></td>
+                    <td className="px-3 py-3 text-xs text-muted-foreground">{tpl.language}</td>
                     <td className="px-3 py-3"><span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border font-medium ${statusCfg.color}`}><StatusIcon className="h-2.5 w-2.5" /> {statusCfg.label}</span></td>
                     <td className="px-3 py-3"><span className={`text-xs font-medium ${qColor}`}>{qs ? "●" : "—"}</span></td>
-                    <td className="px-3 py-3"><button onClick={(e) => { e.stopPropagation(); setDeleteTarget(tpl); }} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button></td>
+                    <td className="px-3 py-3"><button onClick={(e) => { e.stopPropagation(); setDeleteTarget(tpl); }} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button></td>
                   </tr>
                 );
               })}
@@ -820,8 +820,8 @@ export function WhatsAppTemplatesManager({ inboxId }: { inboxId: string }) {
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-2 border-t border-gray-100 shrink-0">
-        <p className="text-[11px] text-gray-400">Se muestran {filtered.length} plantillas (Total: {templates.length} de 250)</p>
+      <div className="px-5 py-2 border-t border-border shrink-0">
+        <p className="text-[11px] text-muted-foreground">Se muestran {filtered.length} plantillas (Total: {templates.length} de 250)</p>
       </div>
 
       {/* Modals */}

@@ -98,18 +98,18 @@ export const ChatInput = memo(function ChatInput({
   };
 
   return (
-    <div className="border-t border-gray-200 bg-white shrink-0">
+    <div className="border-t border-border bg-card shrink-0">
       {/* Tabs */}
       <div className="flex items-center px-5 pt-2">
         <button
           onClick={() => setInputMode("reply")}
-          className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${inputMode === "reply" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+          className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${inputMode === "reply" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
           Responder
         </button>
         <button
           onClick={() => setInputMode("note")}
-          className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${inputMode === "note" ? "bg-yellow-100 text-yellow-800" : "text-gray-500 hover:text-gray-700"}`}
+          className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${inputMode === "note" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300" : "text-muted-foreground hover:text-foreground"}`}
         >
           <span className="flex items-center gap-1"><StickyNote className="h-3 w-3" /> Nota privada</span>
         </button>
@@ -118,13 +118,13 @@ export const ChatInput = memo(function ChatInput({
       {/* 24h window closed alert */}
       {isWindowClosed && inputMode === "reply" ? (
         <div className="px-5 py-4">
-          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/25">
             <span className="text-amber-500 text-lg">⏱️</span>
             <div className="flex-1">
-              <p className="text-sm font-medium text-amber-800">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
                 {neverReplied ? "Esperando respuesta del contacto" : "Ventana de conversación cerrada"}
               </p>
-              <p className="text-xs text-amber-600 mt-0.5">
+              <p className="text-xs text-amber-600 dark:text-amber-300/80 mt-0.5">
                 {templatesBlocked
                   ? <>El contacto tiene desactivado el opt-in de WhatsApp. No puedes enviar plantillas; solo mensajes dentro de la ventana de 24 horas.</>
                   : neverReplied
@@ -143,15 +143,15 @@ export const ChatInput = memo(function ChatInput({
         <>
           {/* Reply preview */}
           {replyTo && inputMode === "reply" && (
-            <div className="flex items-center gap-2 mx-5 mt-2 px-3 py-2 rounded-lg bg-gray-100 border-l-3 border-brand-500">
+            <div className="flex items-center gap-2 mx-5 mt-2 px-3 py-2 rounded-lg bg-muted border-l-3 border-brand-500">
               <Reply className="h-4 w-4 text-brand-500 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-medium text-brand-600">
+                <p className="text-[10px] font-medium text-brand-600 dark:text-brand-300">
                   Respondiendo a {replyTo.direction === "outbound" ? "ti" : getDisplayName(activeConversation)}
                 </p>
-                <p className="text-xs text-gray-500 truncate">{replyTo.content || (replyTo.mediaUrl ? "📷 Foto" : `[${replyTo.messageType}]`)}</p>
+                <p className="text-xs text-muted-foreground truncate">{replyTo.content || (replyTo.mediaUrl ? "📷 Foto" : `[${replyTo.messageType}]`)}</p>
               </div>
-              <button onClick={onClearReply} className="p-1 rounded hover:bg-gray-200 text-gray-400 transition-colors">
+              <button onClick={onClearReply} className="p-1 rounded hover:bg-muted text-muted-foreground transition-colors">
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -163,20 +163,20 @@ export const ChatInput = memo(function ChatInput({
               {pendingFile.preview ? (
                 <div className="relative inline-block">
                   {pendingFile.file.type.startsWith("image/") ? (
-                    <img src={pendingFile.preview} alt="Preview" className="h-24 rounded-lg object-cover border border-gray-200" />
+                    <img src={pendingFile.preview} alt="Preview" className="h-24 rounded-lg object-cover border border-border" />
                   ) : (
-                    <video src={pendingFile.preview} className="h-24 rounded-lg border border-gray-200" />
+                    <video src={pendingFile.preview} className="h-24 rounded-lg border border-border" />
                   )}
                   <button onClick={cancelPendingFile} className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:bg-red-600 transition-colors">
                     <X className="h-3 w-3" />
                   </button>
                 </div>
               ) : (
-                <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 border border-gray-200">
+                <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-muted border border-border">
                   <FileText className="h-4 w-4 text-yellow-600 shrink-0" />
-                  <span className="text-sm text-gray-700 truncate max-w-[180px]">{pendingFile.file.name}</span>
-                  <span className="text-[11px] text-gray-400 shrink-0">{(pendingFile.file.size / 1024).toFixed(0)} KB</span>
-                  <button onClick={cancelPendingFile} className="p-0.5 rounded hover:bg-gray-200 text-gray-400 transition-colors">
+                  <span className="text-sm text-foreground truncate max-w-[180px]">{pendingFile.file.name}</span>
+                  <span className="text-[11px] text-muted-foreground shrink-0">{(pendingFile.file.size / 1024).toFixed(0)} KB</span>
+                  <button onClick={cancelPendingFile} className="p-0.5 rounded hover:bg-muted text-muted-foreground transition-colors">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -193,7 +193,7 @@ export const ChatInput = memo(function ChatInput({
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); pendingFile ? handleSendWithFile() : handleSend(); } }}
               placeholder={pendingFile ? "Añade un texto (opcional)..." : inputMode === "note" ? "Escribe una nota privada..." : "Shift + enter para nueva línea"}
               rows={1}
-              className={`w-full resize-none text-sm outline-none placeholder-gray-400 ${inputMode === "note" ? "text-yellow-800" : "text-gray-800"}`}
+              className={`w-full resize-none text-sm outline-none bg-transparent placeholder-muted-foreground ${inputMode === "note" ? "text-yellow-800 dark:text-yellow-300" : "text-foreground"}`}
               style={{ minHeight: "24px", maxHeight: "120px" }}
             />
           </div>
@@ -203,13 +203,13 @@ export const ChatInput = memo(function ChatInput({
             <div className="flex items-center gap-1">
               {/* Emoji */}
               <div className="relative">
-                <button onClick={() => setShowEmojiPicker((v) => !v)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                <button onClick={() => setShowEmojiPicker((v) => !v)} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                   <Smile className="h-4.5 w-4.5" />
                 </button>
                 {showEmojiPicker && (
-                  <div className="absolute bottom-full left-0 mb-2 p-2 bg-white rounded-xl shadow-lg border border-gray-200 grid grid-cols-10 gap-1 w-64 z-50">
+                  <div className="absolute bottom-full left-0 mb-2 p-2 bg-popover rounded-xl shadow-lg border border-border grid grid-cols-10 gap-1 w-64 z-50">
                     {QUICK_EMOJIS.map((emoji) => (
-                      <button key={emoji} onClick={() => insertEmoji(emoji)} className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 text-lg transition-colors">
+                      <button key={emoji} onClick={() => insertEmoji(emoji)} className="h-8 w-8 flex items-center justify-center rounded hover:bg-muted text-lg transition-colors">
                         {emoji}
                       </button>
                     ))}
@@ -217,12 +217,12 @@ export const ChatInput = memo(function ChatInput({
                 )}
               </div>
               {/* Image/Video */}
-              <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Enviar imagen o video">
+              <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Enviar imagen o video">
                 <Image className="h-4.5 w-4.5" />
               </button>
               <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept="image/*,video/*" />
               {/* Document */}
-              <button onClick={() => docInputRef.current?.click()} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Enviar documento">
+              <button onClick={() => docInputRef.current?.click()} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Enviar documento">
                 <FileText className="h-4.5 w-4.5" />
               </button>
               <input ref={docInputRef} type="file" className="hidden" onChange={handleFileSelect} accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" />
@@ -317,8 +317,8 @@ function AudioRecorder({ onSendAudio }: { onSendAudio: (blob: Blob, mimeType: st
 
   if (isRecording) {
     return (
-      <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-red-50 border border-red-200">
-        <button onClick={cancelRecording} className="p-1 rounded text-red-500 hover:bg-red-100 transition-colors" title="Cancelar">
+      <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-red-50 border border-red-200 dark:bg-red-500/10 dark:border-red-500/25">
+        <button onClick={cancelRecording} className="p-1 rounded text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors" title="Cancelar">
           <Trash2 className="h-4 w-4" />
         </button>
         <span className="text-xs font-mono text-red-600 w-10">{formatTime(recordingTime)}</span>
@@ -332,8 +332,8 @@ function AudioRecorder({ onSendAudio }: { onSendAudio: (blob: Blob, mimeType: st
 
   if (audioPreview) {
     return (
-      <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-brand-50 border border-brand-200">
-        <button onClick={cancelRecording} className="p-1 rounded text-gray-500 hover:bg-gray-200 transition-colors" title="Descartar">
+      <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-brand-50 border border-brand-200 dark:bg-brand-700/40 dark:border-brand-600">
+        <button onClick={cancelRecording} className="p-1 rounded text-muted-foreground hover:bg-muted transition-colors" title="Descartar">
           <Trash2 className="h-4 w-4" />
         </button>
         <audio src={audioPreview.url} controls className="h-8 max-w-[160px]" />
@@ -345,7 +345,7 @@ function AudioRecorder({ onSendAudio }: { onSendAudio: (blob: Blob, mimeType: st
   }
 
   return (
-    <button onClick={startRecording} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Grabar nota de voz">
+    <button onClick={startRecording} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Grabar nota de voz">
       <Mic className="h-4.5 w-4.5" />
     </button>
   );

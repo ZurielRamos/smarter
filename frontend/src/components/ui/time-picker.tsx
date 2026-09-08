@@ -50,21 +50,21 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
         type="button"
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex items-center gap-2 px-3 py-1.5 text-sm border rounded-lg bg-white transition-colors min-w-[120px]",
-          open ? "border-brand-400 ring-1 ring-brand-400" : "border-gray-200 hover:border-gray-300",
-          !value && "text-gray-400"
+          "flex items-center gap-2 px-3 py-1.5 text-sm border rounded-lg bg-card transition-colors min-w-[120px]",
+          open ? "border-brand-400 ring-1 ring-brand-400" : "border-border hover:border-border",
+          !value && "text-muted-foreground"
         )}
       >
-        <Clock className="h-3.5 w-3.5 text-gray-400" />
+        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
         <span>{displayValue || "Hora"}</span>
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 w-[220px]">
+        <div className="absolute z-50 top-full left-0 mt-1 bg-card border border-border rounded-xl shadow-lg p-3 w-[220px]">
           <div className="flex gap-2">
             {/* Hours */}
             <div className="flex-1">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5 text-center">Hora</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1.5 text-center">Hora</p>
               <div className="h-[180px] overflow-y-auto space-y-0.5 pr-1">
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
                   <button
@@ -75,7 +75,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
                       "w-full py-1.5 rounded-md text-sm font-medium transition-colors",
                       displayHour === h
                         ? "bg-brand-600 text-white"
-                        : "text-gray-700 hover:bg-gray-100"
+                        : "text-foreground hover:bg-muted"
                     )}
                   >
                     {h}
@@ -86,7 +86,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
 
             {/* Minutes */}
             <div className="flex-1">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5 text-center">Min</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1.5 text-center">Min</p>
               <div className="h-[180px] overflow-y-auto space-y-0.5 pr-1">
                 {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
                   <button
@@ -97,7 +97,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
                       "w-full py-1.5 rounded-md text-sm font-medium transition-colors",
                       minute === m
                         ? "bg-brand-600 text-white"
-                        : "text-gray-700 hover:bg-gray-100"
+                        : "text-foreground hover:bg-muted"
                     )}
                   >
                     {m.toString().padStart(2, "0")}
@@ -108,7 +108,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
 
             {/* AM/PM */}
             <div className="w-[50px]">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5 text-center">  </p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1.5 text-center">  </p>
               <div className="space-y-1">
                 <button
                   type="button"
@@ -117,7 +117,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
                     "w-full py-2 rounded-md text-xs font-semibold transition-colors",
                     !isPM
                       ? "bg-brand-600 text-white"
-                      : "text-gray-500 hover:bg-gray-100"
+                      : "text-muted-foreground hover:bg-muted"
                   )}
                 >
                   AM
@@ -129,7 +129,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
                     "w-full py-2 rounded-md text-xs font-semibold transition-colors",
                     isPM
                       ? "bg-brand-600 text-white"
-                      : "text-gray-500 hover:bg-gray-100"
+                      : "text-muted-foreground hover:bg-muted"
                   )}
                 >
                   PM

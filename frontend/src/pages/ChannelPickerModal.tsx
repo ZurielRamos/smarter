@@ -7,13 +7,13 @@ import type { InboxSummary, ConversationRecord } from "@/services/api";
 import { toast } from "sonner";
 
 const CHANNEL_ICONS: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string; bg: string }> = {
-  whatsapp: { icon: WhatsAppIcon, color: "text-green-600", bg: "bg-green-50" },
-  messenger: { icon: MessengerIcon, color: "text-blue-600", bg: "bg-blue-50" },
-  instagram: { icon: Camera, color: "text-pink-600", bg: "bg-pink-50" },
-  sms: { icon: MessageSquare, color: "text-sky-600", bg: "bg-sky-50" },
-  llamada: { icon: Phone, color: "text-purple-600", bg: "bg-purple-50" },
-  email: { icon: Mail, color: "text-orange-600", bg: "bg-orange-50" },
-  form: { icon: FormIcon, color: "text-purple-600", bg: "bg-purple-50" },
+  whatsapp: { icon: WhatsAppIcon, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-500/10" },
+  messenger: { icon: MessengerIcon, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-500/10" },
+  instagram: { icon: Camera, color: "text-pink-600 dark:text-pink-400", bg: "bg-pink-50 dark:bg-pink-500/10" },
+  sms: { icon: MessageSquare, color: "text-sky-600 dark:text-sky-400", bg: "bg-sky-50 dark:bg-sky-500/10" },
+  llamada: { icon: Phone, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-500/10" },
+  email: { icon: Mail, color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-500/10" },
+  form: { icon: FormIcon, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-500/10" },
 };
 
 interface Props {
@@ -83,14 +83,14 @@ export function ChannelPickerModal({ tenantId, recordId, conversations, onClose,
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">Enviar mensaje</h2>
-              <p className="text-xs text-gray-500 mt-0.5">Elige el canal para conversar con el contacto</p>
+              <h2 className="text-sm font-semibold text-foreground">Enviar mensaje</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Elige el canal para conversar con el contacto</p>
             </div>
             <button
               onClick={onClose}
-              className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
@@ -100,17 +100,17 @@ export function ChannelPickerModal({ tenantId, recordId, conversations, onClose,
           <div className="px-4 py-4 max-h-[60vh] overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : inboxes.length === 0 ? (
               <div className="text-center py-10">
-                <MessageSquare className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">No hay canales conectados</p>
+                <MessageSquare className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No hay canales conectados</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {inboxes.map((inbox) => {
-                  const info = CHANNEL_ICONS[inbox.channel] || { icon: MessageSquare, color: "text-gray-500", bg: "bg-gray-50" };
+                  const info = CHANNEL_ICONS[inbox.channel] || { icon: MessageSquare, color: "text-muted-foreground", bg: "bg-muted" };
                   const Icon = info.icon;
                   const hasConversation = existingByInbox.has(inbox.id);
                   const isBusy = selectingId === inbox.id;
@@ -119,21 +119,21 @@ export function ChannelPickerModal({ tenantId, recordId, conversations, onClose,
                       key={inbox.id}
                       onClick={() => handleSelect(inbox)}
                       disabled={!!selectingId}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:border-border hover:bg-muted transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <div className={`h-9 w-9 rounded-lg ${info.bg} flex items-center justify-center shrink-0`}>
                         <Icon className={`h-4 w-4 ${info.color}`} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{inbox.name}</p>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-sm font-medium text-foreground truncate">{inbox.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
                           {hasConversation ? "Conversación existente" : "Iniciar nueva conversación"}
                         </p>
                       </div>
                       {isBusy ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-gray-400 shrink-0" />
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
                       ) : (
-                        <ArrowRight className="h-4 w-4 text-gray-300 shrink-0" />
+                        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
                       )}
                     </button>
                   );

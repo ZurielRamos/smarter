@@ -124,7 +124,7 @@ export function EmailTemplatesManager({ inboxId, tenantId }: EmailTemplatesManag
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -134,8 +134,8 @@ export function EmailTemplatesManager({ inboxId, tenantId }: EmailTemplatesManag
       <div className="max-w-3xl">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Plantillas de Email</h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">
+            <h3 className="text-sm font-semibold text-foreground">Plantillas de Email</h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
               Crea plantillas HTML reutilizables con soporte multi-idioma
             </p>
           </div>
@@ -148,10 +148,10 @@ export function EmailTemplatesManager({ inboxId, tenantId }: EmailTemplatesManag
         </div>
 
         {templates.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-            <Mail className="h-8 w-8 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm text-gray-500 mb-1">Sin plantillas</p>
-            <p className="text-xs text-gray-400 mb-4">
+          <div className="text-center py-12 bg-muted rounded-xl border border-dashed border-border">
+            <Mail className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground mb-1">Sin plantillas</p>
+            <p className="text-xs text-muted-foreground mb-4">
               Crea tu primera plantilla de email para usarla en campañas
             </p>
             <button
@@ -166,18 +166,18 @@ export function EmailTemplatesManager({ inboxId, tenantId }: EmailTemplatesManag
             {templates.map((template) => (
               <div
                 key={template.id}
-                className="bg-white rounded-xl border border-gray-200 overflow-hidden"
+                className="bg-card rounded-xl border border-border overflow-hidden"
               >
                 <div className="flex items-center gap-3 px-4 py-3">
                   <div className="h-8 w-8 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
                     <Mail className="h-4 w-4 text-orange-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p className="text-sm font-medium text-foreground truncate">
                       {template.name}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <Globe className="h-3 w-3 text-gray-400" />
+                      <Globe className="h-3 w-3 text-muted-foreground" />
                       <div className="flex items-center gap-1">
                         {template.translations.map((t) => (
                           <span
@@ -185,7 +185,7 @@ export function EmailTemplatesManager({ inboxId, tenantId }: EmailTemplatesManag
                             className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
                               t.language === template.defaultLanguage
                                 ? "bg-brand-50 text-brand-700"
-                                : "bg-gray-100 text-gray-500"
+                                : "bg-muted text-muted-foreground"
                             }`}
                           >
                             {t.language.toUpperCase()}
@@ -199,28 +199,28 @@ export function EmailTemplatesManager({ inboxId, tenantId }: EmailTemplatesManag
                       onClick={() =>
                         togglePreview(template.id, template.defaultLanguage)
                       }
-                      className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-muted-foreground transition-colors"
                       title="Vista previa"
                     >
                       <Eye className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => handleCopyHtml(template)}
-                      className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-muted-foreground transition-colors"
                       title="Copiar HTML"
                     >
                       <Copy className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => handleAddTranslation(template)}
-                      className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-muted-foreground transition-colors"
                       title="Agregar idioma"
                     >
                       <Globe className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => handleEdit(template)}
-                      className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-muted-foreground transition-colors"
                       title="Editar"
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -228,7 +228,7 @@ export function EmailTemplatesManager({ inboxId, tenantId }: EmailTemplatesManag
                     <button
                       onClick={() => setConfirmDeleteId(template.id)}
                       disabled={deleting === template.id}
-                      className="p-1.5 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                      className="p-1.5 rounded-md hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-50"
                       title="Eliminar"
                     >
                       {deleting === template.id ? (
@@ -242,13 +242,13 @@ export function EmailTemplatesManager({ inboxId, tenantId }: EmailTemplatesManag
 
                 {/* Translation list */}
                 {template.translations.length > 1 && (
-                  <div className="border-t border-gray-100 px-4 py-2 bg-gray-50/50">
+                  <div className="border-t border-border px-4 py-2 bg-muted/50">
                     <div className="flex flex-wrap gap-2">
                       {template.translations.map((t) => (
                         <button
                           key={t.language}
                           onClick={() => handleEdit(template, t.language)}
-                          className="text-[11px] px-2 py-1 rounded-md bg-white border border-gray-200 hover:border-brand-300 hover:bg-brand-50 text-gray-600 hover:text-brand-700 transition-colors"
+                          className="text-[11px] px-2 py-1 rounded-md bg-card border border-border hover:border-brand-300 hover:bg-brand-50 text-muted-foreground hover:text-brand-700 transition-colors"
                         >
                           {getLanguageLabel(t.language)} — {t.subject}
                         </button>
@@ -259,10 +259,10 @@ export function EmailTemplatesManager({ inboxId, tenantId }: EmailTemplatesManag
 
                 {/* Preview */}
                 {previewId === template.id && previewLang && (
-                  <div className="border-t border-gray-100">
+                  <div className="border-t border-border">
                     {template.translations.length > 1 && (
-                      <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 flex items-center gap-2">
-                        <span className="text-[11px] text-gray-500">Idioma:</span>
+                      <div className="bg-muted px-4 py-2 border-b border-border flex items-center gap-2">
+                        <span className="text-[11px] text-muted-foreground">Idioma:</span>
                         {template.translations.map((t) => (
                           <button
                             key={t.language}
@@ -270,7 +270,7 @@ export function EmailTemplatesManager({ inboxId, tenantId }: EmailTemplatesManag
                             className={`text-[11px] px-2 py-0.5 rounded ${
                               previewLang === t.language
                                 ? "bg-brand-700 text-white"
-                                : "bg-white border border-gray-200 text-gray-600 hover:border-brand-300"
+                                : "bg-card border border-border text-muted-foreground hover:border-brand-300"
                             }`}
                           >
                             {t.language.toUpperCase()}
@@ -285,8 +285,8 @@ export function EmailTemplatesManager({ inboxId, tenantId }: EmailTemplatesManag
                       if (!translation) return null;
                       return (
                         <>
-                          <div className="bg-gray-50 px-4 py-2 border-b border-gray-100">
-                            <p className="text-xs text-gray-500">
+                          <div className="bg-muted px-4 py-2 border-b border-border">
+                            <p className="text-xs text-muted-foreground">
                               <strong>Asunto:</strong> {translation.subject}
                             </p>
                           </div>

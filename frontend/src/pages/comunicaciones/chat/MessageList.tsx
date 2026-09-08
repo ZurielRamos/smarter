@@ -4,6 +4,7 @@ import type { VirtuosoHandle } from "react-virtuoso";
 import { MessageBubble } from "./MessageBubble";
 import type { Message } from "./types";
 import bgChat from "@/assets/bg-chat.webp";
+import { useTheme } from "@/context/ThemeContext";
 
 interface MessageListProps {
   messages: Message[];
@@ -30,6 +31,7 @@ export const MessageList = memo(function MessageList({
 }: MessageListProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const isFollowingRef = useRef(true);
+  const { resolvedTheme } = useTheme();
 
   // Build a lookup map for reply messages — O(n) once, not O(n²) per render
   const replyMap = useMemo(() => {
@@ -108,25 +110,26 @@ export const MessageList = memo(function MessageList({
 
   // Fondo compartido por ambos estados (cargando y lista) para que la imagen
   // persista siempre y no desaparezca al terminar el loading.
+  const isDark = resolvedTheme === "dark";
   const bgStyle: React.CSSProperties = {
     backgroundImage: `url(${bgChat})`,
     backgroundRepeat: "repeat",
     backgroundSize: "400px",
-    backgroundColor: "rgba(249,250,251,0.92)",
-    backgroundBlendMode: "lighten",
+    backgroundColor: isDark ? "rgba(9,16,24,0.94)" : "rgba(249,250,251,0.92)",
+    backgroundBlendMode: isDark ? "darken" : "lighten",
   };
 
   if (loadingMessages) {
     return (
       <div className="flex-1 overflow-hidden px-6 py-4" style={bgStyle}>
         <div className="flex-1 flex flex-col justify-end gap-3 py-4 h-full">
-          <div className="flex justify-start"><div className="h-12 w-48 bg-gray-200/60 rounded-xl animate-pulse" /></div>
-          <div className="flex justify-end"><div className="h-16 w-56 bg-brand-100/60 rounded-xl animate-pulse" /></div>
-          <div className="flex justify-start"><div className="h-10 w-36 bg-gray-200/60 rounded-xl animate-pulse" /></div>
-          <div className="flex justify-end"><div className="h-20 w-64 bg-brand-100/60 rounded-xl animate-pulse" /></div>
-          <div className="flex justify-start"><div className="h-12 w-52 bg-gray-200/60 rounded-xl animate-pulse" /></div>
-          <div className="flex justify-end"><div className="h-14 w-44 bg-brand-100/60 rounded-xl animate-pulse" /></div>
-          <div className="flex justify-start"><div className="h-10 w-40 bg-gray-200/60 rounded-xl animate-pulse" /></div>
+          <div className="flex justify-start"><div className="h-12 w-48 bg-muted/70 rounded-xl animate-pulse" /></div>
+          <div className="flex justify-end"><div className="h-16 w-56 bg-brand-100/60 dark:bg-brand-700/50 rounded-xl animate-pulse" /></div>
+          <div className="flex justify-start"><div className="h-10 w-36 bg-muted/70 rounded-xl animate-pulse" /></div>
+          <div className="flex justify-end"><div className="h-20 w-64 bg-brand-100/60 dark:bg-brand-700/50 rounded-xl animate-pulse" /></div>
+          <div className="flex justify-start"><div className="h-12 w-52 bg-muted/70 rounded-xl animate-pulse" /></div>
+          <div className="flex justify-end"><div className="h-14 w-44 bg-brand-100/60 dark:bg-brand-700/50 rounded-xl animate-pulse" /></div>
+          <div className="flex justify-start"><div className="h-10 w-40 bg-muted/70 rounded-xl animate-pulse" /></div>
         </div>
       </div>
     );
@@ -163,7 +166,7 @@ export const MessageList = memo(function MessageList({
         components={{
           Header: () => loadingMore ? (
             <div className="flex justify-center py-2">
-              <div className="h-4 w-4 border-2 border-gray-200 border-t-gray-500 rounded-full animate-spin" />
+              <div className="h-4 w-4 border-2 border-border border-t-muted-foreground rounded-full animate-spin" />
             </div>
           ) : null,
         }}

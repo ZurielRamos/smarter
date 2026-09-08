@@ -177,32 +177,32 @@ export function Conversaciones() {
 
       {/* Conversation context menu */}
       {contextMenu && (
-        <div ref={contextMenuRef} className="fixed z-[100] w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 animate-in fade-in zoom-in-95 duration-100" style={{ top: contextMenu.y, left: contextMenu.x }}>
-          <button onClick={handleMarkAsRead} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-            <CheckCheck className="h-4 w-4 text-gray-400" /> Marcar como leído
+        <div ref={contextMenuRef} className="fixed z-[100] w-52 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 animate-in fade-in zoom-in-95 duration-100" style={{ top: contextMenu.y, left: contextMenu.x }}>
+          <button onClick={handleMarkAsRead} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+            <CheckCheck className="h-4 w-4 text-muted-foreground" /> Marcar como leído
           </button>
-          <button onClick={() => setContextMenu(null)} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-            <BellOff className="h-4 w-4 text-gray-400" /> Silenciar
+          <button onClick={() => setContextMenu(null)} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+            <BellOff className="h-4 w-4 text-muted-foreground" /> Silenciar
           </button>
-          <button onClick={() => setContextMenu(null)} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-            <UserCircle className="h-4 w-4 text-gray-400" /> Ver contacto
+          <button onClick={() => setContextMenu(null)} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+            <UserCircle className="h-4 w-4 text-muted-foreground" /> Ver contacto
           </button>
-          <button onClick={() => setContextMenu(null)} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-            <Archive className="h-4 w-4 text-gray-400" /> Archivar
+          <button onClick={() => setContextMenu(null)} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+            <Archive className="h-4 w-4 text-muted-foreground" /> Archivar
           </button>
           {/* Labels submenu */}
           {ctx.labels.length > 0 && (
             <div className="relative group/labels">
-              <button className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                <svg className="h-4 w-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></svg>
+              <button className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+                <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></svg>
                 <span className="flex-1 text-left">Asignar etiqueta</span>
-                <svg className="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                <svg className="h-3 w-3 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </button>
-              <div className="absolute left-full top-0 ml-1 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 opacity-0 invisible group-hover/labels:opacity-100 group-hover/labels:visible transition-all z-[110] max-h-52 overflow-y-auto">
+              <div className="absolute left-full top-0 ml-1 w-48 bg-popover text-popover-foreground rounded-lg shadow-xl border border-border py-1 opacity-0 invisible group-hover/labels:opacity-100 group-hover/labels:visible transition-all z-[110] max-h-52 overflow-y-auto">
                 {ctx.labels.map((lbl) => {
                   const isAssigned = contextMenu.conversation.labelIds?.includes(lbl.id);
                   return (
-                    <button key={lbl.id} onClick={() => handleLabelToggle(lbl.id, isAssigned ? "remove" : "add")} className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button key={lbl.id} onClick={() => handleLabelToggle(lbl.id, isAssigned ? "remove" : "add")} className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors">
                       <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: lbl.color }} />
                       <span className="flex-1 text-left truncate">{lbl.label}</span>
                       {isAssigned && <span className="text-brand-500 text-[10px]">✓</span>}
@@ -214,20 +214,20 @@ export function Conversaciones() {
           )}
           {/* Assign submenu */}
           <div className="relative group/assign">
-            <button className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-              <UserPlus className="h-4 w-4 text-gray-400" />
+            <button className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+              <UserPlus className="h-4 w-4 text-muted-foreground" />
               <span className="flex-1 text-left">Asignar a</span>
-              <svg className="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              <svg className="h-3 w-3 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
             </button>
-            <div className="absolute left-full top-0 ml-1 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 opacity-0 invisible group-hover/assign:opacity-100 group-hover/assign:visible transition-all z-[110] max-h-60 overflow-y-auto">
+            <div className="absolute left-full top-0 ml-1 w-48 bg-popover text-popover-foreground rounded-lg shadow-xl border border-border py-1 opacity-0 invisible group-hover/assign:opacity-100 group-hover/assign:visible transition-all z-[110] max-h-60 overflow-y-auto">
               {contextMenu.conversation.record?.assignedTo && (
-                <button onClick={() => handleAssignFromContext(null)} className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors border-b border-gray-100">
+                <button onClick={() => handleAssignFromContext(null)} className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors border-b border-border">
                   <X className="h-3.5 w-3.5" /> Quitar asignación
                 </button>
               )}
               {ctx.tenantMembers.map((member) => (
-                <button key={member.userId} onClick={() => handleAssignFromContext(member.userId)} className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs transition-colors ${contextMenu.conversation.record?.assignedTo === member.userId ? "bg-brand-50 text-brand-700" : "text-gray-700 hover:bg-gray-50"}`}>
-                  <span className="h-5 w-5 rounded-full bg-brand-100 text-brand-700 text-[8px] font-bold flex items-center justify-center shrink-0">
+                <button key={member.userId} onClick={() => handleAssignFromContext(member.userId)} className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs transition-colors ${contextMenu.conversation.record?.assignedTo === member.userId ? "bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100" : "text-foreground hover:bg-muted"}`}>
+                  <span className="h-5 w-5 rounded-full bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-100 text-[8px] font-bold flex items-center justify-center shrink-0">
                     {member.user.name.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase()}
                   </span>
                   <span className="truncate">{member.user.name}</span>
@@ -236,8 +236,8 @@ export function Conversaciones() {
               ))}
             </div>
           </div>
-          <div className="my-1 border-t border-gray-100" />
-          <button onClick={handleDeleteConversation} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+          <div className="my-1 border-t border-border" />
+          <button onClick={handleDeleteConversation} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
             <Trash2 className="h-4 w-4 text-red-400" /> Eliminar conversación
           </button>
         </div>

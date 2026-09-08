@@ -375,6 +375,100 @@ export async function generateFieldValues(fieldId: string): Promise<{ updated: n
   return data;
 }
 
+// === Normalización de teléfonos ===
+
+export interface PhoneNormalizationPreview {
+  country: string;
+  total: number;
+  counts: { ok: number; needsPrefix: number; ambiguous: number; empty: number; cleanupOnly: number };
+  willChange: number;
+  collisions: number;
+  samples: {
+    needsPrefix: Array<{ id: string; before: string; after: string }>;
+    ambiguous: Array<{ id: string; value: string; reason: string }>;
+    collisions: Array<{ id: string; before: string; after: string }>;
+  };
+}
+
+export interface PhoneNormalizationResult {
+  updated: number;
+  skippedAmbiguous: number;
+  skippedCollisions: number;
+}
+
+export interface PhoneNormalizationCustom {
+  code?: string;
+  digits?: number[];
+}
+
+export async function previewPhoneNormalization(payload: {
+  tenantId: string;
+  country?: string;
+  cleanFormat?: boolean;
+  custom?: PhoneNormalizationCustom;
+}): Promise<PhoneNormalizationPreview> {
+  const { data } = await api.post<PhoneNormalizationPreview>('/records/normalize-phones/preview', payload);
+  return data;
+}
+
+export async function applyPhoneNormalization(payload: {
+  tenantId: string;
+  country?: string;
+  cleanFormat?: boolean;
+  custom?: PhoneNormalizationCustom;
+}): Promise<PhoneNormalizationResult> {
+  const { data } = await api.post<PhoneNormalizationResult>('/records/normalize-phones/apply', payload);
+  return data;
+}
+
+// === Detección y merge de duplicados ===
+
+export interface DuplicateMember {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  fullName: string | null;
+  email: string | null;
+  phone: string | null;
+  documentNumber: string | null;
+  whatsappId: string | null;
+  status: string | null;
+  createdAt: string;
+  relatedCount: number;
+  filledFields: number;
+}
+
+export interface DuplicateGroup {
+  key: string;
+  criterion: string;
+  value: string;
+  members: DuplicateMember[];
+  suggestedWinnerId: string;
+}
+
+export interface DuplicatesResult {
+  groups: DuplicateGroup[];
+  totalGroups: number;
+  totalDuplicates: number;
+}
+
+export async function detectDuplicates(payload: {
+  tenantId: string;
+  criteria?: string[];
+}): Promise<DuplicatesResult> {
+  const { data } = await api.post<DuplicatesResult>('/records/duplicates/detect', payload);
+  return data;
+}
+
+export async function mergeRecords(payload: {
+  tenantId: string;
+  winnerId: string;
+  loserIds: string[];
+}): Promise<{ merged: number; winnerId: string }> {
+  const { data } = await api.post<{ merged: number; winnerId: string }>('/records/duplicates/merge', payload);
+  return data;
+}
+
 // === Record Lists ===
 
 export interface RecordListItem {

@@ -103,24 +103,24 @@ export function Agentes() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="px-3 py-3 border-b border-gray-100 flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase">Agentes</h3>
+      <div className="px-3 py-3 border-b border-border flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase">Agentes</h3>
         {!isAtLimit && (
           <button
             onClick={() => setShowInviteModal(true)}
-            className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             title="Agregar agente"
           >
             <Plus className="h-4 w-4" />
           </button>
         )}
       </div>
-      <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2">
-        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+      <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Users className="h-3.5 w-3.5" />
           <span className="font-medium">{agents.length}/{maxAgents}</span>
         </div>
-        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${isAtLimit ? "bg-red-500" : isNearLimit ? "bg-amber-500" : "bg-brand-500"}`}
             style={{ width: `${usagePercent}%` }}
@@ -132,23 +132,23 @@ export function Agentes() {
           <div
             key={agent.id}
             onContextMenu={(e) => handleContextMenu(e, agent)}
-            className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-default"
+            className="flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-muted transition-colors cursor-default"
           >
-            <div className="h-9 w-9 rounded-full bg-brand-100 flex items-center justify-center text-sm font-bold text-brand-700 shrink-0">
+            <div className="h-9 w-9 rounded-full bg-brand-100 dark:bg-brand-700 flex items-center justify-center text-sm font-bold text-brand-700 dark:text-brand-100 shrink-0">
               {agent.user.name.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-medium text-gray-900 truncate">{agent.user.name}</p>
+                <p className="text-sm font-medium text-foreground truncate">{agent.user.name}</p>
                 {agent.status === "pending" && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium border border-amber-200">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 font-medium border border-amber-200 dark:border-amber-500/30">
                     Sin confirmar
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-gray-400 truncate">{agent.user.email}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{agent.user.email}</p>
             </div>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${agent.role === "owner" ? "bg-amber-100 text-amber-700" : agent.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"}`}>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${agent.role === "owner" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" : agent.role === "admin" ? "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300" : "bg-muted text-muted-foreground"}`}>
               {agent.role === "owner" ? "Propietario" : agent.role === "admin" ? "Administrador" : "Agente"}
             </span>
           </div>
@@ -159,23 +159,23 @@ export function Agentes() {
       {contextMenu && (
         <div
           ref={contextMenuRef}
-          className="fixed z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 animate-in fade-in zoom-in-95 duration-100"
+          className="fixed z-50 w-48 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 animate-in fade-in zoom-in-95 duration-100"
           style={{ top: contextMenu.y, left: contextMenu.x }}
         >
           {contextMenu.agent.status === "pending" && (
             <>
               <button
                 onClick={() => { setContextMenu(null); /* TODO: edit modal */ }}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
               >
-                <Pencil className="h-4 w-4 text-gray-400" />
+                <Pencil className="h-4 w-4 text-muted-foreground" />
                 Editar
               </button>
               <button
                 onClick={() => handleResendInvite(contextMenu.agent)}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
               >
-                <Mail className="h-4 w-4 text-gray-400" />
+                <Mail className="h-4 w-4 text-muted-foreground" />
                 Reenviar correo
               </button>
             </>
@@ -183,16 +183,16 @@ export function Agentes() {
           {contextMenu.agent.status === "active" && (
             <button
               onClick={() => { setRoleChangeAgent(contextMenu.agent); setContextMenu(null); }}
-              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
             >
-              <Pencil className="h-4 w-4 text-gray-400" />
+              <Pencil className="h-4 w-4 text-muted-foreground" />
               Cambiar rol
             </button>
           )}
-          <div className="border-t border-gray-100 my-1" />
+          <div className="border-t border-border my-1" />
           <button
             onClick={() => handleRemoveAgent(contextMenu.agent)}
-            className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
           >
             <Trash2 className="h-4 w-4 text-red-400" />
             Eliminar
@@ -208,12 +208,12 @@ export function Agentes() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-2xl shadow-2xl border border-white/30 p-6"
-            style={{ background: "rgba(255, 255, 255, 0.95)", backdropFilter: "blur(20px)" }}
+            className="w-full max-w-sm rounded-2xl shadow-2xl border border-border bg-card/95 text-card-foreground p-6"
+            style={{ backdropFilter: "blur(20px)" }}
           >
             <div className="mb-4">
-              <h3 className="text-base font-semibold text-gray-900">Cambiar rol</h3>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <h3 className="text-base font-semibold text-foreground">Cambiar rol</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {roleChangeAgent.user.name} · {roleChangeAgent.user.email}
               </p>
             </div>
@@ -224,47 +224,47 @@ export function Agentes() {
                 disabled={!!changingRole}
                 className={`p-3 rounded-xl border-2 text-left transition-all disabled:opacity-70 ${
                   roleChangeAgent.role === "agent"
-                    ? "border-brand-500 bg-brand-50"
-                    : "border-gray-200 hover:border-gray-300"
+                    ? "border-brand-500 bg-brand-50 dark:bg-brand-700/40"
+                    : "border-border hover:bg-muted"
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
                   {changingRole === "agent" ? (
                     <Loader2 className="h-4 w-4 text-brand-600 animate-spin" />
                   ) : (
-                    <svg className={`h-4 w-4 ${roleChangeAgent.role === "agent" ? "text-brand-600" : "text-gray-500"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className={`h-4 w-4 ${roleChangeAgent.role === "agent" ? "text-brand-600 dark:text-brand-300" : "text-muted-foreground"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
                     </svg>
                   )}
-                  <span className={`text-sm font-semibold ${roleChangeAgent.role === "agent" ? "text-brand-700" : "text-gray-700"}`}>Agente</span>
+                  <span className={`text-sm font-semibold ${roleChangeAgent.role === "agent" ? "text-brand-700 dark:text-brand-200" : "text-foreground"}`}>Agente</span>
                 </div>
-                <p className="text-[10px] text-gray-500">Responde conversaciones</p>
+                <p className="text-[10px] text-muted-foreground">Responde conversaciones</p>
               </button>
               <button
                 onClick={() => handleChangeRole(roleChangeAgent, "admin")}
                 disabled={!!changingRole}
                 className={`p-3 rounded-xl border-2 text-left transition-all disabled:opacity-70 ${
                   roleChangeAgent.role === "admin"
-                    ? "border-purple-500 bg-purple-50"
-                    : "border-gray-200 hover:border-gray-300"
+                    ? "border-purple-500 bg-purple-50 dark:bg-purple-500/15"
+                    : "border-border hover:bg-muted"
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
                   {changingRole === "admin" ? (
                     <Loader2 className="h-4 w-4 text-purple-600 animate-spin" />
                   ) : (
-                    <svg className={`h-4 w-4 ${roleChangeAgent.role === "admin" ? "text-purple-600" : "text-gray-500"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className={`h-4 w-4 ${roleChangeAgent.role === "admin" ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                     </svg>
                   )}
-                  <span className={`text-sm font-semibold ${roleChangeAgent.role === "admin" ? "text-purple-700" : "text-gray-700"}`}>Admin</span>
+                  <span className={`text-sm font-semibold ${roleChangeAgent.role === "admin" ? "text-purple-700 dark:text-purple-300" : "text-foreground"}`}>Admin</span>
                 </div>
-                <p className="text-[10px] text-gray-500">Acceso total</p>
+                <p className="text-[10px] text-muted-foreground">Acceso total</p>
               </button>
             </div>
 
             <div className="mt-4 text-right">
-              <button onClick={() => setRoleChangeAgent(null)} className="text-xs text-gray-500 hover:text-gray-700">
+              <button onClick={() => setRoleChangeAgent(null)} className="text-xs text-muted-foreground hover:text-foreground">
                 Cancelar
               </button>
             </div>
@@ -280,66 +280,66 @@ export function Agentes() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl shadow-2xl border border-white/30 p-6"
-            style={{ background: "rgba(255, 255, 255, 0.95)", backdropFilter: "blur(20px)" }}
+            className="w-full max-w-md rounded-2xl shadow-2xl border border-border bg-card/95 text-card-foreground p-6"
+            style={{ backdropFilter: "blur(20px)" }}
           >
             <div className="flex items-center justify-between mb-5">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Agregar miembro al equipo</h3>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <h3 className="text-lg font-semibold text-foreground">Agregar miembro al equipo</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Invita a un nuevo miembro. Recibirá un correo con las instrucciones para acceder a la plataforma.
                 </p>
               </div>
-              <button onClick={() => { setShowInviteModal(false); setInviteResult(null); }} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+              <button onClick={() => { setShowInviteModal(false); setInviteResult(null); }} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Nombre completo</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Nombre completo</label>
                 <input
                   type="text"
                   value={inviteForm.name}
                   onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
                   placeholder="Ej: María García"
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Correo electrónico</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Correo electrónico</label>
                 <input
                   type="email"
                   value={inviteForm.email}
                   onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
                   placeholder="maria@empresa.com"
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
-                <p className="text-[10px] text-gray-400 mt-1">
+                <p className="text-[10px] text-muted-foreground mt-1">
                   Si ya tiene cuenta en Smarter, se le dará acceso automáticamente. Si no, se le creará una cuenta nueva.
                 </p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">Rol en la cuenta</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-2">Rol en la cuenta</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setInviteForm({ ...inviteForm, role: "agent" })}
                     className={`p-3 rounded-xl border-2 text-left transition-all ${
                       inviteForm.role === "agent"
-                        ? "border-brand-500 bg-brand-50"
-                        : "border-gray-200 hover:border-gray-300"
+                        ? "border-brand-500 bg-brand-50 dark:bg-brand-700/40"
+                        : "border-border hover:bg-muted"
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-1.5">
-                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${inviteForm.role === "agent" ? "bg-brand-100" : "bg-gray-100"}`}>
-                        <svg className={`h-4 w-4 ${inviteForm.role === "agent" ? "text-brand-600" : "text-gray-500"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${inviteForm.role === "agent" ? "bg-brand-100 dark:bg-brand-700" : "bg-muted"}`}>
+                        <svg className={`h-4 w-4 ${inviteForm.role === "agent" ? "text-brand-600 dark:text-brand-300" : "text-muted-foreground"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
                         </svg>
                       </div>
-                      <span className={`text-sm font-semibold ${inviteForm.role === "agent" ? "text-brand-700" : "text-gray-700"}`}>Agente</span>
+                      <span className={`text-sm font-semibold ${inviteForm.role === "agent" ? "text-brand-700 dark:text-brand-200" : "text-foreground"}`}>Agente</span>
                     </div>
-                    <p className="text-[10px] text-gray-500 leading-tight">
+                    <p className="text-[10px] text-muted-foreground leading-tight">
                       Puede ver y responder conversaciones asignadas a sus bandejas.
                     </p>
                   </button>
@@ -348,19 +348,19 @@ export function Agentes() {
                     onClick={() => setInviteForm({ ...inviteForm, role: "admin" })}
                     className={`p-3 rounded-xl border-2 text-left transition-all ${
                       inviteForm.role === "admin"
-                        ? "border-purple-500 bg-purple-50"
-                        : "border-gray-200 hover:border-gray-300"
+                        ? "border-purple-500 bg-purple-50 dark:bg-purple-500/15"
+                        : "border-border hover:bg-muted"
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-1.5">
-                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${inviteForm.role === "admin" ? "bg-purple-100" : "bg-gray-100"}`}>
-                        <svg className={`h-4 w-4 ${inviteForm.role === "admin" ? "text-purple-600" : "text-gray-500"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${inviteForm.role === "admin" ? "bg-purple-100 dark:bg-purple-500/20" : "bg-muted"}`}>
+                        <svg className={`h-4 w-4 ${inviteForm.role === "admin" ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                         </svg>
                       </div>
-                      <span className={`text-sm font-semibold ${inviteForm.role === "admin" ? "text-purple-700" : "text-gray-700"}`}>Administrador</span>
+                      <span className={`text-sm font-semibold ${inviteForm.role === "admin" ? "text-purple-700 dark:text-purple-300" : "text-foreground"}`}>Administrador</span>
                     </div>
-                    <p className="text-[10px] text-gray-500 leading-tight">
+                    <p className="text-[10px] text-muted-foreground leading-tight">
                       Acceso total: gestiona canales, campañas, contactos y configuraciones.
                     </p>
                   </button>
@@ -371,8 +371,8 @@ export function Agentes() {
             {inviteResult && (
               <div className={`mt-4 p-3 rounded-lg text-xs font-medium ${
                 inviteResult.status === "error"
-                  ? "bg-red-50 text-red-700 border border-red-200"
-                  : "bg-green-50 text-green-700 border border-green-200"
+                  ? "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/25"
+                  : "bg-green-50 text-green-700 border border-green-200 dark:bg-green-500/10 dark:text-green-300 dark:border-green-500/25"
               }`}>
                 <div className="flex items-center gap-2">
                   {inviteResult.status !== "error" && <CheckCircle2 className="h-3.5 w-3.5" />}
@@ -381,10 +381,10 @@ export function Agentes() {
               </div>
             )}
 
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
               <button
                 onClick={() => { setShowInviteModal(false); setInviteResult(null); }}
-                className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
               >
                 Cancelar
               </button>

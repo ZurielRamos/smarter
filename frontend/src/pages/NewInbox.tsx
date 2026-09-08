@@ -184,12 +184,12 @@ export function NewInbox() {
             <div className="space-y-6">
               {STEPS.map((s) => (
                 <div key={s.n} className="flex items-start gap-3">
-                  <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${step > s.n ? "bg-green-500 text-white" : step === s.n ? "bg-brand-600 text-white" : "bg-gray-200 text-gray-500"}`}>
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${step > s.n ? "bg-green-500 text-white" : step === s.n ? "bg-brand-600 text-white" : "bg-gray-200 text-muted-foreground"}`}>
                     {step > s.n ? <Check className="h-3.5 w-3.5" /> : s.n}
                   </div>
                   <div>
-                    <p className={`text-sm font-medium ${step === s.n ? "text-brand-700" : step > s.n ? "text-gray-700" : "text-gray-400"}`}>{s.title}</p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">{s.desc}</p>
+                    <p className={`text-sm font-medium ${step === s.n ? "text-brand-700" : step > s.n ? "text-foreground" : "text-muted-foreground"}`}>{s.title}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{s.desc}</p>
                   </div>
                 </div>
               ))}
@@ -200,14 +200,14 @@ export function NewInbox() {
           <div className="flex-1">
             {step === 1 && (
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">Elige un canal</h2>
-                <p className="text-sm text-gray-500 mb-5">Selecciona el proveedor que deseas integrar</p>
+                <h2 className="text-lg font-semibold text-foreground mb-1">Elige un canal</h2>
+                <p className="text-sm text-muted-foreground mb-5">Selecciona el proveedor que deseas integrar</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {CHANNELS.map((ch) => (
                       <button
                         key={ch.value}
                         onClick={() => handleSelectChannel(ch.value)}
-                        className="p-5 rounded-xl border-2 border-gray-200 text-left transition-all hover:border-brand-300 hover:shadow-md"
+                        className="p-5 rounded-xl border-2 border-border text-left transition-all hover:border-brand-300 hover:shadow-md"
                       >
                         <div className={`h-10 w-10 rounded-lg flex items-center justify-center mb-3 ${ch.bg}`}>
                           {ch.value === "whatsapp" && <WhatsAppIcon className={`h-5 w-5 ${ch.color}`} />}
@@ -221,8 +221,8 @@ export function NewInbox() {
                           {ch.value === "chat" && <ChatIcon className={`h-5 w-5 ${ch.color}`} />}
                           {ch.value === "evolution" && <GenericChatIcon className={`h-5 w-5 ${ch.color}`} />}
                         </div>
-                        <p className="text-sm font-semibold text-gray-900">{ch.label}</p>
-                        <p className="text-xs text-gray-500 mt-1">{ch.description}</p>
+                        <p className="text-sm font-semibold text-foreground">{ch.label}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{ch.description}</p>
                       </button>
                   ))}
                 </div>
@@ -231,26 +231,26 @@ export function NewInbox() {
 
             {step === 2 && (
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">Configurar bandeja</h2>
-                <p className="text-sm text-gray-500 mb-5">
+                <h2 className="text-lg font-semibold text-foreground mb-1">Configurar bandeja</h2>
+                <p className="text-sm text-muted-foreground mb-5">
                   Canal: <span className="capitalize font-medium">{channel}</span>
                 </p>
                 <div className="space-y-4 max-w-md">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre de la bandeja</label>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Nombre de la bandeja</label>
                     <input
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Ej: Soporte, Ventas, Atención al cliente..."
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
                     />
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     Al crear la bandeja podrás conectar tu cuenta mediante autenticación de Facebook.
                   </p>
                   <div className="flex gap-3 pt-2">
-                    <button onClick={() => setStep(1)} className="px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 font-medium">
+                    <button onClick={() => setStep(1)} className="px-4 py-2 text-sm text-muted-foreground rounded-lg hover:bg-muted font-medium">
                       Atrás
                     </button>
                     <button
@@ -267,27 +267,27 @@ export function NewInbox() {
 
             {step === 3 && (
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">Añadir agentes</h2>
-                <p className="text-sm text-gray-500 mb-5">
+                <h2 className="text-lg font-semibold text-foreground mb-1">Añadir agentes</h2>
+                <p className="text-sm text-muted-foreground mb-5">
                   Los agentes asignados recibirán y podrán responder los chats de esta bandeja
                 </p>
                 <div className="space-y-2 max-w-md">
                   {members.length === 0 ? (
-                    <p className="text-xs text-gray-400 py-4 text-center bg-gray-50 rounded-lg">No hay miembros en este tenant.</p>
+                    <p className="text-xs text-muted-foreground py-4 text-center bg-muted rounded-lg">No hay miembros en este tenant.</p>
                   ) : (
                     members.map((m) => (
                       <button
                         key={m.id}
                         onClick={() => toggleAgent(m.userId)}
-                        className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-all text-left ${selectedAgents.has(m.userId) ? "border-brand-500 bg-brand-50/50" : "border-gray-200 hover:border-gray-300"}`}
+                        className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-all text-left ${selectedAgents.has(m.userId) ? "border-brand-500 bg-brand-50/50" : "border-border hover:border-border"}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
+                          <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-muted-foreground">
                             {m.user.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-gray-800">{m.user.name}</p>
-                            <p className="text-[11px] text-gray-400">{m.user.email}</p>
+                            <p className="text-sm font-medium text-foreground">{m.user.name}</p>
+                            <p className="text-[11px] text-muted-foreground">{m.user.email}</p>
                           </div>
                         </div>
                         {selectedAgents.has(m.userId) && (
@@ -314,7 +314,7 @@ export function NewInbox() {
                         onConnected={() => setStep(4)}
                       />
                       <div className="flex justify-center mt-4">
-                        <button onClick={() => setStep(4)} className="px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 font-medium">
+                        <button onClick={() => setStep(4)} className="px-4 py-2 text-sm text-muted-foreground rounded-lg hover:bg-muted font-medium">
                           Omitir por ahora
                         </button>
                       </div>
@@ -328,7 +328,7 @@ export function NewInbox() {
                       >
                         {connecting ? "Conectando..." : `Conectar ${channel}`}
                       </button>
-                      <button onClick={() => { setStep(4); }} className="px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 font-medium">
+                      <button onClick={() => { setStep(4); }} className="px-4 py-2 text-sm text-muted-foreground rounded-lg hover:bg-muted font-medium">
                         Omitir por ahora
                       </button>
                     </>
@@ -342,8 +342,8 @@ export function NewInbox() {
                 <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
                   <Check className="h-8 w-8 text-green-600" />
                 </div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-2">¡Bandeja creada!</h2>
-                <p className="text-sm text-gray-500 mb-6 max-w-sm mx-auto">
+                <h2 className="text-lg font-semibold text-foreground mb-2">¡Bandeja creada!</h2>
+                <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
                   {(channel === "sms" || channel === "email" || channel === "email_transaccional" || channel === "llamada")
                     ? <>Tu bandeja <strong>{createdInbox?.name}</strong> fue creada. Ahora configura los datos del canal.</>
                     : <>Tu bandeja <strong>{createdInbox?.name}</strong> está lista. Ahora conecta tu cuenta.</>

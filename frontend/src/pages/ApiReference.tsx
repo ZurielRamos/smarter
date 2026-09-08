@@ -1022,10 +1022,10 @@ function CodeBlock({ code, title }: { code: string; title?: string }) {
     <div className="relative rounded-lg bg-[#1e1e2e] text-gray-100 text-[11px] font-mono overflow-x-auto">
       {title && (
         <div className="px-4 py-2 border-b border-white/10 flex items-center justify-between">
-          <span className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">{title}</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">{title}</span>
         </div>
       )}
-      <button onClick={copy} className="absolute top-2 right-2 p-1 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300">
+      <button onClick={copy} className="absolute top-2 right-2 p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-muted-foreground">
         {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
       </button>
       <pre className="p-4 leading-relaxed text-green-300">{code}</pre>
@@ -1059,7 +1059,7 @@ function ResponseCard({ endpoint }: { endpoint: EndpointDef }) {
             className={`text-xs font-medium pb-2 border-b-2 transition-colors ${
               activeTab === "200"
                 ? "text-blue-400 border-blue-400"
-                : "text-gray-500 border-transparent hover:text-gray-300"
+                : "text-muted-foreground border-transparent hover:text-muted-foreground"
             }`}
           >
             200
@@ -1069,7 +1069,7 @@ function ResponseCard({ endpoint }: { endpoint: EndpointDef }) {
             className={`text-xs font-medium pb-2 border-b-2 transition-colors ${
               activeTab === "error"
                 ? "text-blue-400 border-blue-400"
-                : "text-gray-500 border-transparent hover:text-gray-300"
+                : "text-muted-foreground border-transparent hover:text-muted-foreground"
             }`}
           >
             {endpoint.method === "DELETE" ? "404" : "403"}
@@ -1077,7 +1077,7 @@ function ResponseCard({ endpoint }: { endpoint: EndpointDef }) {
         </div>
         <button
           onClick={copy}
-          className="p-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors mb-2"
+          className="p-1.5 rounded-lg border border-white/10 hover:bg-card/5 text-muted-foreground hover:text-muted-foreground transition-colors mb-2"
         >
           {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
         </button>
@@ -1114,32 +1114,32 @@ export function ApiReference() {
   }
 
   return (
-    <div className="h-screen flex bg-white">
+    <div className="h-screen flex bg-card">
       {/* Sidebar */}
-      <aside className="w-64 border-r border-gray-200 flex flex-col shrink-0 bg-gray-50/50">
-        <div className="px-4 py-3.5 border-b border-gray-200">
+      <aside className="w-64 border-r border-border flex flex-col shrink-0 bg-muted/50">
+        <div className="px-4 py-3.5 border-b border-border">
           <div className="flex items-center gap-2">
             <img src={logo} alt="Smarter" className="h-5" />
-            <span className="text-xs font-bold text-gray-700">API Reference</span>
+            <span className="text-xs font-bold text-foreground">API Reference</span>
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto py-2 px-2 text-[13px]">
           {SIDEBAR.map((section) => (
             <div key={section.title} className="mb-3">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2.5 mb-1">{section.title}</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2.5 mb-1">{section.title}</p>
               {section.items.map((item) => (
                 <div key={item.id}>
                   <button
                     onClick={() => { if (item.endpoints) toggleExpand(item.id); else setActive(item.id); }}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-md flex items-center justify-between transition-colors ${!item.endpoints && active === item.id ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-100"}`}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-md flex items-center justify-between transition-colors ${!item.endpoints && active === item.id ? "bg-brand-50 text-brand-700 font-medium" : "text-foreground hover:bg-muted"}`}
                   >
                     <span>{item.label}</span>
-                    {item.endpoints && (expanded.has(item.id) ? <ChevronDown className="h-3 w-3 text-gray-400" /> : <ChevronRight className="h-3 w-3 text-gray-400" />)}
+                    {item.endpoints && (expanded.has(item.id) ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />)}
                   </button>
                   {item.endpoints && expanded.has(item.id) && (
-                    <div className="ml-2 border-l border-gray-200 pl-2 mt-0.5 space-y-0.5">
+                    <div className="ml-2 border-l border-border pl-2 mt-0.5 space-y-0.5">
                       {item.endpoints.map((ep) => (
-                        <button key={ep.id} onClick={() => setActive(ep.id)} className={`w-full text-left px-2 py-1 rounded-md flex items-center gap-2 text-[12px] transition-colors ${active === ep.id ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-600 hover:bg-gray-100"}`}>
+                        <button key={ep.id} onClick={() => setActive(ep.id)} className={`w-full text-left px-2 py-1 rounded-md flex items-center gap-2 text-[12px] transition-colors ${active === ep.id ? "bg-brand-50 text-brand-700 font-medium" : "text-muted-foreground hover:bg-muted"}`}>
                           <span className={`text-[8px] px-1 py-0.5 rounded font-bold text-white leading-none ${METHOD_COLORS[ep.method]}`}>{ep.method}</span>
                           <span className="truncate">{ep.label}</span>
                         </button>
@@ -1159,42 +1159,42 @@ export function ApiReference() {
           <div className="max-w-3xl mx-auto px-8 py-10 space-y-8">
             <div>
               <p className="text-xs text-brand-600 font-medium mb-1">Primeros pasos</p>
-              <h1 className="text-2xl font-bold text-gray-900">Introducción a la API</h1>
-              <p className="text-sm text-gray-600 mt-3 leading-relaxed">La API de Smarter te permite interactuar programáticamente con contactos, conversaciones, mensajes, campañas y más. Usa una arquitectura REST con respuestas JSON.</p>
+              <h1 className="text-2xl font-bold text-foreground">Introducción a la API</h1>
+              <p className="text-sm text-muted-foreground mt-3 leading-relaxed">La API de Smarter te permite interactuar programáticamente con contactos, conversaciones, mensajes, campañas y más. Usa una arquitectura REST con respuestas JSON.</p>
             </div>
 
-            <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Base URL</h3>
+            <div className="bg-muted rounded-xl border border-border p-5">
+              <h3 className="text-sm font-semibold text-foreground mb-2">Base URL</h3>
               <CodeBlock code="https://smarter.strategee.us/api" />
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Estructura de URLs</h3>
-              <p className="text-sm text-gray-600 mb-3">Todos los endpoints de la API v1 siguen esta estructura:</p>
+              <h3 className="text-sm font-semibold text-foreground mb-3">Estructura de URLs</h3>
+              <p className="text-sm text-muted-foreground mb-3">Todos los endpoints de la API v1 siguen esta estructura:</p>
               <CodeBlock code={`/api/v1/{cuenta}/recurso\n\nEjemplos:\n  GET  /api/v1/supergiros/records        → Lista contactos de "supergiros"\n  POST /api/v1/mi-empresa/records         → Crea contacto en "mi-empresa"\n  GET  /api/v1/supergiros/records/{id}    → Obtiene un contacto específico`} />
-              <p className="text-xs text-gray-500 mt-3">El <code className="bg-gray-100 px-1.5 py-0.5 rounded">{"{cuenta}"}</code> es el slug de la cuenta (lo ves en la URL cuando navegas la plataforma). Tu token solo funcionará en cuentas donde tengas rol activo.</p>
+              <p className="text-xs text-muted-foreground mt-3">El <code className="bg-muted px-1.5 py-0.5 rounded">{"{cuenta}"}</code> es el slug de la cuenta (lo ves en la URL cuando navegas la plataforma). Tu token solo funcionará en cuentas donde tengas rol activo.</p>
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Códigos de respuesta</h3>
+              <h3 className="text-sm font-semibold text-foreground mb-3">Códigos de respuesta</h3>
               <div className="space-y-1.5 text-sm">
-                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-green-600 text-xs font-bold w-8">200</code><span className="text-gray-600 text-xs">Operación exitosa</span></div>
-                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-green-600 text-xs font-bold w-8">201</code><span className="text-gray-600 text-xs">Recurso creado correctamente</span></div>
-                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-amber-600 text-xs font-bold w-8">401</code><span className="text-gray-600 text-xs">Token inválido o no proporcionado</span></div>
-                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-amber-600 text-xs font-bold w-8">403</code><span className="text-gray-600 text-xs">Sin permisos para esta cuenta o recurso</span></div>
-                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-red-600 text-xs font-bold w-8">404</code><span className="text-gray-600 text-xs">Recurso no encontrado</span></div>
-                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-red-600 text-xs font-bold w-8">500</code><span className="text-gray-600 text-xs">Error interno del servidor</span></div>
+                <div className="p-2.5 rounded bg-muted flex items-center gap-3"><code className="text-green-600 text-xs font-bold w-8">200</code><span className="text-muted-foreground text-xs">Operación exitosa</span></div>
+                <div className="p-2.5 rounded bg-muted flex items-center gap-3"><code className="text-green-600 text-xs font-bold w-8">201</code><span className="text-muted-foreground text-xs">Recurso creado correctamente</span></div>
+                <div className="p-2.5 rounded bg-muted flex items-center gap-3"><code className="text-amber-600 text-xs font-bold w-8">401</code><span className="text-muted-foreground text-xs">Token inválido o no proporcionado</span></div>
+                <div className="p-2.5 rounded bg-muted flex items-center gap-3"><code className="text-amber-600 text-xs font-bold w-8">403</code><span className="text-muted-foreground text-xs">Sin permisos para esta cuenta o recurso</span></div>
+                <div className="p-2.5 rounded bg-muted flex items-center gap-3"><code className="text-red-600 text-xs font-bold w-8">404</code><span className="text-muted-foreground text-xs">Recurso no encontrado</span></div>
+                <div className="p-2.5 rounded bg-muted flex items-center gap-3"><code className="text-red-600 text-xs font-bold w-8">500</code><span className="text-muted-foreground text-xs">Error interno del servidor</span></div>
               </div>
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Eventos de Webhook disponibles</h3>
+              <h3 className="text-sm font-semibold text-foreground mb-2">Eventos de Webhook disponibles</h3>
               <div className="space-y-1.5 text-sm">
-                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-brand-600 text-xs">message_created</code><span className="text-gray-500 text-xs">Mensaje enviado o recibido</span></div>
-                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-brand-600 text-xs">contact_created</code><span className="text-gray-500 text-xs">Contacto nuevo creado</span></div>
-                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-brand-600 text-xs">contact_updated</code><span className="text-gray-500 text-xs">Contacto actualizado</span></div>
-                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-brand-600 text-xs">campaign_started</code><span className="text-gray-500 text-xs">Campaña iniciada</span></div>
-                <div className="p-2.5 rounded bg-gray-50 flex items-center gap-3"><code className="text-brand-600 text-xs">campaign_completed</code><span className="text-gray-500 text-xs">Campaña completada</span></div>
+                <div className="p-2.5 rounded bg-muted flex items-center gap-3"><code className="text-brand-600 text-xs">message_created</code><span className="text-muted-foreground text-xs">Mensaje enviado o recibido</span></div>
+                <div className="p-2.5 rounded bg-muted flex items-center gap-3"><code className="text-brand-600 text-xs">contact_created</code><span className="text-muted-foreground text-xs">Contacto nuevo creado</span></div>
+                <div className="p-2.5 rounded bg-muted flex items-center gap-3"><code className="text-brand-600 text-xs">contact_updated</code><span className="text-muted-foreground text-xs">Contacto actualizado</span></div>
+                <div className="p-2.5 rounded bg-muted flex items-center gap-3"><code className="text-brand-600 text-xs">campaign_started</code><span className="text-muted-foreground text-xs">Campaña iniciada</span></div>
+                <div className="p-2.5 rounded bg-muted flex items-center gap-3"><code className="text-brand-600 text-xs">campaign_completed</code><span className="text-muted-foreground text-xs">Campaña completada</span></div>
               </div>
             </div>
           </div>
@@ -1204,8 +1204,8 @@ export function ApiReference() {
           <div className="max-w-3xl mx-auto px-8 py-10 space-y-8">
             <div>
               <p className="text-xs text-brand-600 font-medium mb-1">Seguridad</p>
-              <h1 className="text-2xl font-bold text-gray-900">Autenticación</h1>
-              <p className="text-sm text-gray-600 mt-3 leading-relaxed">
+              <h1 className="text-2xl font-bold text-foreground">Autenticación</h1>
+              <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
                 La API utiliza un <strong>token de API personal</strong> para autenticarte. Este token es fijo y único por usuario; lo puedes obtener y regenerar desde tu perfil en la plataforma.
               </p>
             </div>
@@ -1217,8 +1217,8 @@ export function ApiReference() {
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Obtener tu token</h3>
-              <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
+              <h3 className="text-sm font-semibold text-foreground mb-2">Obtener tu token</h3>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
                 <li>Inicia sesión en la plataforma</li>
                 <li>Ve a <strong>Perfil</strong> desde el menú de usuario</li>
                 <li>En la sección <strong>"Token de API"</strong>, haz clic en el ícono de ojo para revelarlo</li>
@@ -1227,12 +1227,12 @@ export function ApiReference() {
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Enviar el token</h3>
-              <p className="text-sm text-gray-600 mb-3">Puedes enviar tu token de dos formas:</p>
+              <h3 className="text-sm font-semibold text-foreground mb-3">Enviar el token</h3>
+              <p className="text-sm text-muted-foreground mb-3">Puedes enviar tu token de dos formas:</p>
 
               <div className="space-y-4">
                 <div>
-                  <p className="text-xs font-medium text-gray-700 mb-2">Opción 1: Header <code className="bg-gray-100 px-1.5 py-0.5 rounded">x-api-token</code> (recomendado)</p>
+                  <p className="text-xs font-medium text-foreground mb-2">Opción 1: Header <code className="bg-muted px-1.5 py-0.5 rounded">x-api-token</code> (recomendado)</p>
                   <CodeBlock code={`const response = await fetch(
   "https://smarter.strategee.us/api/v1/supergiros/records",
   {
@@ -1244,7 +1244,7 @@ export function ApiReference() {
                 </div>
 
                 <div>
-                  <p className="text-xs font-medium text-gray-700 mb-2">Opción 2: Header <code className="bg-gray-100 px-1.5 py-0.5 rounded">Authorization: Bearer</code></p>
+                  <p className="text-xs font-medium text-foreground mb-2">Opción 2: Header <code className="bg-muted px-1.5 py-0.5 rounded">Authorization: Bearer</code></p>
                   <CodeBlock code={`const response = await fetch(
   "https://smarter.strategee.us/api/v1/supergiros/records",
   {
@@ -1258,14 +1258,14 @@ export function ApiReference() {
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Respuesta de error de autenticación</h3>
-              <p className="text-sm text-gray-600 mb-3">Si el token es inválido o no se proporciona:</p>
+              <h3 className="text-sm font-semibold text-foreground mb-3">Respuesta de error de autenticación</h3>
+              <p className="text-sm text-muted-foreground mb-3">Si el token es inválido o no se proporciona:</p>
               <CodeBlock code={`// HTTP 401 Unauthorized\n{\n  "statusCode": 401,\n  "message": "Token de API inválido o usuario desactivado",\n  "error": "Unauthorized"\n}`} />
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Respuesta de error de permisos</h3>
-              <p className="text-sm text-gray-600 mb-3">Si intentas acceder a una cuenta donde no tienes rol:</p>
+              <h3 className="text-sm font-semibold text-foreground mb-3">Respuesta de error de permisos</h3>
+              <p className="text-sm text-muted-foreground mb-3">Si intentas acceder a una cuenta donde no tienes rol:</p>
               <CodeBlock code={`// HTTP 403 Forbidden\n{\n  "statusCode": 403,\n  "message": "No tienes acceso a esta cuenta",\n  "error": "Forbidden"\n}`} />
             </div>
           </div>
@@ -1275,15 +1275,15 @@ export function ApiReference() {
         {currentEndpoint && (
           <div className="flex h-full">
             {/* Left: Documentation */}
-            <div className="flex-1 overflow-y-auto px-10 py-12 border-r border-gray-100">
+            <div className="flex-1 overflow-y-auto px-10 py-12 border-r border-border">
               <p className="text-sm text-brand-600 font-medium mb-2">{currentSection}</p>
-              <h1 className="text-3xl font-bold text-gray-900 mb-3">{currentEndpoint.label}</h1>
-              <p className="text-base text-gray-600 mb-8">{currentEndpoint.description}</p>
+              <h1 className="text-3xl font-bold text-foreground mb-3">{currentEndpoint.label}</h1>
+              <p className="text-base text-muted-foreground mb-8">{currentEndpoint.description}</p>
 
               {/* Endpoint badge */}
-              <div className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white mb-8">
+              <div className="flex items-center gap-2 px-4 py-3 rounded-xl border border-border bg-card mb-8">
                 <span className={`text-xs px-2.5 py-1 rounded font-bold ${METHOD_BADGE[currentEndpoint.method]}`}>{currentEndpoint.method}</span>
-                <code className="text-base text-gray-700 font-mono flex-1 ml-1 overflow-x-auto whitespace-nowrap">
+                <code className="text-base text-foreground font-mono flex-1 ml-1 overflow-x-auto whitespace-nowrap">
                   {currentEndpoint.path.split(/(\{[^}]+\})/).map((part, i) =>
                     part.startsWith("{") ? <span key={i} className="mx-0.5 px-1.5 py-0.5 rounded bg-green-100 text-green-700 text-sm">{part}</span> : <span key={i}>{part}</span>
                   )}
@@ -1294,7 +1294,7 @@ export function ApiReference() {
                     setUrlCopied(true);
                     setTimeout(() => setUrlCopied(false), 2000);
                   }}
-                  className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 border border-gray-200 transition-colors"
+                  className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground border border-border transition-colors"
                 >
                   {urlCopied ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                 </button>
@@ -1303,14 +1303,14 @@ export function ApiReference() {
               {/* Parameters */}
               {currentEndpoint.params && currentEndpoint.params.length > 0 && (
                 <div className="mb-8">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Parámetros</h3>
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <h3 className="text-lg font-semibold text-foreground mb-4">Parámetros</h3>
+                  <div className="border border-border rounded-lg overflow-hidden">
                     {currentEndpoint.params.map((p, i) => (
-                      <div key={p.name} className={`flex items-baseline gap-3 px-4 py-3 ${i > 0 ? "border-t border-gray-100" : ""}`}>
+                      <div key={p.name} className={`flex items-baseline gap-3 px-4 py-3 ${i > 0 ? "border-t border-border" : ""}`}>
                         <code className="text-sm text-brand-700 font-semibold min-w-[100px]">{p.name}</code>
-                        <span className="text-xs text-gray-400 min-w-[60px]">{p.type}</span>
+                        <span className="text-xs text-muted-foreground min-w-[60px]">{p.type}</span>
                         {p.required && <span className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-600 font-medium">required</span>}
-                        <span className="text-sm text-gray-600 ml-auto text-right">{p.description}</span>
+                        <span className="text-sm text-muted-foreground ml-auto text-right">{p.description}</span>
                       </div>
                     ))}
                   </div>
@@ -1320,9 +1320,9 @@ export function ApiReference() {
               {/* Request body */}
               {currentEndpoint.body && (
                 <div className="mb-8">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Body</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Body</h3>
                   {currentEndpoint.bodyDescription && (
-                    <p className="text-sm text-gray-500 mb-3">{currentEndpoint.bodyDescription}</p>
+                    <p className="text-sm text-muted-foreground mb-3">{currentEndpoint.bodyDescription}</p>
                   )}
                   <CodeBlock code={currentEndpoint.body} title="application/json" />
                 </div>
@@ -1331,7 +1331,7 @@ export function ApiReference() {
               {/* cURL example */}
               {currentEndpoint.curl && (
                 <div className="mb-8">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Ejemplo de petición</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Ejemplo de petición</h3>
                   <CodeBlock code={currentEndpoint.curl} title="javascript" />
                 </div>
               )}
@@ -1442,14 +1442,14 @@ function TryItModal({ endpoint, onClose }: { endpoint: EndpointDef; onClose: () 
         className="fixed inset-4 z-50 flex items-start justify-center pt-8"
       >
         <div
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
+          className="bg-card rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between shrink-0">
+          <div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
               <span className={`text-xs px-2.5 py-1 rounded font-bold ${METHOD_BADGE[endpoint.method]}`}>{endpoint.method}</span>
-              <h2 className="text-lg font-semibold text-gray-900">{endpoint.label}</h2>
+              <h2 className="text-lg font-semibold text-foreground">{endpoint.label}</h2>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -1460,7 +1460,7 @@ function TryItModal({ endpoint, onClose }: { endpoint: EndpointDef; onClose: () 
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
                 Send
               </button>
-              <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+              <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-muted-foreground">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -1469,12 +1469,12 @@ function TryItModal({ endpoint, onClose }: { endpoint: EndpointDef; onClose: () 
           {/* Content */}
           <div className="flex-1 min-h-0 flex overflow-hidden">
             {/* Left: Parameters */}
-            <div className="flex-1 overflow-y-auto p-6 border-r border-gray-100 space-y-6">
+            <div className="flex-1 overflow-y-auto p-6 border-r border-border space-y-6">
               {/* URL preview */}
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">URL</p>
-                <div className="px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200">
-                  <code className="text-xs font-mono text-gray-700 break-all">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">URL</p>
+                <div className="px-3 py-2.5 rounded-lg bg-muted border border-border">
+                  <code className="text-xs font-mono text-foreground break-all">
                     {endpoint.method} {buildUrl()}
                   </code>
                 </div>
@@ -1482,9 +1482,9 @@ function TryItModal({ endpoint, onClose }: { endpoint: EndpointDef; onClose: () 
 
               {/* Authorization */}
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Autenticación</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Autenticación</p>
                 <div>
-                  <label className="text-xs font-medium text-gray-700 mb-1 block">
+                  <label className="text-xs font-medium text-foreground mb-1 block">
                     x-api-token <span className="text-red-500 text-[10px] font-medium ml-1">required</span>
                   </label>
                   <input
@@ -1492,7 +1492,7 @@ function TryItModal({ endpoint, onClose }: { endpoint: EndpointDef; onClose: () 
                     value={apiToken}
                     onChange={(e) => setApiToken(e.target.value)}
                     placeholder="Pega tu token de API aquí"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none font-mono text-xs"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none font-mono text-xs"
                   />
                 </div>
               </div>
@@ -1500,13 +1500,13 @@ function TryItModal({ endpoint, onClose }: { endpoint: EndpointDef; onClose: () 
               {/* Path Parameters */}
               {pathParamKeys.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Path</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Path</p>
                   <div className="space-y-3">
                     {pathParamKeys.map((key) => (
                       <div key={key}>
-                        <label className="text-xs font-medium text-gray-700 mb-1 flex items-center gap-2">
+                        <label className="text-xs font-medium text-foreground mb-1 flex items-center gap-2">
                           {key}
-                          <span className="text-[10px] text-gray-400">string</span>
+                          <span className="text-[10px] text-muted-foreground">string</span>
                           <span className="text-red-500 text-[10px] font-medium">required</span>
                         </label>
                         <input
@@ -1514,7 +1514,7 @@ function TryItModal({ endpoint, onClose }: { endpoint: EndpointDef; onClose: () 
                           value={pathParams[key]}
                           onChange={(e) => setPathParams({ ...pathParams, [key]: e.target.value })}
                           placeholder={`Ingresa ${key}`}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                          className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
                         />
                       </div>
                     ))}
@@ -1525,15 +1525,15 @@ function TryItModal({ endpoint, onClose }: { endpoint: EndpointDef; onClose: () 
               {/* Query Parameters */}
               {queryParamKeys.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Query</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Query</p>
                   <div className="space-y-3">
                     {queryParamKeys.map((key) => {
                       const paramDef = endpoint.params?.find((p) => p.name === key);
                       return (
                         <div key={key}>
-                          <label className="text-xs font-medium text-gray-700 mb-1 flex items-center gap-2">
+                          <label className="text-xs font-medium text-foreground mb-1 flex items-center gap-2">
                             {key}
-                            <span className="text-[10px] text-gray-400">{paramDef?.type || "string"}</span>
+                            <span className="text-[10px] text-muted-foreground">{paramDef?.type || "string"}</span>
                             {paramDef?.required && <span className="text-red-500 text-[10px] font-medium">required</span>}
                           </label>
                           <input
@@ -1541,7 +1541,7 @@ function TryItModal({ endpoint, onClose }: { endpoint: EndpointDef; onClose: () 
                             value={queryParams[key]}
                             onChange={(e) => setQueryParams({ ...queryParams, [key]: e.target.value })}
                             placeholder={paramDef?.description || `Ingresa ${key}`}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                            className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
                           />
                         </div>
                       );
@@ -1553,12 +1553,12 @@ function TryItModal({ endpoint, onClose }: { endpoint: EndpointDef; onClose: () 
               {/* Request Body */}
               {["POST", "PUT"].includes(endpoint.method) && (
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Body</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Body</p>
                   <textarea
                     value={bodyContent}
                     onChange={(e) => setBodyContent(e.target.value)}
                     rows={12}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none resize-y leading-relaxed"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg text-xs font-mono focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none resize-y leading-relaxed"
                     placeholder='{ "key": "value" }'
                   />
                 </div>
@@ -1568,14 +1568,14 @@ function TryItModal({ endpoint, onClose }: { endpoint: EndpointDef; onClose: () 
             {/* Right: Response */}
             <div className="w-[420px] shrink-0 flex flex-col bg-[#1e1e2e] overflow-hidden">
               <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0">
-                <span className="text-xs text-gray-300 font-medium">Respuesta</span>
+                <span className="text-xs text-muted-foreground font-medium">Respuesta</span>
                 {response && (
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                     response.status >= 200 && response.status < 300
                       ? "bg-green-500/20 text-green-400"
                       : response.status >= 400
                         ? "bg-red-500/20 text-red-400"
-                        : "bg-gray-500/20 text-gray-400"
+                        : "bg-muted0/20 text-muted-foreground"
                   }`}>
                     {response.status || "Error"}
                   </span>
@@ -1584,14 +1584,14 @@ function TryItModal({ endpoint, onClose }: { endpoint: EndpointDef; onClose: () 
               <div className="flex-1 overflow-y-auto px-4 py-4">
                 {!response && !loading && (
                   <div className="flex items-center justify-center h-full">
-                    <p className="text-xs text-gray-500 text-center">
+                    <p className="text-xs text-muted-foreground text-center">
                       Completa los parámetros y presiona <strong className="text-green-400">Send</strong> para probar
                     </p>
                   </div>
                 )}
                 {loading && (
                   <div className="flex items-center justify-center h-full">
-                    <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
                 )}
                 {response && (

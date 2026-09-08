@@ -42,26 +42,26 @@ export function ConversationPreviewModal({ conversation, onClose, onGoToConversa
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">{conversation.inbox?.name || "Conversación"}</h2>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <h2 className="text-sm font-semibold text-foreground">{conversation.inbox?.name || "Conversación"}</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {conversation.contactName || conversation.contactId} · {conversation.status === "open" ? "Abierta" : "Cerrada"}
               </p>
             </div>
-            <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+            <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
               <X className="h-4 w-4" />
             </button>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-gray-50/50">
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-muted/50">
             {loading ? (
               <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-sm text-gray-400">
+              <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
                 Sin mensajes
               </div>
             ) : (
@@ -72,8 +72,8 @@ export function ConversationPreviewModal({ conversation, onClose, onGoToConversa
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 shrink-0">
-            <p className="text-[11px] text-gray-400">Últimos {messages.length} mensajes</p>
+          <div className="flex items-center justify-between px-5 py-3 border-t border-border shrink-0">
+            <p className="text-[11px] text-muted-foreground">Últimos {messages.length} mensajes</p>
             <button
               onClick={onGoToConversation}
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-sm"
@@ -98,14 +98,14 @@ function MessageBubble({ message }: { message: MessageRecord }) {
         className={`max-w-[80%] rounded-xl px-3.5 py-2 ${
           isOutbound
             ? "bg-emerald-600 text-white rounded-br-sm"
-            : "bg-white border border-gray-200 text-gray-800 rounded-bl-sm"
+            : "bg-card border border-border text-foreground rounded-bl-sm"
         }`}
       >
         {message.messageType === "note" ? (
           <p className="text-xs italic opacity-80">📝 Nota interna</p>
         ) : null}
         <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
-        <p className={`text-[10px] mt-1 ${isOutbound ? "text-white/60" : "text-gray-400"} text-right`}>
+        <p className={`text-[10px] mt-1 ${isOutbound ? "text-white/60" : "text-muted-foreground"} text-right`}>
           {time}
         </p>
       </div>

@@ -94,10 +94,10 @@ export function TenantSelector() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute left-0 top-12 w-72 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50 origin-top-left"
+            className="absolute left-0 top-12 w-72 bg-popover text-popover-foreground rounded-xl shadow-lg border border-border py-2 z-50 origin-top-left"
           >
-            <div className="px-4 py-2 border-b border-gray-100">
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+            <div className="px-4 py-2 border-b border-border">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Cuentas
               </p>
             </div>
@@ -106,12 +106,12 @@ export function TenantSelector() {
               {user?.isSuperAdmin && (
                 <button
                   onClick={handleSelectAdmin}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted transition-colors"
                 >
                   <img src={iconSvg} alt="Smarter Admin" className="h-8 w-8 object-contain" />
                   <div className="flex-1 text-left">
-                    <p className="text-sm font-medium text-gray-900">Smarter Admin</p>
-                    <p className="text-xs text-gray-400">Panel de administración</p>
+                    <p className="text-sm font-medium text-foreground">Smarter Admin</p>
+                    <p className="text-xs text-muted-foreground">Panel de administración</p>
                   </div>
                   {isOnAdmin && <Check className="h-4 w-4 text-accent-500" />}
                 </button>
@@ -122,7 +122,7 @@ export function TenantSelector() {
                 <button
                   key={tr.tenantId}
                   onClick={() => handleSelect(tr.tenant.slug)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted transition-colors"
                 >
                   {tr.tenant.iconPath ? (
                     <img
@@ -131,13 +131,13 @@ export function TenantSelector() {
                       className="h-8 w-8 rounded-lg object-cover"
                     />
                   ) : (
-                    <div className="h-8 w-8 rounded-lg bg-brand-100 flex items-center justify-center text-xs font-bold text-brand-700">
+                    <div className="h-8 w-8 rounded-lg bg-brand-100 dark:bg-brand-700 flex items-center justify-center text-xs font-bold text-brand-700 dark:text-brand-100">
                       {tr.tenant.name.charAt(0)}
                     </div>
                   )}
                   <div className="flex-1 text-left">
-                    <p className="text-sm font-medium text-gray-900">{tr.tenant.name}</p>
-                    <p className="text-xs text-gray-400">{tr.role === "owner" ? "Propietario" : tr.role === "admin" ? "Administrador" : "Agente"}</p>
+                    <p className="text-sm font-medium text-foreground">{tr.tenant.name}</p>
+                    <p className="text-xs text-muted-foreground">{tr.role === "owner" ? "Propietario" : tr.role === "admin" ? "Administrador" : "Agente"}</p>
                   </div>
                   {tr.tenant.slug === slug && !isOnAdmin && (
                     <Check className="h-4 w-4 text-accent-500" />

@@ -58,7 +58,7 @@ function InlineVariablesButton({ onSelect }: { onSelect: (v: Variable) => void }
         ref={triggerRef}
         type="button"
         onClick={handleOpen}
-        className="shrink-0 h-full px-2 border-l border-gray-200 text-gray-400 hover:text-brand-600 hover:bg-gray-50 transition-colors flex items-center gap-0.5"
+        className="shrink-0 h-full px-2 border-l border-border text-muted-foreground hover:text-brand-600 hover:bg-muted transition-colors flex items-center gap-0.5"
         title="Insertar variable"
       >
         <Braces className="h-3.5 w-3.5" />
@@ -68,7 +68,7 @@ function InlineVariablesButton({ onSelect }: { onSelect: (v: Variable) => void }
       {open && createPortal(
         <div
           ref={popoverRef}
-          className="fixed z-[9999] bg-white rounded-xl shadow-2xl border border-gray-200 w-[210px] overflow-hidden"
+          className="fixed z-[9999] bg-card rounded-xl shadow-2xl border border-border w-[210px] overflow-hidden"
           style={{ top: coords.top, left: coords.left }}
         >
           <div className="px-2 pt-2 pb-1">
@@ -77,24 +77,24 @@ function InlineVariablesButton({ onSelect }: { onSelect: (v: Variable) => void }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar campo..."
-              className="w-full px-2 py-1.5 rounded-md border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full px-2 py-1.5 rounded-md border border-border text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
               autoFocus
             />
           </div>
           <div className="max-h-[240px] overflow-y-auto pb-1">
             {Object.keys(grouped).length === 0 && (
-              <p className="text-xs text-gray-400 px-3 py-2">Sin resultados</p>
+              <p className="text-xs text-muted-foreground px-3 py-2">Sin resultados</p>
             )}
             {Object.entries(grouped).map(([group, vars]) => (
               <div key={group}>
-                <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide px-3 pt-2 pb-1">{group}</p>
+                <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide px-3 pt-2 pb-1">{group}</p>
                 {vars.map((v) => (
                   <button
                     key={v.field}
                     onClick={() => { onSelect(v); setOpen(false); }}
-                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-brand-50 hover:text-brand-700 transition-colors flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-brand-50 hover:text-brand-700 transition-colors flex items-center gap-2"
                   >
-                    <Braces className="h-3 w-3 text-gray-400 shrink-0" />
+                    <Braces className="h-3 w-3 text-muted-foreground shrink-0" />
                     <span className="truncate">{v.label}</span>
                   </button>
                 ))}
@@ -151,22 +151,22 @@ export function ButtonProperties({ props: p, onChange }: Props) {
   return (
     <div>
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-3">
+      <div className="flex border-b border-border mb-3">
         <button
           onClick={() => setActiveTab("config")}
-          className={`flex-1 pb-2 text-[10px] font-semibold uppercase tracking-wide border-b-2 transition-colors ${activeTab === "config" ? "border-brand-500 text-brand-700" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+          className={`flex-1 pb-2 text-[10px] font-semibold uppercase tracking-wide border-b-2 transition-colors ${activeTab === "config" ? "border-brand-500 text-brand-700" : "border-transparent text-muted-foreground hover:text-muted-foreground"}`}
         >
           Configuracion
         </button>
         <button
           onClick={() => setActiveTab("styles")}
-          className={`flex-1 pb-2 text-[10px] font-semibold uppercase tracking-wide border-b-2 transition-colors ${activeTab === "styles" ? "border-brand-500 text-brand-700" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+          className={`flex-1 pb-2 text-[10px] font-semibold uppercase tracking-wide border-b-2 transition-colors ${activeTab === "styles" ? "border-brand-500 text-brand-700" : "border-transparent text-muted-foreground hover:text-muted-foreground"}`}
         >
           Estilos
         </button>
         <button
           onClick={() => setActiveTab("spacing")}
-          className={`flex-1 pb-2 text-[10px] font-semibold uppercase tracking-wide border-b-2 transition-colors ${activeTab === "spacing" ? "border-brand-500 text-brand-700" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+          className={`flex-1 pb-2 text-[10px] font-semibold uppercase tracking-wide border-b-2 transition-colors ${activeTab === "spacing" ? "border-brand-500 text-brand-700" : "border-transparent text-muted-foreground hover:text-muted-foreground"}`}
         >
           Espacios
         </button>
@@ -176,7 +176,7 @@ export function ButtonProperties({ props: p, onChange }: Props) {
         <div className="space-y-3">
           <div>
             <label className={labelCls}>Texto</label>
-            <div className="flex items-center rounded-md border border-gray-200 overflow-hidden focus-within:ring-2 focus-within:ring-brand-500">
+            <div className="flex items-center rounded-md border border-border overflow-hidden focus-within:ring-2 focus-within:ring-brand-500">
               <input
                 ref={inputRef}
                 type="text"
@@ -189,7 +189,7 @@ export function ButtonProperties({ props: p, onChange }: Props) {
           </div>
           <div>
             <label className={labelCls}>URL</label>
-            <div className="flex items-center rounded-md border border-gray-200 overflow-hidden focus-within:ring-2 focus-within:ring-brand-500">
+            <div className="flex items-center rounded-md border border-border overflow-hidden focus-within:ring-2 focus-within:ring-brand-500">
               <input
                 ref={urlRef}
                 type="text"
@@ -229,7 +229,7 @@ export function ButtonProperties({ props: p, onChange }: Props) {
                 <button
                   key={w.value}
                   onClick={() => update("fontWeight", w.value)}
-                  className={`flex-1 py-1.5 rounded-md text-[10px] font-medium border transition-colors ${(p.fontWeight || "bold") === w.value ? "bg-brand-50 border-brand-300 text-brand-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
+                  className={`flex-1 py-1.5 rounded-md text-[10px] font-medium border transition-colors ${(p.fontWeight || "bold") === w.value ? "bg-brand-50 border-brand-300 text-brand-700" : "border-border text-muted-foreground hover:bg-muted"}`}
                 >
                   {w.label}
                 </button>
@@ -252,9 +252,9 @@ export function ButtonProperties({ props: p, onChange }: Props) {
       )}
 
       {activeTab === "spacing" && (
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-border">
           <div className="py-3">
-            <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-3">Relleno (padding)</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">Relleno (padding)</p>
             <FourSideEditor
               top={p.paddingTop ?? 0}
               right={p.paddingRight ?? 0}
@@ -264,7 +264,7 @@ export function ButtonProperties({ props: p, onChange }: Props) {
             />
           </div>
           <div className="py-3">
-            <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-3">Margen (margin)</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">Margen (margin)</p>
             <FourSideEditor
               top={p.marginTop ?? 0}
               right={p.marginRight ?? 0}
@@ -274,11 +274,11 @@ export function ButtonProperties({ props: p, onChange }: Props) {
             />
           </div>
           <div className="py-3">
-            <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-3">Alineacion horizontal</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">Alineacion horizontal</p>
             <AlignButtons value={p.align} onSelect={(v) => update("align", v)} />
           </div>
           <div className="py-3">
-            <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-3">Alineacion vertical</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">Alineacion vertical</p>
             <VerticalAlignButtons value={p.verticalAlign || "top"} onSelect={(v) => update("verticalAlign", v)} />
           </div>
         </div>

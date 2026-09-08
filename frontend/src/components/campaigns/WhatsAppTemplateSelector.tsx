@@ -133,45 +133,45 @@ export function WhatsAppTemplateSelector({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <h2 className="text-base font-semibold text-gray-900 mb-1">
+    <div className="bg-card rounded-xl border border-border p-6">
+      <h2 className="text-base font-semibold text-foreground mb-1">
         Plantilla de WhatsApp
       </h2>
-      <p className="text-xs text-gray-400 mb-5">
+      <p className="text-xs text-muted-foreground mb-5">
         Selecciona una plantilla aprobada y configura las variables
       </p>
 
       {/* Template selector */}
       <div className="mb-5" ref={dropdownRef}>
-        <label className="text-sm font-medium text-gray-700 block mb-1.5">
+        <label className="text-sm font-medium text-foreground block mb-1.5">
           Plantilla
         </label>
         <div className="relative">
           <button
             type="button"
             onClick={() => setShowDropdown(!showDropdown)}
-            className="w-full flex items-center justify-between px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white hover:border-gray-400 transition-colors text-left"
+            className="w-full flex items-center justify-between px-3 py-2.5 border border-border rounded-lg text-sm bg-card hover:border-muted-foreground/50 transition-colors text-left"
           >
             {loadingTemplates ? (
-              <span className="text-gray-400">Cargando plantillas...</span>
+              <span className="text-muted-foreground">Cargando plantillas...</span>
             ) : currentTemplate ? (
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-4 w-4 text-green-500 shrink-0" />
                 <div>
-                  <span className="text-gray-900 font-medium">{currentTemplate.name}</span>
-                  <span className="text-gray-400 ml-2 text-xs">({currentTemplate.language})</span>
+                  <span className="text-foreground font-medium">{currentTemplate.name}</span>
+                  <span className="text-muted-foreground ml-2 text-xs">({currentTemplate.language})</span>
                 </div>
               </div>
             ) : (
-              <span className="text-gray-400">Seleccionar plantilla...</span>
+              <span className="text-muted-foreground">Seleccionar plantilla...</span>
             )}
-            <ChevronDown className={cn("h-4 w-4 text-gray-400 shrink-0 transition-transform", showDropdown && "rotate-180")} />
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground shrink-0 transition-transform", showDropdown && "rotate-180")} />
           </button>
 
           {showDropdown && (
-            <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50 max-h-60 overflow-y-auto">
+            <div className="absolute left-0 right-0 top-full mt-1 bg-popover text-popover-foreground rounded-lg border border-border shadow-lg py-1 z-50 max-h-60 overflow-y-auto">
               {templates.length === 0 ? (
-                <p className="px-3 py-4 text-xs text-gray-400 text-center">
+                <p className="px-3 py-4 text-xs text-muted-foreground text-center">
                   {loadingTemplates ? "Cargando..." : "No hay plantillas aprobadas disponibles"}
                 </p>
               ) : (
@@ -184,15 +184,15 @@ export function WhatsAppTemplateSelector({
                       type="button"
                       onClick={() => handleSelectTemplate(t)}
                       className={cn(
-                        "w-full px-3 py-2.5 text-left transition-colors hover:bg-gray-50",
+                        "w-full px-3 py-2.5 text-left transition-colors hover:bg-muted",
                         isSelected && "bg-green-50"
                       )}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-gray-900 truncate">{t.name}</p>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 shrink-0">
+                            <p className="text-sm font-medium text-foreground truncate">{t.name}</p>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
                               {t.language}
                             </span>
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 shrink-0">
@@ -200,7 +200,7 @@ export function WhatsAppTemplateSelector({
                             </span>
                           </div>
                           {tBody && (
-                            <p className="text-[11px] text-gray-400 mt-0.5 truncate">{tBody.substring(0, 80)}...</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{tBody.substring(0, 80)}...</p>
                           )}
                         </div>
                         {isSelected && <Check className="h-4 w-4 text-green-600 shrink-0 ml-2" />}
@@ -221,7 +221,7 @@ export function WhatsAppTemplateSelector({
           {variableCount > 0 && (
             <div className="mb-5">
               <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-foreground">
                   Variables ({variableCount})
                 </label>
                 <button
@@ -236,11 +236,11 @@ export function WhatsAppTemplateSelector({
 
               <div className="space-y-2">
                 {variableKeys.map((varNum) => (
-                  <div key={varNum} className="flex items-center gap-2 p-2.5 rounded-lg bg-gray-50 border border-gray-100">
-                    <span className="text-xs font-mono text-gray-500 w-12 shrink-0">
+                  <div key={varNum} className="flex items-center gap-2 p-2.5 rounded-lg bg-muted border border-border">
+                    <span className="text-xs font-mono text-muted-foreground w-12 shrink-0">
                       {`{{${varNum}}}`}
                     </span>
-                    <span className="text-xs text-gray-400">→</span>
+                    <span className="text-xs text-muted-foreground">→</span>
                     <FieldDropdown
                       value={variableMapping[varNum] || ""}
                       options={fields}
@@ -248,7 +248,7 @@ export function WhatsAppTemplateSelector({
                     />
                     <button
                       onClick={() => removeVariable(varNum)}
-                      className="p-1 text-gray-400 hover:text-red-500 transition-colors rounded hover:bg-red-50"
+                      className="p-1 text-muted-foreground hover:text-red-500 transition-colors rounded hover:bg-red-50"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -265,19 +265,19 @@ export function WhatsAppTemplateSelector({
             </div>
             <div className="p-4 space-y-2">
               {headerComponent?.text && (
-                <p className="text-sm font-semibold text-gray-900">{headerComponent.text}</p>
+                <p className="text-sm font-semibold text-foreground">{headerComponent.text}</p>
               )}
-              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
                 {getPreviewText() || bodyText}
               </p>
               {footerComponent?.text && (
-                <p className="text-xs text-gray-400 mt-2">{footerComponent.text}</p>
+                <p className="text-xs text-muted-foreground mt-2">{footerComponent.text}</p>
               )}
             </div>
           </div>
 
           {/* Save button */}
-          <div className="flex justify-end pt-3 border-t border-gray-100">
+          <div className="flex justify-end pt-3 border-t border-border">
             <Button
               onClick={onSave}
               disabled={saving || !selectedTemplate}
@@ -322,19 +322,19 @@ function FieldDropdown({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs bg-white hover:border-gray-300 transition-colors text-left"
+        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg border border-border text-xs bg-card hover:border-border transition-colors text-left"
       >
-        <span className={selected ? "text-gray-700" : "text-gray-400"}>
+        <span className={selected ? "text-foreground" : "text-muted-foreground"}>
           {selected?.label || "Sin asignar"}
         </span>
-        <ChevronDown className={`h-3 w-3 text-gray-400 shrink-0 ml-1 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`h-3 w-3 text-muted-foreground shrink-0 ml-1 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50 max-h-48 overflow-y-auto">
+        <div className="absolute left-0 right-0 top-full mt-1 bg-popover text-popover-foreground rounded-lg border border-border shadow-lg py-1 z-50 max-h-48 overflow-y-auto">
           <button
             type="button"
             onClick={() => { onChange(""); setOpen(false); }}
-            className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${!value ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-500 hover:bg-gray-50"}`}
+            className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${!value ? "bg-brand-50 text-brand-700 font-medium" : "text-muted-foreground hover:bg-muted"}`}
           >
             Sin asignar
           </button>
@@ -343,7 +343,7 @@ function FieldDropdown({
               key={opt.field}
               type="button"
               onClick={() => { onChange(opt.field); setOpen(false); }}
-              className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${opt.field === value ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+              className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${opt.field === value ? "bg-brand-50 text-brand-700 font-medium" : "text-foreground hover:bg-muted"}`}
             >
               {opt.label}
             </button>
