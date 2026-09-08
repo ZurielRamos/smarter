@@ -3408,6 +3408,19 @@ export class ChatsService {
     const inbox = conversation.inbox;
     if (!inbox.accessToken || inbox.channel !== 'whatsapp') throw new Error('Inbox not configured for templates');
 
+    // Respetar consentimiento (opt-in) del contacto: si tiene el opt-in de
+    // WhatsApp desactivado, no se le pueden enviar plantillas. Solo se permiten
+    // mensajes libres dentro de la ventana de conversación de 24h (validada en
+    // sendMessage).
+    if (conversation.recordId) {
+      const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+      if (record && record.optInWhatsapp === false) {
+        throw new BadRequestException(
+          'El contacto tiene desactivado el opt-in de WhatsApp. No se pueden enviar plantillas; solo mensajes dentro de la ventana de conversación de 24 horas.',
+        );
+      }
+    }
+
     // Consumir créditos según categoría de plantilla
     const categoryLower = (category || 'utility').toLowerCase();
     const actionMap: Record<string, string> = {

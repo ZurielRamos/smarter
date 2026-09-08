@@ -31,6 +31,8 @@ export interface Conversation {
     lastName: string | null;
     phone: string | null;
     assignedTo?: string | null;
+    optInWhatsapp?: boolean;
+    optInEmail?: boolean;
   } | null;
 }
 

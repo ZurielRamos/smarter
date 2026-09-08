@@ -30,6 +30,12 @@ export const ChatInput = memo(function ChatInput({
 }: ChatInputProps) {
   const [inputMode, setInputMode] = useState<"reply" | "note">("reply");
   const [newMessage, setNewMessage] = useState("");
+
+  // Si el contacto tiene el opt-in de WhatsApp desactivado, no se le pueden
+  // enviar plantillas (solo mensajes libres dentro de la ventana de 24h).
+  // Debe coincidir con la validación del backend en chats.service.ts.
+  const isWhatsApp = activeConversation.inbox?.channel === "whatsapp";
+  const templatesBlocked = isWhatsApp && activeConversation.record?.optInWhatsapp === false;
   const [sending, setSending] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ file: File; preview: string | null } | null>(null);
@@ -119,13 +125,15 @@ export const ChatInput = memo(function ChatInput({
                 {neverReplied ? "Esperando respuesta del contacto" : "Ventana de conversación cerrada"}
               </p>
               <p className="text-xs text-amber-600 mt-0.5">
-                {neverReplied
-                  ? <>El contacto aún no ha respondido. {activeConversation.inbox?.channel === "whatsapp" ? "Solo puedes enviar plantillas hasta que responda." : "Espera a que el contacto responda para enviar mensajes."}</>
-                  : <>Han pasado más de 24 horas desde el último mensaje del contacto. {activeConversation.inbox?.channel === "whatsapp" ? "Usa una plantilla para reabrir la conversación." : "Espera a que el contacto responda."}</>}
+                {templatesBlocked
+                  ? <>El contacto tiene desactivado el opt-in de WhatsApp. No puedes enviar plantillas; solo mensajes dentro de la ventana de 24 horas.</>
+                  : neverReplied
+                  ? <>El contacto aún no ha respondido. {isWhatsApp ? "Solo puedes enviar plantillas hasta que responda." : "Espera a que el contacto responda para enviar mensajes."}</>
+                  : <>Han pasado más de 24 horas desde el último mensaje del contacto. {isWhatsApp ? "Usa una plantilla para reabrir la conversación." : "Espera a que el contacto responda."}</>}
               </p>
             </div>
           </div>
-          {activeConversation.inbox?.channel === "whatsapp" && (
+          {isWhatsApp && !templatesBlocked && (
             <div className="mt-2 flex justify-end">
               <TemplateSelector inboxId={activeConversation.inboxId} onSelect={onSelectTemplate} />
             </div>
@@ -224,7 +232,7 @@ export const ChatInput = memo(function ChatInput({
 
             {/* Send */}
             <div className="flex items-center gap-2">
-              {activeConversation.inbox?.channel === "whatsapp" && inputMode === "reply" && (
+              {isWhatsApp && !templatesBlocked && inputMode === "reply" && (
                 <TemplateSelector inboxId={activeConversation.inboxId} onSelect={onSelectTemplate} iconOnly />
               )}
               <button
