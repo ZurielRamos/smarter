@@ -2690,7 +2690,10 @@ export class ChatsService {
       { method: 'POST' },
     );
     const sessionData = await sessionRes.json();
-    if (sessionData.error) throw new Error(sessionData.error.message || 'Failed to create upload session');
+    if (sessionData.error) {
+      console.error('[Chat] uploadTemplateMedia session error:', JSON.stringify(sessionData.error));
+      throw new Error(sessionData.error.error_user_msg || sessionData.error.message || 'Failed to create upload session');
+    }
 
     const uploadSessionId = sessionData.id; // "upload:SESSION_ID"
 
@@ -2708,7 +2711,14 @@ export class ChatsService {
       },
     );
     const uploadData = await uploadRes.json();
-    if (uploadData.error) throw new Error(uploadData.error.message || 'Failed to upload file');
+    if (uploadData.error) {
+      console.error('[Chat] uploadTemplateMedia upload error:', JSON.stringify(uploadData.error));
+      throw new Error(uploadData.error.error_user_msg || uploadData.error.message || 'Failed to upload file');
+    }
+    if (!uploadData.h) {
+      console.error('[Chat] uploadTemplateMedia: no handle returned:', JSON.stringify(uploadData));
+      throw new Error('Meta no devolvió un handle para la imagen. Verifica el formato (JPG/PNG) y el tamaño.');
+    }
 
     return { handle: uploadData.h };
   }
@@ -2796,7 +2806,19 @@ export class ChatsService {
       },
     );
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message || 'Failed to update business profile');
+    if (data.error) {
+      // Loguear el error completo de Meta para diagnóstico (el mensaje genérico
+      // "An unknown error occurred" ocultaba la causa real).
+      console.error('[Chat] updateWhatsAppBusinessProfile Meta error:', JSON.stringify(data.error));
+      const err = data.error;
+      const detail =
+        err.error_user_msg ||
+        err.message ||
+        err.error_data?.details ||
+        'Failed to update business profile';
+      const code = err.code ? ` (código ${err.code}${err.error_subcode ? '/' + err.error_subcode : ''})` : '';
+      throw new Error(`${detail}${code}`);
+    }
     return data;
   }
 
