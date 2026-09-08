@@ -6,8 +6,13 @@ import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { Public } from '../auth/public.decorator';
-import { ChatsService } from './chats.service';
+import { ChatsService, AssignmentFilter } from './chats.service';
 import { WebhookForwarderService } from './webhook-forwarder.service';
+
+/** Normaliza el query param de asignación a un valor válido. */
+function normalizeAssignment(value?: string): AssignmentFilter {
+  return value === 'unassigned' || value === 'mine' ? value : 'all';
+}
 
 @Controller('chats')
 @UseGuards(JwtAuthGuard, TenantAccessGuard)
@@ -220,10 +225,12 @@ export class ChatsController {
   @Get('bootstrap')
   getBootstrap(
     @Query('tenantId') tenantId: string,
+    @Req() req: any,
     @Query('inboxIds') inboxIds?: string,
     @Query('labelId') labelId?: string,
     @Query('labelIds') labelIds?: string,
     @Query('hideCampaign') hideCampaign?: string,
+    @Query('assignment') assignment?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
@@ -231,6 +238,8 @@ export class ChatsController {
       inboxIds: inboxIds ? inboxIds.split(',').filter(Boolean) : undefined,
       labelIds: labelIds ? labelIds.split(',').filter(Boolean) : (labelId ? [labelId] : []),
       hideCampaign: hideCampaign === 'true',
+      assignment: normalizeAssignment(assignment),
+      userId: req.user?.id,
       limit: limit ? parseInt(limit, 10) : 15,
       offset: offset ? parseInt(offset, 10) : 0,
     });
@@ -238,6 +247,7 @@ export class ChatsController {
 
   @Get('conversations')
   getConversations(
+    @Req() req: any,
     @Query('tenantId') tenantId?: string,
     @Query('inboxId') inboxId?: string,
     @Query('inboxIds') inboxIds?: string,
@@ -245,6 +255,7 @@ export class ChatsController {
     @Query('labelId') labelId?: string,
     @Query('labelIds') labelIds?: string,
     @Query('hideCampaign') hideCampaign?: string,
+    @Query('assignment') assignment?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
@@ -253,6 +264,8 @@ export class ChatsController {
       offset: offset ? parseInt(offset, 10) : 0,
       labelIds: labelIds ? labelIds.split(',').filter(Boolean) : (labelId ? [labelId] : []),
       hideCampaign: hideCampaign === 'true',
+      assignment: normalizeAssignment(assignment),
+      userId: req.user?.id,
     };
 
     if (recordId) return this.chatsService.getConversationsByRecordId(recordId, opts);
@@ -263,6 +276,13 @@ export class ChatsController {
     if (inboxId) return this.chatsService.getConversationsPaginated(inboxId, opts);
     if (tenantId) return this.chatsService.getConversationsByTenantPaginated(tenantId, opts);
     return { data: [], total: 0 };
+  }
+
+  // Busca o crea una conversación para un contacto (record) en un canal (inbox).
+  // Se usa desde la ficha del contacto al elegir un canal en el modal de "Mensaje".
+  @Post('conversations')
+  findOrCreateConversation(@Body() body: { inboxId: string; recordId: string }) {
+    return this.chatsService.findOrCreateConversationForRecord(body.inboxId, body.recordId);
   }
 
   @Post('conversations/:id/read')
@@ -296,6 +316,16 @@ export class ChatsController {
   }
 
   // === MESSAGES ===
+
+  // Búsqueda de texto dentro de una conversación (histórico completo).
+  @Get('conversations/:id/messages/search')
+  searchMessages(
+    @Param('id') id: string,
+    @Query('q') q?: string,
+    @Query('limit') limit = '200',
+  ) {
+    return this.chatsService.searchMessages(id, q ?? '', +limit);
+  }
 
   @Get('conversations/:id/messages')
   getMessages(

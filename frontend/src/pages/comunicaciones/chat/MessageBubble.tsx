@@ -7,14 +7,41 @@ interface MessageBubbleProps {
   msg: Message;
   replyMsg: Message | null;
   displayName: string;
+  searchTerm?: string;
+  isActiveMatch?: boolean;
   onContextMenu: (e: React.MouseEvent, msg: Message) => void;
   onReplyClick: (msgId: string) => void;
+}
+
+/**
+ * Resalta las coincidencias de `term` dentro de `text`. La coincidencia activa
+ * (bocadillo seleccionado en la búsqueda) usa un tono más fuerte.
+ */
+function highlightMatches(text: string, term: string, active: boolean): React.ReactNode {
+  if (!term || term.length < 2) return text;
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+  const lower = term.toLowerCase();
+  return parts.map((part, i) =>
+    part.toLowerCase() === lower ? (
+      <mark
+        key={i}
+        className={`rounded-sm px-0.5 ${active ? "bg-amber-400 text-gray-900" : "bg-yellow-200 text-gray-900"}`}
+      >
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  );
 }
 
 export const MessageBubble = memo(function MessageBubble({
   msg,
   replyMsg,
   displayName,
+  searchTerm = "",
+  isActiveMatch = false,
   onContextMenu,
   onReplyClick,
 }: MessageBubbleProps) {
@@ -47,7 +74,7 @@ export const MessageBubble = memo(function MessageBubble({
           </div>
         </div>
       )}
-      <div className={`${msg.messageType === "template" ? "max-w-[320px]" : msg.direction === "outbound" ? "max-w-[min(70%,400px)]" : "max-w-[min(40%,300px)]"} px-4 py-2.5 rounded-2xl text-sm break-words ${msg.messageType === "template" ? "bg-green-50/90 border border-green-200 text-gray-800 rounded-br-md backdrop-blur-sm" : msg.messageType === "note" ? "bg-yellow-100/90 border border-yellow-200 text-yellow-900 rounded-br-md backdrop-blur-sm" : msg.direction === "outbound" ? "bg-brand-600/90 text-white rounded-br-md backdrop-blur-sm" : "bg-white/90 border border-gray-200 text-gray-800 rounded-bl-md backdrop-blur-sm"}`}>
+      <div className={`${msg.messageType === "template" ? "max-w-[320px]" : msg.direction === "outbound" ? "max-w-[min(70%,400px)]" : "max-w-[min(40%,300px)]"} px-4 py-2.5 rounded-2xl text-sm break-words transition-shadow ${isActiveMatch ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${msg.messageType === "template" ? "bg-green-50/90 border border-green-200 text-gray-800 rounded-br-md backdrop-blur-sm" : msg.messageType === "note" ? "bg-yellow-100/90 border border-yellow-200 text-yellow-900 rounded-br-md backdrop-blur-sm" : msg.direction === "outbound" ? "bg-brand-600/90 text-white rounded-br-md backdrop-blur-sm" : "bg-white/90 border border-gray-200 text-gray-800 rounded-bl-md backdrop-blur-sm"}`}>
         {msg.messageType === "template" && <TemplateBubble msg={msg} />}
         {msg.messageType === "note" && (
           <p className="text-[10px] font-medium text-yellow-600 mb-1 flex items-center gap-1"><StickyNote className="h-3 w-3" /> Nota privada</p>
@@ -71,7 +98,13 @@ export const MessageBubble = memo(function MessageBubble({
           </div>
         )}
         <MediaContent msg={msg} />
-        {msg.content && msg.messageType !== "template" && <p className="whitespace-pre-wrap">{formatWhatsAppText(msg.content)}</p>}
+        {msg.content && msg.messageType !== "template" && (
+          <p className="whitespace-pre-wrap">
+            {searchTerm && searchTerm.length >= 2 && msg.content.toLowerCase().includes(searchTerm.toLowerCase())
+              ? highlightMatches(msg.content, searchTerm, isActiveMatch)
+              : formatWhatsAppText(msg.content)}
+          </p>
+        )}
         {!msg.content && !msg.mediaUrl && msg.messageType !== "template" && <p className="whitespace-pre-wrap text-gray-400 italic">[{msg.messageType}]</p>}
         <MessageTimestamp msg={msg} />
       </div>

@@ -1,15 +1,17 @@
 import { memo, useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { MoreVertical, Eye, Zap, ArrowRightLeft, ChevronLeft, UserPlus, X, CheckCheck, Bot, Trash2, ShoppingCart, CalendarCheck, Presentation, Star, FileText, Inbox, UserPlus as UserPlusIcon } from "lucide-react";
+import { MoreVertical, Eye, Edit3, Zap, ArrowRightLeft, ChevronLeft, UserPlus, X, CheckCheck, Bot, Trash2, ShoppingCart, CalendarCheck, Presentation, Star, FileText, Inbox, UserPlus as UserPlusIcon, Search, ChevronUp, ChevronDown } from "lucide-react";
 import { TemplateConfigModal } from "@/components/TemplateModal";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { EditContactModal } from "@/components/EditContactModal";
 import { ChatEmpty } from "../ChatEmpty";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
 import { chatApi } from "./api";
 import { getDisplayName, STATUS_OPTIONS, CONVERSATION_STATUS_OPTIONS, normalizeConvStatus } from "./types";
 import type { Conversation, Message, Label, TenantMember } from "./types";
-import { createContactEvent } from "@/services/api";
+import { createContactEvent, getClient } from "@/services/api";
+import type { ClientRecord } from "@/services/api";
 import { toast } from "sonner";
 
 interface ChatPanelProps {
@@ -21,6 +23,7 @@ interface ChatPanelProps {
   hasMoreMessages: boolean;
   loadOlderMessages: () => void;
   loadMessages: (convId: string) => void;
+  ensureMessageLoaded: (targetCreatedAt: string) => Promise<boolean>;
   loadConversations: (reset?: boolean) => void;
   setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>;
   labels: Label[];
@@ -39,6 +42,7 @@ export const ChatPanel = memo(function ChatPanel({
   hasMoreMessages,
   loadOlderMessages,
   loadMessages,
+  ensureMessageLoaded,
   loadConversations,
   setConversations,
   labels,
@@ -61,9 +65,99 @@ export const ChatPanel = memo(function ChatPanel({
   const [showClearChatConfirm, setShowClearChatConfirm] = useState(false);
   const [showEventForm, setShowEventForm] = useState(false);
   const [eventForm, setEventForm] = useState({ type: "purchase", name: "", value: "", currency: "COP" });
+  const [editingClient, setEditingClient] = useState<ClientRecord | null>(null);
+  const [loadingEditContact, setLoadingEditContact] = useState(false);
   const chatHeaderMenuRef = useRef<HTMLDivElement>(null);
 
+  // --- In-chat search ---
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Message[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [activeMatchIndex, setActiveMatchIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   const displayName = activeConversation ? getDisplayName(activeConversation) : "";
+
+  // Reset búsqueda al cambiar de conversación.
+  useEffect(() => {
+    setSearchOpen(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    setActiveMatchIndex(0);
+  }, [activeConversation?.id]);
+
+  // Debounced fetch de coincidencias contra el histórico completo.
+  useEffect(() => {
+    if (!searchOpen || !activeConversation) return;
+    const term = searchQuery.trim();
+    if (term.length < 2) {
+      setSearchResults([]);
+      setActiveMatchIndex(0);
+      return;
+    }
+    let cancelled = false;
+    setSearchLoading(true);
+    const timer = setTimeout(() => {
+      chatApi
+        .get<Message[]>(`/chats/conversations/${activeConversation.id}/messages/search`, { params: { q: term } })
+        .then(({ data }) => {
+          if (cancelled) return;
+          setSearchResults(data);
+          // Empieza por la coincidencia más reciente (última en orden ascendente).
+          setActiveMatchIndex(data.length > 0 ? data.length - 1 : 0);
+        })
+        .catch(() => { if (!cancelled) setSearchResults([]); })
+        .finally(() => { if (!cancelled) setSearchLoading(false); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [searchQuery, searchOpen, activeConversation]);
+
+  // Enfoca el input al abrir.
+  useEffect(() => {
+    if (searchOpen) requestAnimationFrame(() => searchInputRef.current?.focus());
+  }, [searchOpen]);
+
+  const activeMatch = searchResults[activeMatchIndex] || null;
+  const activeMatchId = activeMatch?.id ?? null;
+
+  // Navega hasta una coincidencia: fija el índice activo y asegura que el
+  // mensaje esté cargado. El scroll real hasta la burbuja lo hace MessageList
+  // de forma reactiva (por índice de Virtuoso) cuando el mensaje entra en el
+  // rango cargado; así funciona aunque esté fuera del viewport virtualizado.
+  const goToMatch = useCallback(async (index: number) => {
+    const match = searchResults[index];
+    if (!match) return;
+    setActiveMatchIndex(index);
+    await ensureMessageLoaded(match.createdAt);
+  }, [searchResults, ensureMessageLoaded]);
+
+  const goPrevMatch = useCallback(() => {
+    if (searchResults.length === 0) return;
+    const next = activeMatchIndex <= 0 ? searchResults.length - 1 : activeMatchIndex - 1;
+    goToMatch(next);
+  }, [activeMatchIndex, searchResults.length, goToMatch]);
+
+  const goNextMatch = useCallback(() => {
+    if (searchResults.length === 0) return;
+    const next = activeMatchIndex >= searchResults.length - 1 ? 0 : activeMatchIndex + 1;
+    goToMatch(next);
+  }, [activeMatchIndex, searchResults.length, goToMatch]);
+
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    setActiveMatchIndex(0);
+  }, []);
+
+  // Al obtener resultados, salta automáticamente a la coincidencia activa.
+  useEffect(() => {
+    if (searchResults.length > 0 && activeMatch) {
+      goToMatch(activeMatchIndex);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchResults]);
 
   // Compute isWindowClosed with useMemo
   const isWindowClosed = useMemo(() => {
@@ -311,6 +405,21 @@ export const ChatPanel = memo(function ChatPanel({
     }
   };
 
+  const handleEditContact = async () => {
+    const recordId = activeConversation?.record?.id;
+    if (!recordId) { toast.error("Esta conversación no tiene contacto vinculado"); return; }
+    setChatHeaderMenuOpen(false);
+    setLoadingEditContact(true);
+    try {
+      const client = await getClient(recordId);
+      setEditingClient(client);
+    } catch {
+      toast.error("No se pudo cargar el contacto");
+    } finally {
+      setLoadingEditContact(false);
+    }
+  };
+
   const handleCreateEvent = async () => {
     const recordId = activeConversation?.record?.id;
     if (!recordId || !tenantId || !eventForm.name) return;
@@ -345,6 +454,56 @@ export const ChatPanel = memo(function ChatPanel({
     <div className="flex-1 flex flex-col bg-gray-50 min-w-0 overflow-hidden">
       {/* Header */}
       <div className="h-14 px-6 flex items-center justify-between border-b border-gray-200 bg-white shrink-0">
+        {searchOpen ? (
+          <div className="flex items-center gap-2 w-full">
+            <Search className="h-4 w-4 text-gray-400 shrink-0" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); e.shiftKey ? goPrevMatch() : goNextMatch(); }
+                if (e.key === "Escape") closeSearch();
+              }}
+              placeholder="Buscar en la conversación..."
+              className="flex-1 min-w-0 text-sm bg-transparent outline-none placeholder:text-gray-400"
+            />
+            <span className="text-xs text-gray-400 tabular-nums shrink-0 whitespace-nowrap">
+              {searchLoading
+                ? "Buscando..."
+                : searchQuery.trim().length < 2
+                  ? ""
+                  : searchResults.length === 0
+                    ? "Sin resultados"
+                    : `${activeMatchIndex + 1}/${searchResults.length}`}
+            </span>
+            <button
+              onClick={goPrevMatch}
+              disabled={searchResults.length === 0}
+              className="h-7 w-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition-colors shrink-0"
+              title="Anterior (Shift+Enter)"
+            >
+              <ChevronUp className="h-4 w-4" />
+            </button>
+            <button
+              onClick={goNextMatch}
+              disabled={searchResults.length === 0}
+              className="h-7 w-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition-colors shrink-0"
+              title="Siguiente (Enter)"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            <button
+              onClick={closeSearch}
+              className="h-7 w-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+              title="Cerrar (Esc)"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+        <>
         <div className="flex items-center gap-3">
           <div className={`relative h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-gray-600 ${activeConversation.hasAdTracking ? "ring-2 ring-blue-500 ring-offset-1 bg-gradient-to-br from-blue-50 to-indigo-100" : "bg-gray-200"}`}>
             {displayName.charAt(0).toUpperCase()}
@@ -354,6 +513,15 @@ export const ChatPanel = memo(function ChatPanel({
             <p className="text-[10px] text-gray-400">{activeConversation.contactId}</p>
           </div>
         </div>
+        <div className="flex items-center gap-1">
+        {/* Search toggle */}
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          title="Buscar en la conversación"
+        >
+          <Search className="h-4 w-4" />
+        </button>
         {/* Dropdown menu */}
         <div className="relative" ref={chatHeaderMenuRef}>
           <button onClick={() => setChatHeaderMenuOpen(!chatHeaderMenuOpen)} className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
@@ -363,6 +531,9 @@ export const ChatPanel = memo(function ChatPanel({
             <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
               <button onClick={() => { setChatHeaderMenuOpen(false); const recordId = activeConversation.record?.id; if (recordId) navigate(`/${slug}/clients/${recordId}`); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 transition-colors">
                 <Eye className="h-4 w-4 shrink-0 text-gray-400" /> <span className="flex-1">Ver Contacto</span>
+              </button>
+              <button onClick={handleEditContact} disabled={loadingEditContact} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50">
+                <Edit3 className="h-4 w-4 shrink-0 text-gray-400" /> <span className="flex-1">Editar contacto</span>
               </button>
               <button onClick={() => { setChatHeaderMenuOpen(false); setShowEventForm(true); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 transition-colors">
                 <Zap className="h-4 w-4 shrink-0 text-amber-500" /> <span className="flex-1">Agregar evento de conversión</span>
@@ -439,6 +610,9 @@ export const ChatPanel = memo(function ChatPanel({
             </div>
           )}
         </div>
+        </div>
+        </>
+        )}
       </div>
 
       {/* Messages */}
@@ -448,6 +622,8 @@ export const ChatPanel = memo(function ChatPanel({
         loadingMore={loadingMore}
         hasMoreMessages={hasMoreMessages}
         displayName={displayName}
+        searchTerm={searchOpen ? searchQuery.trim() : ""}
+        activeMatchId={searchOpen ? activeMatchId : null}
         onLoadOlder={loadOlderMessages}
         onMsgContextMenu={handleMsgContextMenu}
       />
@@ -500,6 +676,20 @@ export const ChatPanel = memo(function ChatPanel({
         confirmLabel="Vaciar"
         variant="danger"
       />
+
+      {/* Edit contact modal (mismo modal que la vista de Contactos) */}
+      {editingClient && (
+        <EditContactModal
+          client={editingClient}
+          onClose={() => setEditingClient(null)}
+          onSaved={() => {
+            setEditingClient(null);
+            toast.success("Contacto actualizado");
+            // Refresca la lista para reflejar cambios de nombre/estado.
+            loadConversations();
+          }}
+        />
+      )}
 
       {/* Event form modal */}
       {showEventForm && (

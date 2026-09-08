@@ -456,6 +456,25 @@ export async function getConversationsByRecord(recordId: string, limit = 20, off
   return data;
 }
 
+export interface InboxSummary {
+  id: string;
+  name: string;
+  channel: string;
+  status: string;
+  channelName: string | null;
+}
+
+export async function getInboxes(tenantId: string): Promise<InboxSummary[]> {
+  const { data } = await api.get<InboxSummary[]>('/chats/inboxes', { params: { tenantId } });
+  return data;
+}
+
+/** Busca o crea la conversación de un contacto en un canal concreto. */
+export async function findOrCreateConversation(inboxId: string, recordId: string): Promise<ConversationRecord> {
+  const { data } = await api.post<ConversationRecord>('/chats/conversations', { inboxId, recordId });
+  return data;
+}
+
 // === Kanban ===
 
 export async function getKanbanColumn(params: {

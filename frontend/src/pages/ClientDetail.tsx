@@ -2,11 +2,12 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Mail, Phone, MapPin, Calendar, Tag, MessageSquare, Camera, MoreHorizontal, StickyNote, Plus, Trash2, User, ArrowRightLeft, UserPlus, Send, Pencil, Clock, ShoppingCart, CalendarCheck, Presentation, Star, FileText, Zap } from "lucide-react";
 import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/components/ChannelIcons";
-import { getClient, getConversationsByRecord, getNotes, deleteNote, getActivities, getContactEvents, createContactEvent, deleteContactEvent } from "@/services/api";
-import type { ClientRecord, ConversationRecord, NoteRecord, ActivityRecord, ContactEventRecord } from "@/services/api";
+import { getClient, getConversationsByRecord, getNotes, deleteNote, getActivities, getContactEvents, createContactEvent, deleteContactEvent, getCustomFields } from "@/services/api";
+import type { ClientRecord, ConversationRecord, NoteRecord, ActivityRecord, ContactEventRecord, CustomField } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { AddNoteModal } from "./AddNoteModal";
 import { ConversationPreviewModal } from "./ConversationPreviewModal";
+import { ChannelPickerModal } from "./ChannelPickerModal";
 import { toast } from "sonner";
 import headerBg from "@/assets/header-background.jpg";
 
@@ -43,6 +44,155 @@ const CHANNEL_ICONS: Record<string, { icon: React.ComponentType<{ className?: st
   form: { icon: FormIcon, color: "text-purple-600", bg: "bg-purple-50" },
 };
 
+// Claves de campos de sistema (mismo listado que ClientSchema) para detectar
+// campos de sistema aunque el flag isSystem no venga marcado.
+const SYSTEM_FIELD_KEYS = [
+  "firstName", "lastName", "fullName", "documentType", "documentNumber",
+  "phone", "countryCode", "email", "gender", "birthDate",
+  "city", "region",
+  "status", "channelSource", "source", "score",
+  "optInWhatsapp", "optInEmail",
+  "lastContactAt", "lastActivityAt", "tags",
+];
+
+// Orden de grupos conocidos (mismo criterio que ClientSchema).
+const GROUP_ORDER = ["identificacion", "contacto", "demografia", "ubicacion", "segmentacion", "consentimiento", "actividad"];
+
+// Etiquetas legibles para los grupos. Si un grupo no está aquí se muestra
+// capitalizando su clave.
+const GROUP_LABELS: Record<string, string> = {
+  identificacion: "Identificación",
+  contacto: "Contacto",
+  demografia: "Demografía",
+  ubicacion: "Ubicación",
+  segmentacion: "Segmentación",
+  consentimiento: "Consentimiento y etiquetas",
+  actividad: "Actividad",
+  general: "General",
+};
+
+// Campos que no tienen sentido mostrar como fila normal en la ficha.
+const HIDDEN_FIELD_KEYS = new Set(["firstName", "lastName", "fullName", "countryCode", "documentType"]);
+
+function groupLabel(key: string): string {
+  return GROUP_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+interface FieldGroupView {
+  key: string;
+  label: string;
+  fields: CustomField[];
+}
+
+// Esquema por defecto usado si el tenant aún no tiene definiciones de campos
+// cargadas. Mantiene la ficha funcional agrupando la información básica.
+const DEFAULT_FIELDS: CustomField[] = ([
+  { fieldKey: "email", fieldLabel: "Email", fieldType: "text", fieldGroup: "contacto", sortOrder: 0 },
+  { fieldKey: "phone", fieldLabel: "Teléfono", fieldType: "text", fieldGroup: "contacto", sortOrder: 1 },
+  { fieldKey: "channelSource", fieldLabel: "Canal", fieldType: "text", fieldGroup: "contacto", sortOrder: 2 },
+  { fieldKey: "status", fieldLabel: "Estado", fieldType: "select", fieldGroup: "segmentacion", sortOrder: 0 },
+  { fieldKey: "score", fieldLabel: "Score", fieldType: "number", fieldGroup: "segmentacion", sortOrder: 1 },
+  { fieldKey: "source", fieldLabel: "Fuente", fieldType: "text", fieldGroup: "segmentacion", sortOrder: 2 },
+  { fieldKey: "gender", fieldLabel: "Género", fieldType: "select", fieldGroup: "demografia", sortOrder: 0 },
+  { fieldKey: "birthDate", fieldLabel: "Fecha de nacimiento", fieldType: "date", fieldGroup: "demografia", sortOrder: 1 },
+  { fieldKey: "documentNumber", fieldLabel: "Documento", fieldType: "text", fieldGroup: "identificacion", sortOrder: 0 },
+  { fieldKey: "city", fieldLabel: "Ciudad", fieldType: "text", fieldGroup: "ubicacion", sortOrder: 0 },
+  { fieldKey: "region", fieldLabel: "Región", fieldType: "text", fieldGroup: "ubicacion", sortOrder: 1 },
+  { fieldKey: "optInWhatsapp", fieldLabel: "Opt-in WhatsApp", fieldType: "boolean", fieldGroup: "consentimiento", sortOrder: 0 },
+  { fieldKey: "optInEmail", fieldLabel: "Opt-in Email", fieldType: "boolean", fieldGroup: "consentimiento", sortOrder: 1 },
+  { fieldKey: "tags", fieldLabel: "Etiquetas", fieldType: "array", fieldGroup: "consentimiento", sortOrder: 2 },
+] as Partial<CustomField>[]).map((f, i) => ({
+  id: `default-${f.fieldKey}`,
+  tenantId: "",
+  options: null,
+  isRequired: false,
+  isSystem: true,
+  isUnique: false,
+  isNullable: true,
+  defaultValue: null,
+  validations: null,
+  createdAt: "",
+  sortOrder: i,
+  ...f,
+} as CustomField));
+
+/**
+ * Agrupa las definiciones de campos por `fieldGroup` (igual que ClientSchema),
+ * ordena los grupos con GROUP_ORDER y los campos por `sortOrder`.
+ */
+function buildFieldGroups(fields: CustomField[]): FieldGroupView[] {
+  const grouped: Record<string, CustomField[]> = {};
+  for (const f of fields) {
+    if (HIDDEN_FIELD_KEYS.has(f.fieldKey)) continue;
+    const g = f.fieldGroup || "general";
+    if (!grouped[g]) grouped[g] = [];
+    grouped[g].push(f);
+  }
+
+  const groupKeys = Object.keys(grouped).sort((a, b) => {
+    const ia = GROUP_ORDER.indexOf(a);
+    const ib = GROUP_ORDER.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    if (a === "general") return 1;
+    if (b === "general") return -1;
+    return a.localeCompare(b);
+  });
+
+  return groupKeys.map((key) => ({
+    key,
+    label: groupLabel(key),
+    fields: grouped[key].slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+  }));
+}
+
+/**
+ * Obtiene y formatea el valor de un campo para el contacto. Los campos de
+ * sistema se leen desde el propio record; los personalizados desde customData.
+ */
+function formatFieldValue(field: CustomField, client: ClientRecord): string | null {
+  const isSystem = field.isSystem || SYSTEM_FIELD_KEYS.includes(field.fieldKey);
+  let raw: any;
+  if (isSystem) {
+    raw = (client as any)[field.fieldKey];
+  } else {
+    raw = client.customData ? client.customData[field.fieldKey] : undefined;
+  }
+
+  if (raw === null || raw === undefined || raw === "") return null;
+
+  // Formatos especiales por clave de sistema.
+  switch (field.fieldKey) {
+    case "gender":
+      return genderLabels[raw] || String(raw);
+    case "phone":
+      return `${client.countryCode || ""} ${raw}`.trim();
+    case "documentNumber":
+      return `${client.documentType || ""} ${raw}`.trim();
+    case "optInWhatsapp":
+    case "optInEmail":
+      return raw ? "Sí" : "No";
+    case "score":
+      return Number(raw) > 0 ? String(raw) : null;
+    case "lastContactAt":
+    case "lastActivityAt":
+      return new Date(raw).toLocaleString("es-CO");
+  }
+
+  // Formato por tipo de campo.
+  switch (field.fieldType) {
+    case "boolean":
+      return raw ? "Sí" : "No";
+    case "date":
+      return new Date(raw).toLocaleDateString("es-CO");
+    case "array":
+      return Array.isArray(raw) ? raw.join(", ") : String(raw);
+    default:
+      return String(raw);
+  }
+}
+
 export function ClientDetail() {
   const { slug, id } = useParams();
   const navigate = useNavigate();
@@ -52,10 +202,12 @@ export function ClientDetail() {
   const [loading, setLoading] = useState(true);
   const [conversations, setConversations] = useState<ConversationRecord[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [notes, setNotes] = useState<NoteRecord[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [previewConversation, setPreviewConversation] = useState<ConversationRecord | null>(null);
+  const [showChannelPicker, setShowChannelPicker] = useState(false);
   const [activities, setActivities] = useState<ActivityRecord[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesPage, setActivitiesPage] = useState(1);
@@ -84,6 +236,13 @@ export function ClientDetail() {
       .catch(() => setConversations([]))
       .finally(() => setConversationsLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    getCustomFields(tenantId)
+      .then((fields) => setCustomFields(fields))
+      .catch(() => setCustomFields([]));
+  }, [tenantId]);
 
   const loadNotes = () => {
     if (!id) return;
@@ -221,7 +380,7 @@ export function ClientDetail() {
                   {client.email && (
                     <ActionButton icon={Mail} label="Email" onClick={() => window.open(`mailto:${client.email}`)} />
                   )}
-                  <ActionButton icon={MessageSquare} label="Mensaje" onClick={() => navigate(`/${slug}/comunicaciones/conversaciones`)} />
+                  <ActionButton icon={MessageSquare} label="Mensaje" onClick={() => setShowChannelPicker(true)} />
                   <ActionButton icon={MoreHorizontal} label="Más" onClick={() => {}} />
                 </div>
               </div>
@@ -452,55 +611,38 @@ export function ClientDetail() {
               </div>
             </div>
 
-            {/* Right Column - Contact Info */}
+            {/* Right Column - Contact Info (agrupado según el esquema de campos) */}
             <div className="space-y-6">
-              {/* General */}
-              <InfoSection title="General">
-                <InfoRow label="Nombre" value={fullName} />
-                <InfoRow label="Estado" value={status.label} badge badgeClass={`${status.bg} ${status.text}`} />
-                <InfoRow label="Email" value={client.email} />
-                <InfoRow label="Teléfono" value={client.phone ? `${client.countryCode || ""} ${client.phone}`.trim() : null} />
-                <InfoRow label="Canal" value={client.channelSource} />
-                {client.score > 0 && <InfoRow label="Score" value={String(client.score)} />}
-              </InfoSection>
-
-              {/* Other Info */}
-              <InfoSection title="Otra información">
-                <InfoRow label="Género" value={client.gender ? genderLabels[client.gender] || client.gender : null} />
-                <InfoRow label="Fecha de nacimiento" value={client.birthDate ? new Date(client.birthDate).toLocaleDateString("es-CO") : null} />
-                <InfoRow label="Documento" value={client.documentNumber ? `${client.documentType || ""} ${client.documentNumber}`.trim() : null} />
-                <InfoRow label="Ciudad" value={client.city} />
-                <InfoRow label="Región" value={client.region} />
-                <InfoRow label="Fuente" value={client.source} />
-              </InfoSection>
-
-              {/* Consent & Tags */}
-              <InfoSection title="Consentimiento y etiquetas">
-                <InfoRow label="Opt-in WhatsApp" value={client.optInWhatsapp ? "Sí" : "No"} />
-                <InfoRow label="Opt-in Email" value={client.optInEmail ? "Sí" : "No"} />
-                {client.tags && client.tags.length > 0 && (
-                  <div className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0">
-                    <span className="text-sm text-gray-500">Etiquetas</span>
-                    <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
-                      {client.tags.map((tag) => (
-                        <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <Tag className="h-2.5 w-2.5" />
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </InfoSection>
-
-              {/* Custom Data */}
-              {client.customData && Object.keys(client.customData).length > 0 && (
-                <InfoSection title="Campos personalizados">
-                  {Object.entries(client.customData).map(([key, value]) => (
-                    <InfoRow key={key} label={key} value={value != null ? String(value) : null} />
-                  ))}
+              {buildFieldGroups(customFields.length > 0 ? customFields : DEFAULT_FIELDS).map((group) => (
+                <InfoSection key={group.key} title={group.label}>
+                  {group.fields.map((field) => {
+                    // La sección de etiquetas se renderiza con chips.
+                    if (field.fieldKey === "tags") {
+                      if (!client.tags || client.tags.length === 0) {
+                        return <InfoRow key={field.id} label={field.fieldLabel} value={null} />;
+                      }
+                      return (
+                        <div key={field.id} className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0">
+                          <span className="text-sm text-gray-500">{field.fieldLabel}</span>
+                          <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
+                            {client.tags.map((tag) => (
+                              <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <Tag className="h-2.5 w-2.5" />
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    // El estado se muestra como badge de color.
+                    if (field.fieldKey === "status") {
+                      return <InfoRow key={field.id} label={field.fieldLabel} value={status.label} badge badgeClass={`${status.bg} ${status.text}`} />;
+                    }
+                    return <InfoRow key={field.id} label={field.fieldLabel} value={formatFieldValue(field, client)} />;
+                  })}
                 </InfoSection>
-              )}
+              ))}
 
               {/* Timestamps */}
               <InfoSection title="Fechas">
@@ -529,6 +671,20 @@ export function ClientDetail() {
           conversation={previewConversation}
           onClose={() => setPreviewConversation(null)}
           onGoToConversation={() => { navigate(`/${slug}/comunicaciones/conversaciones/${previewConversation.id}`); }}
+        />
+      )}
+
+      {/* Channel Picker Modal (Mensaje) */}
+      {showChannelPicker && id && (
+        <ChannelPickerModal
+          tenantId={tenantId}
+          recordId={id}
+          conversations={conversations}
+          onClose={() => setShowChannelPicker(false)}
+          onSelect={(conversation) => {
+            setShowChannelPicker(false);
+            navigate(`/${slug}/comunicaciones/conversaciones/${conversation.id}`);
+          }}
         />
       )}
 

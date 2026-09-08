@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useSocket } from "@/hooks/useSocket";
 import { chatApi } from "./api";
-import type { Inbox, Conversation, Message, Label, TenantMember } from "./types";
+import type { Inbox, Conversation, Message, Label, TenantMember, AssignmentFilter } from "./types";
 import { getCachedStaticData, setCachedStaticData } from "./staticDataCache";
 
 interface BootstrapResponse {
@@ -39,6 +39,10 @@ export function useConversations() {
   const [hideCampaignMessages, setHideCampaignMessages] = useState(() => {
     const saved = localStorage.getItem("chat_filter_hideCampaign");
     return saved !== null ? saved === "true" : true;
+  });
+  const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>(() => {
+    const saved = localStorage.getItem("chat_filter_assignment");
+    return saved === "unassigned" || saved === "mine" ? saved : "all";
   });
 
   // --- Active Conversation & Messages State ---
@@ -83,6 +87,9 @@ export function useConversations() {
     if (hideCampaignMessages) {
       params.hideCampaign = "true";
     }
+    if (assignmentFilter !== "all") {
+      params.assignment = assignmentFilter;
+    }
 
     chatApi.get<{ data: Conversation[]; total: number }>("/chats/conversations", { params })
       .then(({ data: res }) => {
@@ -98,7 +105,7 @@ export function useConversations() {
       })
       .catch(() => {})
       .finally(() => setLoadingConversations(false));
-  }, [tenantId, selectedInboxFilter, selectedLabelFilters, hideCampaignMessages]);
+  }, [tenantId, selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter]);
 
   // Carga inicial consolidada: una sola petición trae inboxes + primera página
   // de conversaciones + labels + members. Los datos semi-estáticos se sirven
@@ -120,6 +127,7 @@ export function useConversations() {
     if (selectedInboxFilter.size > 0) params.inboxIds = Array.from(selectedInboxFilter).join(",");
     if (selectedLabelFilters.size > 0) params.labelIds = Array.from(selectedLabelFilters).join(",");
     if (hideCampaignMessages) params.hideCampaign = "true";
+    if (assignmentFilter !== "all") params.assignment = assignmentFilter;
 
     chatApi.get<BootstrapResponse>("/chats/bootstrap", { params })
       .then(({ data }) => {
@@ -138,7 +146,7 @@ export function useConversations() {
       })
       .catch(() => {})
       .finally(() => setLoadingConversations(false));
-  }, [tenantId, selectedInboxFilter, selectedLabelFilters, hideCampaignMessages]);
+  }, [tenantId, selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter]);
 
   const loadMessages = useCallback((convId: string) => {
     setLoadingMessages(true);
@@ -150,6 +158,62 @@ export function useConversations() {
       })
       .catch(() => {})
       .finally(() => setLoadingMessages(false));
+  }, []);
+
+  // Carga páginas más antiguas hasta que el mensaje `targetCreatedAt` quede
+  // dentro del rango cargado. Se usa para navegar a coincidencias de búsqueda
+  // que pueden estar fuera de la ventana inicial. Devuelve true si se cargó.
+  //
+  // El cursor de paginación se lleva localmente (no vía messagesRef) para que
+  // el bucle siempre progrese sin depender de que React haya re-renderizado y
+  // actualizado el ref entre iteraciones.
+  const ensureMessageLoaded = useCallback(async (targetCreatedAt: string): Promise<boolean> => {
+    const convId = activeConversationIdRef.current;
+    if (!convId) return false;
+    const targetTime = new Date(targetCreatedAt).getTime();
+
+    // Punto de partida: el mensaje más antiguo actualmente cargado.
+    let oldest = messagesRef.current[0];
+    // Ya está dentro del rango cargado.
+    if (oldest && new Date(oldest.createdAt).getTime() <= targetTime) return true;
+
+    // Pagina hacia atrás con lotes grandes hasta alcanzar la fecha objetivo.
+    for (let i = 0; i < 50; i++) {
+      const cursorId = oldest?.id;
+
+      let data: Message[];
+      try {
+        const res = await chatApi.get<Message[]>(`/chats/conversations/${convId}/messages`, {
+          params: { limit: 50, before: cursorId },
+        });
+        data = res.data;
+      } catch {
+        return false;
+      }
+
+      // Si cambió la conversación activa mientras cargábamos, aborta.
+      if (activeConversationIdRef.current !== convId) return false;
+
+      if (data.length === 0) {
+        setHasMoreMessages(false);
+        return false;
+      }
+      if (data.length < 50) setHasMoreMessages(false);
+
+      // Merge evitando duplicados.
+      setMessages((prev) => {
+        const seen = new Set(prev.map((m) => m.id));
+        const fresh = data.filter((m) => !seen.has(m.id));
+        return fresh.length > 0 ? [...fresh, ...prev] : prev;
+      });
+
+      // Avanza el cursor localmente al mensaje más antiguo recibido (los datos
+      // vienen en orden cronológico ascendente, así que el primero es el más
+      // antiguo del lote).
+      oldest = data[0];
+      if (new Date(oldest.createdAt).getTime() <= targetTime) return true;
+    }
+    return false;
   }, []);
 
   // Refs para leer estado fresco dentro de loadOlderMessages sin recrear el
@@ -195,7 +259,7 @@ export function useConversations() {
       return;
     }
     loadConversations();
-  }, [selectedInboxFilter, selectedLabelFilters, hideCampaignMessages]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist filters
   useEffect(() => {
@@ -205,6 +269,10 @@ export function useConversations() {
   useEffect(() => {
     localStorage.setItem("chat_filter_hideCampaign", String(hideCampaignMessages));
   }, [hideCampaignMessages]);
+
+  useEffect(() => {
+    localStorage.setItem("chat_filter_assignment", assignmentFilter);
+  }, [assignmentFilter]);
 
   // --- Active conversation effects ---
   useEffect(() => {
@@ -305,6 +373,8 @@ export function useConversations() {
     setSelectedLabelFilters,
     hideCampaignMessages,
     setHideCampaignMessages,
+    assignmentFilter,
+    setAssignmentFilter,
 
     // Labels & Members
     labels,
@@ -318,5 +388,6 @@ export function useConversations() {
     loadingMessages,
     loadMessages,
     loadOlderMessages,
+    ensureMessageLoaded,
   };
 }

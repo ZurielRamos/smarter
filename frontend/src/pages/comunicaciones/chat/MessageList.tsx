@@ -11,6 +11,8 @@ interface MessageListProps {
   loadingMore: boolean;
   hasMoreMessages: boolean;
   displayName: string;
+  searchTerm?: string;
+  activeMatchId?: string | null;
   onLoadOlder: () => void;
   onMsgContextMenu: (e: React.MouseEvent, msg: Message) => void;
 }
@@ -21,6 +23,8 @@ export const MessageList = memo(function MessageList({
   loadingMore,
   hasMoreMessages,
   displayName,
+  searchTerm = "",
+  activeMatchId = null,
   onLoadOlder,
   onMsgContextMenu,
 }: MessageListProps) {
@@ -47,15 +51,31 @@ export const MessageList = memo(function MessageList({
     }
   }, []);
 
-  // Scroll to bottom on new messages when following
+  // Scroll to bottom on new messages when following. Se desactiva mientras hay
+  // una búsqueda activa para no pelear con el scroll a la coincidencia.
   useEffect(() => {
+    if (activeMatchId) return;
     if (isFollowingRef.current && messages.length > 0) {
       // Small delay to let Virtuoso render
       requestAnimationFrame(() => {
         virtuosoRef.current?.scrollToIndex({ index: messages.length - 1, behavior: "smooth" });
       });
     }
-  }, [messages.length]);
+  }, [messages.length, activeMatchId]);
+
+  // Scroll a la coincidencia activa de búsqueda. Usa el índice dentro de la
+  // lista virtualizada (no getElementById) para que funcione aunque el mensaje
+  // esté fuera del viewport renderizado. Se ejecuta cuando cambia la
+  // coincidencia o cuando `messages` cambia (p. ej. tras cargar páginas viejas
+  // que traen el mensaje objetivo al rango cargado).
+  useEffect(() => {
+    if (!activeMatchId) return;
+    const index = messages.findIndex((m) => m.id === activeMatchId);
+    if (index === -1) return; // aún no cargado; se reintenta al llegar más mensajes
+    requestAnimationFrame(() => {
+      virtuosoRef.current?.scrollToIndex({ index, align: "center", behavior: "smooth" });
+    });
+  }, [activeMatchId, messages]);
 
   const handleStartReached = useCallback(() => {
     if (hasMoreMessages && !loadingMore) {
@@ -75,13 +95,15 @@ export const MessageList = memo(function MessageList({
             msg={msg}
             replyMsg={replyMsg}
             displayName={displayName}
+            searchTerm={searchTerm}
+            isActiveMatch={activeMatchId === msg.id}
             onContextMenu={onMsgContextMenu}
             onReplyClick={handleReplyClick}
           />
         </div>
       );
     },
-    [replyMap, displayName, onMsgContextMenu, handleReplyClick]
+    [replyMap, displayName, searchTerm, activeMatchId, onMsgContextMenu, handleReplyClick]
   );
 
   // Fondo compartido por ambos estados (cargando y lista) para que la imagen

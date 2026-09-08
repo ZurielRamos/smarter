@@ -67,6 +67,9 @@ export interface TenantMember {
   user: { id: string; name: string; email: string };
 }
 
+// Filtro de asignación para la lista de conversaciones.
+export type AssignmentFilter = "all" | "unassigned" | "mine";
+
 export const STATUS_OPTIONS = [
   { value: "lead", label: "Lead", color: "bg-blue-500" },
   { value: "contactado", label: "Contactado", color: "bg-sky-500" },

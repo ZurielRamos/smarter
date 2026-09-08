@@ -144,6 +144,8 @@ export function Conversaciones() {
         setSelectedLabelFilters={ctx.setSelectedLabelFilters}
         hideCampaignMessages={ctx.hideCampaignMessages}
         setHideCampaignMessages={ctx.setHideCampaignMessages}
+        assignmentFilter={ctx.assignmentFilter}
+        setAssignmentFilter={ctx.setAssignmentFilter}
         onSelectConversation={ctx.setActiveConversation}
         onContextMenu={handleContextMenu}
         onLoadMore={() => ctx.loadConversations(false)}
@@ -158,6 +160,7 @@ export function Conversaciones() {
         hasMoreMessages={ctx.hasMoreMessages}
         loadOlderMessages={ctx.loadOlderMessages}
         loadMessages={ctx.loadMessages}
+        ensureMessageLoaded={ctx.ensureMessageLoaded}
         loadConversations={ctx.loadConversations}
         setConversations={ctx.setConversations}
         labels={ctx.labels}

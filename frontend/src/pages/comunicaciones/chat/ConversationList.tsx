@@ -3,7 +3,13 @@ import { Virtuoso } from "react-virtuoso";
 import { MessageSquare, Phone, Mail, Filter, ArrowUpDown } from "lucide-react";
 import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/components/ChannelIcons";
 import { ConversationItem } from "./ConversationItem";
-import type { Conversation, Inbox, Label, TenantMember } from "./types";
+import type { Conversation, Inbox, Label, TenantMember, AssignmentFilter } from "./types";
+
+const ASSIGNMENT_OPTIONS: { value: AssignmentFilter; label: string }[] = [
+  { value: "all", label: "Todos" },
+  { value: "unassigned", label: "Sin asignar" },
+  { value: "mine", label: "Míos" },
+];
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -19,6 +25,8 @@ interface ConversationListProps {
   setSelectedLabelFilters: (v: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
   hideCampaignMessages: boolean;
   setHideCampaignMessages: (v: boolean | ((prev: boolean) => boolean)) => void;
+  assignmentFilter: AssignmentFilter;
+  setAssignmentFilter: (v: AssignmentFilter | ((prev: AssignmentFilter) => AssignmentFilter)) => void;
   onSelectConversation: (conv: Conversation) => void;
   onContextMenu: (e: React.MouseEvent, conv: Conversation) => void;
   onLoadMore: () => void;
@@ -38,6 +46,8 @@ export const ConversationList = memo(function ConversationList({
   setSelectedLabelFilters,
   hideCampaignMessages,
   setHideCampaignMessages,
+  assignmentFilter,
+  setAssignmentFilter,
   onSelectConversation,
   onContextMenu,
   onLoadMore,
@@ -209,6 +219,24 @@ export const ConversationList = memo(function ConversationList({
               <ArrowUpDown className="h-4 w-4" />
             </button>
           </div>
+        </div>
+
+        {/* Assignment selector: Todos / Sin asignar / Míos */}
+        <div className="mt-2 flex items-center gap-1 rounded-lg bg-gray-100 p-0.5">
+          {ASSIGNMENT_OPTIONS.map((opt) => {
+            const isActive = assignmentFilter === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setAssignmentFilter(opt.value)}
+                className={`flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                  isActive ? "bg-white text-brand-700 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
