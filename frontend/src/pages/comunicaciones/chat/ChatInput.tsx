@@ -7,6 +7,8 @@ import { getDisplayName } from "./types";
 interface ChatInputProps {
   activeConversation: Conversation;
   isWindowClosed: boolean;
+  /** true si el contacto nunca ha enviado un mensaje entrante en esta conversación. */
+  neverReplied: boolean;
   replyTo: Message | null;
   onClearReply: () => void;
   onSend: (content: string, mode: "reply" | "note", replyToExternalId?: string | null) => void;
@@ -18,6 +20,7 @@ interface ChatInputProps {
 export const ChatInput = memo(function ChatInput({
   activeConversation,
   isWindowClosed,
+  neverReplied,
   replyTo,
   onClearReply,
   onSend,
@@ -112,8 +115,14 @@ export const ChatInput = memo(function ChatInput({
           <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200">
             <span className="text-amber-500 text-lg">⏱️</span>
             <div className="flex-1">
-              <p className="text-sm font-medium text-amber-800">Ventana de conversación cerrada</p>
-              <p className="text-xs text-amber-600 mt-0.5">Han pasado más de 24 horas desde el último mensaje del contacto. {activeConversation.inbox?.channel === "whatsapp" ? "Usa una plantilla para reabrir la conversación." : "Espera a que el contacto responda."}</p>
+              <p className="text-sm font-medium text-amber-800">
+                {neverReplied ? "Esperando respuesta del contacto" : "Ventana de conversación cerrada"}
+              </p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                {neverReplied
+                  ? <>El contacto aún no ha respondido. {activeConversation.inbox?.channel === "whatsapp" ? "Solo puedes enviar plantillas hasta que responda." : "Espera a que el contacto responda para enviar mensajes."}</>
+                  : <>Han pasado más de 24 horas desde el último mensaje del contacto. {activeConversation.inbox?.channel === "whatsapp" ? "Usa una plantilla para reabrir la conversación." : "Espera a que el contacto responda."}</>}
+              </p>
             </div>
           </div>
           {activeConversation.inbox?.channel === "whatsapp" && (

@@ -40,6 +40,7 @@ const SYSTEM_FIELDS = [
   { fieldKey: 'optInWhatsapp', fieldLabel: 'Opt-in WhatsApp', fieldType: 'boolean', fieldGroup: 'consentimiento' },
   { fieldKey: 'optInEmail', fieldLabel: 'Opt-in Email', fieldType: 'boolean', fieldGroup: 'consentimiento' },
   // Actividad
+  { fieldKey: 'createdAt', fieldLabel: 'Fecha de creación', fieldType: 'date', fieldGroup: 'actividad' },
   { fieldKey: 'lastContactAt', fieldLabel: 'Último contacto', fieldType: 'date', fieldGroup: 'actividad' },
   { fieldKey: 'lastActivityAt', fieldLabel: 'Última actividad', fieldType: 'date', fieldGroup: 'actividad' },
   // Meta

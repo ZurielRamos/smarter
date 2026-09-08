@@ -41,7 +41,7 @@ export function BulkActionBar({ count, allSelected, total, fields, onClear, onSe
 
   const editableFields = fields.filter((f) =>
     f.fieldType !== "computed" &&
-    !["lastContactAt", "lastActivityAt", "fullName"].includes(f.fieldKey) &&
+    !["createdAt", "lastContactAt", "lastActivityAt", "fullName"].includes(f.fieldKey) &&
     (f.isSystem ? BULK_EDITABLE_SYSTEM.includes(f.fieldKey) : true)
   );
 

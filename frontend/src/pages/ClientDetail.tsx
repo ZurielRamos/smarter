@@ -52,7 +52,7 @@ const SYSTEM_FIELD_KEYS = [
   "city", "region",
   "status", "channelSource", "source", "score",
   "optInWhatsapp", "optInEmail",
-  "lastContactAt", "lastActivityAt", "tags",
+  "createdAt", "lastContactAt", "lastActivityAt", "tags",
 ];
 
 // Orden de grupos conocidos (mismo criterio que ClientSchema).

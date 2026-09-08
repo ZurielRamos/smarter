@@ -24,7 +24,7 @@ export function EditContactModal({ client, onClose, onSaved }: { client: ClientR
   const [loadingFields, setLoadingFields] = useState(true);
 
   useEffect(() => {
-    const EXCLUDED_FIELDS = ["lastContactAt", "lastActivityAt", "fullName"];
+    const EXCLUDED_FIELDS = ["createdAt", "lastContactAt", "lastActivityAt", "fullName"];
     getCustomFields(tenantId).then((allFields) => {
       const editableFields = allFields.filter((f) => !EXCLUDED_FIELDS.includes(f.fieldKey) && f.fieldType !== "computed");
       setFields(editableFields.sort((a, b) => a.sortOrder - b.sortOrder));

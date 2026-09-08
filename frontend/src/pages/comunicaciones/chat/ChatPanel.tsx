@@ -159,27 +159,38 @@ export const ChatPanel = memo(function ChatPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchResults]);
 
-  // Compute isWindowClosed with useMemo
+  // Compute isWindowClosed with useMemo.
+  //
+  // IMPORTANTE: debe coincidir con la regla del backend (chats.service.ts).
+  // Solo un mensaje ENTRANTE del contacto abre/mantiene la ventana de 24h. Una
+  // plantilla saliente NO abre la ventana: sirve para iniciar el contacto, pero
+  // hasta que el cliente responda no se puede enviar texto libre. Contar la
+  // plantilla como "apertura" hacía que la UI dejara escribir y el backend
+  // rechazara el envío con 400.
   const isWindowClosed = useMemo(() => {
     if (!activeConversation) return false;
     const channel = activeConversation.inbox?.channel;
     if (!channel || !["whatsapp", "messenger", "instagram"].includes(channel)) return false;
     let lastInboundTime = 0;
-    let lastTemplateTime = 0;
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i];
-      if (!lastInboundTime && m.direction === "inbound") {
+      if (m.direction === "inbound") {
         lastInboundTime = new Date(m.createdAt).getTime();
+        break;
       }
-      if (!lastTemplateTime && m.direction === "outbound" && m.messageType === "template") {
-        lastTemplateTime = new Date(m.createdAt).getTime();
-      }
-      if (lastInboundTime && lastTemplateTime) break;
     }
-    const lastWindowOpener = Math.max(lastInboundTime, lastTemplateTime);
-    if (lastWindowOpener === 0) return true;
-    return (Date.now() - lastWindowOpener) / (1000 * 60 * 60) > 24;
+    // Sin ningún mensaje entrante, la ventana está cerrada (solo plantillas).
+    if (lastInboundTime === 0) return true;
+    return (Date.now() - lastInboundTime) / (1000 * 60 * 60) > 24;
   }, [activeConversation, messages]);
+
+  // true si el contacto nunca ha enviado un mensaje entrante en esta
+  // conversación (p. ej. solo se le envió una plantilla). Sirve para mostrar el
+  // aviso correcto: "esperando respuesta" vs "ventana expirada".
+  const neverReplied = useMemo(
+    () => !messages.some((m) => m.direction === "inbound"),
+    [messages]
+  );
 
   const handleMsgContextMenu = useCallback((e: React.MouseEvent, msg: Message) => {
     e.preventDefault();
@@ -255,8 +266,11 @@ export const ChatPanel = memo(function ChatPanel({
         await chatApi.post(`/chats/conversations/${activeConversation.id}/send`, { content, senderId: user?.id, replyToExternalId: replyToExternalId || undefined });
       }
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "sent" } : m));
-    } catch {
+    } catch (err: any) {
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "failed" } : m));
+      // Muestra el motivo real del backend (p. ej. ventana de 24h cerrada).
+      const reason = err?.response?.data?.message;
+      if (reason) toast.error(typeof reason === "string" ? reason : "No se pudo enviar el mensaje");
     }
   }, [activeConversation, user, setMessages]);
 
@@ -632,6 +646,7 @@ export const ChatPanel = memo(function ChatPanel({
       <ChatInput
         activeConversation={activeConversation}
         isWindowClosed={isWindowClosed}
+        neverReplied={neverReplied}
         replyTo={replyTo}
         onClearReply={() => setReplyTo(null)}
         onSend={handleSend}

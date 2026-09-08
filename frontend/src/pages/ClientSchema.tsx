@@ -19,7 +19,7 @@ const SYSTEM_FIELD_KEYS = [
   "city", "region",
   "status", "channelSource", "source", "score",
   "optInWhatsapp", "optInEmail",
-  "lastContactAt", "lastActivityAt", "tags",
+  "createdAt", "lastContactAt", "lastActivityAt", "tags",
 ];
 
 const FIELD_TYPES = [
