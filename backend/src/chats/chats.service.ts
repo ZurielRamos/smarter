@@ -43,6 +43,12 @@ export interface ConvListOpts {
    * mensajes de la conversación.
    */
   search?: string;
+  /**
+   * Reglas de filtro sobre los campos del contacto vinculado (record). Mismo
+   * formato que la vista de Contactos: { field, operator, value }. Se combinan
+   * con AND.
+   */
+  recordFilters?: Array<{ field: string; operator: string; value: string }>;
 }
 
 @Injectable()
@@ -97,7 +103,7 @@ export class ChatsService {
    */
   async getBootstrap(
     tenantId: string,
-    opts: { inboxIds?: string[]; labelIds?: string[]; hideCampaign?: boolean; assignment?: AssignmentFilter; userId?: string; search?: string; limit: number; offset: number },
+    opts: { inboxIds?: string[]; labelIds?: string[]; hideCampaign?: boolean; assignment?: AssignmentFilter; userId?: string; search?: string; recordFilters?: Array<{ field: string; operator: string; value: string }>; limit: number; offset: number },
   ): Promise<{
     inboxes: Inbox[];
     conversations: { data: Conversation[]; total: number };
@@ -112,6 +118,7 @@ export class ChatsService {
       assignment: opts.assignment,
       userId: opts.userId,
       search: opts.search,
+      recordFilters: opts.recordFilters,
     };
 
     const conversationsPromise =
@@ -2223,6 +2230,11 @@ export class ChatsService {
       qb.andWhere('record.assigned_to = :assignedUserId', { assignedUserId: opts.userId });
     }
 
+    // Reglas de filtro sobre campos del contacto vinculado (record).
+    if (opts.recordFilters && opts.recordFilters.length > 0) {
+      this.applyRecordFilters(qb, opts.recordFilters);
+    }
+
     // Búsqueda por nombre de contacto o por texto dentro de los mensajes.
     const term = opts.search?.trim();
     if (term) {
@@ -2246,6 +2258,86 @@ export class ChatsService {
         { searchLike: like },
       );
     }
+  }
+
+  // Columnas de sistema del contacto (mismas que records.service). El resto se
+  // trata como campo personalizado dentro de record.custom_data.
+  private readonly RECORD_SYSTEM_COLUMNS = new Set([
+    'id', 'firstName', 'lastName', 'fullName', 'documentType', 'documentNumber',
+    'phone', 'countryCode', 'email', 'gender', 'birthDate',
+    'city', 'region', 'status', 'channelSource', 'source', 'score',
+    'optInWhatsapp', 'optInEmail', 'assignedTo',
+    'lastContactAt', 'lastActivityAt', 'tags',
+  ]);
+  private readonly RECORD_TIMESTAMP_FIELDS = new Set(['lastContactAt', 'lastActivityAt', 'birthDate', 'createdAt', 'updatedAt']);
+
+  private recordFieldToSnake(field: string): string {
+    const map: Record<string, string> = {
+      firstName: 'first_name', lastName: 'last_name', fullName: 'full_name',
+      documentType: 'document_type', documentNumber: 'document_number',
+      countryCode: 'country_code', birthDate: 'birth_date',
+      channelSource: 'channel_source', optInWhatsapp: 'opt_in_whatsapp',
+      optInEmail: 'opt_in_email', assignedTo: 'assigned_to',
+      lastContactAt: 'last_contact_at', lastActivityAt: 'last_activity_at',
+      createdAt: 'created_at', updatedAt: 'updated_at', avatarUrl: 'avatar_url',
+    };
+    return map[field] || field;
+  }
+
+  /**
+   * Aplica reglas de filtro sobre el contacto vinculado (alias `record`).
+   * Replica la semántica de operadores de records.service. Los campos que no
+   * son columnas de sistema se buscan dentro de record.custom_data (jsonb).
+   */
+  private applyRecordFilters(
+    qb: SelectQueryBuilder<Conversation>,
+    filters: Array<{ field: string; operator: string; value: string }>,
+  ): void {
+    filters.forEach((f, idx) => {
+      if (!f?.field || !f?.operator) return;
+      const paramKey = `rf_${idx}`;
+      const isCustom = !this.RECORD_SYSTEM_COLUMNS.has(f.field);
+      const col = isCustom
+        ? `record.custom_data ->> '${f.field.replace(/'/g, "''")}'`
+        : `record.${this.recordFieldToSnake(f.field)}`;
+      const isTimestamp = this.RECORD_TIMESTAMP_FIELDS.has(f.field);
+      const value = f.value ?? '';
+
+      switch (f.operator) {
+        case 'equals':
+          if (!value.trim()) qb.andWhere(`${col} IS NULL`);
+          else qb.andWhere(`${col} = :${paramKey}`, { [paramKey]: value });
+          break;
+        case 'not_equals':
+          if (!value.trim()) qb.andWhere(`${col} IS NOT NULL`);
+          else qb.andWhere(`${col} != :${paramKey}`, { [paramKey]: value });
+          break;
+        case 'contains':
+          qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `%${value.toLowerCase()}%` });
+          break;
+        case 'starts_with':
+          qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `${value.toLowerCase()}%` });
+          break;
+        case 'greater_than':
+          if (!value.trim()) break;
+          if (isTimestamp) qb.andWhere(`${col} > :${paramKey}`, { [paramKey]: value });
+          else qb.andWhere(`${col}::numeric > :${paramKey}`, { [paramKey]: Number(value) });
+          break;
+        case 'less_than':
+          if (!value.trim()) break;
+          if (isTimestamp) qb.andWhere(`${col} < :${paramKey}`, { [paramKey]: value });
+          else qb.andWhere(`${col}::numeric < :${paramKey}`, { [paramKey]: Number(value) });
+          break;
+        case 'is_empty':
+          if (isTimestamp) qb.andWhere(`${col} IS NULL`);
+          else qb.andWhere(`(${col} IS NULL OR ${col} = '')`);
+          break;
+        case 'is_not_empty':
+          if (isTimestamp) qb.andWhere(`${col} IS NOT NULL`);
+          else qb.andWhere(`(${col} IS NOT NULL AND ${col} != '')`);
+          break;
+      }
+    });
   }
 
   async getConversationsByRecordId(recordId: string, opts: { limit: number; offset: number }): Promise<{ data: Conversation[]; total: number }> {

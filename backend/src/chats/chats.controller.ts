@@ -14,6 +14,26 @@ function normalizeAssignment(value?: string): AssignmentFilter {
   return value === 'unassigned' || value === 'mine' ? value : 'all';
 }
 
+/**
+ * Parsea el query param `recordFilters` (JSON) a un arreglo de reglas
+ * { field, operator, value }. Devuelve undefined si es inválido o vacío.
+ */
+function parseRecordFilters(
+  value?: string,
+): Array<{ field: string; operator: string; value: string }> | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return undefined;
+    const clean = parsed
+      .filter((f) => f && typeof f.field === 'string' && typeof f.operator === 'string')
+      .map((f) => ({ field: f.field, operator: f.operator, value: typeof f.value === 'string' ? f.value : '' }));
+    return clean.length > 0 ? clean : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 @Controller('chats')
 @UseGuards(JwtAuthGuard, TenantAccessGuard)
 export class ChatsController {
@@ -238,6 +258,7 @@ export class ChatsController {
     @Query('hideCampaign') hideCampaign?: string,
     @Query('assignment') assignment?: string,
     @Query('search') search?: string,
+    @Query('recordFilters') recordFilters?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
@@ -248,6 +269,7 @@ export class ChatsController {
       assignment: normalizeAssignment(assignment),
       userId: req.user?.id,
       search: search?.trim() || undefined,
+      recordFilters: parseRecordFilters(recordFilters),
       limit: limit ? parseInt(limit, 10) : 15,
       offset: offset ? parseInt(offset, 10) : 0,
     });
@@ -265,6 +287,7 @@ export class ChatsController {
     @Query('hideCampaign') hideCampaign?: string,
     @Query('assignment') assignment?: string,
     @Query('search') search?: string,
+    @Query('recordFilters') recordFilters?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
@@ -276,6 +299,7 @@ export class ChatsController {
       assignment: normalizeAssignment(assignment),
       userId: req.user?.id,
       search: search?.trim() || undefined,
+      recordFilters: parseRecordFilters(recordFilters),
     };
 
     if (recordId) return this.chatsService.getConversationsByRecordId(recordId, opts);

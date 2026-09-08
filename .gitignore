@@ -28,3 +28,5 @@ backend/uploads/
 
 # Mobile app (separate repository)
 mobile/
+# ETL cache (generated at runtime)
+backend/etl-cache/

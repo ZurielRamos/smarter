@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, SelectQueryBuilder } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
@@ -117,41 +117,79 @@ export class CampaignsService {
     return { deleted: true };
   }
 
-  async preview(segments: SegmentGroup[], tenantId?: string): Promise<{ count: number; sample: ClientRecord[] }> {
-    const qb = this.buildSegmentQuery(segments, tenantId);
+  async preview(segments: SegmentGroup[], tenantId?: string, channel?: string | null): Promise<{ count: number; sample: ClientRecord[] }> {
+    const qb = this.buildSegmentQuery(segments, tenantId, channel);
     const count = await qb.getCount();
     const sample = await qb.limit(10).getMany();
     return { count, sample };
   }
 
-  private async countMatches(segments: SegmentGroup[], tenantId?: string): Promise<number> {
-    const qb = this.buildSegmentQuery(segments, tenantId);
+  private async countMatches(segments: SegmentGroup[], tenantId?: string, channel?: string | null): Promise<number> {
+    const qb = this.buildSegmentQuery(segments, tenantId, channel);
     return qb.getCount();
   }
 
   /** Get audience count — from list or segments */
   private async getAudienceCount(campaign: Campaign): Promise<number> {
     if (campaign.listId) {
-      return this.getListRecordCount(campaign.listId, campaign.tenantId);
+      return this.getListRecordCount(campaign.listId, campaign.tenantId, campaign.channel);
     }
-    return this.countMatches(campaign.segments || [], campaign.tenantId);
+    return this.countMatches(campaign.segments || [], campaign.tenantId, campaign.channel);
   }
 
   /** Get audience clients — from list or segments */
   private async getAudienceClients(campaign: Campaign): Promise<ClientRecord[]> {
     if (campaign.listId) {
-      return this.getListRecords(campaign.listId, campaign.tenantId);
+      const clients = await this.getListRecords(campaign.listId, campaign.tenantId, campaign.channel);
+      // Static lists fetch by IDs without SQL consent filter; enforce it here.
+      return this.filterByConsent(clients, campaign.channel);
     }
-    return this.buildSegmentQuery(campaign.segments || [], campaign.tenantId).getMany();
+    return this.buildSegmentQuery(campaign.segments || [], campaign.tenantId, campaign.channel).getMany();
   }
 
-  private async getListRecordCount(listId: string, tenantId?: string): Promise<number> {
+  /**
+   * Aplica el filtro de consentimiento (opt-in) a nivel SQL según el canal de
+   * la campaña. Se aplica automáticamente, sin importar si el usuario definió
+   * o no un segmento de opt-in.
+   *   - whatsapp                    → requiere opt_in_whatsapp
+   *   - email / email_transaccional → requiere opt_in_email
+   *   - sms / llamada               → sin restricción de opt-in
+   */
+  private applyConsentFilter(qb: SelectQueryBuilder<ClientRecord>, channel?: string | null): void {
+    if (channel === 'whatsapp') {
+      qb.andWhere('client.opt_in_whatsapp = true');
+    } else if (channel === 'email' || channel === 'email_transaccional') {
+      qb.andWhere('client.opt_in_email = true');
+    }
+  }
+
+  /**
+   * Versión en memoria del filtro de consentimiento, para audiencias que se
+   * resuelven por IDs (listas estáticas) y no pasan por el query builder.
+   */
+  private filterByConsent(clients: ClientRecord[], channel: string | null): ClientRecord[] {
+    if (channel === 'whatsapp') {
+      return clients.filter((c) => c.optInWhatsapp !== false);
+    }
+    if (channel === 'email' || channel === 'email_transaccional') {
+      return clients.filter((c) => c.optInEmail !== false);
+    }
+    return clients;
+  }
+
+  private async getListRecordCount(listId: string, tenantId?: string, channel?: string | null): Promise<number> {
     const list = await this.recordListRepo.findOne({ where: { id: listId } });
     if (!list) return 0;
 
     if (list.type === 'static') {
       const ids = list.recordIds || [];
-      return ids.length;
+      if (ids.length === 0) return 0;
+      const qb = this.clientRepository
+        .createQueryBuilder('client')
+        .where('client.id IN (:...ids)', { ids })
+        .andWhere('client.deleted_at IS NULL');
+      this.applyConsentFilter(qb, channel);
+      return qb.getCount();
     }
 
     // Dynamic list — use same filter logic
@@ -166,7 +204,7 @@ export class CampaignsService {
             value: c.value,
           })),
         }];
-        return this.countMatches(segments, tenantId || list.tenantId);
+        return this.countMatches(segments, tenantId || list.tenantId, channel);
       } else if ('groups' in filters && filters.groups.length > 0) {
         const segments: SegmentGroup[] = filters.groups.map((g) => ({
           logic: g.logic === 'or' ? 'OR' : 'AND',
@@ -176,19 +214,20 @@ export class CampaignsService {
             value: c.value,
           })),
         }));
-        return this.countMatches(segments, tenantId || list.tenantId);
+        return this.countMatches(segments, tenantId || list.tenantId, channel);
       }
     }
     return 0;
   }
 
-  private async getListRecords(listId: string, tenantId?: string): Promise<ClientRecord[]> {
+  private async getListRecords(listId: string, tenantId?: string, channel?: string | null): Promise<ClientRecord[]> {
     const list = await this.recordListRepo.findOne({ where: { id: listId } });
     if (!list) return [];
 
     if (list.type === 'static') {
       const ids = list.recordIds || [];
       if (ids.length === 0) return [];
+      // Consent filter for static lists is applied in-memory by the caller.
       return this.clientRepository.find({ where: ids.map((id) => ({ id })) });
     }
 
@@ -204,7 +243,7 @@ export class CampaignsService {
             value: c.value,
           })),
         }];
-        return this.buildSegmentQuery(segments, tenantId || list.tenantId).getMany();
+        return this.buildSegmentQuery(segments, tenantId || list.tenantId, channel).getMany();
       } else if ('groups' in filters && filters.groups.length > 0) {
         const segments: SegmentGroup[] = filters.groups.map((g) => ({
           logic: g.logic === 'or' ? 'OR' : 'AND',
@@ -214,19 +253,20 @@ export class CampaignsService {
             value: c.value,
           })),
         }));
-        return this.buildSegmentQuery(segments, tenantId || list.tenantId).getMany();
+        return this.buildSegmentQuery(segments, tenantId || list.tenantId, channel).getMany();
       }
     }
     return [];
   }
 
-  private buildSegmentQuery(segments: SegmentGroup[], tenantId?: string) {
+  private buildSegmentQuery(segments: SegmentGroup[], tenantId?: string, channel?: string | null) {
     const qb = this.clientRepository.createQueryBuilder('client');
 
     if (tenantId) {
       qb.where('client.tenant_id = :tenantId', { tenantId });
     }
     qb.andWhere('client.deleted_at IS NULL');
+    this.applyConsentFilter(qb, channel);
 
     for (let i = 0; i < segments.length; i++) {
       const group = segments[i];

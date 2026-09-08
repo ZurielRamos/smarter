@@ -146,6 +146,11 @@ export function Conversaciones() {
         setHideCampaignMessages={ctx.setHideCampaignMessages}
         assignmentFilter={ctx.assignmentFilter}
         setAssignmentFilter={ctx.setAssignmentFilter}
+        searchQuery={ctx.searchQuery}
+        setSearchQuery={ctx.setSearchQuery}
+        recordFilters={ctx.recordFilters}
+        setRecordFilters={ctx.setRecordFilters}
+        customFields={ctx.customFields}
         onSelectConversation={ctx.setActiveConversation}
         onContextMenu={handleContextMenu}
         onLoadMore={() => ctx.loadConversations(false)}

@@ -133,8 +133,8 @@ export class CampaignsController {
   }
 
   @Post('preview')
-  preview(@Body() body: { segments: SegmentGroup[]; tenantId?: string }) {
-    return this.campaignsService.preview(body.segments, body.tenantId);
+  preview(@Body() body: { segments: SegmentGroup[]; tenantId?: string; channel?: string }) {
+    return this.campaignsService.preview(body.segments, body.tenantId, body.channel);
   }
 
   @Get(':id/sends')

@@ -1,9 +1,12 @@
 import { memo, useState, useRef, useCallback } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { MessageSquare, Phone, Mail, Filter, ArrowUpDown } from "lucide-react";
+import { MessageSquare, Phone, Mail, Filter, ArrowUpDown, Search, X, ChevronDown } from "lucide-react";
 import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/components/ChannelIcons";
 import { ConversationItem } from "./ConversationItem";
 import type { Conversation, Inbox, Label, TenantMember, AssignmentFilter } from "./types";
+import { RecordFilterEditor } from "./RecordFilterEditor";
+import type { FilterCondition } from "@/pages/FilterPanel";
+import type { CustomField } from "@/services/api";
 
 const ASSIGNMENT_OPTIONS: { value: AssignmentFilter; label: string }[] = [
   { value: "all", label: "Todos" },
@@ -27,6 +30,11 @@ interface ConversationListProps {
   setHideCampaignMessages: (v: boolean | ((prev: boolean) => boolean)) => void;
   assignmentFilter: AssignmentFilter;
   setAssignmentFilter: (v: AssignmentFilter | ((prev: AssignmentFilter) => AssignmentFilter)) => void;
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  recordFilters: FilterCondition[];
+  setRecordFilters: (v: FilterCondition[]) => void;
+  customFields: CustomField[];
   onSelectConversation: (conv: Conversation) => void;
   onContextMenu: (e: React.MouseEvent, conv: Conversation) => void;
   onLoadMore: () => void;
@@ -48,14 +56,21 @@ export const ConversationList = memo(function ConversationList({
   setHideCampaignMessages,
   assignmentFilter,
   setAssignmentFilter,
+  searchQuery,
+  setSearchQuery,
+  recordFilters,
+  setRecordFilters,
+  customFields,
   onSelectConversation,
   onContextMenu,
   onLoadMore,
 }: ConversationListProps) {
   const [channelDropdownOpen, setChannelDropdownOpen] = useState(false);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+  const [recordFilterExpanded, setRecordFilterExpanded] = useState(false);
   const channelDropdownRef = useRef<HTMLDivElement>(null);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
+  const activeRecordFilterCount = recordFilters.filter((f) => f.field && f.operator).length;
 
   const handleEndReached = useCallback(() => {
     if (!loadingConversations && hasMoreConversations) {
@@ -153,13 +168,13 @@ export const ConversationList = memo(function ConversationList({
             <div className="relative" ref={filterDropdownRef}>
               <button
                 onClick={() => setFilterDropdownOpen((v) => !v)}
-                className={`p-1.5 rounded-lg transition-colors ${selectedLabelFilters.size > 0 || hideCampaignMessages ? "text-brand-600 bg-brand-50" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
+                className={`p-1.5 rounded-lg transition-colors ${selectedLabelFilters.size > 0 || hideCampaignMessages || activeRecordFilterCount > 0 ? "text-brand-600 bg-brand-50" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
                 title="Filtrar"
               >
                 <Filter className="h-4 w-4" />
               </button>
               {filterDropdownOpen && (
-                <div className="absolute top-full right-0 mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-gray-200/80 py-2 z-50">
+                <div className="absolute top-full right-0 mt-1.5 w-72 max-h-[70vh] overflow-y-auto bg-white rounded-xl shadow-xl border border-gray-200/80 py-2 z-50">
                   <div className="px-3 py-2 flex items-center justify-between">
                     <span className="text-sm text-gray-700">Mensajes de campaña</span>
                     <button
@@ -169,6 +184,31 @@ export const ConversationList = memo(function ConversationList({
                       <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${!hideCampaignMessages ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
                     </button>
                   </div>
+
+                  {/* Filtros por campos del contacto (reglas) — inline en el dropdown */}
+                  <div className="border-t border-gray-100 mt-1 pt-1">
+                    <button
+                      onClick={() => setRecordFilterExpanded((v) => !v)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Filter className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                      <span className="flex-1 text-left">Filtrar por contacto</span>
+                      {activeRecordFilterCount > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-50 text-brand-700 font-medium">
+                          {activeRecordFilterCount}
+                        </span>
+                      )}
+                      <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${recordFilterExpanded ? "rotate-180" : ""}`} />
+                    </button>
+                    {recordFilterExpanded && (
+                      <RecordFilterEditor
+                        filters={recordFilters}
+                        onChange={setRecordFilters}
+                        fields={customFields}
+                      />
+                    )}
+                  </div>
+
                   {labels.length > 0 && (
                     <div className="border-t border-gray-100 mt-1 pt-1">
                       <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Etiquetas</p>
@@ -202,10 +242,10 @@ export const ConversationList = memo(function ConversationList({
                       })}
                     </div>
                   )}
-                  {(selectedLabelFilters.size > 0 || hideCampaignMessages) && (
+                  {(selectedLabelFilters.size > 0 || hideCampaignMessages || activeRecordFilterCount > 0) && (
                     <div className="border-t border-gray-100 mt-1.5 pt-1.5">
                       <button
-                        onClick={() => { setSelectedLabelFilters(new Set()); setHideCampaignMessages(false); }}
+                        onClick={() => { setSelectedLabelFilters(new Set()); setHideCampaignMessages(false); setRecordFilters([]); }}
                         className="w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
                       >
                         Limpiar filtros
@@ -238,14 +278,45 @@ export const ConversationList = memo(function ConversationList({
             );
           })}
         </div>
+
+        {/* Search: por nombre de contacto o texto dentro del chat */}
+        <div className="mt-2 relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por nombre o mensaje..."
+            className="w-full pl-8 pr-8 py-1.5 text-sm rounded-lg bg-gray-100 border border-transparent focus:bg-white focus:border-brand-300 focus:ring-2 focus:ring-brand-500/20 outline-none transition-colors placeholder:text-gray-400"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+              title="Limpiar búsqueda"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Virtualized conversation list */}
       {conversations.length === 0 && !loadingConversations ? (
         <div className="flex flex-col items-center justify-center h-full text-center px-6">
-          <MessageSquare className="h-8 w-8 text-gray-300 mb-2" />
-          <p className="text-sm text-gray-500">Sin conversaciones</p>
-          <p className="text-[11px] text-gray-400 mt-1">Los mensajes entrantes aparecerán aquí</p>
+          {searchQuery.trim() ? (
+            <>
+              <Search className="h-8 w-8 text-gray-300 mb-2" />
+              <p className="text-sm text-gray-500">Sin resultados</p>
+              <p className="text-[11px] text-gray-400 mt-1">No hay chats que coincidan con "{searchQuery.trim()}"</p>
+            </>
+          ) : (
+            <>
+              <MessageSquare className="h-8 w-8 text-gray-300 mb-2" />
+              <p className="text-sm text-gray-500">Sin conversaciones</p>
+              <p className="text-[11px] text-gray-400 mt-1">Los mensajes entrantes aparecerán aquí</p>
+            </>
+          )}
         </div>
       ) : (
         <Virtuoso

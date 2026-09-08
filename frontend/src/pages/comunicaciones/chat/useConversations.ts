@@ -4,6 +4,9 @@ import { useAuth } from "@/context/AuthContext";
 import { useSocket } from "@/hooks/useSocket";
 import { chatApi } from "./api";
 import type { Inbox, Conversation, Message, Label, TenantMember, AssignmentFilter } from "./types";
+import type { FilterCondition } from "@/pages/FilterPanel";
+import { getCustomFields } from "@/services/api";
+import type { CustomField } from "@/services/api";
 import { getCachedStaticData, setCachedStaticData } from "./staticDataCache";
 
 interface BootstrapResponse {
@@ -44,6 +47,19 @@ export function useConversations() {
     const saved = localStorage.getItem("chat_filter_assignment");
     return saved === "unassigned" || saved === "mine" ? saved : "all";
   });
+  // Texto de búsqueda de chats (por nombre de contacto o texto en mensajes).
+  const [searchQuery, setSearchQuery] = useState("");
+  // Reglas de filtro sobre los campos del contacto (patrón FilterPanel).
+  const [recordFilters, setRecordFilters] = useState<FilterCondition[]>(() => {
+    try {
+      const saved = localStorage.getItem("chat_filter_recordRules");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  // Campos del contacto (sistema + personalizados) para construir las reglas.
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
 
   // --- Active Conversation & Messages State ---
   const [messages, setMessages] = useState<Message[]>([]);
@@ -90,6 +106,13 @@ export function useConversations() {
     if (assignmentFilter !== "all") {
       params.assignment = assignmentFilter;
     }
+    if (searchQuery.trim()) {
+      params.search = searchQuery.trim();
+    }
+    const activeRecordFilters = recordFilters.filter((f) => f.field && f.operator);
+    if (activeRecordFilters.length > 0) {
+      params.recordFilters = JSON.stringify(activeRecordFilters.map(({ field, operator, value }) => ({ field, operator, value })));
+    }
 
     chatApi.get<{ data: Conversation[]; total: number }>("/chats/conversations", { params })
       .then(({ data: res }) => {
@@ -105,7 +128,7 @@ export function useConversations() {
       })
       .catch(() => {})
       .finally(() => setLoadingConversations(false));
-  }, [tenantId, selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter]);
+  }, [tenantId, selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter, searchQuery, recordFilters]);
 
   // Carga inicial consolidada: una sola petición trae inboxes + primera página
   // de conversaciones + labels + members. Los datos semi-estáticos se sirven
@@ -128,6 +151,11 @@ export function useConversations() {
     if (selectedLabelFilters.size > 0) params.labelIds = Array.from(selectedLabelFilters).join(",");
     if (hideCampaignMessages) params.hideCampaign = "true";
     if (assignmentFilter !== "all") params.assignment = assignmentFilter;
+    if (searchQuery.trim()) params.search = searchQuery.trim();
+    const activeRecordFilters = recordFilters.filter((f) => f.field && f.operator);
+    if (activeRecordFilters.length > 0) {
+      params.recordFilters = JSON.stringify(activeRecordFilters.map(({ field, operator, value }) => ({ field, operator, value })));
+    }
 
     chatApi.get<BootstrapResponse>("/chats/bootstrap", { params })
       .then(({ data }) => {
@@ -146,7 +174,7 @@ export function useConversations() {
       })
       .catch(() => {})
       .finally(() => setLoadingConversations(false));
-  }, [tenantId, selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter]);
+  }, [tenantId, selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter, searchQuery, recordFilters]);
 
   const loadMessages = useCallback((convId: string) => {
     setLoadingMessages(true);
@@ -249,6 +277,18 @@ export function useConversations() {
     loadBootstrap();
   }, [tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Cargar campos del contacto para el panel de filtros por reglas.
+  useEffect(() => {
+    if (!tenantId) return;
+    getCustomFields(tenantId)
+      .then((fields) => {
+        // Excluir campos computados y de solo lectura poco útiles para filtrar.
+        const usable = fields.filter((f) => f.fieldType !== "computed" && f.fieldKey !== "fullName");
+        setCustomFields(usable.sort((a, b) => a.sortOrder - b.sortOrder));
+      })
+      .catch(() => {});
+  }, [tenantId]);
+
   // Recargar conversaciones al cambiar filtros. Se salta el primer render para
   // no duplicar la petición que ya hace el bootstrap al montar.
   const didMountRef = useRef(false);
@@ -259,7 +299,20 @@ export function useConversations() {
       return;
     }
     loadConversations();
-  }, [selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter, recordFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Recargar conversaciones al cambiar la búsqueda, con debounce para no lanzar
+  // una petición por cada tecla. Se salta el primer render (búsqueda vacía).
+  const didMountSearchRef = useRef(false);
+  useEffect(() => {
+    if (!tenantId) return;
+    if (!didMountSearchRef.current) {
+      didMountSearchRef.current = true;
+      return;
+    }
+    const timer = setTimeout(() => loadConversations(), 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist filters
   useEffect(() => {
@@ -273,6 +326,10 @@ export function useConversations() {
   useEffect(() => {
     localStorage.setItem("chat_filter_assignment", assignmentFilter);
   }, [assignmentFilter]);
+
+  useEffect(() => {
+    localStorage.setItem("chat_filter_recordRules", JSON.stringify(recordFilters));
+  }, [recordFilters]);
 
   // --- Active conversation effects ---
   useEffect(() => {
@@ -375,6 +432,11 @@ export function useConversations() {
     setHideCampaignMessages,
     assignmentFilter,
     setAssignmentFilter,
+    searchQuery,
+    setSearchQuery,
+    recordFilters,
+    setRecordFilters,
+    customFields,
 
     // Labels & Members
     labels,
