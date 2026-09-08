@@ -1,6 +1,6 @@
 import { Injectable, Inject, forwardRef, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository, MoreThan, SelectQueryBuilder } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Inbox } from './inbox.entity';
 import { Conversation } from './conversation.entity';
@@ -24,6 +24,20 @@ import { MailgunService } from '../providers/mailgun.service';
 import { EmailDomainService } from '../providers/email-domain.service';
 import { EmailUnsubscribeService } from '../providers/email-unsubscribe.service';
 import { UserTenant } from '../users/user-tenant.entity';
+
+export type AssignmentFilter = 'all' | 'unassigned' | 'mine';
+
+/** Opciones comunes para listar conversaciones en la vista de chat. */
+export interface ConvListOpts {
+  limit: number;
+  offset: number;
+  labelIds?: string[];
+  hideCampaign?: boolean;
+  /** Filtro de asignación. 'mine' requiere `userId`. */
+  assignment?: AssignmentFilter;
+  /** ID del usuario actual, usado cuando `assignment === 'mine'`. */
+  userId?: string;
+}
 
 @Injectable()
 export class ChatsService {
@@ -77,18 +91,20 @@ export class ChatsService {
    */
   async getBootstrap(
     tenantId: string,
-    opts: { inboxIds?: string[]; labelIds?: string[]; hideCampaign?: boolean; limit: number; offset: number },
+    opts: { inboxIds?: string[]; labelIds?: string[]; hideCampaign?: boolean; assignment?: AssignmentFilter; userId?: string; limit: number; offset: number },
   ): Promise<{
     inboxes: Inbox[];
     conversations: { data: Conversation[]; total: number };
     labels: Label[];
     members: UserTenant[];
   }> {
-    const convOpts = {
+    const convOpts: ConvListOpts = {
       limit: opts.limit,
       offset: opts.offset,
       labelIds: opts.labelIds ?? [],
       hideCampaign: opts.hideCampaign,
+      assignment: opts.assignment,
+      userId: opts.userId,
     };
 
     const conversationsPromise =
@@ -636,6 +652,29 @@ export class ChatsService {
       return { recipient_type: 'individual', to: userId };
     }
     return { to: contactId };
+  }
+
+  /**
+   * Resuelve el mejor destinatario para una conversación de WhatsApp.
+   *
+   * Regla: si el contacto vinculado (ClientRecord) tiene un número de teléfono
+   * válido, SIEMPRE se envía por teléfono, aunque la conversación se haya iniciado
+   * con un user_id de identidad (BSUID). Esto permite que, tras agregar el teléfono
+   * al contacto, los mensajes se entreguen por el número en lugar del BSUID (que
+   * frecuentemente falla con error 131026).
+   *
+   * Si no hay teléfono, cae al contactId de la conversación (identidad o teléfono).
+   */
+  private async resolveWhatsAppRecipient(conversation: Conversation): Promise<Record<string, any>> {
+    if (conversation.recordId) {
+      const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+      const phone = record?.phone?.trim();
+      // Solo usar el phone del contacto si es un teléfono real (no un BSUID mal guardado)
+      if (phone && !this.isWhatsAppIdentityId(phone)) {
+        return { to: phone.replace(/^\+/, '') };
+      }
+    }
+    return this.buildWhatsAppRecipient(conversation.contactId);
   }
 
   private async handleWhatsAppMessages(value: any): Promise<void> {
@@ -1793,7 +1832,7 @@ export class ChatsService {
     return { count: parseInt(result[0]?.count || '0') };
   }
 
-  async getConversationsPaginated(inboxId: string, opts: { limit: number; offset: number; labelIds?: string[]; hideCampaign?: boolean }): Promise<{ data: Conversation[]; total: number }> {
+  async getConversationsPaginated(inboxId: string, opts: ConvListOpts): Promise<{ data: Conversation[]; total: number }> {
     const qb = this.conversationRepo.createQueryBuilder('conv')
       .leftJoinAndSelect('conv.inbox', 'inbox')
       .leftJoinAndSelect('conv.record', 'record')
@@ -1802,17 +1841,7 @@ export class ChatsService {
       .take(opts.limit)
       .skip(opts.offset);
 
-    if (opts.labelIds && opts.labelIds.length > 0) {
-      // Conversation must have at least one of the selected labels
-      const conditions = opts.labelIds.map((_, i) => `conv.label_ids @> :lbl${i}`).join(' OR ');
-      const params: Record<string, string> = {};
-      opts.labelIds.forEach((id, i) => { params[`lbl${i}`] = JSON.stringify([id]); });
-      qb.andWhere(`(${conditions})`, params);
-    }
-
-    if (opts.hideCampaign) {
-      qb.andWhere("(conv.last_message_source != :campaignSource OR conv.last_message_source IS NULL)", { campaignSource: "campaign" });
-    }
+    this.applyConvListFilters(qb, opts);
 
     const [data, total] = await qb.getManyAndCount();
     return { data, total };
@@ -1828,7 +1857,7 @@ export class ChatsService {
     });
   }
 
-  async getConversationsByTenantPaginated(tenantId: string, opts: { limit: number; offset: number; labelIds?: string[]; hideCampaign?: boolean }): Promise<{ data: Conversation[]; total: number }> {
+  async getConversationsByTenantPaginated(tenantId: string, opts: ConvListOpts): Promise<{ data: Conversation[]; total: number }> {
     const inboxes = await this.inboxRepo.find({ where: { tenantId } });
     if (inboxes.length === 0) return { data: [], total: 0 };
     const inboxIds = inboxes.map((i) => i.id);
@@ -1841,22 +1870,13 @@ export class ChatsService {
       .take(opts.limit)
       .skip(opts.offset);
 
-    if (opts.labelIds && opts.labelIds.length > 0) {
-      const conditions = opts.labelIds.map((_, i) => `conv.label_ids @> :lbl${i}`).join(' OR ');
-      const params: Record<string, string> = {};
-      opts.labelIds.forEach((id, i) => { params[`lbl${i}`] = JSON.stringify([id]); });
-      qb.andWhere(`(${conditions})`, params);
-    }
-
-    if (opts.hideCampaign) {
-      qb.andWhere("(conv.last_message_source != :campaignSource OR conv.last_message_source IS NULL)", { campaignSource: "campaign" });
-    }
+    this.applyConvListFilters(qb, opts);
 
     const [data, total] = await qb.getManyAndCount();
     return { data, total };
   }
 
-  async getConversationsByInboxes(inboxIds: string[], opts: { limit: number; offset: number; labelIds?: string[]; hideCampaign?: boolean }): Promise<{ data: Conversation[]; total: number }> {
+  async getConversationsByInboxes(inboxIds: string[], opts: ConvListOpts): Promise<{ data: Conversation[]; total: number }> {
     if (inboxIds.length === 0) return { data: [], total: 0 };
 
     const qb = this.conversationRepo.createQueryBuilder('conv')
@@ -1867,6 +1887,21 @@ export class ChatsService {
       .take(opts.limit)
       .skip(opts.offset);
 
+    this.applyConvListFilters(qb, opts);
+
+    const [data, total] = await qb.getManyAndCount();
+    return { data, total };
+  }
+
+  /**
+   * Aplica los filtros comunes de la lista de conversaciones (etiquetas,
+   * ocultar campañas y asignación) sobre un QueryBuilder que ya tiene unido
+   * `conv.record` como `record`.
+   */
+  private applyConvListFilters(
+    qb: SelectQueryBuilder<Conversation>,
+    opts: ConvListOpts,
+  ): void {
     if (opts.labelIds && opts.labelIds.length > 0) {
       const conditions = opts.labelIds.map((_, i) => `conv.label_ids @> :lbl${i}`).join(' OR ');
       const params: Record<string, string> = {};
@@ -1878,8 +1913,12 @@ export class ChatsService {
       qb.andWhere("(conv.last_message_source != :campaignSource OR conv.last_message_source IS NULL)", { campaignSource: "campaign" });
     }
 
-    const [data, total] = await qb.getManyAndCount();
-    return { data, total };
+    // Filtro de asignación basado en record.assigned_to
+    if (opts.assignment === 'unassigned') {
+      qb.andWhere('record.assigned_to IS NULL');
+    } else if (opts.assignment === 'mine' && opts.userId) {
+      qb.andWhere('record.assigned_to = :assignedUserId', { assignedUserId: opts.userId });
+    }
   }
 
   async getConversationsByRecordId(recordId: string, opts: { limit: number; offset: number }): Promise<{ data: Conversation[]; total: number }> {
@@ -1891,6 +1930,86 @@ export class ChatsService {
       skip: opts.offset,
     });
     return { data, total };
+  }
+
+  /**
+   * Busca o crea una conversación para un contacto (record) en una bandeja (canal)
+   * concreta. Se usa desde la ficha del contacto para abrir/crear la conversación
+   * al elegir un canal disponible. Si ya existe una conversación para ese
+   * inbox + record (o inbox + contactId), la devuelve; si no, la crea.
+   */
+  async findOrCreateConversationForRecord(inboxId: string, recordId: string): Promise<Conversation> {
+    const inbox = await this.inboxRepo.findOne({ where: { id: inboxId } });
+    if (!inbox) throw new NotFoundException('Canal no encontrado');
+
+    const record = await this.clientRecordRepo.findOne({ where: { id: recordId } });
+    if (!record) throw new NotFoundException('Contacto no encontrado');
+
+    if (record.tenantId !== inbox.tenantId) {
+      throw new BadRequestException('El canal no pertenece al mismo tenant que el contacto');
+    }
+
+    // 1) Conversación ya vinculada al record en este inbox
+    let conversation = await this.conversationRepo.findOne({
+      where: { inboxId, recordId },
+      relations: { inbox: true, record: true },
+    });
+    if (conversation) return conversation;
+
+    // 2) Resolver el identificador externo del contacto según el canal.
+    const contactId = this.resolveContactIdForChannel(inbox.channel, record);
+    if (!contactId) {
+      throw new BadRequestException('El contacto no tiene un identificador válido para este canal');
+    }
+
+    // 3) Conversación existente por inbox + contactId (aún no vinculada al record)
+    conversation = await this.conversationRepo.findOne({
+      where: { inboxId, contactId },
+      relations: { inbox: true, record: true },
+    });
+    if (conversation) {
+      if (!conversation.recordId) {
+        conversation.recordId = record.id;
+        conversation = await this.conversationRepo.save(conversation);
+      }
+      return conversation;
+    }
+
+    // 4) Crear nueva conversación
+    const contactName = record.fullName || record.firstName || contactId;
+    conversation = this.conversationRepo.create({
+      inboxId,
+      recordId: record.id,
+      contactId,
+      contactName,
+      status: 'open',
+    });
+    conversation = await this.conversationRepo.save(conversation);
+
+    // Recargar con relaciones para que el frontend reciba inbox + record
+    return (await this.conversationRepo.findOne({
+      where: { id: conversation.id },
+      relations: { inbox: true, record: true },
+    })) as Conversation;
+  }
+
+  /** Devuelve el identificador externo de contacto adecuado para el canal dado. */
+  private resolveContactIdForChannel(channel: string, record: ClientRecord): string | null {
+    const custom = (record.customData || {}) as Record<string, any>;
+    switch (channel) {
+      case 'whatsapp':
+      case 'sms':
+      case 'llamada':
+        return record.phone ? record.phone.replace(/^\+/, '') : (custom.whatsappIdentityId || null);
+      case 'messenger':
+        return custom.messengerPsid || null;
+      case 'instagram':
+        return custom.instagramIgsid || null;
+      case 'email':
+        return record.email || null;
+      default:
+        return record.phone ? record.phone.replace(/^\+/, '') : (record.email || null);
+    }
   }
 
   // === MESSAGES ===
@@ -1912,6 +2031,29 @@ export class ChatsService {
 
     const messages = await qb.getMany();
     return messages.reverse(); // Return in chronological order
+  }
+
+  /**
+   * Busca mensajes de texto dentro de una conversación cuyo contenido contenga
+   * `query` (case-insensitive). Devuelve los mensajes completos (con sender) en
+   * orden cronológico ascendente para navegar entre coincidencias.
+   */
+  async searchMessages(conversationId: string, query: string, limit = 200): Promise<Message[]> {
+    const term = query.trim();
+    if (!term) return [];
+
+    // Escapa comodines de LIKE para tratar el término como texto literal.
+    const escaped = term.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+
+    const messages = await this.messageRepo.createQueryBuilder('m')
+      .leftJoinAndSelect('m.sender', 'sender')
+      .where('m.conversation_id = :conversationId', { conversationId })
+      .andWhere('m.content ILIKE :term ESCAPE \'\\\'', { term: `%${escaped}%` })
+      .orderBy('m.created_at', 'ASC')
+      .take(limit)
+      .getMany();
+
+    return messages;
   }
 
   async markAsRead(conversationId: string): Promise<void> {
@@ -2090,7 +2232,7 @@ export class ChatsService {
       // Send via WhatsApp Cloud API
       const messageBody: any = {
         messaging_product: 'whatsapp',
-        ...this.buildWhatsAppRecipient(conversation.contactId),
+        ...(await this.resolveWhatsAppRecipient(conversation)),
         type: 'text',
         text: { body: content },
       };
@@ -2387,7 +2529,7 @@ export class ChatsService {
           // Send media message
           const messageBody: any = {
             messaging_product: 'whatsapp',
-            ...this.buildWhatsAppRecipient(conversation.contactId),
+            ...(await this.resolveWhatsAppRecipient(conversation)),
             type: messageType,
           };
 
@@ -2855,7 +2997,7 @@ export class ChatsService {
     // Send template via WhatsApp Cloud API
     const messageBody: any = {
       messaging_product: 'whatsapp',
-      ...this.buildWhatsAppRecipient(conversation.contactId),
+      ...(await this.resolveWhatsAppRecipient(conversation)),
       type: 'template',
       template: {
         name: templateName,
