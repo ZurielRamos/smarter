@@ -35,6 +35,14 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
   const [connecting, setConnecting] = useState(false);
   const [waConfig, setWaConfig] = useState<{ appId: string; configId: string } | null>(null);
 
+  // Desuscripción (opt-out por palabra clave)
+  const [unsubEnabled, setUnsubEnabled] = useState(false);
+  const [unsubKeywords, setUnsubKeywords] = useState<string[]>([]);
+  const [unsubKeywordInput, setUnsubKeywordInput] = useState("");
+  const [unsubMessage, setUnsubMessage] = useState("");
+  const [unsubSaving, setUnsubSaving] = useState(false);
+  const [unsubSaved, setUnsubSaved] = useState(false);
+
   // Email config
   const [smtpForm, setSmtpForm] = useState({ host: "", port: 465, secure: true, user: "", pass: "", fromName: "", fromEmail: "", defaultSubject: "" });
   const [smtpSaving, setSmtpSaving] = useState(false);
@@ -67,6 +75,10 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
       .then(({ data }) => {
         setInbox(data);
         setName(data.name);
+        const unsub = data.metadata?.unsubscribe;
+        setUnsubEnabled(unsub?.enabled ?? false);
+        setUnsubKeywords(Array.isArray(unsub?.keywords) ? unsub.keywords : []);
+        setUnsubMessage(unsub?.confirmationMessage ?? "");
         if (data.channel === "email") {
           const smtp = data.metadata?.smtp || {};
           setSmtpForm({
@@ -177,6 +189,36 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
     } catch {} finally { setSaving(false); }
   };
 
+  const addUnsubKeyword = () => {
+    const kw = unsubKeywordInput.trim();
+    if (!kw) return;
+    if (!unsubKeywords.some((k) => k.toLowerCase() === kw.toLowerCase())) {
+      setUnsubKeywords((prev) => [...prev, kw]);
+    }
+    setUnsubKeywordInput("");
+    setUnsubSaved(false);
+  };
+
+  const removeUnsubKeyword = (kw: string) => {
+    setUnsubKeywords((prev) => prev.filter((k) => k !== kw));
+    setUnsubSaved(false);
+  };
+
+  const handleUnsubSave = async () => {
+    if (!inbox) return;
+    setUnsubSaving(true);
+    try {
+      const { data } = await api.put<Inbox>(`/chats/inboxes/${inbox.id}/unsubscribe`, {
+        enabled: unsubEnabled,
+        keywords: unsubKeywords,
+        confirmationMessage: unsubMessage.trim() || null,
+      });
+      setInbox(data);
+      setUnsubSaved(true);
+      setTimeout(() => setUnsubSaved(false), 2000);
+    } catch {} finally { setUnsubSaving(false); }
+  };
+
   const handleSmsSave = async () => {
     if (!inbox) return;
     setSmsSaving(true);
@@ -268,6 +310,84 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
             </button>
           </div>
         </div>
+
+        {/* Desuscripción — solo canales de mensajería */}
+        {["whatsapp", "evolution", "instagram", "messenger"].includes(inbox.channel) && (
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-start justify-between mb-1">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">Desuscripción</h2>
+                <p className="text-[11px] text-gray-500 mt-0.5 max-w-md">
+                  Cuando un contacto envíe una de estas palabras, se marcará su <strong>Opt-in WhatsApp</strong> como desactivado y dejará de recibir campañas.
+                </p>
+              </div>
+              {/* Toggle enabled */}
+              <button
+                onClick={() => { setUnsubEnabled((v) => !v); setUnsubSaved(false); }}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 mt-0.5 ${unsubEnabled ? "bg-brand-600" : "bg-gray-300"}`}
+                aria-label="Activar desuscripción"
+              >
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${unsubEnabled ? "translate-x-[18px]" : "translate-x-1"}`} />
+              </button>
+            </div>
+
+            {unsubEnabled && (
+              <div className="mt-4 space-y-4">
+                {/* Keywords */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Palabras de baja</label>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {unsubKeywords.length === 0 && (
+                      <span className="text-[11px] text-gray-400 italic">Sin palabras configuradas.</span>
+                    )}
+                    {unsubKeywords.map((kw) => (
+                      <span key={kw} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-xs">
+                        {kw}
+                        <button onClick={() => removeUnsubKeyword(kw)} className="text-brand-400 hover:text-brand-700 font-bold leading-none">×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={unsubKeywordInput}
+                      onChange={(e) => setUnsubKeywordInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addUnsubKeyword(); } }}
+                      placeholder="Ej: BAJA, STOP, CANCELAR"
+                      className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                    <button onClick={addUnsubKeyword} className="px-3 py-2 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
+                      Agregar
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">La coincidencia ignora mayúsculas y acentos. El mensaje debe ser exactamente la palabra.</p>
+                </div>
+
+                {/* Confirmation message */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Mensaje de confirmación (opcional)</label>
+                  <textarea
+                    value={unsubMessage}
+                    onChange={(e) => { setUnsubMessage(e.target.value); setUnsubSaved(false); }}
+                    rows={2}
+                    placeholder="Has sido dado de baja. No recibirás más mensajes."
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">Se envía al contacto al darse de baja (solo si la ventana de 24h está abierta).</p>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={handleUnsubSave}
+              disabled={unsubSaving}
+              className="mt-4 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-xs font-medium disabled:opacity-50"
+            >
+              {unsubSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : unsubSaved ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
+              {unsubSaved ? "Guardado" : "Guardar"}
+            </button>
+          </div>
+        )}
 
         {/* Channel-specific config */}
         {inbox.channel === "sms" && (

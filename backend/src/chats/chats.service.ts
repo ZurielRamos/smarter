@@ -195,6 +195,29 @@ export class ChatsService {
     return this.inboxRepo.save(inbox);
   }
 
+  /**
+   * Configura la desuscripción por palabra clave del canal. Hace merge sobre
+   * inbox.metadata.unsubscribe sin pisar el resto de metadata.
+   */
+  async updateUnsubscribeConfig(
+    id: string,
+    config: { enabled: boolean; keywords: string[]; confirmationMessage?: string | null },
+  ): Promise<Inbox> {
+    const inbox = await this.findInboxById(id);
+    const keywords = (config.keywords || [])
+      .map((k) => (k || '').trim())
+      .filter((k) => k.length > 0);
+    inbox.metadata = {
+      ...(inbox.metadata || {}),
+      unsubscribe: {
+        enabled: !!config.enabled,
+        keywords,
+        confirmationMessage: config.confirmationMessage?.trim() || null,
+      },
+    };
+    return this.inboxRepo.save(inbox);
+  }
+
   async findInboxById(id: string): Promise<Inbox> {
     const inbox = await this.inboxRepo.findOne({ where: { id } });
     if (!inbox) throw new NotFoundException('Inbox not found');
@@ -820,6 +843,14 @@ export class ChatsService {
         await this.clientRecordRepo.update(conversation.recordId, { lastContactAt: new Date() });
       }
 
+      // Desuscripción: si el inbox tiene configurada una palabra clave de baja y el
+      // mensaje entrante coincide, marcar opt_in_whatsapp = false para el contacto.
+      if (conversation.recordId && content) {
+        await this.handleUnsubscribeKeyword(inbox, conversation, content).catch((err) =>
+          console.warn('[Webhook] Unsubscribe handling failed:', err?.message || err),
+        );
+      }
+
       // Mark ad tracking if from Meta ad
       if (msg.referral) {
         conversation.hasAdTracking = true;
@@ -926,6 +957,77 @@ export class ChatsService {
         console.error('[Bot Auto-Reply] Failed:', err?.message || err);
       });
     }
+  }
+
+  /**
+   * Normaliza texto para comparación de palabras clave: minúsculas, sin acentos,
+   * sin signos de puntuación al borde y sin espacios extra.
+   */
+  private normalizeKeyword(text: string): string {
+    return (text || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // quitar acentos
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ') // signos -> espacio
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
+   * Maneja la desuscripción por palabra clave configurada en el inbox.
+   *
+   * Config esperada en inbox.metadata.unsubscribe:
+   *   { enabled: boolean, keywords: string[], confirmationMessage?: string }
+   *
+   * Si el mensaje entrante coincide (exacto, normalizado) con alguna keyword,
+   * marca opt_in_whatsapp = false en el contacto, registra una nota de sistema y
+   * opcionalmente envía un mensaje de confirmación.
+   */
+  private async handleUnsubscribeKeyword(inbox: Inbox, conversation: Conversation, content: string): Promise<void> {
+    const cfg = inbox.metadata?.unsubscribe as
+      | { enabled?: boolean; keywords?: string[]; confirmationMessage?: string }
+      | undefined;
+    if (!cfg?.enabled || !Array.isArray(cfg.keywords) || cfg.keywords.length === 0) return;
+    if (!conversation.recordId) return;
+
+    const normalizedContent = this.normalizeKeyword(content);
+    if (!normalizedContent) return;
+
+    const matched = cfg.keywords.some((kw) => this.normalizeKeyword(kw) === normalizedContent);
+    if (!matched) return;
+
+    // Marcar el contacto como opt-out de WhatsApp
+    await this.clientRecordRepo.update(conversation.recordId, { optInWhatsapp: false });
+
+    // Nota de sistema para dejar rastro en la conversación
+    await this.createSystemNote(
+      conversation.id,
+      `El contacto se dio de baja de WhatsApp (mensaje: "${content.trim()}"). Opt-in WhatsApp desactivado.`,
+    ).catch(() => {});
+
+    // Mensaje de confirmación opcional (solo si hay ventana abierta, es texto libre)
+    const confirmation = cfg.confirmationMessage?.trim();
+    if (confirmation && inbox.channel === 'whatsapp' && inbox.phoneNumberId && inbox.accessToken) {
+      try {
+        await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${inbox.accessToken}`,
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            ...this.buildWhatsAppRecipient(conversation.contactId),
+            type: 'text',
+            text: { body: confirmation },
+          }),
+        });
+      } catch (err) {
+        console.warn('[Webhook] Failed to send unsubscribe confirmation:', err);
+      }
+    }
+
+    console.log(`[Webhook] Contact ${conversation.recordId} opted out of WhatsApp via keyword in inbox ${inbox.id}`);
   }
 
   private async findOrCreateRecordByPhone(contactId: string, tenantId: string, contactName?: string, inboxId?: string): Promise<ClientRecord> {

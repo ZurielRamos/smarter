@@ -49,6 +49,15 @@ export class ChatsController {
     return this.chatsService.deleteInbox(id);
   }
 
+  // Configure unsubscribe keywords for a channel
+  @Put('inboxes/:id/unsubscribe')
+  updateUnsubscribeConfig(
+    @Param('id') id: string,
+    @Body() body: { enabled: boolean; keywords: string[]; confirmationMessage?: string | null },
+  ) {
+    return this.chatsService.updateUnsubscribeConfig(id, body);
+  }
+
   // === INBOX COLLABORATORS ===
 
   @Get('inboxes/:id/collaborators')
