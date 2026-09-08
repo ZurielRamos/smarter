@@ -23,6 +23,7 @@ export class TransformProcessor {
     { field: 'documentType', label: 'Tipo de documento', required: false, type: 'list', allowMultiple: false, category: 'Identificación' },
     { field: 'documentNumber', label: 'Número de documento', required: false, type: 'text', allowMultiple: false, category: 'Identificación' },
     { field: 'phone', label: 'Teléfono', required: false, type: 'text', allowMultiple: false, category: 'Contacto' },
+    { field: 'whatsappId', label: 'WhatsApp ID (BSUID)', required: false, type: 'text', allowMultiple: false, category: 'Contacto' },
     { field: 'countryCode', label: 'Código de país', required: false, type: 'text', allowMultiple: false, category: 'Contacto' },
     { field: 'email', label: 'Email', required: false, type: 'text', allowMultiple: false, category: 'Contacto' },
     { field: 'gender', label: 'Género', required: false, type: 'list', allowMultiple: false, category: 'Demografía' },

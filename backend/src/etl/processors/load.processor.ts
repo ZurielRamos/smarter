@@ -17,7 +17,7 @@ export class LoadProcessor {
   // System field keys that map to actual columns
   private readonly SYSTEM_COLUMNS = new Set([
     'id', 'firstName', 'lastName', 'fullName', 'documentType', 'documentNumber',
-    'phone', 'countryCode', 'email', 'gender', 'birthDate',
+    'phone', 'whatsappId', 'countryCode', 'email', 'gender', 'birthDate',
     'city', 'region', 'status', 'channelSource', 'source', 'score',
     'optInWhatsapp', 'optInEmail', 'assignedTo',
     'lastContactAt', 'lastActivityAt', 'tags',
@@ -178,6 +178,7 @@ export class LoadProcessor {
       documentType: 'document_type',
       documentNumber: 'document_number',
       phone: 'phone',
+      whatsappId: 'whatsapp_id',
       countryCode: 'country_code',
       email: 'email',
       gender: 'gender',

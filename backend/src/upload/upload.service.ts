@@ -48,6 +48,7 @@ export class UploadService {
       { field: 'firstName', label: 'Nombre', required: false, type: 'text', allowMultiple: false, category: 'Identificación' },
       { field: 'lastName', label: 'Apellido', required: false, type: 'text', allowMultiple: false, category: 'Identificación' },
       { field: 'phone', label: 'Teléfono', required: false, type: 'text', allowMultiple: false, category: 'Identificación' },
+      { field: 'whatsappId', label: 'WhatsApp ID (BSUID)', required: false, type: 'text', allowMultiple: false, category: 'Identificación' },
       { field: 'email', label: 'Email', required: false, type: 'text', allowMultiple: false, category: 'Identificación' },
 
       // Estado y canal
