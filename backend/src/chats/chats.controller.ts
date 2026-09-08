@@ -49,13 +49,10 @@ export class ChatsController {
     return this.chatsService.deleteInbox(id);
   }
 
-  // Configure unsubscribe keywords for a channel
-  @Put('inboxes/:id/unsubscribe')
-  updateUnsubscribeConfig(
-    @Param('id') id: string,
-    @Body() body: { enabled: boolean; keywords: string[]; confirmationMessage?: string | null },
-  ) {
-    return this.chatsService.updateUnsubscribeConfig(id, body);
+  // Configure keyword automations for a channel
+  @Put('inboxes/:id/automations')
+  updateAutomations(@Param('id') id: string, @Body() body: { rules: any[] }) {
+    return this.chatsService.updateAutomations(id, body.rules);
   }
 
   // === INBOX COLLABORATORS ===
@@ -240,6 +237,7 @@ export class ChatsController {
     @Query('labelIds') labelIds?: string,
     @Query('hideCampaign') hideCampaign?: string,
     @Query('assignment') assignment?: string,
+    @Query('search') search?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
@@ -249,6 +247,7 @@ export class ChatsController {
       hideCampaign: hideCampaign === 'true',
       assignment: normalizeAssignment(assignment),
       userId: req.user?.id,
+      search: search?.trim() || undefined,
       limit: limit ? parseInt(limit, 10) : 15,
       offset: offset ? parseInt(offset, 10) : 0,
     });
@@ -265,6 +264,7 @@ export class ChatsController {
     @Query('labelIds') labelIds?: string,
     @Query('hideCampaign') hideCampaign?: string,
     @Query('assignment') assignment?: string,
+    @Query('search') search?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
@@ -275,6 +275,7 @@ export class ChatsController {
       hideCampaign: hideCampaign === 'true',
       assignment: normalizeAssignment(assignment),
       userId: req.user?.id,
+      search: search?.trim() || undefined,
     };
 
     if (recordId) return this.chatsService.getConversationsByRecordId(recordId, opts);

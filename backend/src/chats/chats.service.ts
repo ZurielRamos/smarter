@@ -37,6 +37,12 @@ export interface ConvListOpts {
   assignment?: AssignmentFilter;
   /** ID del usuario actual, usado cuando `assignment === 'mine'`. */
   userId?: string;
+  /**
+   * Texto de búsqueda. Coincide por nombre del contacto (contactName, nombre y
+   * apellido del record, teléfono/identificador) o por texto dentro de los
+   * mensajes de la conversación.
+   */
+  search?: string;
 }
 
 @Injectable()
@@ -91,7 +97,7 @@ export class ChatsService {
    */
   async getBootstrap(
     tenantId: string,
-    opts: { inboxIds?: string[]; labelIds?: string[]; hideCampaign?: boolean; assignment?: AssignmentFilter; userId?: string; limit: number; offset: number },
+    opts: { inboxIds?: string[]; labelIds?: string[]; hideCampaign?: boolean; assignment?: AssignmentFilter; userId?: string; search?: string; limit: number; offset: number },
   ): Promise<{
     inboxes: Inbox[];
     conversations: { data: Conversation[]; total: number };
@@ -105,6 +111,7 @@ export class ChatsService {
       hideCampaign: opts.hideCampaign,
       assignment: opts.assignment,
       userId: opts.userId,
+      search: opts.search,
     };
 
     const conversationsPromise =
@@ -196,25 +203,41 @@ export class ChatsService {
   }
 
   /**
-   * Configura la desuscripción por palabra clave del canal. Hace merge sobre
-   * inbox.metadata.unsubscribe sin pisar el resto de metadata.
+   * Guarda las reglas de automatización por palabra clave del canal. Hace merge
+   * sobre inbox.metadata.automations sin pisar el resto de metadata. Normaliza y
+   * limpia cada regla (keywords sin vacíos, matchType válido, acciones válidas).
    */
-  async updateUnsubscribeConfig(
-    id: string,
-    config: { enabled: boolean; keywords: string[]; confirmationMessage?: string | null },
-  ): Promise<Inbox> {
+  async updateAutomations(id: string, rules: any[]): Promise<Inbox> {
     const inbox = await this.findInboxById(id);
-    const keywords = (config.keywords || [])
-      .map((k) => (k || '').trim())
-      .filter((k) => k.length > 0);
-    inbox.metadata = {
-      ...(inbox.metadata || {}),
-      unsubscribe: {
-        enabled: !!config.enabled,
+    const VALID_MATCH = new Set(['exact', 'contains', 'startsWith']);
+    const VALID_ACTIONS = new Set([
+      'set_status', 'set_opt_in_whatsapp', 'set_opt_in_email',
+      'add_tag', 'remove_tag', 'set_conversation_status',
+      'assign_agent', 'assign_team', 'reply',
+    ]);
+
+    const clean = (Array.isArray(rules) ? rules : []).map((r, i) => {
+      const keywords = (Array.isArray(r?.keywords) ? r.keywords : [])
+        .map((k: any) => String(k || '').trim())
+        .filter((k: string) => k.length > 0);
+      const actions = (Array.isArray(r?.actions) ? r.actions : [])
+        .filter((a: any) => a && VALID_ACTIONS.has(a.type))
+        .map((a: any) => ({
+          type: a.type,
+          ...(a.value !== undefined ? { value: a.value } : {}),
+          ...(a.message !== undefined ? { message: String(a.message || '') } : {}),
+        }));
+      return {
+        id: r?.id || `rule_${Date.now()}_${i}`,
+        name: String(r?.name || `Regla ${i + 1}`).trim(),
+        enabled: r?.enabled !== false,
+        matchType: VALID_MATCH.has(r?.matchType) ? r.matchType : 'exact',
         keywords,
-        confirmationMessage: config.confirmationMessage?.trim() || null,
-      },
-    };
+        actions,
+      };
+    });
+
+    inbox.metadata = { ...(inbox.metadata || {}), automations: clean };
     return this.inboxRepo.save(inbox);
   }
 
@@ -843,11 +866,10 @@ export class ChatsService {
         await this.clientRecordRepo.update(conversation.recordId, { lastContactAt: new Date() });
       }
 
-      // Desuscripción: si el inbox tiene configurada una palabra clave de baja y el
-      // mensaje entrante coincide, marcar opt_in_whatsapp = false para el contacto.
+      // Automatizaciones por palabra clave configuradas en el canal.
       if (conversation.recordId && content) {
-        await this.handleUnsubscribeKeyword(inbox, conversation, content).catch((err) =>
-          console.warn('[Webhook] Unsubscribe handling failed:', err?.message || err),
+        await this.runInboxAutomations(inbox, conversation, content).catch((err) =>
+          console.warn('[Webhook] Automations failed:', err?.message || err),
         );
       }
 
@@ -974,60 +996,195 @@ export class ChatsService {
   }
 
   /**
-   * Maneja la desuscripción por palabra clave configurada en el inbox.
-   *
-   * Config esperada en inbox.metadata.unsubscribe:
-   *   { enabled: boolean, keywords: string[], confirmationMessage?: string }
-   *
-   * Si el mensaje entrante coincide (exacto, normalizado) con alguna keyword,
-   * marca opt_in_whatsapp = false en el contacto, registra una nota de sistema y
-   * opcionalmente envía un mensaje de confirmación.
+   * ¿El texto entrante coincide con alguna de las keywords según el matchType?
+   * matchType: 'exact' (por defecto) | 'contains' | 'startsWith'
    */
-  private async handleUnsubscribeKeyword(inbox: Inbox, conversation: Conversation, content: string): Promise<void> {
-    const cfg = inbox.metadata?.unsubscribe as
-      | { enabled?: boolean; keywords?: string[]; confirmationMessage?: string }
-      | undefined;
-    if (!cfg?.enabled || !Array.isArray(cfg.keywords) || cfg.keywords.length === 0) return;
-    if (!conversation.recordId) return;
+  private matchesKeywords(content: string, keywords: string[], matchType: string): boolean {
+    const norm = this.normalizeKeyword(content);
+    if (!norm) return false;
+    return (keywords || []).some((kw) => {
+      const k = this.normalizeKeyword(kw);
+      if (!k) return false;
+      if (matchType === 'contains') return norm.includes(k);
+      if (matchType === 'startsWith') return norm.startsWith(k);
+      return norm === k; // exact
+    });
+  }
 
-    const normalizedContent = this.normalizeKeyword(content);
-    if (!normalizedContent) return;
+  /**
+   * Motor de automatizaciones por palabra clave configuradas en el canal (inbox).
+   *
+   * Config en inbox.metadata.automations: AutomationRule[]
+   *   AutomationRule = {
+   *     id, name, enabled, keywords: string[], matchType: 'exact'|'contains'|'startsWith',
+   *     actions: AutomationAction[]
+   *   }
+   *   AutomationAction.type:
+   *     'set_status'            value: string (estado del contacto)
+   *     'set_opt_in_whatsapp'   value: boolean
+   *     'set_opt_in_email'      value: boolean
+   *     'add_tag' / 'remove_tag' value: string
+   *     'set_conversation_status' value: 'open'|'resolved'|'archived'
+   *     'reply'                 message: string
+   *     'assign_agent'          value: userId
+   *     'assign_team'           value: teamId
+   *
+   * Ejecuta TODAS las reglas habilitadas que coincidan, en orden.
+   */
+  private async runInboxAutomations(inbox: Inbox, conversation: Conversation, content: string): Promise<void> {
+    const rules = inbox.metadata?.automations as any[] | undefined;
+    if (!Array.isArray(rules) || rules.length === 0) return;
+    if (!conversation.recordId || !content) return;
 
-    const matched = cfg.keywords.some((kw) => this.normalizeKeyword(kw) === normalizedContent);
-    if (!matched) return;
+    for (const rule of rules) {
+      if (!rule?.enabled) continue;
+      if (!Array.isArray(rule.keywords) || rule.keywords.length === 0) continue;
+      if (!Array.isArray(rule.actions) || rule.actions.length === 0) continue;
+      if (!this.matchesKeywords(content, rule.keywords, rule.matchType || 'exact')) continue;
 
-    // Marcar el contacto como opt-out de WhatsApp
-    await this.clientRecordRepo.update(conversation.recordId, { optInWhatsapp: false });
-
-    // Nota de sistema para dejar rastro en la conversación
-    await this.createSystemNote(
-      conversation.id,
-      `El contacto se dio de baja de WhatsApp (mensaje: "${content.trim()}"). Opt-in WhatsApp desactivado.`,
-    ).catch(() => {});
-
-    // Mensaje de confirmación opcional (solo si hay ventana abierta, es texto libre)
-    const confirmation = cfg.confirmationMessage?.trim();
-    if (confirmation && inbox.channel === 'whatsapp' && inbox.phoneNumberId && inbox.accessToken) {
-      try {
-        await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${inbox.accessToken}`,
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            ...this.buildWhatsAppRecipient(conversation.contactId),
-            type: 'text',
-            text: { body: confirmation },
-          }),
-        });
-      } catch (err) {
-        console.warn('[Webhook] Failed to send unsubscribe confirmation:', err);
+      for (const action of rule.actions) {
+        try {
+          await this.executeAutomationAction(inbox, conversation, action, rule, content);
+        } catch (err: any) {
+          console.warn(`[Automation] Action ${action?.type} failed:`, err?.message || err);
+        }
       }
     }
+  }
 
-    console.log(`[Webhook] Contact ${conversation.recordId} opted out of WhatsApp via keyword in inbox ${inbox.id}`);
+  private async executeAutomationAction(
+    inbox: Inbox,
+    conversation: Conversation,
+    action: { type: string; value?: any; message?: string },
+    rule: { name?: string },
+    triggerContent: string,
+  ): Promise<void> {
+    const recordId = conversation.recordId!;
+    const ruleName = rule?.name || 'Automatización';
+
+    switch (action.type) {
+      case 'set_status':
+        if (action.value) {
+          await this.clientRecordRepo.update(recordId, { status: String(action.value) });
+          await this.createSystemNote(conversation.id, `${ruleName}: estado del contacto cambiado a "${action.value}".`).catch(() => {});
+        }
+        break;
+
+      case 'set_opt_in_whatsapp':
+        await this.clientRecordRepo.update(recordId, { optInWhatsapp: !!action.value });
+        await this.createSystemNote(conversation.id, `${ruleName}: Opt-in WhatsApp ${action.value ? 'activado' : 'desactivado'}.`).catch(() => {});
+        break;
+
+      case 'set_opt_in_email':
+        await this.clientRecordRepo.update(recordId, { optInEmail: !!action.value });
+        await this.createSystemNote(conversation.id, `${ruleName}: Opt-in Email ${action.value ? 'activado' : 'desactivado'}.`).catch(() => {});
+        break;
+
+      case 'add_tag':
+      case 'remove_tag': {
+        const tag = String(action.value || '').trim();
+        if (!tag) break;
+        const record = await this.clientRecordRepo.findOne({ where: { id: recordId } });
+        if (!record) break;
+        const current = Array.isArray(record.tags) ? record.tags : [];
+        const next = action.type === 'add_tag'
+          ? [...new Set([...current, tag])]
+          : current.filter((t) => t !== tag);
+        record.tags = next;
+        await this.clientRecordRepo.save(record);
+        await this.createSystemNote(conversation.id, `${ruleName}: etiqueta "${tag}" ${action.type === 'add_tag' ? 'agregada' : 'removida'}.`).catch(() => {});
+        break;
+      }
+
+      case 'set_conversation_status':
+        if (action.value) {
+          await this.updateConversationStatus(conversation.id, String(action.value), ruleName).catch(() => {});
+        }
+        break;
+
+      case 'assign_agent':
+        if (action.value) {
+          await this.clientRecordRepo.update(recordId, { assignedTo: String(action.value) });
+          await this.createSystemNote(conversation.id, `${ruleName}: contacto asignado a un agente.`).catch(() => {});
+        }
+        break;
+
+      case 'assign_team':
+        if (action.value) {
+          await this.clientRecordRepo.update(recordId, { assignedTeamId: String(action.value) });
+          await this.createSystemNote(conversation.id, `${ruleName}: contacto asignado a un equipo.`).catch(() => {});
+        }
+        break;
+
+      case 'reply':
+        if (action.message?.trim()) {
+          await this.sendAutomationReply(inbox, conversation, action.message.trim()).catch((err) =>
+            console.warn('[Automation] reply failed:', err?.message || err),
+          );
+        }
+        break;
+
+      default:
+        console.warn(`[Automation] Unknown action type: ${action.type} (trigger: "${triggerContent.substring(0, 40)}")`);
+    }
+  }
+
+  /**
+   * Envía una respuesta automática de texto por el canal correspondiente y la
+   * guarda como mensaje saliente en la conversación.
+   */
+  private async sendAutomationReply(inbox: Inbox, conversation: Conversation, text: string): Promise<void> {
+    let externalId: string | null = null;
+
+    if (inbox.channel === 'whatsapp' && inbox.phoneNumberId && inbox.accessToken) {
+      const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${inbox.accessToken}` },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          ...this.buildWhatsAppRecipient(conversation.contactId),
+          type: 'text',
+          text: { body: text },
+        }),
+      });
+      const data = await res.json();
+      externalId = data.messages?.[0]?.id || null;
+    } else if ((inbox.channel === 'messenger' || inbox.channel === 'instagram') && inbox.pageId && inbox.accessToken) {
+      const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.pageId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${inbox.accessToken}` },
+        body: JSON.stringify({ recipient: { id: conversation.contactId }, message: { text } }),
+      });
+      const data = await res.json();
+      externalId = data.message_id || null;
+    } else if (inbox.channel === 'evolution' && inbox.metadata?.evolutionInstanceName) {
+      const result = await this.evolutionService.sendText(
+        inbox.metadata.evolutionInstanceName,
+        conversation.contactId,
+        text,
+        inbox.accessToken || undefined,
+      );
+      externalId = result?.key?.id || null;
+    } else {
+      return; // canal no soporta respuesta automática de texto
+    }
+
+    // Guardar el mensaje saliente en la conversación
+    const message = this.messageRepo.create({
+      conversationId: conversation.id,
+      direction: 'outbound',
+      messageType: 'text',
+      content: text,
+      externalId,
+      status: externalId ? 'sent' : 'failed',
+    });
+    await this.messageRepo.save(message);
+    conversation.lastMessage = text;
+    conversation.lastMessageAt = new Date();
+    conversation.lastMessageSource = 'api';
+    await this.conversationRepo.save(conversation);
+    this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
+    this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
   }
 
   private async findOrCreateRecordByPhone(contactId: string, tenantId: string, contactName?: string, inboxId?: string): Promise<ClientRecord> {
@@ -1230,6 +1387,13 @@ export class ChatsService {
 
     await this.conversationRepo.save(conversation);
 
+    // Automatizaciones por palabra clave
+    if (conversation.recordId && content) {
+      await this.runInboxAutomations(inbox, conversation, content).catch((err) =>
+        console.warn('[Webhook] Automations (messenger) failed:', err?.message || err),
+      );
+    }
+
     // Emit real-time events
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
@@ -1310,7 +1474,44 @@ export class ChatsService {
     conversation.lastMessage = content || `[${messageType}]`;
     conversation.lastMessageAt = new Date();
     conversation.unreadCount = (conversation.unreadCount || 0) + 1;
+
+    // Link conversation to client record (Instagram — por IG-scoped ID en customData)
+    if (!conversation.recordId) {
+      const nameParts = (conversation.contactName || senderId).replace(/^@/, '').split(' ');
+      let record = await this.clientRecordRepo
+        .createQueryBuilder('client')
+        .where('client.tenant_id = :tenantId', { tenantId: inbox.tenantId })
+        .andWhere("client.custom_data ->> 'instagramId' = :igid", { igid: senderId })
+        .getOne();
+      if (!record) {
+        record = this.clientRecordRepo.create({
+          tenantId: inbox.tenantId,
+          firstName: nameParts[0] || null,
+          lastName: nameParts.slice(1).join(' ') || null,
+          avatarUrl: conversation.contactAvatar || null,
+          status: 'active',
+          channelSource: inbox.id,
+          lastContactAt: new Date(),
+          customData: { instagramId: senderId },
+        } as Partial<ClientRecord>);
+        record = await this.clientRecordRepo.save(record);
+      } else {
+        record.lastContactAt = new Date();
+        await this.clientRecordRepo.save(record);
+      }
+      conversation.recordId = record.id;
+    } else {
+      await this.clientRecordRepo.update(conversation.recordId, { lastContactAt: new Date() });
+    }
+
     await this.conversationRepo.save(conversation);
+
+    // Automatizaciones por palabra clave
+    if (conversation.recordId && content) {
+      await this.runInboxAutomations(inbox, conversation, content).catch((err) =>
+        console.warn('[Webhook] Automations (instagram) failed:', err?.message || err),
+      );
+    }
 
     // Emit real-time events
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
@@ -2020,6 +2221,30 @@ export class ChatsService {
       qb.andWhere('record.assigned_to IS NULL');
     } else if (opts.assignment === 'mine' && opts.userId) {
       qb.andWhere('record.assigned_to = :assignedUserId', { assignedUserId: opts.userId });
+    }
+
+    // Búsqueda por nombre de contacto o por texto dentro de los mensajes.
+    const term = opts.search?.trim();
+    if (term) {
+      // Escapa comodines de LIKE para tratar el término como texto literal.
+      const escaped = term.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+      const like = `%${escaped}%`;
+      qb.andWhere(
+        `(
+          conv.contact_name ILIKE :searchLike ESCAPE '\\'
+          OR conv.contact_id ILIKE :searchLike ESCAPE '\\'
+          OR record.first_name ILIKE :searchLike ESCAPE '\\'
+          OR record.last_name ILIKE :searchLike ESCAPE '\\'
+          OR (COALESCE(record.first_name, '') || ' ' || COALESCE(record.last_name, '')) ILIKE :searchLike ESCAPE '\\'
+          OR record.phone ILIKE :searchLike ESCAPE '\\'
+          OR EXISTS (
+            SELECT 1 FROM messages m
+            WHERE m.conversation_id = conv.id
+              AND m.content ILIKE :searchLike ESCAPE '\\'
+          )
+        )`,
+        { searchLike: like },
+      );
     }
   }
 
@@ -3447,6 +3672,13 @@ export class ChatsService {
     conversation.unreadCount = (conversation.unreadCount || 0) + 1;
     await this.conversationRepo.save(conversation);
 
+    // Automatizaciones por palabra clave (si la conversación tiene contacto vinculado)
+    if (conversation.recordId && content) {
+      await this.runInboxAutomations(inbox, conversation, content).catch((err) =>
+        console.warn('[Webhook] Automations (chat) failed:', err?.message || err),
+      );
+    }
+
     // Emit to agents via main gateway
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversationId, message);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
@@ -3594,6 +3826,13 @@ export class ChatsService {
     }
 
     await this.conversationRepo.save(conversation);
+
+    // Automatizaciones por palabra clave
+    if (conversation.recordId && content) {
+      await this.runInboxAutomations(inbox, conversation, content).catch((err) =>
+        console.warn('[Webhook] Automations (evolution) failed:', err?.message || err),
+      );
+    }
 
     // Emitir eventos en tiempo real
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
