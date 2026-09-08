@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Save, Loader2, CheckCircle2, Plus, Trash2, Zap } from "lucide-react";
 import { api } from "@/services/api";
+import { DropdownSelect } from "./ui/dropdown-select";
 
 // ── Tipos ──────────────────────────────────────────────────────────────
 type MatchType = "exact" | "contains" | "startsWith";
@@ -167,25 +168,34 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
     const def = ACTION_TYPES.find((a) => a.type === action.type);
     if (!def) return null;
     const inputCls = "px-2 py-1.5 rounded-md border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500";
+    const ddCls = "min-w-[140px] [&>button]:py-1.5 [&>button]:text-xs";
     switch (def.input) {
       case "status":
         return (
-          <select value={action.value || ""} onChange={(e) => updateAction(ruleId, idx, { value: e.target.value })} className={inputCls}>
-            {CONTACT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <DropdownSelect
+            className={ddCls}
+            value={action.value || ""}
+            onChange={(v) => updateAction(ruleId, idx, { value: v })}
+            options={CONTACT_STATUSES.map((s) => ({ value: s, label: s }))}
+          />
         );
       case "conversationStatus":
         return (
-          <select value={action.value || ""} onChange={(e) => updateAction(ruleId, idx, { value: e.target.value })} className={inputCls}>
-            {CONVERSATION_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <DropdownSelect
+            className={ddCls}
+            value={action.value || ""}
+            onChange={(v) => updateAction(ruleId, idx, { value: v })}
+            options={CONVERSATION_STATUSES.map((s) => ({ value: s, label: s }))}
+          />
         );
       case "boolean":
         return (
-          <select value={String(action.value)} onChange={(e) => updateAction(ruleId, idx, { value: e.target.value === "true" })} className={inputCls}>
-            <option value="true">Activar</option>
-            <option value="false">Desactivar</option>
-          </select>
+          <DropdownSelect
+            className={ddCls}
+            value={String(action.value)}
+            onChange={(v) => updateAction(ruleId, idx, { value: v === "true" })}
+            options={[{ value: "true", label: "Activar" }, { value: "false", label: "Desactivar" }]}
+          />
         );
       case "text":
         return (
@@ -197,17 +207,21 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
         );
       case "agent":
         return (
-          <select value={action.value || ""} onChange={(e) => updateAction(ruleId, idx, { value: e.target.value })} className={inputCls}>
-            <option value="">Selecciona agente</option>
-            {members.map((m) => <option key={m.userId} value={m.userId}>{m.user?.name || m.user?.email || m.userId}</option>)}
-          </select>
+          <DropdownSelect
+            className={ddCls}
+            value={action.value || ""}
+            onChange={(v) => updateAction(ruleId, idx, { value: v })}
+            options={[{ value: "", label: "Selecciona agente" }, ...members.map((m) => ({ value: m.userId, label: m.user?.name || m.user?.email || m.userId }))]}
+          />
         );
       case "team":
         return (
-          <select value={action.value || ""} onChange={(e) => updateAction(ruleId, idx, { value: e.target.value })} className={inputCls}>
-            <option value="">Selecciona equipo</option>
-            {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
+          <DropdownSelect
+            className={ddCls}
+            value={action.value || ""}
+            onChange={(v) => updateAction(ruleId, idx, { value: v })}
+            options={[{ value: "", label: "Selecciona equipo" }, ...teams.map((t) => ({ value: t.id, label: t.name }))]}
+          />
         );
       default:
         return null;
@@ -265,13 +279,12 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
             <div className="mb-3">
               <div className="flex items-center gap-2 mb-1.5">
                 <label className="text-xs font-medium text-gray-600">Si el mensaje</label>
-                <select
+                <DropdownSelect
+                  className="min-w-[150px] [&>button]:py-1 [&>button]:text-xs"
                   value={rule.matchType}
-                  onChange={(e) => updateRule(rule.id, { matchType: e.target.value as MatchType })}
-                  className="px-2 py-1 rounded-md border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
-                >
-                  {(Object.keys(MATCH_LABELS) as MatchType[]).map((m) => <option key={m} value={m}>{MATCH_LABELS[m]}</option>)}
-                </select>
+                  onChange={(v) => updateRule(rule.id, { matchType: v as MatchType })}
+                  options={(Object.keys(MATCH_LABELS) as MatchType[]).map((m) => ({ value: m, label: MATCH_LABELS[m] }))}
+                />
                 <label className="text-xs font-medium text-gray-600">alguna de:</label>
               </div>
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -301,13 +314,12 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
               <div className="space-y-2">
                 {rule.actions.map((action, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <select
+                    <DropdownSelect
+                      className="min-w-[200px] [&>button]:py-1.5 [&>button]:text-xs"
                       value={action.type}
-                      onChange={(e) => changeActionType(rule.id, idx, e.target.value)}
-                      className="px-2 py-1.5 rounded-md border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    >
-                      {ACTION_TYPES.map((a) => <option key={a.type} value={a.type}>{a.label}</option>)}
-                    </select>
+                      onChange={(v) => changeActionType(rule.id, idx, v)}
+                      options={ACTION_TYPES.map((a) => ({ value: a.type, label: a.label }))}
+                    />
                     {renderActionInput(rule.id, idx, action)}
                     <button onClick={() => removeAction(rule.id, idx)} className="p-1 rounded-md text-red-500 hover:bg-red-50 shrink-0" aria-label="Eliminar acción">
                       <Trash2 className="h-3 w-3" />
