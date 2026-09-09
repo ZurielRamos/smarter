@@ -120,6 +120,12 @@ export class SendPulseWebhookController {
     const createdAt = timestamp ? new Date(timestamp * 1000) : new Date();
     const contactName: string | null = event?.contact?.name || null;
 
+    // Respuesta/cita: SendPulse expone el mensaje citado en
+    // channel_data.message.context.message_id (wamid del mensaje al que se
+    // responde). Lo guardamos en replyToExternalId para reconstruir el hilo.
+    const replyToExternalId: string | null =
+      channelMessage?.context?.message_id || channelMessage?.context?.id || null;
+
     // Idempotencia: no duplicar si ya guardamos este wamid. Esto es clave para
     // los salientes: cuando un agente envía desde NUESTRO CRM, sendMessage() ya
     // guardó el mensaje con externalId=wamid, así que el webhook outgoing del
@@ -155,6 +161,7 @@ export class SendPulseWebhookController {
       messageType,
       content,
       externalId: wamid,
+      replyToExternalId,
       // Entrante llega como 'delivered'; saliente ya fue enviado por SendPulse.
       status: isIncoming ? 'delivered' : 'sent',
       source: 'api',

@@ -54,6 +54,8 @@ export interface SendPulseMessageData {
   from_user_id?: string | null;
   timestamp?: number;
   type?: string;
+  // Mensaje citado (respuesta): { message_id: wamid }
+  context?: { message_id?: string; id?: string } | null;
 }
 
 export interface SendPulseMessage {

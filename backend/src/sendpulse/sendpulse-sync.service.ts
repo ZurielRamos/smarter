@@ -174,6 +174,7 @@ export class SendPulseSyncService {
         messageType: norm.messageType,
         content: norm.content,
         externalId: norm.externalId,
+        replyToExternalId: norm.replyToExternalId,
         status: norm.direction === 'inbound' ? 'delivered' : 'sent',
         source: 'api',
         // Preservamos la fecha original de SendPulse.

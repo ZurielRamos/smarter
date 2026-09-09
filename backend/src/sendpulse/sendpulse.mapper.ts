@@ -70,6 +70,15 @@ export interface NormalizedMessage {
   messageType: string;
   content: string | null;
   createdAt: Date;
+  /** wamid del mensaje citado (si es una respuesta), para el hilo. */
+  replyToExternalId: string | null;
+}
+
+/** Extrae el wamid del mensaje citado (respuesta), si existe. */
+export function resolveReplyTo(msg: SendPulseMessage): string | null {
+  const ctx = msg.data?.context;
+  if (!ctx) return null;
+  return ctx.message_id || ctx.id || null;
 }
 
 export function normalizeMessage(msg: SendPulseMessage): NormalizedMessage {
@@ -79,6 +88,7 @@ export function normalizeMessage(msg: SendPulseMessage): NormalizedMessage {
     messageType: mapMessageType(msg.type),
     content: extractContent(msg),
     createdAt: resolveCreatedAt(msg),
+    replyToExternalId: resolveReplyTo(msg),
   };
 }
 
