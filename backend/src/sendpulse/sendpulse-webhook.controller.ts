@@ -53,6 +53,11 @@ export class SendPulseWebhookController {
     // Responder de inmediato para evitar reintentos de SendPulse.
     res.status(200).send('ok');
 
+    // Log del payload crudo para diagnóstico (temporal).
+    this.logger.log(
+      `[SendPulse webhook] RECIBIDO inbox=${inboxId} payload=${JSON.stringify(body)?.slice(0, 2000)}`,
+    );
+
     try {
       const events = Array.isArray(body) ? body : [body];
       for (const event of events) {
@@ -67,7 +72,7 @@ export class SendPulseWebhookController {
     const title = event?.title;
     // Solo procesamos mensajes entrantes en el puente.
     if (title !== 'incoming_message') {
-      this.logger.debug(`[SendPulse webhook] evento ignorado: ${title}`);
+      this.logger.log(`[SendPulse webhook] evento ignorado (title=${title})`);
       return;
     }
 
@@ -79,13 +84,13 @@ export class SendPulseWebhookController {
 
     // Si el puente no está activo, ignoramos (evita duplicar con el canal normal).
     if (!isBridgeActive(inbox.metadata)) {
-      this.logger.debug(`[SendPulse webhook] puente inactivo para inbox ${inboxId}, ignorado`);
+      this.logger.warn(`[SendPulse webhook] puente INACTIVO para inbox ${inboxId}, ignorado`);
       return;
     }
 
     const spContactId: string | undefined = event?.contact?.id;
     if (!spContactId) {
-      this.logger.warn('[SendPulse webhook] evento sin contact.id');
+      this.logger.warn(`[SendPulse webhook] evento sin contact.id: ${JSON.stringify(event?.contact)}`);
       return;
     }
 

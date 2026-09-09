@@ -2,10 +2,24 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import * as express from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Body parsers robustos: algunos webhooks (p. ej. SendPulse) pueden llegar
+  // con payloads grandes o con Content-Type poco estándar. Subimos el límite y
+  // aceptamos JSON tanto para application/json como para text/plain y
+  // application/*+json. NO capturamos multipart/urlencoded aquí para no romper
+  // las subidas de archivos (Multer) ni los formularios existentes.
+  app.use(
+    express.json({
+      limit: '10mb',
+      type: ['application/json', 'application/*+json', 'text/plain'],
+    }),
+  );
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
   app.enableCors({
     origin: true,
