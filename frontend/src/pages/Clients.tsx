@@ -953,7 +953,8 @@ export function Clients() {
                   {clients.map((client) => (
                     <tr
                       key={client.id}
-                      className="border-b border-border hover:bg-muted"
+                      className="border-b border-border hover:bg-muted cursor-pointer"
+                      onClick={() => navigate(`/${slug}/clients/${client.id}`)}
                       onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, client }); }}
                     >
                       <td className="px-3 py-2.5 w-10" onClick={(e) => e.stopPropagation()}>
