@@ -2927,26 +2927,42 @@ export class ChatsService {
     // ya subida a storage (SendPulse acepta media por link, no por upload).
     if (isBridgeActive(inbox.metadata)) {
       const bridge = getBridgeConfig(inbox.metadata);
-      const link = stored?.url;
       if (!inbox.accessToken || !bridge) {
         sendError = 'Modo puente SendPulse mal configurado (falta API key)';
-      } else if (!link) {
-        sendError = 'No se pudo obtener la URL pública del archivo';
       } else {
         try {
           // SendPulse soporta image | document | audio por link. Video se envía
           // como documento (SendPulse no expone tipo video por link en la API).
           const spType: 'image' | 'document' | 'audio' =
             messageType === 'image' ? 'image' : messageType === 'audio' ? 'audio' : 'document';
-          const result = await this.sendPulseService.sendMedia(
-            inbox.accessToken,
-            conversation.contactId,
-            spType,
-            link,
-            caption || undefined,
-          );
-          externalId = result.messageId;
-          if (!externalId) sendError = 'SendPulse no devolvió id de mensaje';
+
+          // WhatsApp no acepta WebP como imagen (stored.url es WebP por la
+          // optimización). Para imágenes generamos y enviamos un JPEG desde el
+          // buffer original. El resto de tipos usa la URL ya subida.
+          let link = stored?.url;
+          if (messageType === 'image') {
+            const jpeg = await this.mediaStorageService.uploadImageAsJpeg(file.buffer, {
+              channel: inbox.channel,
+              tenantId: inbox.tenantId,
+              conversationId,
+              messageId: `outbound-sp-${Date.now()}`,
+            });
+            if (jpeg?.url) link = jpeg.url;
+          }
+
+          if (!link) {
+            sendError = 'No se pudo obtener la URL pública del archivo';
+          } else {
+            const result = await this.sendPulseService.sendMedia(
+              inbox.accessToken,
+              conversation.contactId,
+              spType,
+              link,
+              caption || undefined,
+            );
+            externalId = result.messageId;
+            if (!externalId) sendError = 'SendPulse no devolvió id de mensaje';
+          }
         } catch (err: any) {
           console.error('[Chat] SendPulse media send error:', err);
           sendError = err.message || 'Error de conexión con SendPulse API';

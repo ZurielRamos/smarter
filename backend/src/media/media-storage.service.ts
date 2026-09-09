@@ -289,6 +289,60 @@ export class MediaStorageService implements OnModuleInit {
     }
   }
 
+  /**
+   * Sube una imagen convertida a JPEG (no WebP) y devuelve su URL pública.
+   *
+   * WhatsApp NO acepta WebP como imagen normal (solo JPEG/PNG; WebP solo para
+   * stickers). Como `uploadBuffer` optimiza todas las imágenes a WebP, este
+   * método genera una copia JPEG compatible para enviarla por proveedores que
+   * requieren un link de imagen soportada (p. ej. SendPulse por link).
+   */
+  async uploadImageAsJpeg(
+    buffer: Buffer,
+    options: {
+      channel: string;
+      tenantId: string;
+      conversationId: string;
+      messageId: string;
+    },
+  ): Promise<StoredMedia | null> {
+    if (!this.s3Client) {
+      console.warn('[MediaStorage] Storage not initialized, skipping JPEG upload');
+      return null;
+    }
+
+    try {
+      const jpegBuffer = (await sharp(buffer)
+        .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 85 })
+        .toBuffer()) as Buffer;
+
+      const filename = `${uuid()}.jpg`;
+      const storagePath = `media/${options.tenantId}/${options.channel}/${options.conversationId}/${options.messageId}/${filename}`;
+
+      await this.s3Client.send(
+        new PutObjectCommand({
+          Bucket: this.bucketName,
+          Key: storagePath,
+          Body: jpegBuffer,
+          ContentType: 'image/jpeg',
+          Metadata: {
+            channel: options.channel,
+            tenantId: options.tenantId,
+            conversationId: options.conversationId,
+            messageId: options.messageId,
+          },
+        }),
+      );
+
+      const url = `${this.publicUrl}/${storagePath}`;
+      return { url, path: storagePath, size: jpegBuffer.length, mimeType: 'image/jpeg' };
+    } catch (error) {
+      console.error('[MediaStorage] Error uploading JPEG:', error);
+      return null;
+    }
+  }
+
   private getExtension(mimeType: string, filename?: string): string {
     if (filename) {
       const ext = filename.substring(filename.lastIndexOf('.'));
