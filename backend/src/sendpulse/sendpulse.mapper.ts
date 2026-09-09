@@ -29,12 +29,39 @@ export function mapMessageType(spType: string | undefined): string {
 
 /**
  * Extrae el contenido textual legible de un mensaje de SendPulse.
- * Para tipos no-texto devuelve un placeholder consistente con el resto del CRM.
+ *
+ * Cubre los casos donde el texto no está en `data.text.body`:
+ *  - Botón de plantilla (`type: button`) → el texto está en `data.button.text`.
+ *  - Respuesta interactiva → `interactive.button_reply/list_reply.title`.
+ *  - Plantilla saliente (`type: template`) → sin texto; mostramos el nombre.
+ * Para el resto de tipos no-texto devuelve un placeholder consistente.
  */
 export function extractContent(msg: SendPulseMessage): string | null {
-  const body = msg.data?.text?.body;
+  const data = msg.data;
+  const rawType = (msg.type || data?.type || '').toLowerCase();
+
+  // Texto normal.
+  const body = data?.text?.body;
   if (body) return body;
-  const type = mapMessageType(msg.type);
+
+  // Respuesta a botón de plantilla.
+  if (data?.button?.text) return data.button.text;
+
+  // Respuesta interactiva (botón/lista).
+  const interactive = data?.interactive;
+  if (interactive) {
+    const title =
+      interactive.button_reply?.title || interactive.list_reply?.title || null;
+    if (title) return title;
+  }
+
+  // Plantilla saliente: no hay texto en el payload; identificamos por nombre.
+  if (rawType === 'template') {
+    const name = data?.template?.name;
+    return name ? `[Plantilla: ${name}]` : '[Plantilla]';
+  }
+
+  const type = mapMessageType(msg.type || data?.type);
   if (type === 'text') return null;
   return `[${type}]`;
 }

@@ -56,6 +56,16 @@ export interface SendPulseMessageData {
   type?: string;
   // Mensaje citado (respuesta): { message_id: wamid }
   context?: { message_id?: string; id?: string } | null;
+  // Respuesta a un botón de plantilla: el texto va aquí, no en `text`.
+  button?: { text?: string; payload?: string } | null;
+  // Respuesta interactiva (botones/listas): título de la opción elegida.
+  interactive?: {
+    type?: string;
+    button_reply?: { title?: string; id?: string };
+    list_reply?: { title?: string; id?: string };
+  } | null;
+  // Plantilla saliente: sin cuerpo de texto, pero con nombre.
+  template?: { name?: string } | null;
 }
 
 export interface SendPulseMessage {

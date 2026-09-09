@@ -10,7 +10,7 @@ import { Message } from '../chats/message.entity';
 import { ClientRecord } from '../records/record.entity';
 import { ChatsGateway } from '../chats/chats.gateway';
 import { isBridgeActive } from './sendpulse-bridge.types';
-import { mapMessageType, phoneMatchKey, normalizePhoneDigits, isWhatsAppIdentity } from './sendpulse.mapper';
+import { mapMessageType, extractContent, phoneMatchKey, normalizePhoneDigits, isWhatsAppIdentity } from './sendpulse.mapper';
 
 /**
  * Webhook entrante de SendPulse para el "Modo Puente".
@@ -103,17 +103,18 @@ export class SendPulseWebhookController {
       channelMessage.id ||
       `sp_${direction}_${Date.now()}`;
 
-    // El texto del mensaje varía de forma entre entrante y saliente:
-    //  - entrante: channel_data.message.text.body
-    //  - saliente (WhatsApp): channel_data.message.text puede ser string u objeto
-    const rawText = channelMessage.text;
-    const textBody: string | null =
-      typeof rawText === 'string' ? rawText : rawText?.body || null;
-
     const spType: string = channelMessage.type || 'text';
     const messageType = mapMessageType(spType);
+
+    // Extracción de contenido unificada con el sync (maneja text, botones de
+    // plantilla, interactivos y plantillas). Normalizamos `text` que en el
+    // webhook a veces llega como string suelto en vez de { body }.
+    const normalizedText =
+      typeof channelMessage.text === 'string'
+        ? { body: channelMessage.text }
+        : channelMessage.text;
     const content: string | null =
-      textBody ||
+      extractContent({ type: spType, data: { ...channelMessage, text: normalizedText } } as any) ||
       (isIncoming ? event?.contact?.last_message : null) ||
       (messageType === 'text' ? null : `[${messageType}]`);
     const timestamp: number | undefined = channelMessage.timestamp;
