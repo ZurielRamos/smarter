@@ -4,8 +4,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import * as bcrypt from 'bcrypt';
-import * as path from 'path';
-import * as fs from 'fs';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -13,6 +11,7 @@ import { LoginDto } from './dto/login.dto';
 import { User } from '../users/user.entity';
 import { UserTenant } from '../users/user-tenant.entity';
 import { MailService } from '../mail/mail.service';
+import { MediaStorageService } from '../media/media-storage.service';
 
 @Controller('auth')
 export class AuthController {
@@ -20,6 +19,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
+    private readonly mediaStorageService: MediaStorageService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserTenant)
@@ -126,24 +126,22 @@ export class AuthController {
       user.password = await bcrypt.hash(body.newPassword, 10);
     }
 
-    // Update avatar
+    // Update avatar — stored in Cloudflare R2 via MediaStorageService
     if (avatar) {
-      const uploadsDir = path.join(process.cwd(), 'uploads', 'avatars');
-      if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
-      }
-      const ext = path.extname(avatar.originalname) || '.png';
-      const filename = `${user.id}-${Date.now()}${ext}`;
-      const filePath = path.join(uploadsDir, filename);
-      fs.writeFileSync(filePath, avatar.buffer);
+      const stored = await this.mediaStorageService.uploadBuffer(avatar.buffer, {
+        channel: 'user-avatars',
+        tenantId: 'users',
+        conversationId: user.id,
+        messageId: 'avatar',
+        mimeType: avatar.mimetype,
+        filename: avatar.originalname,
+      });
 
-      // Remove old avatar if exists
-      if (user.avatarPath) {
-        const oldPath = path.join(process.cwd(), user.avatarPath);
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      if (!stored) {
+        return { error: 'No se pudo subir el avatar. Intenta de nuevo.' };
       }
 
-      user.avatarPath = `uploads/avatars/${filename}`;
+      user.avatarPath = stored.url;
     }
 
     await this.userRepo.save(user);
