@@ -28,6 +28,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { ConversionsModule } from '../conversions/conversions.module';
 import { BotsModule } from '../bots/bots.module';
 import { EvolutionModule } from '../evolution/evolution.module';
+import { SendPulseModule } from '../sendpulse/sendpulse.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { TemplatesModule } from '../templates/templates.module';
 
@@ -41,6 +42,7 @@ import { TemplatesModule } from '../templates/templates.module';
     ConversionsModule,
     BotsModule,
     forwardRef(() => EvolutionModule),
+    forwardRef(() => SendPulseModule),
     ProvidersModule,
     TemplatesModule,
   ],

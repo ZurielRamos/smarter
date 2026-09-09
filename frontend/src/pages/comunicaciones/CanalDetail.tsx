@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Settings2, Users, Clock, UserPlus, X, Loader2, Save, CheckCircle2, MessageSquare, Activity, Shield, TrendingUp, Globe, Mail as MailIcon, MapPin, Building2, ExternalLink, Edit3, Upload, Camera, RefreshCw, Bot } from "lucide-react";
+import { Settings2, Users, Clock, UserPlus, X, Loader2, Save, CheckCircle2, MessageSquare, Activity, Shield, TrendingUp, Globe, Mail as MailIcon, MapPin, Building2, ExternalLink, Edit3, Upload, Camera, RefreshCw, Bot, Zap } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { InboxSettingsContent } from "@/components/InboxSettingsContent";
+import { SendPulseBridgeTab } from "./SendPulseBridgeTab";
 import { WhatsAppTemplatesManager } from "@/components/WhatsAppTemplatesManager";
 import { EmailTemplatesManager } from "@/components/EmailTemplatesManager";
 import { api } from "@/services/api";
@@ -812,7 +813,7 @@ function BotsTab({ inboxId, tenantId }: { inboxId: string; tenantId: string }) {
   );
 }
 
-type Tab = "estado" | "ajustes" | "colaboradores" | "horarios" | "plantillas" | "bots";
+type Tab = "estado" | "ajustes" | "colaboradores" | "horarios" | "plantillas" | "bots" | "puente";
 
 export function CanalDetail() {
   const { slug, inboxId } = useParams();
@@ -841,6 +842,7 @@ export function CanalDetail() {
     ...(inboxChannel === "whatsapp" ? [{ key: "plantillas" as Tab, label: "Plantillas", icon: MessageSquare }] : []),
     ...(inboxChannel === "email" ? [{ key: "plantillas" as Tab, label: "Plantillas", icon: MailIcon }] : []),
     ...(["whatsapp", "instagram", "messenger", "chat", "evolution"].includes(inboxChannel || "") ? [{ key: "bots" as Tab, label: "Bots", icon: Bot }] : []),
+    ...(inboxChannel === "whatsapp" ? [{ key: "puente" as Tab, label: "Puente", icon: Zap }] : []),
   ];
 
   return (
@@ -893,6 +895,10 @@ export function CanalDetail() {
 
       {activeTab === "bots" && (
         <BotsTab inboxId={inboxId} tenantId={tenantId} />
+      )}
+
+      {activeTab === "puente" && inboxChannel === "whatsapp" && (
+        <SendPulseBridgeTab inboxId={inboxId} tenantId={tenantId} />
       )}
     </div>
   );

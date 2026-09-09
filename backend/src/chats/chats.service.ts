@@ -20,6 +20,8 @@ import { BotsService } from '../bots/bots.service';
 import { SequentialFlowEngine } from '../bots/sequential-flow.engine';
 import { Activity } from '../records/activity.entity';
 import { EvolutionService } from '../evolution/evolution.service';
+import { SendPulseService } from '../sendpulse/sendpulse.service';
+import { isBridgeActive, getBridgeConfig } from '../sendpulse/sendpulse-bridge.types';
 import { MailgunService } from '../providers/mailgun.service';
 import { EmailDomainService } from '../providers/email-domain.service';
 import { EmailUnsubscribeService } from '../providers/email-unsubscribe.service';
@@ -84,6 +86,8 @@ export class ChatsService {
     private readonly userTenantRepo: Repository<UserTenant>,
     @Inject(forwardRef(() => EvolutionService))
     private readonly evolutionService: EvolutionService,
+    @Inject(forwardRef(() => SendPulseService))
+    private readonly sendPulseService: SendPulseService,
     private readonly mailgunService: MailgunService,
     private readonly emailDomainService: EmailDomainService,
     private readonly emailUnsubscribeService: EmailUnsubscribeService,
@@ -2566,7 +2570,26 @@ export class ChatsService {
     let externalId: string | null = null;
     let sendError: string | null = null;
 
-    if (inbox.channel === 'email') {
+    // === MODO PUENTE SENDPULSE ===
+    // Si la bandeja tiene el puente activo, el envío sale por SendPulse en lugar
+    // de por el canal nativo (Meta/Evolution). El número permanece en SendPulse.
+    if (isBridgeActive(inbox.metadata)) {
+      const bridge = getBridgeConfig(inbox.metadata);
+      if (!inbox.accessToken || !bridge) {
+        throw new Error('Modo puente SendPulse mal configurado (falta API key)');
+      }
+      try {
+        const result = await this.sendPulseService.sendText(
+          inbox.accessToken,
+          conversation.contactId,
+          content,
+        );
+        externalId = result.messageId;
+      } catch (err: any) {
+        console.error('[Chat] SendPulse send error:', err);
+        sendError = err.message || 'Error de conexión con SendPulse API';
+      }
+    } else if (inbox.channel === 'email') {
       // Send via SMTP configured in inbox metadata
       const smtpConfig = inbox.metadata?.smtp;
       if (!smtpConfig?.host || !smtpConfig?.user || !smtpConfig?.pass) {

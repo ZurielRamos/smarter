@@ -25,6 +25,7 @@ import { TemplatesModule } from './templates/templates.module';
 import { BotsModule } from './bots/bots.module';
 import { AuditModule } from './audit/audit.module';
 import { EvolutionModule } from './evolution/evolution.module';
+import { SendPulseModule } from './sendpulse/sendpulse.module';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { EvolutionModule } from './evolution/evolution.module';
     BotsModule,
     AuditModule,
     EvolutionModule,
+    SendPulseModule,
   ],
   providers: [
     {
