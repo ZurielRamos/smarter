@@ -70,8 +70,10 @@ export class SendPulseWebhookController {
 
   private async processEvent(inboxId: string, event: any): Promise<void> {
     const title = event?.title;
-    // Solo procesamos mensajes entrantes en el puente.
-    if (title !== 'incoming_message') {
+    // Procesamos mensajes entrantes y salientes del puente.
+    const isIncoming = title === 'incoming_message';
+    const isOutgoing = title === 'outgoing_message';
+    if (!isIncoming && !isOutgoing) {
       this.logger.log(`[SendPulse webhook] evento ignorado (title=${title})`);
       return;
     }
@@ -94,26 +96,38 @@ export class SendPulseWebhookController {
       return;
     }
 
+    const direction: 'inbound' | 'outbound' = isIncoming ? 'inbound' : 'outbound';
     const channelMessage = event?.info?.message?.channel_data?.message || {};
     const wamid: string =
       event?.info?.message?.channel_data?.message_id ||
       channelMessage.id ||
-      `sp_${Date.now()}`;
+      `sp_${direction}_${Date.now()}`;
+
+    // El texto del mensaje varía de forma entre entrante y saliente:
+    //  - entrante: channel_data.message.text.body
+    //  - saliente (WhatsApp): channel_data.message.text puede ser string u objeto
+    const rawText = channelMessage.text;
+    const textBody: string | null =
+      typeof rawText === 'string' ? rawText : rawText?.body || null;
 
     const spType: string = channelMessage.type || 'text';
     const messageType = mapMessageType(spType);
     const content: string | null =
-      channelMessage.text?.body ||
-      event?.contact?.last_message ||
+      textBody ||
+      (isIncoming ? event?.contact?.last_message : null) ||
       (messageType === 'text' ? null : `[${messageType}]`);
     const timestamp: number | undefined = channelMessage.timestamp;
     const createdAt = timestamp ? new Date(timestamp * 1000) : new Date();
     const contactName: string | null = event?.contact?.name || null;
 
-    // Idempotencia: no duplicar si ya guardamos este wamid.
+    // Idempotencia: no duplicar si ya guardamos este wamid. Esto es clave para
+    // los salientes: cuando un agente envía desde NUESTRO CRM, sendMessage() ya
+    // guardó el mensaje con externalId=wamid, así que el webhook outgoing del
+    // mismo mensaje se ignora aquí. Solo se guardan los salientes originados en
+    // SendPulse (bot/agente en el panel de SendPulse).
     const existing = await this.messageRepo.findOne({ where: { externalId: wamid } });
     if (existing) {
-      this.logger.debug(`[SendPulse webhook] mensaje ${wamid} ya existe, ignorado`);
+      this.logger.debug(`[SendPulse webhook] mensaje ${wamid} (${direction}) ya existe, ignorado`);
       return;
     }
 
@@ -134,14 +148,15 @@ export class SendPulseWebhookController {
       conversation = await this.conversationRepo.save(conversation);
     }
 
-    // Guardar mensaje entrante.
+    // Guardar mensaje (entrante o saliente).
     const message = this.messageRepo.create({
       conversationId: conversation.id,
-      direction: 'inbound',
+      direction,
       messageType,
       content,
       externalId: wamid,
-      status: 'delivered',
+      // Entrante llega como 'delivered'; saliente ya fue enviado por SendPulse.
+      status: isIncoming ? 'delivered' : 'sent',
       source: 'api',
       createdAt: createdAt as any,
     });
@@ -150,8 +165,11 @@ export class SendPulseWebhookController {
     // Actualizar snapshot de la conversación.
     conversation.lastMessage = content || `[${messageType}]`;
     conversation.lastMessageAt = createdAt;
-    conversation.lastMessageSource = null;
-    conversation.unreadCount = (conversation.unreadCount || 0) + 1;
+    conversation.lastMessageSource = isIncoming ? null : 'api';
+    // Solo los entrantes incrementan no leídos.
+    if (isIncoming) {
+      conversation.unreadCount = (conversation.unreadCount || 0) + 1;
+    }
     if (contactName && !conversation.contactName) conversation.contactName = contactName;
     await this.conversationRepo.save(conversation);
 
@@ -159,7 +177,9 @@ export class SendPulseWebhookController {
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, saved);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
-    this.logger.debug(`[SendPulse webhook] mensaje ${wamid} guardado en conversación ${conversation.id}`);
+    this.logger.debug(
+      `[SendPulse webhook] mensaje ${wamid} (${direction}) guardado en conversación ${conversation.id}`,
+    );
   }
 
   /**
