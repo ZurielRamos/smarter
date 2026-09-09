@@ -2813,7 +2813,12 @@ export class ChatsService {
     }
 
     // Emit real-time events
-    this.chatsGateway.emitNewMessage(inbox.tenantId, conversationId, saved);
+    // Emitir el mensaje con la relación `sender` poblada, para que el frontend
+    // pueda mostrar el avatar del agente sin esperar a recargar la página.
+    const savedForEmit = senderId
+      ? (await this.messageRepo.findOne({ where: { id: saved.id }, relations: { sender: true } })) || saved
+      : saved;
+    this.chatsGateway.emitNewMessage(inbox.tenantId, conversationId, savedForEmit);
     // Load record for the conversation update event
     const convForEmit = await this.conversationRepo.findOne({ where: { id: conversationId }, relations: { inbox: true, record: true } });
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, convForEmit || conversation);
@@ -3143,8 +3148,13 @@ export class ChatsService {
     conversation.lastMessageAt = new Date();
     await this.conversationRepo.save(conversation);
 
-    // Emit real-time events
-    this.chatsGateway.emitNewMessage(inbox.tenantId, conversationId, saved);
+    // Emit real-time events. Poblamos la relación `sender` para que el frontend
+    // muestre el avatar del agente sin esperar a recargar (mismo criterio que
+    // sendMessage).
+    const savedForEmit = senderId
+      ? (await this.messageRepo.findOne({ where: { id: saved.id }, relations: { sender: true } })) || saved
+      : saved;
+    this.chatsGateway.emitNewMessage(inbox.tenantId, conversationId, savedForEmit);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
     return saved;
