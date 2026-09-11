@@ -2421,6 +2421,11 @@ export class ChatsService {
     const custom = (record.customData || {}) as Record<string, any>;
     switch (channel) {
       case 'whatsapp':
+        // Preferir el teléfono; si no hay, usar el WhatsApp Business-Scoped User
+        // ID (BSUID) del contacto que usa username y no expone su teléfono.
+        return record.phone
+          ? record.phone.replace(/^\+/, '')
+          : (record.whatsappId || custom.whatsappIdentityId || null);
       case 'sms':
       case 'llamada':
         return record.phone ? record.phone.replace(/^\+/, '') : (custom.whatsappIdentityId || null);
