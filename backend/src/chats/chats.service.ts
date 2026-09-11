@@ -705,6 +705,26 @@ export class ChatsService {
   }
 
   /**
+   * Canonicaliza el identificador de un contacto de WhatsApp del modelo de
+   * identidad (BSUID). Meta a veces entrega el BSUID con prefijo ("CO.123...") y
+   * a veces la forma numérica cruda ("123...") en el mismo webhook (wa_id vs
+   * user_id). Para que el saliente y el entrante coincidan, cuando disponemos del
+   * BSUID con prefijo lo usamos como forma canónica.
+   *
+   * @param waId  wa_id/teléfono numérico (puede ser la forma cruda del BSUID)
+   * @param userId  user_id de identidad (normalmente con prefijo "CO.")
+   * @returns el identificador canónico a usar como contactId de la conversación.
+   */
+  private canonicalWhatsAppContactId(waId: string | null, userId: string | null): string | null {
+    // Si hay un BSUID con prefijo, esa es la forma canónica (identidad sin teléfono).
+    if (userId && this.isWhatsAppIdentityId(userId)) return userId;
+    // Si el userId vino sin prefijo pero el waId numérico coincide, y NO hay un
+    // teléfono real distinto, seguimos prefiriendo el waId (teléfono real).
+    // Teléfono real (o wa_id) tiene prioridad cuando no hay BSUID de identidad.
+    return waId || userId || null;
+  }
+
+  /**
    * Construye los campos de destinatario del payload de la Cloud API según el tipo
    * de contacto.
    *
@@ -767,9 +787,10 @@ export class ChatsService {
       const waId: string | null = msg.from || contact?.wa_id || null;
       const userId: string | null = msg.from_user_id || contact?.user_id || null;
 
-      // contactId de la conversación: preferimos el teléfono/wa_id; si no hay,
-      // usamos el BSUID. Nunca debe quedar undefined (rompe el where de TypeORM).
-      const contactPhone = waId || userId || null;
+      // contactId canónico: si el contacto usa identidad (BSUID con prefijo),
+      // usamos el BSUID como forma canónica para que coincida con el guardado al
+      // enviar; si no, el teléfono/wa_id. Nunca debe quedar undefined.
+      const contactPhone = this.canonicalWhatsAppContactId(waId, userId);
 
       if (!contactPhone) {
         console.warn(`[Webhook] Skipping message with no resolvable contact id: ${JSON.stringify(msg).substring(0, 300)}`);
@@ -777,11 +798,34 @@ export class ChatsService {
       }
 
       const contactName = contact?.profile?.name || contactPhone;
+      const isIdentityContact = this.isWhatsAppIdentityId(contactPhone);
 
-      // Find or create conversation
+      // 1) Buscar conversación por contactId exacto.
       let conversation = await this.conversationRepo.findOne({
         where: { inboxId: inbox.id, contactId: contactPhone },
       });
+
+      // 2) Reconciliación para contactos de identidad (BSUID): si no se encontró
+      // por contactId (p. ej. porque la conversación saliente se creó con otra
+      // forma del identificador), buscar el ClientRecord por BSUID y reusar su
+      // conversación en este inbox. Evita duplicar conversación y contacto.
+      if (!conversation && isIdentityContact) {
+        const existingRecord = await this.clientRecordRepo
+          .createQueryBuilder('client')
+          .where('client.tenant_id = :tenantId', { tenantId: inbox.tenantId })
+          .andWhere('client.whatsapp_id = :bsuid', { bsuid: contactPhone })
+          .getOne();
+        if (existingRecord) {
+          conversation = await this.conversationRepo.findOne({
+            where: { inboxId: inbox.id, recordId: existingRecord.id },
+          });
+          // Canonicalizar el contactId de la conversación reencontrada.
+          if (conversation && conversation.contactId !== contactPhone) {
+            conversation.contactId = contactPhone;
+            await this.conversationRepo.save(conversation);
+          }
+        }
+      }
 
       if (!conversation) {
         conversation = this.conversationRepo.create({
