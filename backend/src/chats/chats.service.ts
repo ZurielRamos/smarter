@@ -1259,6 +1259,46 @@ export class ChatsService {
     return record;
   }
 
+  /**
+   * Traduce los códigos de error de entrega de la WhatsApp Cloud API a un mensaje
+   * accionable para el agente. El 131026 ("Message undeliverable") es un fallo de
+   * entrega asíncrono: Meta aceptó el envío pero luego no pudo entregarlo. Con
+   * contactos del modelo de identidad (BSUID / username, p. ej. "CO.xxxx") sin
+   * teléfono, la entrega de plantillas suele fallar, por lo que se orienta al
+   * agente a solicitar el número de teléfono del contacto.
+   */
+  private explainWhatsAppDeliveryError(
+    code: number | undefined,
+    rawDetail: string,
+    contactId?: string | null,
+  ): string {
+    const isIdentityContact = this.isWhatsAppIdentityId(contactId);
+    switch (code) {
+      case 131026:
+        if (isIdentityContact) {
+          return 'WhatsApp no pudo entregar el mensaje. Este contacto usa identidad por username (sin teléfono), y WhatsApp no permite entregarle plantillas de forma fiable. Solicita su número de teléfono y agrégalo al contacto para poder escribirle.';
+        }
+        return 'WhatsApp no pudo entregar el mensaje. Posibles causas: el número no está activo en WhatsApp, el destinatario no aceptó los términos de servicio, o WhatsApp bloqueó la entrega por políticas o calidad. Verifica que el número sea correcto.';
+      case 131047:
+        return 'No se puede enviar un mensaje de texto libre porque la ventana de 24 horas está cerrada. Envía una plantilla aprobada para reabrir la conversación.';
+      case 131049:
+        return 'WhatsApp limitó la entrega de este mensaje de marketing por políticas de calidad. Intenta con una plantilla de tipo utility o espera antes de reintentar.';
+      case 131051:
+        return 'Tipo de mensaje no soportado para este destinatario.';
+      case 131053:
+        return 'No se pudo cargar el archivo multimedia del mensaje. Revisa el formato y el tamaño.';
+      case 132000:
+      case 132001:
+      case 132005:
+      case 132007:
+      case 132012:
+      case 132015:
+        return `Problema con la plantilla: ${rawDetail}. Verifica que la plantilla esté aprobada, con el idioma correcto y los parámetros completos.`;
+      default:
+        return rawDetail;
+    }
+  }
+
   private async handleWhatsAppStatuses(statuses: any[]): Promise<void> {
     for (const status of statuses) {
       if (status.id) {
@@ -1272,13 +1312,19 @@ export class ChatsService {
 
           // If failed, create a system note with the error details
           if (status.status === 'failed') {
-            const errorDetail = status.errors?.[0]?.message || status.errors?.[0]?.title || 'Error desconocido de WhatsApp';
-            const errorCode = status.errors?.[0]?.code ? ` (código: ${status.errors[0].code})` : '';
+            const errorCodeNum = status.errors?.[0]?.code;
+            const rawDetail = status.errors?.[0]?.message || status.errors?.[0]?.title || 'Error desconocido de WhatsApp';
+            const errorCode = errorCodeNum ? ` (código: ${errorCodeNum})` : '';
             console.error('[Webhook] WhatsApp message failed:', JSON.stringify({ externalId: status.id, errors: status.errors }));
             const tenantId = message.conversation?.inbox?.tenantId;
+            const friendlyDetail = this.explainWhatsAppDeliveryError(
+              errorCodeNum,
+              rawDetail,
+              message.conversation?.contactId,
+            );
             await this.createSystemNote(
               message.conversationId,
-              `⚠️ Mensaje no entregado: ${errorDetail}${errorCode}`,
+              `⚠️ Mensaje no entregado: ${friendlyDetail}${errorCode}`,
               tenantId,
             );
           }
