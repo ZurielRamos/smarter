@@ -684,29 +684,38 @@ export class ChatsService {
    * modelo de identidad de Meta (user_id, p. ej. "CO.2116087075782558" o su forma
    * numérica larga sin prefijo) en lugar de un número de teléfono E.164 clásico.
    *
-   * Los teléfonos válidos de WhatsApp son numéricos y de ~7 a 15 dígitos.
-   * Los user_id de identidad llegan con prefijo "CO." o como enteros muy largos
-   * (16+ dígitos) que no son teléfonos marcables.
+   * Un Business-Scoped User ID (BSUID) del nuevo modelo de identidad de Meta
+   * SIEMPRE llega con prefijo de país + punto (p. ej. "CO.2116087075782558" o un
+   * parent BSUID "US.ENT.xxxx"). Meta lo entrega en los campos `user_id` /
+   * `from_user_id`, nunca en `wa_id`.
+   *
+   * IMPORTANTE: un `wa_id` puramente numérico NO es un BSUID aunque tenga 16+
+   * dígitos. Algunos wa_id son largos y siguen siendo teléfonos/identificadores
+   * válidos que deben enviarse verbatim en `to`. Por eso la detección se basa
+   * exclusivamente en el prefijo con punto, no en la longitud numérica: clasificar
+   * un wa_id largo como identidad y anteponerle "CO." produce un destinatario
+   * inexistente y Meta lo rechaza con 131026 ("Message undeliverable").
    */
   private isWhatsAppIdentityId(contactId: string | null | undefined): boolean {
     if (!contactId) return false;
-    if (contactId.startsWith('CO.')) return true;
-    const digits = contactId.replace(/\D/g, '');
-    // Un teléfono E.164 no supera los 15 dígitos. Los user_id numéricos son más largos.
-    return !/^\d{7,15}$/.test(digits) || digits.length > 15;
+    // Un BSUID tiene el formato "{PREFIJO}.{id}", con al menos un prefijo alfabético
+    // seguido de punto (CO., US.ENT., etc.). Un identificador puramente numérico
+    // (aunque sea largo) es un wa_id/teléfono, no un BSUID.
+    return /^[A-Z]{2,}(\.[A-Z]{2,})*\.\d+$/.test(contactId);
   }
 
   /**
    * Construye los campos de destinatario del payload de la Cloud API según el tipo
-   * de contacto. Para teléfonos usa el formato clásico { to }. Para identidades
-   * (user_id) usa recipient_type: "individual" con el user_id normalizado, que es
-   * lo que Meta requiere para responder a contactos del nuevo modelo de identidad.
+   * de contacto.
+   *
+   * - Teléfono / wa_id: se envía verbatim en `to`.
+   * - BSUID (identidad): se envía en el campo `recipient` (con su prefijo y punto
+   *   intactos), que es lo que Meta requiere para el nuevo modelo de identidad.
+   *   NO debe ir en `to`.
    */
   private buildWhatsAppRecipient(contactId: string): Record<string, any> {
     if (this.isWhatsAppIdentityId(contactId)) {
-      // Normalizar: la API espera el user_id con prefijo "CO." cuando es identidad.
-      const userId = contactId.startsWith('CO.') ? contactId : `CO.${contactId}`;
-      return { recipient_type: 'individual', to: userId };
+      return { recipient: contactId };
     }
     return { to: contactId };
   }
@@ -714,23 +723,29 @@ export class ChatsService {
   /**
    * Resuelve el mejor destinatario para una conversación de WhatsApp.
    *
-   * Regla: si el contacto vinculado (ClientRecord) tiene un número de teléfono
-   * válido, SIEMPRE se envía por teléfono, aunque la conversación se haya iniciado
-   * con un user_id de identidad (BSUID). Esto permite que, tras agregar el teléfono
-   * al contacto, los mensajes se entreguen por el número en lugar del BSUID (que
-   * frecuentemente falla con error 131026).
+   * Prioridad de destinatario:
+   *   1. Teléfono real del ClientRecord → se envía en `to` (entrega preferente).
+   *   2. BSUID (whatsappId) del ClientRecord → se envía en `recipient`.
+   *   3. Fallback: el contactId con el que se creó la conversación.
    *
-   * Si no hay teléfono, cae al contactId de la conversación (identidad o teléfono).
+   * Conservamos phone y whatsappId por separado en el contacto, de modo que el
+   * teléfono se use cuando esté disponible y el BSUID cuando solo tengamos identidad.
    */
   private async resolveWhatsAppRecipient(conversation: Conversation): Promise<Record<string, any>> {
     if (conversation.recordId) {
       const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
       const phone = record?.phone?.trim();
-      // Solo usar el phone del contacto si es un teléfono real (no un BSUID mal guardado)
+      // 1) Preferir SIEMPRE el teléfono real del contacto (entrega por `to`).
       if (phone && !this.isWhatsAppIdentityId(phone)) {
         return { to: phone.replace(/^\+/, '') };
       }
+      // 2) Si no hay teléfono pero sí BSUID guardado, enviar por identidad.
+      const whatsappId = record?.whatsappId?.trim();
+      if (whatsappId && this.isWhatsAppIdentityId(whatsappId)) {
+        return { recipient: whatsappId };
+      }
     }
+    // 3) Fallback: el identificador con el que se creó la conversación.
     return this.buildWhatsAppRecipient(conversation.contactId);
   }
 
@@ -746,15 +761,15 @@ export class ChatsService {
 
     for (const msg of value.messages) {
       const contact = value.contacts?.[0];
-      // Meta's newer identity model may omit `msg.from` and only provide a user_id
-      // (e.g. "CO.xxxxx"). Fall back through the available identifiers so contactId is
-      // never undefined (which crashes the TypeORM where clause).
-      const contactPhone =
-        msg.from ||
-        contact?.wa_id ||
-        msg.from_user_id ||
-        contact?.user_id ||
-        null;
+      // Meta puede enviar el teléfono (wa_id/from) y/o el BSUID de identidad
+      // (user_id/from_user_id) según si el contacto usa username. Capturamos ambos
+      // por separado para conservar phone y whatsappId de forma independiente.
+      const waId: string | null = msg.from || contact?.wa_id || null;
+      const userId: string | null = msg.from_user_id || contact?.user_id || null;
+
+      // contactId de la conversación: preferimos el teléfono/wa_id; si no hay,
+      // usamos el BSUID. Nunca debe quedar undefined (rompe el where de TypeORM).
+      const contactPhone = waId || userId || null;
 
       if (!contactPhone) {
         console.warn(`[Webhook] Skipping message with no resolvable contact id: ${JSON.stringify(msg).substring(0, 300)}`);
@@ -870,11 +885,25 @@ export class ChatsService {
 
       // Link conversation to client record
       if (!conversation.recordId) {
-        const record = await this.findOrCreateRecordByPhone(contactPhone, inbox.tenantId, contactName, inbox.id);
+        const record = await this.findOrCreateRecordByPhone(contactPhone, inbox.tenantId, contactName, inbox.id, userId);
         conversation.recordId = record.id;
       } else {
-        // Update lastContactAt on existing record
-        await this.clientRecordRepo.update(conversation.recordId, { lastContactAt: new Date() });
+        // Update lastContactAt y completar identidades que falten (phone/BSUID).
+        const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+        if (record) {
+          let dirty = false;
+          if (waId && !this.isWhatsAppIdentityId(waId) && !record.phone) {
+            record.phone = waId.replace(/^\+/, '');
+            dirty = true;
+          }
+          if (userId && this.isWhatsAppIdentityId(userId) && record.whatsappId !== userId) {
+            record.whatsappId = userId;
+            dirty = true;
+          }
+          record.lastContactAt = new Date();
+          void dirty; // se guarda siempre por lastContactAt
+          await this.clientRecordRepo.save(record);
+        }
       }
 
       // Automatizaciones por palabra clave configuradas en el canal.
@@ -1198,32 +1227,44 @@ export class ChatsService {
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
   }
 
-  private async findOrCreateRecordByPhone(contactId: string, tenantId: string, contactName?: string, inboxId?: string): Promise<ClientRecord> {
-    // El contactId puede ser un teléfono clásico o un user_id del nuevo modelo de
-    // identidad de Meta (p. ej. "CO.2116087075782558"). Nunca debemos guardar un
-    // user_id en el campo `phone` (ensucia el dato y no es marcable).
-    const isIdentity = this.isWhatsAppIdentityId(contactId);
-    const phone = isIdentity ? null : contactId;
-    const identityId = isIdentity
-      ? (contactId.startsWith('CO.') ? contactId : `CO.${contactId}`)
-      : null;
+  private async findOrCreateRecordByPhone(
+    contactId: string,
+    tenantId: string,
+    contactName?: string,
+    inboxId?: string,
+    bsuid?: string | null,
+  ): Promise<ClientRecord> {
+    // Meta puede darnos teléfono (wa_id) y/o BSUID de identidad. El `contactId`
+    // que llega aquí es el identificador con el que se creó la conversación, y
+    // `bsuid` (opcional) es el BSUID de identidad cuando Meta lo envía junto al
+    // teléfono. Guardamos AMBOS por separado: teléfono en `phone`, BSUID en
+    // `whatsappId`. Un valor con prefijo de país + punto (CO.xxx) es BSUID;
+    // cualquier otro (numérico) es teléfono/wa_id y se guarda verbatim en `phone`.
+    const contactIsIdentity = this.isWhatsAppIdentityId(contactId);
+    const phone = contactIsIdentity ? null : contactId.replace(/^\+/, '');
+    // El BSUID puede venir explícito en `bsuid` o ser el propio contactId si este
+    // tiene formato de identidad.
+    const identityId = this.isWhatsAppIdentityId(bsuid)
+      ? bsuid!
+      : contactIsIdentity
+        ? contactId
+        : null;
 
     let record: ClientRecord | null = null;
 
-    if (isIdentity) {
-      // Buscar por el BSUID (whatsapp_id)
+    // Match por BSUID primero (identidad primaria), luego por teléfono.
+    if (identityId) {
       record = await this.clientRecordRepo
         .createQueryBuilder('client')
         .where('client.tenant_id = :tenantId', { tenantId })
         .andWhere('client.whatsapp_id = :identityId', { identityId })
         .getOne();
-    } else {
-      // Buscar por teléfono normalizado (sin prefijo +)
-      const normalizedPhone = contactId.replace(/^\+/, '');
+    }
+    if (!record && phone) {
       record = await this.clientRecordRepo
         .createQueryBuilder('client')
         .where('client.tenant_id = :tenantId', { tenantId })
-        .andWhere("REPLACE(client.phone, '+', '') = :phone", { phone: normalizedPhone })
+        .andWhere("REPLACE(client.phone, '+', '') = :phone", { phone })
         .getOne();
     }
 
@@ -1241,16 +1282,19 @@ export class ChatsService {
         lastContactAt: new Date(),
       } as Partial<ClientRecord>);
       record = await this.clientRecordRepo.save(record);
-      console.log(`[Chat] Created new record (${isIdentity ? 'identity ' + identityId : 'phone ' + phone}) in tenant ${tenantId}`);
+      console.log(`[Chat] Created new record (phone=${phone ?? '—'}, whatsappId=${identityId ?? '—'}) in tenant ${tenantId}`);
     } else {
       // Restore if soft-deleted
       if (record.deletedAt) {
         record.deletedAt = null;
         record.status = 'active';
       }
-      // Asegurar que el BSUID quede guardado si faltaba
-      if (isIdentity && identityId && record.whatsappId !== identityId) {
+      // Conservar AMBAS identidades: rellenar la que falte sin pisar la existente.
+      if (identityId && record.whatsappId !== identityId) {
         record.whatsappId = identityId;
+      }
+      if (phone && !record.phone) {
+        record.phone = phone;
       }
       record.lastContactAt = new Date();
       await this.clientRecordRepo.save(record);
