@@ -883,27 +883,32 @@ export class ChatsService {
       conversation.unreadCount = (conversation.unreadCount || 0) + 1;
       if (contactName && !conversation.contactName) conversation.contactName = contactName;
 
-      // Link conversation to client record
-      if (!conversation.recordId) {
-        const record = await this.findOrCreateRecordByPhone(contactPhone, inbox.tenantId, contactName, inbox.id, userId);
-        conversation.recordId = record.id;
-      } else {
-        // Update lastContactAt y completar identidades que falten (phone/BSUID).
-        const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
-        if (record) {
-          let dirty = false;
-          if (waId && !this.isWhatsAppIdentityId(waId) && !record.phone) {
-            record.phone = waId.replace(/^\+/, '');
-            dirty = true;
+      // Link conversation to client record. La vinculación/reconciliación de
+      // identidades NUNCA debe abortar el procesamiento del mensaje ni el emit en
+      // tiempo real: si falla (p. ej. teléfono duplicado), se registra y se sigue.
+      try {
+        if (!conversation.recordId) {
+          const record = await this.findOrCreateRecordByPhone(contactPhone, inbox.tenantId, contactName, inbox.id, userId);
+          conversation.recordId = record.id;
+        } else {
+          // Update lastContactAt y completar identidades que falten (phone/BSUID).
+          const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+          if (record) {
+            if (waId && !this.isWhatsAppIdentityId(waId) && !record.phone) {
+              // Evitar violar uq_clients_tenant_phone si el teléfono ya es de otro contacto.
+              if (!(await this.phoneBelongsToAnotherRecord(waId, inbox.tenantId, record.id))) {
+                record.phone = waId.replace(/^\+/, '');
+              }
+            }
+            if (userId && this.isWhatsAppIdentityId(userId) && record.whatsappId !== userId) {
+              record.whatsappId = userId;
+            }
+            record.lastContactAt = new Date();
+            await this.clientRecordRepo.save(record);
           }
-          if (userId && this.isWhatsAppIdentityId(userId) && record.whatsappId !== userId) {
-            record.whatsappId = userId;
-            dirty = true;
-          }
-          record.lastContactAt = new Date();
-          void dirty; // se guarda siempre por lastContactAt
-          await this.clientRecordRepo.save(record);
         }
+      } catch (err: any) {
+        console.error('[Webhook] Record link/reconcile failed (continuing):', err?.message || err);
       }
 
       // Automatizaciones por palabra clave configuradas en el canal.
@@ -1293,7 +1298,9 @@ export class ChatsService {
       if (identityId && record.whatsappId !== identityId) {
         record.whatsappId = identityId;
       }
-      if (phone && !record.phone) {
+      // Solo asignar el teléfono si el record no lo tiene Y ese teléfono no
+      // pertenece ya a OTRO contacto del tenant (evita violar uq_clients_tenant_phone).
+      if (phone && !record.phone && !(await this.phoneBelongsToAnotherRecord(phone, tenantId, record.id))) {
         record.phone = phone;
       }
       record.lastContactAt = new Date();
@@ -1301,6 +1308,22 @@ export class ChatsService {
     }
 
     return record;
+  }
+
+  /**
+   * True si el teléfono ya está asignado a un contacto distinto de `excludeId`
+   * dentro del tenant. Se usa para no reescribir un teléfono duplicado (lo que
+   * violaría la restricción única uq_clients_tenant_phone).
+   */
+  private async phoneBelongsToAnotherRecord(phone: string, tenantId: string, excludeId: string): Promise<boolean> {
+    const normalized = phone.replace(/^\+/, '');
+    const other = await this.clientRecordRepo
+      .createQueryBuilder('client')
+      .where('client.tenant_id = :tenantId', { tenantId })
+      .andWhere("REPLACE(client.phone, '+', '') = :phone", { phone: normalized })
+      .andWhere('client.id != :excludeId', { excludeId })
+      .getOne();
+    return !!other;
   }
 
   /**
