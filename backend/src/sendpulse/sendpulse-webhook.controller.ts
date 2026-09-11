@@ -181,7 +181,9 @@ export class SendPulseWebhookController {
     if (contactName && !conversation.contactName) conversation.contactName = contactName;
     await this.conversationRepo.save(conversation);
 
-    // Emitir en tiempo real a los agentes del tenant.
+    // Emitir en tiempo real a los agentes del tenant (adjuntar inbox para que el
+    // frontend muestre la bandeja en conversaciones nuevas sin recargar).
+    if (!conversation.inbox) conversation.inbox = inbox;
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, saved);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 

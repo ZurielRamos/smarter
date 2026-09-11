@@ -4,6 +4,7 @@ import { MoreVertical, Eye, Edit3, Zap, ArrowRightLeft, ChevronLeft, UserPlus, X
 import { TemplateConfigModal } from "@/components/TemplateModal";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { EditContactModal } from "@/components/EditContactModal";
+import { ContactInfoModal } from "@/components/ContactInfoModal";
 import { ChatEmpty } from "../ChatEmpty";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
@@ -63,6 +64,7 @@ export const ChatPanel = memo(function ChatPanel({
   const [showConvStatusSubmenu, setShowConvStatusSubmenu] = useState(false);
   const [showAssignSubmenu, setShowAssignSubmenu] = useState(false);
   const [showClearChatConfirm, setShowClearChatConfirm] = useState(false);
+  const [showContactInfo, setShowContactInfo] = useState(false);
   const [showEventForm, setShowEventForm] = useState(false);
   const [eventForm, setEventForm] = useState({ type: "purchase", name: "", value: "", currency: "COP" });
   const [editingClient, setEditingClient] = useState<ClientRecord | null>(null);
@@ -518,7 +520,12 @@ export const ChatPanel = memo(function ChatPanel({
           </div>
         ) : (
         <>
-        <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setShowContactInfo(true)}
+          className="flex items-center gap-3 text-left rounded-lg -mx-1 px-1 py-0.5 hover:bg-muted/60 transition-colors"
+          title="Ver información del contacto"
+        >
           <div className={`relative h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-muted-foreground ${activeConversation.hasAdTracking ? "ring-2 ring-blue-500 ring-offset-1 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-500/20 dark:to-indigo-500/20" : "bg-muted"}`}>
             {displayName.charAt(0).toUpperCase()}
           </div>
@@ -526,7 +533,7 @@ export const ChatPanel = memo(function ChatPanel({
             <p className="text-sm font-medium text-foreground">{displayName}</p>
             <p className="text-[10px] text-muted-foreground">{activeConversation.contactId}</p>
           </div>
-        </div>
+        </button>
         <div className="flex items-center gap-1">
         {/* Search toggle */}
         <button
@@ -690,6 +697,17 @@ export const ChatPanel = memo(function ChatPanel({
         description="Se eliminarán todos los mensajes de esta conversación. Esta acción no se puede deshacer."
         confirmLabel="Vaciar"
         variant="danger"
+      />
+
+      {/* Modal de información del contacto (click en el avatar del header) */}
+      <ContactInfoModal
+        open={showContactInfo}
+        onClose={() => setShowContactInfo(false)}
+        recordId={activeConversation.record?.id ?? null}
+        conversationId={activeConversation.id}
+        slug={slug}
+        fallbackName={displayName}
+        contactId={activeConversation.contactId}
       />
 
       {/* Edit contact modal (mismo modal que la vista de Contactos) */}

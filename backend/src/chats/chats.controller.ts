@@ -370,6 +370,12 @@ export class ChatsController {
     return this.chatsService.getMessages(id, +limit, before);
   }
 
+  // Archivos/medios compartidos en la conversación (imágenes, videos, audio, docs).
+  @Get('conversations/:id/media')
+  getConversationMedia(@Param('id') id: string, @Query('limit') limit = '100') {
+    return this.chatsService.getConversationMedia(id, +limit);
+  }
+
   @Post('conversations/:id/send')
   sendMessage(@Param('id') id: string, @Body() body: { content: string; messageType?: string; senderId?: string; replyToExternalId?: string }) {
     return this.chatsService.sendMessage(id, body.content, body.messageType || 'text', body.senderId, body.replyToExternalId);

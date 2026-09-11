@@ -975,7 +975,10 @@ export class ChatsService {
         }).catch((err) => console.warn('[Webhook] Failed to track ad event:', err));
       }
 
-      // Emit real-time events
+      // Emit real-time events. Adjuntar la relación `inbox` para que el frontend
+      // pueda mostrar la bandeja (nombre/canal) en conversaciones nuevas sin
+      // necesidad de recargar; el objeto guardado solo trae inboxId.
+      if (!conversation.inbox) conversation.inbox = inbox;
       this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
       this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
@@ -1518,7 +1521,8 @@ export class ChatsService {
       );
     }
 
-    // Emit real-time events
+    // Emit real-time events (adjuntar inbox para mostrar la bandeja sin recargar)
+    if (!conversation.inbox) conversation.inbox = inbox;
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
@@ -1637,7 +1641,8 @@ export class ChatsService {
       );
     }
 
-    // Emit real-time events
+    // Emit real-time events (adjuntar inbox para mostrar la bandeja sin recargar)
+    if (!conversation.inbox) conversation.inbox = inbox;
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
@@ -2572,6 +2577,24 @@ export class ChatsService {
 
     const messages = await qb.getMany();
     return messages.reverse(); // Return in chronological order
+  }
+
+  /**
+   * Lista los mensajes con media (imagen, video, audio, documento, sticker) de
+   * una conversación, más recientes primero. Se usa para la sección de
+   * "archivos compartidos" del panel de información del contacto.
+   */
+  async getConversationMedia(conversationId: string, limit = 100): Promise<Message[]> {
+    return this.messageRepo
+      .createQueryBuilder('m')
+      .where('m.conversation_id = :conversationId', { conversationId })
+      .andWhere('m.message_type IN (:...types)', {
+        types: ['image', 'video', 'audio', 'document', 'sticker'],
+      })
+      .andWhere('m.media_url IS NOT NULL')
+      .orderBy('m.created_at', 'DESC')
+      .take(limit)
+      .getMany();
   }
 
   /**
@@ -4136,7 +4159,8 @@ export class ChatsService {
       );
     }
 
-    // Emitir eventos en tiempo real
+    // Emitir eventos en tiempo real (adjuntar inbox para mostrar la bandeja sin recargar)
+    if (conversation && !conversation.inbox) conversation.inbox = inbox;
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
