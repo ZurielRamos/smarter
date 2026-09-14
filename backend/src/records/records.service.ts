@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, IsNull, DataSource } from 'typeorm';
 import { ClientRecord } from './record.entity';
@@ -54,7 +54,29 @@ export class RecordsService {
       optInWhatsapp: true,
       optInEmail: true,
     } as Partial<ClientRecord>);
-    const saved = await this.recordRepository.save(record) as ClientRecord;
+
+    let saved: ClientRecord;
+    try {
+      saved = await this.recordRepository.save(record) as ClientRecord;
+    } catch (err: any) {
+      // 23505 = unique_violation. Puede ocurrir por el teléfono duplicado dentro del tenant.
+      if (err?.code === '23505' && err?.constraint === 'uq_clients_tenant_phone') {
+        const existing = data.phone
+          ? await this.recordRepository
+              .createQueryBuilder('c')
+              .where('c.tenant_id = :tenantId', { tenantId: data.tenantId })
+              .andWhere('lower(TRIM(BOTH FROM c.phone)) = lower(TRIM(BOTH FROM :phone))', { phone: data.phone })
+              .getOne()
+          : null;
+        throw new ConflictException({
+          message: 'Ya existe un contacto con este número de teléfono en esta cuenta.',
+          code: 'DUPLICATE_PHONE',
+          existingId: existing?.id ?? null,
+        });
+      }
+      throw err;
+    }
+
     this.webhooksService.dispatch(data.tenantId, 'contact_created', saved).catch(() => {});
     this.logActivity({ tenantId: data.tenantId, recordId: saved.id, type: 'contact_created', description: 'Contacto creado' }).catch(() => {});
     return saved;

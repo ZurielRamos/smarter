@@ -90,8 +90,13 @@ export function NewRecordModal({ tenantId, onClose, onCreated }: Props) {
       if (Object.keys(customData).length > 0) payload.customData = customData;
       await createClient(payload);
       onCreated();
-    } catch {
-      setError("Error al crear el registro. Intenta de nuevo.");
+    } catch (err: any) {
+      const backendMsg = err?.response?.data?.message;
+      setError(
+        typeof backendMsg === "string" && backendMsg
+          ? backendMsg
+          : "Error al crear el registro. Intenta de nuevo.",
+      );
     } finally {
       setSaving(false);
     }
