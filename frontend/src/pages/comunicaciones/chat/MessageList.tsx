@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback, useRef, useEffect } from "react";
+import { memo, useMemo, useCallback, useRef, useEffect, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import type { VirtuosoHandle } from "react-virtuoso";
 import { MessageBubble } from "./MessageBubble";
@@ -33,6 +33,41 @@ export const MessageList = memo(function MessageList({
   const isFollowingRef = useRef(true);
   const { resolvedTheme } = useTheme();
 
+  // --- Paginación con prepend (react-virtuoso) ---
+  // Virtuoso identifica cada item por un índice absoluto = firstItemIndex + posición.
+  // Al cargar mensajes ANTIGUOS (prepend), hay que DECREMENTAR firstItemIndex en la
+  // cantidad de items agregados para que Virtuoso conserve la posición de scroll y
+  // startReached siga disparándose. Empezamos alto para poder restar sin llegar a 0.
+  const START_INDEX = 1_000_000;
+  const [firstItemIndex, setFirstItemIndex] = useState(START_INDEX);
+  // Rastreamos el id del mensaje más antiguo y el largo previos para detectar si
+  // el cambio de `messages` fue un prepend (cargaron antiguos), un append (mensaje
+  // nuevo) o un reset (cambio de conversación).
+  const prevOldestIdRef = useRef<string | null>(null);
+  const prevLenRef = useRef(0);
+  const prevConvKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const oldestId = messages[0]?.id ?? null;
+    const prevOldest = prevOldestIdRef.current;
+    const prevLen = prevLenRef.current;
+
+    // Reset cuando cambia la conversación (el conjunto de mensajes es totalmente
+    // distinto): reiniciar firstItemIndex.
+    const convKey = messages.length > 0 ? messages[0].conversationId : null;
+    if (convKey !== prevConvKeyRef.current) {
+      prevConvKeyRef.current = convKey;
+      setFirstItemIndex(START_INDEX);
+    } else if (oldestId && prevOldest && oldestId !== prevOldest && messages.length > prevLen) {
+      // El mensaje más antiguo cambió y la lista creció → se hizo prepend.
+      const added = messages.length - prevLen;
+      setFirstItemIndex((i) => i - added);
+    }
+
+    prevOldestIdRef.current = oldestId;
+    prevLenRef.current = messages.length;
+  }, [messages]);
+
   // Build a lookup map for reply messages — O(n) once, not O(n²) per render
   const replyMap = useMemo(() => {
     const map = new Map<string, Message>();
@@ -55,15 +90,21 @@ export const MessageList = memo(function MessageList({
 
   // Scroll to bottom on new messages when following. Se desactiva mientras hay
   // una búsqueda activa para no pelear con el scroll a la coincidencia.
+  // Solo hace scroll al fondo en APPEND (mensaje nuevo al final); nunca en
+  // prepend (carga de mensajes antiguos), para no romper la posición de scroll.
+  const lastMsgIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (activeMatchId) return;
-    if (isFollowingRef.current && messages.length > 0) {
+    const lastId = messages[messages.length - 1]?.id ?? null;
+    const isAppend = lastId !== lastMsgIdRef.current;
+    lastMsgIdRef.current = lastId;
+    if (isAppend && isFollowingRef.current && messages.length > 0) {
       // Small delay to let Virtuoso render
       requestAnimationFrame(() => {
         virtuosoRef.current?.scrollToIndex({ index: messages.length - 1, behavior: "smooth" });
       });
     }
-  }, [messages.length, activeMatchId]);
+  }, [messages, activeMatchId]);
 
   // Scroll a la coincidencia activa de búsqueda. Usa el índice dentro de la
   // lista virtualizada (no getElementById) para que funcione aunque el mensaje
@@ -155,8 +196,9 @@ export const MessageList = memo(function MessageList({
         style={{ flex: 1, background: "transparent" }}
         className="py-4"
         data={messages}
+        firstItemIndex={firstItemIndex}
         initialTopMostItemIndex={messages.length - 1}
-        followOutput="smooth"
+        followOutput={(isAtBottom) => (isAtBottom ? "smooth" : false)}
         startReached={handleStartReached}
         atBottomStateChange={(atBottom) => {
           isFollowingRef.current = atBottom;

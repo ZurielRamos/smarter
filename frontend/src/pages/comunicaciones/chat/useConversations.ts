@@ -261,9 +261,9 @@ export function useConversations() {
     setLoadingMore(true);
     const oldestMsg = currentMessages[0];
 
-    chatApi.get<Message[]>(`/chats/conversations/${convId}/messages`, { params: { limit: 10, before: oldestMsg.id } })
+    chatApi.get<Message[]>(`/chats/conversations/${convId}/messages`, { params: { limit: 30, before: oldestMsg.id } })
       .then(({ data }) => {
-        if (data.length < 10) setHasMoreMessages(false);
+        if (data.length < 30) setHasMoreMessages(false);
         if (data.length === 0) { setHasMoreMessages(false); return; }
         setMessages((prev) => [...data, ...prev]);
       })
