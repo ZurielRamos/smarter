@@ -1179,7 +1179,12 @@ export class RecordsService {
 
       if (a.status === 'ok') {
         if (cleanFormat && a.normalized && a.normalized !== r.phone) {
+          // Verificar colisión también al limpiar formato: el número normalizado
+          // podría ya pertenecer a OTRO contacto del tenant (viola uq_clients_tenant_phone).
+          const collidesWith = existingCanonical.get(a.normalized);
+          if (collidesWith && collidesWith !== r.id) { skippedCollisions++; continue; }
           updates.push({ id: r.id, phone: a.normalized });
+          existingCanonical.set(a.normalized, r.id);
         }
         continue;
       }
@@ -1193,15 +1198,28 @@ export class RecordsService {
       existingCanonical.set(target, r.id);
     }
 
-    // Actualización en lotes.
+    // Actualización en lotes. Cada update es tolerante a fallos: si uno viola la
+    // restricción única de teléfono (colisión no detectada en el análisis previo),
+    // se cuenta como colisión y NO aborta el resto del proceso.
     const chunkSize = 500;
     let updated = 0;
     for (let i = 0; i < updates.length; i += chunkSize) {
       const chunk = updates.slice(i, i + chunkSize);
-      await Promise.all(
+      const results = await Promise.allSettled(
         chunk.map((u) => this.recordRepository.update(u.id, { phone: u.phone })),
       );
-      updated += chunk.length;
+      for (const res of results) {
+        if (res.status === 'fulfilled') {
+          updated++;
+        } else {
+          const code = res.reason?.code || res.reason?.driverError?.code;
+          if (code === '23505') {
+            skippedCollisions++;
+          } else {
+            this.logger.warn(`Fallo al normalizar teléfono: ${res.reason?.message || res.reason}`);
+          }
+        }
+      }
     }
 
     if (updated > 0) {
