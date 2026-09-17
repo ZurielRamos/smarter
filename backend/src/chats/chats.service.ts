@@ -780,6 +780,18 @@ export class ChatsService {
     }
 
     for (const msg of value.messages) {
+      // Idempotencia: Meta puede reenviar el mismo webhook (reintentos o eventos
+      // duplicados, común con botones/interactive). Si ya guardamos un mensaje con
+      // este external_id (msg.id), lo saltamos para no duplicarlo ni re-disparar
+      // automatizaciones/notificaciones.
+      if (msg.id) {
+        const already = await this.messageRepo.findOne({ where: { externalId: msg.id }, select: { id: true } });
+        if (already) {
+          console.log(`[Webhook] Duplicate message skipped (external_id already exists): ${msg.id}`);
+          continue;
+        }
+      }
+
       const contact = value.contacts?.[0];
       // Meta puede enviar el teléfono (wa_id/from) y/o el BSUID de identidad
       // (user_id/from_user_id) según si el contacto usa username. Capturamos ambos
