@@ -197,7 +197,9 @@ export class CampaignSendWorker extends WorkerHost {
               });
               continue;
             }
-          } else if (!client.phone) {
+          } else if (!client.phone && !(campaign.channel === 'whatsapp' && client.whatsappId)) {
+            // Para WhatsApp se acepta el BSUID (whatsappId) cuando no hay teléfono.
+            // Para SMS/llamada el teléfono es obligatorio.
             totalFailed++;
             logs.push({
               sendId,
@@ -464,11 +466,13 @@ export class CampaignSendWorker extends WorkerHost {
               }
             }
 
+            // Destinatario: teléfono si existe; si no, el BSUID (identidad).
+            const recipientId = client.phone || client.whatsappId || '';
             // Send via Meta Cloud API
             const result = await this.sendWhatsAppMessage(
               inbox.accessToken!,
               inbox.phoneNumberId!,
-              client.phone,
+              recipientId,
               campaign.whatsappTemplateName,
               campaign.whatsappTemplateLanguage || 'es',
               variables,
@@ -481,7 +485,7 @@ export class CampaignSendWorker extends WorkerHost {
                 campaignId,
                 tenantId: campaign.tenantId,
                 recordId: client.id,
-                phone: client.phone,
+                phone: (client.phone || recipientId).substring(0, 20),
                 channel: 'whatsapp',
                 status: 'sent',
                 providerMessageId: result.messageId ?? null,
@@ -494,7 +498,7 @@ export class CampaignSendWorker extends WorkerHost {
                 campaignId,
                 tenantId: campaign.tenantId,
                 recordId: client.id,
-                phone: client.phone,
+                phone: (client.phone || recipientId).substring(0, 20),
                 channel: 'whatsapp',
                 status: 'failed',
                 errorCode: (result.error || 'unknown').substring(0, 50),
@@ -662,7 +666,6 @@ export class CampaignSendWorker extends WorkerHost {
     languageCode: string,
     variables: Record<string, string>,
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    const cleanPhone = phone.startsWith('+') ? phone.slice(1) : phone;
     const components: any[] = [];
 
     const bodyParams = Object.entries(variables)
@@ -673,9 +676,16 @@ export class CampaignSendWorker extends WorkerHost {
       components.push({ type: 'body', parameters: bodyParams });
     }
 
+    // Destinatario: si es un BSUID de identidad (p. ej. "CO.123...") se envía en
+    // `recipient`; si es teléfono/wa_id, en `to` (sin el prefijo +).
+    const isIdentity = /^[A-Z]{2,}(\.[A-Z]{2,})*\.\d+$/.test(phone);
+    const recipientFields = isIdentity
+      ? { recipient: phone }
+      : { to: phone.startsWith('+') ? phone.slice(1) : phone };
+
     const requestBody = {
       messaging_product: 'whatsapp',
-      to: cleanPhone,
+      ...recipientFields,
       type: 'template',
       template: {
         name: templateName,
