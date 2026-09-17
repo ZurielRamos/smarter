@@ -769,6 +769,34 @@ export class ChatsService {
     return this.buildWhatsAppRecipient(conversation.contactId);
   }
 
+  /**
+   * Devuelve los últimos `n` dígitos de un teléfono (solo dígitos), que
+   * representan el número nacional sin código de país. Se usa para comparar
+   * teléfonos de forma tolerante al código de país (ej. "3203191584" debe
+   * coincidir con "573203191584").
+   */
+  private phoneSuffix(phone: string | null | undefined, n = 10): string | null {
+    if (!phone) return null;
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 7) return null; // demasiado corto para ser fiable
+    return digits.slice(-n);
+  }
+
+  /**
+   * Busca un ClientRecord del tenant cuyo teléfono coincida con `phone` de forma
+   * tolerante al código de país (compara los últimos 10 dígitos). Devuelve null si
+   * no hay match o si el sufijo no es fiable.
+   */
+  private async findRecordByPhoneFlexible(phone: string, tenantId: string): Promise<ClientRecord | null> {
+    const suffix = this.phoneSuffix(phone);
+    if (!suffix) return null;
+    return this.clientRecordRepo
+      .createQueryBuilder('client')
+      .where('client.tenant_id = :tenantId', { tenantId })
+      .andWhere("RIGHT(regexp_replace(client.phone, '\\D', '', 'g'), 10) = :suffix", { suffix })
+      .getOne();
+  }
+
   private async handleWhatsAppMessages(value: any): Promise<void> {
     const phoneNumberId = value.metadata?.phone_number_id;
     if (!phoneNumberId) return;
@@ -828,15 +856,19 @@ export class ChatsService {
       // (conversación creada con contactId=teléfono) y que responde con su BSUID
       // (webhook con user_id de identidad). Evita duplicar conversación y contacto.
       if (!conversation && (inboundBsuid || inboundPhone)) {
+        // Match por BSUID exacto o por teléfono tolerante al código de país
+        // (últimos 10 dígitos), para reconciliar contactos guardados como
+        // "3203191584" con webhooks que traen "573203191584".
+        const phoneSuffix = this.phoneSuffix(inboundPhone);
         const qb = this.clientRecordRepo
           .createQueryBuilder('client')
           .where('client.tenant_id = :tenantId', { tenantId: inbox.tenantId });
-        if (inboundBsuid && inboundPhone) {
-          qb.andWhere("(client.whatsapp_id = :bsuid OR REPLACE(client.phone, '+', '') = :phone)", { bsuid: inboundBsuid, phone: inboundPhone });
+        if (inboundBsuid && phoneSuffix) {
+          qb.andWhere("(client.whatsapp_id = :bsuid OR RIGHT(regexp_replace(client.phone, '\\D', '', 'g'), 10) = :suffix)", { bsuid: inboundBsuid, suffix: phoneSuffix });
         } else if (inboundBsuid) {
           qb.andWhere('client.whatsapp_id = :bsuid', { bsuid: inboundBsuid });
         } else {
-          qb.andWhere("REPLACE(client.phone, '+', '') = :phone", { phone: inboundPhone });
+          qb.andWhere("RIGHT(regexp_replace(client.phone, '\\D', '', 'g'), 10) = :suffix", { suffix: phoneSuffix });
         }
         const existingRecord = await qb.getOne();
 
@@ -1356,11 +1388,9 @@ export class ChatsService {
         .getOne();
     }
     if (!record && phone) {
-      record = await this.clientRecordRepo
-        .createQueryBuilder('client')
-        .where('client.tenant_id = :tenantId', { tenantId })
-        .andWhere("REPLACE(client.phone, '+', '') = :phone", { phone })
-        .getOne();
+      // Match de teléfono tolerante al código de país (últimos 10 dígitos), para
+      // reconciliar "3203191584" con "573203191584" y no duplicar el contacto.
+      record = await this.findRecordByPhoneFlexible(phone, tenantId);
     }
 
     if (!record) {
