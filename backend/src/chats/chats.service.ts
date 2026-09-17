@@ -805,25 +805,50 @@ export class ChatsService {
         where: { inboxId: inbox.id, contactId: contactPhone },
       });
 
-      // 2) Reconciliación para contactos de identidad (BSUID): si no se encontró
-      // por contactId (p. ej. porque la conversación saliente se creó con otra
-      // forma del identificador), buscar el ClientRecord por BSUID y reusar su
-      // conversación en este inbox. Evita duplicar conversación y contacto.
-      if (!conversation && isIdentityContact) {
-        const existingRecord = await this.clientRecordRepo
+      // Identificadores útiles para reconciliar: BSUID (si aplica) y teléfono real.
+      const inboundBsuid = this.isWhatsAppIdentityId(userId) ? userId : (isIdentityContact ? contactPhone : null);
+      const inboundPhone = (waId && !this.isWhatsAppIdentityId(waId)) ? waId.replace(/^\+/, '') : null;
+
+      // 2) Reconciliación: si no se encontró la conversación por contactId exacto,
+      // intentar encontrar el ClientRecord existente por BSUID o por TELÉFONO y
+      // reusar su conversación en este inbox. Esto cubre el caso de un contacto
+      // agregado manualmente con teléfono, al que se le envió una plantilla
+      // (conversación creada con contactId=teléfono) y que responde con su BSUID
+      // (webhook con user_id de identidad). Evita duplicar conversación y contacto.
+      if (!conversation && (inboundBsuid || inboundPhone)) {
+        const qb = this.clientRecordRepo
           .createQueryBuilder('client')
-          .where('client.tenant_id = :tenantId', { tenantId: inbox.tenantId })
-          .andWhere('client.whatsapp_id = :bsuid', { bsuid: contactPhone })
-          .getOne();
+          .where('client.tenant_id = :tenantId', { tenantId: inbox.tenantId });
+        if (inboundBsuid && inboundPhone) {
+          qb.andWhere("(client.whatsapp_id = :bsuid OR REPLACE(client.phone, '+', '') = :phone)", { bsuid: inboundBsuid, phone: inboundPhone });
+        } else if (inboundBsuid) {
+          qb.andWhere('client.whatsapp_id = :bsuid', { bsuid: inboundBsuid });
+        } else {
+          qb.andWhere("REPLACE(client.phone, '+', '') = :phone", { phone: inboundPhone });
+        }
+        const existingRecord = await qb.getOne();
+
         if (existingRecord) {
+          // Buscar la conversación existente del contacto en este inbox.
           conversation = await this.conversationRepo.findOne({
             where: { inboxId: inbox.id, recordId: existingRecord.id },
           });
-          // Canonicalizar el contactId de la conversación reencontrada.
+          // Si el record no tenía conversación vinculada, buscar por el contactId
+          // con el que se creó la saliente (teléfono) antes de crear una nueva.
+          if (!conversation && inboundPhone) {
+            conversation = await this.conversationRepo.findOne({
+              where: { inboxId: inbox.id, contactId: inboundPhone },
+            });
+            if (conversation && !conversation.recordId) {
+              conversation.recordId = existingRecord.id;
+            }
+          }
+          // Canonicalizar el contactId de la conversación reencontrada al valor
+          // entrante (para futuras coincidencias directas).
           if (conversation && conversation.contactId !== contactPhone) {
             conversation.contactId = contactPhone;
-            await this.conversationRepo.save(conversation);
           }
+          if (conversation) await this.conversationRepo.save(conversation);
         }
       }
 
@@ -932,7 +957,9 @@ export class ChatsService {
       // tiempo real: si falla (p. ej. teléfono duplicado), se registra y se sigue.
       try {
         if (!conversation.recordId) {
-          const record = await this.findOrCreateRecordByPhone(contactPhone, inbox.tenantId, contactName, inbox.id, userId);
+          // Pasar el teléfono entrante (inboundPhone) para reconciliar con un
+          // contacto agregado manualmente que solo tenga teléfono.
+          const record = await this.findOrCreateRecordByPhone(contactPhone, inbox.tenantId, contactName, inbox.id, userId, inboundPhone);
           conversation.recordId = record.id;
         } else {
           // Update lastContactAt y completar identidades que falten (phone/BSUID).
@@ -1285,15 +1312,19 @@ export class ChatsService {
     contactName?: string,
     inboxId?: string,
     bsuid?: string | null,
+    explicitPhone?: string | null,
   ): Promise<ClientRecord> {
     // Meta puede darnos teléfono (wa_id) y/o BSUID de identidad. El `contactId`
-    // que llega aquí es el identificador con el que se creó la conversación, y
-    // `bsuid` (opcional) es el BSUID de identidad cuando Meta lo envía junto al
-    // teléfono. Guardamos AMBOS por separado: teléfono en `phone`, BSUID en
-    // `whatsappId`. Un valor con prefijo de país + punto (CO.xxx) es BSUID;
-    // cualquier otro (numérico) es teléfono/wa_id y se guarda verbatim en `phone`.
+    // que llega aquí es el identificador con el que se creó la conversación,
+    // `bsuid` (opcional) es el BSUID de identidad, y `explicitPhone` (opcional) es
+    // el teléfono real cuando Meta lo envía junto al BSUID. Guardamos AMBOS por
+    // separado: teléfono en `phone`, BSUID en `whatsappId`. Un valor con prefijo
+    // de país + punto (CO.xxx) es BSUID; cualquier otro (numérico) es teléfono.
     const contactIsIdentity = this.isWhatsAppIdentityId(contactId);
-    const phone = contactIsIdentity ? null : contactId.replace(/^\+/, '');
+    // El teléfono real puede venir explícito (explicitPhone) o ser el propio
+    // contactId cuando este es numérico.
+    const phone = explicitPhone?.replace(/^\+/, '')
+      || (contactIsIdentity ? null : contactId.replace(/^\+/, ''));
     // El BSUID puede venir explícito en `bsuid` o ser el propio contactId si este
     // tiene formato de identidad.
     const identityId = this.isWhatsAppIdentityId(bsuid)
