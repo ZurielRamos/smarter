@@ -58,6 +58,38 @@ export interface ConvListOpts {
 export class ChatsService {
   // Debounce timers for bot replies (conversationId -> timeout)
   private botReplyTimers = new Map<string, NodeJS.Timeout>();
+  // Candados por external_id de mensajes entrantes de Meta. Serializan el
+  // procesamiento de un MISMO mensaje cuando Meta reenvía el webhook duplicado
+  // (reintentos/eventos duplicados, común con botones/interactive). Sin esto, el
+  // chequeo de idempotencia (findOne) y el guardado (save) están separados por
+  // operaciones async, dejando una ventana en la que dos entregas concurrentes
+  // pasan el findOne y ambas disparan las automatizaciones (p. ej. plantilla x2).
+  private inboundMessageLocks = new Map<string, Promise<void>>();
+
+  /**
+   * Ejecuta `fn` de forma serializada por clave (external_id). Si ya hay una
+   * ejecución en curso para la misma clave, encola la nueva para que corra
+   * DESPUÉS, garantizando que el segundo webhook duplicado vea el mensaje ya
+   * guardado por el primero y lo salte. Libera el candado al terminar.
+   */
+  private async withInboundLock(key: string, fn: () => Promise<void>): Promise<void> {
+    const previous = this.inboundMessageLocks.get(key) || Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => { release = resolve; });
+    // El nuevo candado es "esperar al anterior y luego mantener el turno".
+    const chained = previous.then(() => current);
+    this.inboundMessageLocks.set(key, chained);
+    try {
+      await previous.catch(() => {}); // esperar turno (ignorar errores previos)
+      await fn();
+    } finally {
+      release();
+      // Limpiar el Map solo si nadie más encadenó después de nosotros.
+      if (this.inboundMessageLocks.get(key) === chained) {
+        this.inboundMessageLocks.delete(key);
+      }
+    }
+  }
   constructor(
     @InjectRepository(Inbox)
     private readonly inboxRepo: Repository<Inbox>,
@@ -821,6 +853,30 @@ export class ChatsService {
     }
 
     for (const msg of value.messages) {
+      // Serializar el procesamiento por external_id: si Meta reenvía el MISMO
+      // mensaje de forma concurrente (reintentos/duplicados), la segunda entrega
+      // espera a que la primera termine y así ve el mensaje ya guardado, evitando
+      // duplicar el guardado y re-disparar automatizaciones/notificaciones.
+      if (msg.id) {
+        await this.withInboundLock(String(msg.id), () =>
+          this.processWhatsAppInboundMessage(inbox, value, msg),
+        );
+      } else {
+        await this.processWhatsAppInboundMessage(inbox, value, msg);
+      }
+    }
+  }
+
+  /**
+   * Procesa un único mensaje entrante de WhatsApp: idempotencia por external_id,
+   * resolución/creación de conversación y contacto, guardado del mensaje,
+   * automatizaciones, notificaciones y bot auto-reply.
+   *
+   * IMPORTANTE: para un mismo external_id, este método se invoca serializado por
+   * `withInboundLock`, de modo que el chequeo de idempotencia (findOne) y el
+   * guardado (save) no compiten con una entrega duplicada concurrente.
+   */
+  private async processWhatsAppInboundMessage(inbox: Inbox, value: any, msg: any): Promise<void> {
       // Idempotencia: Meta puede reenviar el mismo webhook (reintentos o eventos
       // duplicados, común con botones/interactive). Si ya guardamos un mensaje con
       // este external_id (msg.id), lo saltamos para no duplicarlo ni re-disparar
@@ -829,7 +885,7 @@ export class ChatsService {
         const already = await this.messageRepo.findOne({ where: { externalId: msg.id }, select: { id: true } });
         if (already) {
           console.log(`[Webhook] Duplicate message skipped (external_id already exists): ${msg.id}`);
-          continue;
+          return;
         }
       }
 
@@ -847,7 +903,7 @@ export class ChatsService {
 
       if (!contactPhone) {
         console.warn(`[Webhook] Skipping message with no resolvable contact id: ${JSON.stringify(msg).substring(0, 300)}`);
-        continue;
+        return;
       }
 
       const contactName = contact?.profile?.name || contactPhone;
@@ -1154,7 +1210,6 @@ export class ChatsService {
       this.scheduleBotReply(inbox, conversation, content, { messageType, mediaUrl, mediaMimeType }).catch((err) => {
         console.error('[Bot Auto-Reply] Failed:', err?.message || err);
       });
-    }
   }
 
   /**
