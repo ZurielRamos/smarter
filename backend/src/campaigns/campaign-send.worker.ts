@@ -947,14 +947,37 @@ export class CampaignSendWorker extends WorkerHost {
 
       if (contactIdentifiers.length === 0) return;
 
-      // Find existing conversations for these contacts in this inbox
-      const existingConvs = await this.conversationRepo
+      // recordIds de los envíos (para reconciliar por contacto, no solo por
+      // contact_id). Un mismo contacto puede tener su conversación identificada por
+      // teléfono (contact_id numérico) o por BSUID de identidad de Meta ("CO.xxx")
+      // si respondió por WhatsApp. Buscar solo por teléfono crearía un chat nuevo
+      // y duplicaría la conversación. Por eso reconciliamos también por record_id.
+      const recordIds = Array.from(
+        new Set(successfulLogs.map((l) => l.recordId).filter(Boolean) as string[]),
+      );
+
+      // Find existing conversations for these contacts in this inbox, either by
+      // contact_id (teléfono/email/BSUID) o por record_id (mismo contacto).
+      const convQb = this.conversationRepo
         .createQueryBuilder('c')
-        .where('c.inbox_id = :inboxId', { inboxId: inbox.id })
-        .andWhere('c.contact_id IN (:...contactIdentifiers)', { contactIdentifiers })
-        .getMany();
+        .where('c.inbox_id = :inboxId', { inboxId: inbox.id });
+      if (recordIds.length > 0) {
+        convQb.andWhere('(c.contact_id IN (:...contactIdentifiers) OR c.record_id IN (:...recordIds))', {
+          contactIdentifiers,
+          recordIds,
+        });
+      } else {
+        convQb.andWhere('c.contact_id IN (:...contactIdentifiers)', { contactIdentifiers });
+      }
+      const existingConvs = await convQb.getMany();
 
       const convByContact = new Map(existingConvs.map((c) => [c.contactId, c]));
+      // Índice por record_id: si un contacto ya tiene conversación (aunque sea con
+      // otro contact_id, p. ej. su BSUID), la reutilizamos en vez de crear una nueva.
+      const convByRecord = new Map<string, Conversation>();
+      for (const c of existingConvs) {
+        if (c.recordId && !convByRecord.has(c.recordId)) convByRecord.set(c.recordId, c);
+      }
       const now = new Date();
       let lastMessageText: string;
       if (campaign.channel === 'email' || campaign.channel === 'email_transaccional') {
@@ -970,7 +993,10 @@ export class CampaignSendWorker extends WorkerHost {
       for (const log of successfulLogs) {
         const client = clients.find((c) => c.id === log.recordId);
         const contactId = isEmail ? (client?.email || '') : log.phone!;
-        if (!contactId || convByContact.has(contactId)) continue;
+        if (!contactId) continue;
+        // Ya existe conversación por contact_id o por record_id (mismo contacto): no crear otra.
+        if (convByContact.has(contactId)) continue;
+        if (log.recordId && convByRecord.has(log.recordId)) continue;
 
         const contactName = client ? [client.firstName, client.lastName].filter(Boolean).join(' ') || contactId : contactId;
         const renderedPreview = client
@@ -999,6 +1025,7 @@ export class CampaignSendWorker extends WorkerHost {
         );
         for (const conv of inserted) {
           convByContact.set(conv.contactId, conv);
+          if (conv.recordId) convByRecord.set(conv.recordId, conv);
         }
       }
 
@@ -1007,7 +1034,11 @@ export class CampaignSendWorker extends WorkerHost {
       for (const log of successfulLogs) {
         const client = clients.find((c) => c.id === log.recordId);
         const contactId = isEmail ? (client?.email || '') : log.phone!;
-        const conv = convByContact.get(contactId);
+        // Resolver la conversación por contact_id o, si no, por record_id (reutiliza
+        // la conversación existente del contacto aunque tenga otro contact_id/BSUID).
+        const conv =
+          convByContact.get(contactId) ||
+          (log.recordId ? convByRecord.get(log.recordId) : undefined);
         if (!conv) continue;
 
         let renderedContent: string;
