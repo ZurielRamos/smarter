@@ -1499,8 +1499,12 @@ export class ChatsService {
 
           // If failed, create a system note with the error details
           if (status.status === 'failed') {
-            const errorCodeNum = status.errors?.[0]?.code;
-            const rawDetail = status.errors?.[0]?.message || status.errors?.[0]?.title || 'Error desconocido de WhatsApp';
+            const errObj = status.errors?.[0];
+            const errorCodeNum = errObj?.code;
+            const rawDetail = errObj?.message || errObj?.title || 'Error desconocido de WhatsApp';
+            // Meta incluye el motivo específico en error_data.details (p. ej. por qué
+            // no pudo cargar el multimedia). Es lo más útil para diagnosticar.
+            const metaDetails = errObj?.error_data?.details || null;
             const errorCode = errorCodeNum ? ` (código: ${errorCodeNum})` : '';
             console.error('[Webhook] WhatsApp message failed:', JSON.stringify({ externalId: status.id, errors: status.errors }));
             const tenantId = message.conversation?.inbox?.tenantId;
@@ -1509,9 +1513,10 @@ export class ChatsService {
               rawDetail,
               message.conversation?.contactId,
             );
+            const detailSuffix = metaDetails ? ` — Detalle: ${metaDetails}` : '';
             await this.createSystemNote(
               message.conversationId,
-              `⚠️ Mensaje no entregado: ${friendlyDetail}${errorCode}`,
+              `⚠️ Mensaje no entregado: ${friendlyDetail}${detailSuffix}${errorCode}`,
               tenantId,
             );
           }
@@ -3885,7 +3890,40 @@ export class ChatsService {
     // Motivo de fallo (subida de media o envío). Si se puebla, no se llama a Meta.
     let sendError: string | null = null;
 
-    if (components && components.length > 0) {
+    // Fallback de header media: si la plantilla define un header IMAGE/VIDEO/DOCUMENT
+    // pero NO se proveyó su componente en el envío (el agente no subió archivo),
+    // WhatsApp rechaza la entrega (p. ej. 131053) porque el header media es
+    // obligatorio. En ese caso reutilizamos la imagen de ejemplo (header_handle)
+    // de la definición de la plantilla para que la plantilla se pueda entregar.
+    try {
+      const defHeader = (templateComponents || []).find(
+        (c: any) => c?.type === 'HEADER' && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(c?.format),
+      );
+      if (defHeader) {
+        const providedHeader = (components || []).find(
+          (c: any) =>
+            c?.type === 'header' &&
+            ['image', 'video', 'document'].includes(c?.parameters?.[0]?.type),
+        );
+        if (!providedHeader) {
+          const exampleHandle = defHeader.example?.header_handle?.[0];
+          if (exampleHandle) {
+            const fmt = defHeader.format.toLowerCase(); // image | video | document
+            const headerComp = {
+              type: 'header',
+              parameters: [{ type: fmt, [fmt]: { link: exampleHandle } }],
+            };
+            components = [headerComp, ...(components || [])];
+          } else {
+            sendError = `La plantilla "${templateName}" requiere una imagen en el encabezado y no se proporcionó ninguna. Sube una imagen antes de enviar.`;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[Templates] Header fallback error:', err);
+    }
+
+    if (!sendError && components && components.length > 0) {
       // Las imágenes de header (carousel y single) se re-suben a la Media API de
       // WhatsApp para obtener un media id fiable. Si alguna subida falla, se marca
       // el mensaje como fallido con el motivo real en lugar de lanzar un 500.

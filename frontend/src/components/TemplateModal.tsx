@@ -18,7 +18,7 @@ interface Template {
     type: string;
     text?: string;
     format?: string;
-    example?: { body_text?: string[][] };
+    example?: { body_text?: string[][]; header_handle?: string[] };
     buttons?: Array<{ type: string; text: string; url?: string }>;
   }>;
 }
@@ -140,6 +140,21 @@ export function TemplateConfigModal({ template, conversationId, senderId, contac
   const [carouselImages, setCarouselImages] = useState<string[]>([]);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [sending, setSending] = useState(false);
+
+  // Si la plantilla tiene un header IMAGE con imagen de ejemplo (header_handle),
+  // la pre-cargamos para que el envío no quede sin la imagen obligatoria. El agente
+  // puede reemplazarla subiendo otra.
+  useEffect(() => {
+    const header = template.components.find((c) => c.type === "HEADER");
+    if (header?.format === "IMAGE") {
+      const exampleUrl = header.example?.header_handle?.[0];
+      if (exampleUrl) {
+        setHeaderImageUrl(exampleUrl);
+        setHeaderImagePreview(exampleUrl);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template]);
 
   const getBodyText = (): string => {
     const body = template.components.find((c) => c.type === "BODY");
