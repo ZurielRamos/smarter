@@ -3725,6 +3725,92 @@ export class ChatsService {
     return data;
   }
 
+  /**
+   * Descarga una imagen desde una URL pública y la vuelve a subir a la Media API
+   * de WhatsApp para obtener un media id. Enviar plantillas con `id` es más
+   * confiable que con `link`, porque Meta no siempre puede alcanzar URLs firmadas
+   * o protegidas (causa típica del error 131053).
+   *
+   * Lanza un error descriptivo si la descarga o la subida fallan, para que el
+   * llamador pueda exponer el motivo real en lugar de continuar con un link roto.
+   */
+  private async uploadWhatsAppMediaFromUrl(
+    phoneNumberId: string,
+    accessToken: string,
+    url: string,
+  ): Promise<string> {
+    // 1) Descargar la imagen desde la URL de origen
+    let imgBuffer: Buffer;
+    let contentType: string;
+    try {
+      const imgRes = await fetch(url);
+      if (!imgRes.ok) {
+        throw new Error(`No se pudo descargar la imagen (HTTP ${imgRes.status})`);
+      }
+      contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+      // Solo mime types de imagen soportados por WhatsApp para headers de plantilla
+      if (!/^image\/(jpeg|jpg|png)$/i.test(contentType)) {
+        // Si el servidor de origen no reporta un mime válido, asumir jpeg
+        contentType = 'image/jpeg';
+      }
+      imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+      if (imgBuffer.length === 0) {
+        throw new Error('La imagen descargada está vacía');
+      }
+    } catch (err: any) {
+      throw new Error(`Error al descargar la imagen del header: ${err.message || err}`);
+    }
+
+    const ext = contentType.includes('png') ? 'png' : 'jpg';
+    const boundary = `----FormBoundary${Date.now()}${Math.floor(Math.random() * 1e9)}`;
+    const parts: Buffer[] = [];
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="messaging_product"\r\n\r\nwhatsapp\r\n`,
+      ),
+    );
+    // El campo "type" debe ser el MIME real del archivo (p.ej. image/jpeg)
+    parts.push(
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="type"\r\n\r\n${contentType}\r\n`),
+    );
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="header.${ext}"\r\nContent-Type: ${contentType}\r\n\r\n`,
+      ),
+    );
+    parts.push(imgBuffer);
+    parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
+
+    // 2) Subir a la Media API de WhatsApp
+    let uploadData: any;
+    try {
+      const uploadRes = await fetch(
+        `https://graph.facebook.com/v21.0/${phoneNumberId}/media`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          },
+          body: Buffer.concat(parts),
+        },
+      );
+      uploadData = await uploadRes.json();
+    } catch (err: any) {
+      throw new Error(`Error de red al subir la imagen a WhatsApp: ${err.message || err}`);
+    }
+
+    if (!uploadData?.id) {
+      const metaMsg =
+        uploadData?.error?.message ||
+        uploadData?.error?.error_data?.details ||
+        JSON.stringify(uploadData);
+      throw new Error(`WhatsApp rechazó la subida de la imagen: ${metaMsg}`);
+    }
+
+    return uploadData.id;
+  }
+
   async sendTemplateMessage(
     conversationId: string,
     templateName: string,
@@ -3796,104 +3882,76 @@ export class ChatsService {
       },
     };
 
+    // Motivo de fallo (subida de media o envío). Si se puebla, no se llama a Meta.
+    let sendError: string | null = null;
+
     if (components && components.length > 0) {
-      // For carousel cards with image links, upload to WhatsApp Media API first
-      for (const comp of components) {
-        if (comp.type === 'carousel' && comp.cards) {
-          for (const card of comp.cards) {
-            if (card.components) {
-              for (const cardComp of card.components) {
-                if (cardComp.type === 'header' && cardComp.parameters?.[0]?.type === 'image') {
-                  const imgParam = cardComp.parameters[0];
-                  if (imgParam.image?.link) {
-                    // Download image and upload to WhatsApp
-                    try {
-                      const imgRes = await fetch(imgParam.image.link);
-                      const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-                      const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
-
-                      const boundary = `----FormBoundary${Date.now()}${Math.random()}`;
-                      const parts: Buffer[] = [];
-                      parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="image.jpg"\r\nContent-Type: ${contentType}\r\n\r\n`));
-                      parts.push(imgBuffer);
-                      parts.push(Buffer.from('\r\n'));
-                      parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="messaging_product"\r\n\r\nwhatsapp\r\n`));
-                      parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="type"\r\n\r\n${contentType}\r\n`));
-                      parts.push(Buffer.from(`--${boundary}--\r\n`));
-
-                      const uploadRes = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/media`, {
-                        method: 'POST',
-                        headers: {
-                          Authorization: `Bearer ${inbox.accessToken}`,
-                          'Content-Type': `multipart/form-data; boundary=${boundary}`,
-                        },
-                        body: Buffer.concat(parts),
-                      });
-                      const uploadData = await uploadRes.json();
-                      if (uploadData.id) {
-                        imgParam.image = { id: uploadData.id };
-                      }
-                    } catch (err) {
-                      console.error('[Templates] Failed to upload carousel image:', err);
+      // Las imágenes de header (carousel y single) se re-suben a la Media API de
+      // WhatsApp para obtener un media id fiable. Si alguna subida falla, se marca
+      // el mensaje como fallido con el motivo real en lugar de lanzar un 500.
+      try {
+        if (!inbox.phoneNumberId) {
+          throw new Error('La bandeja no tiene un número de WhatsApp configurado');
+        }
+        const phoneNumberId = inbox.phoneNumberId;
+        for (const comp of components) {
+          if (comp.type === 'carousel' && comp.cards) {
+            for (const card of comp.cards) {
+              if (card.components) {
+                for (const cardComp of card.components) {
+                  if (cardComp.type === 'header' && cardComp.parameters?.[0]?.type === 'image') {
+                    const imgParam = cardComp.parameters[0];
+                    if (imgParam.image?.link) {
+                      const mediaId = await this.uploadWhatsAppMediaFromUrl(
+                        phoneNumberId,
+                        inbox.accessToken,
+                        imgParam.image.link,
+                      );
+                      imgParam.image = { id: mediaId };
                     }
                   }
                 }
               }
             }
           }
-        }
-        // Also handle single header images
-        if (comp.type === 'header' && comp.parameters?.[0]?.type === 'image' && comp.parameters[0].image?.link) {
-          try {
-            const imgRes = await fetch(comp.parameters[0].image.link);
-            const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-            const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
-
-            const boundary = `----FormBoundary${Date.now()}${Math.random()}`;
-            const parts: Buffer[] = [];
-            parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="image.jpg"\r\nContent-Type: ${contentType}\r\n\r\n`));
-            parts.push(imgBuffer);
-            parts.push(Buffer.from('\r\n'));
-            parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="messaging_product"\r\n\r\nwhatsapp\r\n`));
-            parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="type"\r\n\r\n${contentType}\r\n`));
-            parts.push(Buffer.from(`--${boundary}--\r\n`));
-
-            const uploadRes = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/media`, {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${inbox.accessToken}`,
-                'Content-Type': `multipart/form-data; boundary=${boundary}`,
-              },
-              body: Buffer.concat(parts),
-            });
-            const uploadData = await uploadRes.json();
-            if (uploadData.id) {
-              comp.parameters[0].image = { id: uploadData.id };
-            }
-          } catch (err) {
-            console.error('[Templates] Failed to upload header image:', err);
+          // Also handle single header images
+          if (comp.type === 'header' && comp.parameters?.[0]?.type === 'image' && comp.parameters[0].image?.link) {
+            const mediaId = await this.uploadWhatsAppMediaFromUrl(
+              phoneNumberId,
+              inbox.accessToken,
+              comp.parameters[0].image.link,
+            );
+            comp.parameters[0].image = { id: mediaId };
           }
         }
+      } catch (err: any) {
+        console.error('[Templates] Media upload failed:', err);
+        sendError = err.message || 'No se pudo preparar la imagen de la plantilla';
       }
       messageBody.template.components = components;
     }
 
-    const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${inbox.accessToken}`,
-      },
-      body: JSON.stringify(messageBody),
-    });
-    const data = await res.json();
-    const externalId = data.messages?.[0]?.id || null;
+    let data: any = null;
+    let externalId: string | null = null;
 
-    let sendError: string | null = null;
-    if (!externalId) {
-      console.error('[Templates] Send failed:', JSON.stringify(data));
-      console.error('[Templates] Payload sent:', JSON.stringify(messageBody, null, 2));
-      sendError = data.error?.message || data.error?.error_data?.details || 'Error desconocido al enviar plantilla';
+    // Solo se llama a Meta si la preparación de la media no falló
+    if (!sendError) {
+      const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${inbox.accessToken}`,
+        },
+        body: JSON.stringify(messageBody),
+      });
+      data = await res.json();
+      externalId = data.messages?.[0]?.id || null;
+
+      if (!externalId) {
+        console.error('[Templates] Send failed:', JSON.stringify(data));
+        console.error('[Templates] Payload sent:', JSON.stringify(messageBody, null, 2));
+        sendError = data.error?.message || data.error?.error_data?.details || 'Error desconocido al enviar plantilla';
+      }
     }
 
     // Save message with rendered content
