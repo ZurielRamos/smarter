@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Job } from 'bullmq';
+import sharp from 'sharp';
 import { CampaignSend } from './campaign-send.entity';
 import { CampaignSendLog } from './campaign-send-log.entity';
 import { Campaign } from './campaign.entity';
@@ -476,6 +477,7 @@ export class CampaignSendWorker extends WorkerHost {
               campaign.whatsappTemplateName,
               campaign.whatsappTemplateLanguage || 'es',
               variables,
+              templateComponents,
             );
 
             if (result.success) {
@@ -665,8 +667,43 @@ export class CampaignSendWorker extends WorkerHost {
     templateName: string,
     languageCode: string,
     variables: Record<string, string>,
+    templateComponents?: any[] | null,
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     const components: any[] = [];
+
+    // Header media: si la plantilla define un header IMAGE/VIDEO/DOCUMENT, WhatsApp
+    // exige el media en el envío (si no, rechaza con 131053). Como la campaña no
+    // sube un archivo, reutilizamos la imagen de EJEMPLO de la plantilla
+    // (example.header_handle) y la re-subimos a la Media API para obtener un media
+    // id fiable. Mismo comportamiento que el envío desde una conversación.
+    const defHeader = (templateComponents || []).find(
+      (c: any) => c?.type === 'HEADER' && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(c?.format),
+    );
+    if (defHeader) {
+      const exampleHandle = defHeader.example?.header_handle?.[0];
+      if (!exampleHandle) {
+        return {
+          success: false,
+          error: `La plantilla "${templateName}" requiere media en el encabezado y no tiene imagen de ejemplo.`,
+        };
+      }
+      const fmt = String(defHeader.format).toLowerCase(); // image | video | document
+      try {
+        if (fmt === 'image') {
+          // Re-subir la imagen para evitar 131053 (formato/color no soportado).
+          const mediaId = await this.uploadWhatsAppMediaFromUrl(phoneNumberId, accessToken, exampleHandle);
+          components.push({ type: 'header', parameters: [{ type: 'image', image: { id: mediaId } }] });
+        } else {
+          // Video/documento: se envían por link directo del ejemplo.
+          components.push({ type: 'header', parameters: [{ type: fmt, [fmt]: { link: exampleHandle } }] });
+        }
+      } catch (err: any) {
+        return {
+          success: false,
+          error: `No se pudo preparar la imagen del encabezado: ${err?.message || err}`,
+        };
+      }
+    }
 
     const bodyParams = Object.entries(variables)
       .sort(([a], [b]) => Number(a) - Number(b))
@@ -718,6 +755,84 @@ export class CampaignSendWorker extends WorkerHost {
     } catch (error) {
       return { success: false, error: String(error) };
     }
+  }
+
+  /**
+   * Descarga una imagen desde una URL, la normaliza a JPEG (RGB 8-bit, ≤1600px)
+   * y la sube a la Media API de WhatsApp, devolviendo el media id. Evita el error
+   * 131053 que Meta lanza con imágenes en formatos/perfiles de color no soportados.
+   * Portado de ChatsService.uploadWhatsAppMediaFromUrl para el envío de campañas.
+   */
+  private async uploadWhatsAppMediaFromUrl(
+    phoneNumberId: string,
+    accessToken: string,
+    url: string,
+  ): Promise<string> {
+    // 1) Descargar la imagen de origen.
+    let rawBuffer: Buffer;
+    try {
+      const imgRes = await fetch(url);
+      if (!imgRes.ok) throw new Error(`No se pudo descargar la imagen (HTTP ${imgRes.status})`);
+      rawBuffer = Buffer.from(await imgRes.arrayBuffer());
+      if (rawBuffer.length === 0) throw new Error('La imagen descargada está vacía');
+    } catch (err: any) {
+      throw new Error(`Error al descargar la imagen del header: ${err.message || err}`);
+    }
+
+    // 2) Normalizar a JPEG RGB 8-bit (aplanar alfa sobre blanco, limitar tamaño).
+    let imgBuffer: Buffer;
+    const contentType = 'image/jpeg';
+    const ext = 'jpg';
+    try {
+      imgBuffer = await sharp(rawBuffer)
+        .flatten({ background: { r: 255, g: 255, b: 255 } })
+        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 85, chromaSubsampling: '4:2:0' })
+        .toBuffer();
+    } catch (err: any) {
+      throw new Error(`No se pudo procesar la imagen del header: ${err.message || err}`);
+    }
+
+    // 3) Subir por multipart a la Media API de WhatsApp.
+    const boundary = `----FormBoundary${Date.now()}${Math.floor(Math.random() * 1e9)}`;
+    const parts: Buffer[] = [];
+    parts.push(
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="messaging_product"\r\n\r\nwhatsapp\r\n`),
+    );
+    parts.push(
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="type"\r\n\r\n${contentType}\r\n`),
+    );
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="header.${ext}"\r\nContent-Type: ${contentType}\r\n\r\n`,
+      ),
+    );
+    parts.push(imgBuffer);
+    parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
+
+    let uploadData: any;
+    try {
+      const uploadRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/media`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        },
+        body: Buffer.concat(parts),
+      });
+      uploadData = await uploadRes.json();
+    } catch (err: any) {
+      throw new Error(`Error de red al subir la imagen a WhatsApp: ${err.message || err}`);
+    }
+
+    if (!uploadData?.id) {
+      const metaMsg =
+        uploadData?.error?.message ||
+        uploadData?.error?.error_data?.details ||
+        JSON.stringify(uploadData);
+      throw new Error(`WhatsApp rechazó la subida de la imagen: ${metaMsg}`);
+    }
+    return uploadData.id;
   }
 
   private getClientField(client: ClientRecord, field: string): string {
