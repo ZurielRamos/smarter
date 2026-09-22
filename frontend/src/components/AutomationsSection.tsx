@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Save, Loader2, CheckCircle2, Plus, Trash2, Zap } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Save, Loader2, CheckCircle2, Plus, Trash2, Zap, User, ImagePlus } from "lucide-react";
 import { api } from "@/services/api";
 import { DropdownSelect } from "./ui/dropdown-select";
 
@@ -15,7 +15,24 @@ interface AutomationAction {
   templateLanguage?: string;
   templateCategory?: string;
   templateComponents?: any[];
+  // Valores configurados para las variables de la plantilla. Claves:
+  //   body_1, body_2...  → variables {{n}} del cuerpo
+  //   header_1...        → variables {{n}} de un header de texto
+  //   button_<idx>       → parámetro dinámico de un botón (URL/copy_code)
+  //   header_media       → URL de la imagen/video/documento del header
+  // El valor puede ser texto fijo o un placeholder de contacto ({{firstName}}).
+  templateVariables?: Record<string, string>;
 }
+
+// Campos del contacto que se pueden insertar como variables dinámicas.
+// Se resuelven en el backend al momento de enviar la plantilla.
+const CONTACT_FIELDS = [
+  { key: "{{firstName}}", label: "Nombre" },
+  { key: "{{lastName}}", label: "Apellido" },
+  { key: "{{fullName}}", label: "Nombre completo" },
+  { key: "{{phone}}", label: "Teléfono" },
+  { key: "{{email}}", label: "Email" },
+];
 
 // Plantilla de WhatsApp devuelta por Meta (endpoint /chats/whatsapp/templates)
 interface WhatsAppTemplate {
@@ -72,6 +89,195 @@ interface Member { userId: string; user?: { id: string; name: string; email: str
 interface Team { id: string; name: string }
 
 const uid = () => `rule_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+// ── Helpers de plantillas ───────────────────────────────────────────────
+const countVars = (text?: string): number => (text ? (text.match(/\{\{\d+\}\}/g) || []).length : 0);
+
+interface TemplateField {
+  key: string;        // clave en templateVariables (body_1, header_1, button_0, header_media)
+  label: string;      // etiqueta legible
+  kind: "text" | "media";
+  format?: string;    // IMAGE | VIDEO | DOCUMENT (solo media)
+  example?: string;   // valor de ejemplo de la plantilla
+}
+
+/**
+ * Analiza la definición de una plantilla (components de Meta) y devuelve la lista
+ * de campos configurables (variables de header/body/botones y media del header).
+ */
+function getTemplateFields(components?: any[]): TemplateField[] {
+  if (!Array.isArray(components)) return [];
+  const fields: TemplateField[] = [];
+  for (const comp of components) {
+    const type = String(comp?.type || "").toUpperCase();
+    if (type === "HEADER") {
+      const format = String(comp?.format || "TEXT").toUpperCase();
+      if (["IMAGE", "VIDEO", "DOCUMENT"].includes(format)) {
+        fields.push({
+          key: "header_media",
+          label: format === "IMAGE" ? "Imagen del encabezado" : format === "VIDEO" ? "Video del encabezado" : "Documento del encabezado",
+          kind: "media",
+          format,
+          example: comp?.example?.header_handle?.[0],
+        });
+      } else {
+        const n = countVars(comp?.text);
+        const ex: string[] = comp?.example?.header_text || [];
+        for (let i = 0; i < n; i++) {
+          fields.push({ key: `header_${i + 1}`, label: `Encabezado · variable {{${i + 1}}}`, kind: "text", example: ex[i] });
+        }
+      }
+    } else if (type === "BODY") {
+      const n = countVars(comp?.text);
+      const ex: string[] = comp?.example?.body_text?.[0] || [];
+      for (let i = 0; i < n; i++) {
+        fields.push({ key: `body_${i + 1}`, label: `Cuerpo · variable {{${i + 1}}}`, kind: "text", example: ex[i] });
+      }
+    } else if (type === "BUTTONS") {
+      const buttons: any[] = Array.isArray(comp?.buttons) ? comp.buttons : [];
+      buttons.forEach((btn, idx) => {
+        const btnType = String(btn?.type || "").toUpperCase();
+        if (btnType === "URL" && countVars(btn?.url) > 0) {
+          const ex = Array.isArray(btn?.example) ? btn.example[0] : btn?.example;
+          fields.push({ key: `button_${idx}`, label: `Botón "${btn?.text || idx + 1}" · URL dinámica`, kind: "text", example: ex });
+        } else if (btnType === "COPY_CODE") {
+          const ex = Array.isArray(btn?.example) ? btn.example[0] : btn?.example;
+          fields.push({ key: `button_${idx}`, label: `Botón "${btn?.text || idx + 1}" · código`, kind: "text", example: ex });
+        }
+      });
+    }
+  }
+  return fields;
+}
+
+/** Selector para insertar un campo dinámico del contacto en una variable. */
+function ContactFieldPicker({ onSelect }: { onSelect: (value: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="h-[30px] px-2 border border-border rounded-md text-muted-foreground hover:text-brand-600 hover:border-brand-300 transition-colors shrink-0"
+        title="Insertar campo del contacto"
+      >
+        <User className="h-3.5 w-3.5" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-44 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 z-[100]">
+          <p className="px-3 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Campo del contacto</p>
+          {CONTACT_FIELDS.map((field) => (
+            <button
+              key={field.key}
+              type="button"
+              onClick={() => { onSelect(field.key); setOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors text-left"
+            >
+              <span className="text-muted-foreground">⊕</span>
+              {field.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Editor de las variables de una plantilla dentro de una acción "reply_template".
+ * Cada variable puede recibir texto fijo o un placeholder de contacto. Para el
+ * header media se puede subir una imagen o pegar una URL pública.
+ */
+function TemplateVarsEditor({
+  fields,
+  values,
+  onChange,
+}: {
+  fields: TemplateField[];
+  values: Record<string, string>;
+  onChange: (next: Record<string, string>) => void;
+}) {
+  const [uploading, setUploading] = useState<string | null>(null);
+  const setVal = (key: string, val: string) => onChange({ ...values, [key]: val });
+
+  const uploadMedia = async (key: string, file: File) => {
+    setUploading(key);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      // Guarda el archivo y devuelve una URL pública reutilizable como header.
+      const { data } = await api.post("/chats/media/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setVal(key, data.url || "");
+    } catch {
+      // Silencioso: el usuario puede pegar una URL manualmente.
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  return (
+    <div className="mt-2 ml-1 pl-3 border-l-2 border-brand-200 space-y-2.5">
+      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Variables de la plantilla</p>
+      {fields.map((f) => (
+        <div key={f.key}>
+          <label className="block text-[11px] text-muted-foreground mb-1">{f.label}</label>
+          {f.kind === "media" ? (
+            <div className="space-y-1">
+              {values[f.key] ? (
+                <div className="flex items-center gap-2">
+                  {f.format === "IMAGE" ? (
+                    <img src={values[f.key]} alt="" className="h-10 w-10 rounded object-cover border border-border" />
+                  ) : (
+                    <span className="text-[11px] text-green-600">Archivo cargado ✓</span>
+                  )}
+                  <button type="button" onClick={() => setVal(f.key, "")} className="text-[11px] text-red-500 hover:underline ml-auto">Quitar</button>
+                </div>
+              ) : (
+                <label className="flex items-center justify-center gap-1.5 h-9 border border-dashed border-border rounded-md cursor-pointer hover:border-brand-300 text-[11px] text-muted-foreground hover:text-brand-600 transition-colors">
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept={f.format === "IMAGE" ? "image/*" : f.format === "VIDEO" ? "video/*" : "*"}
+                    onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadMedia(f.key, file); }}
+                  />
+                  {uploading === f.key ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+                  {uploading === f.key ? "Subiendo..." : "Subir archivo"}
+                </label>
+              )}
+              <input
+                type="url"
+                value={values[f.key] || ""}
+                onChange={(e) => setVal(f.key, e.target.value)}
+                placeholder="O pega una URL pública https://..."
+                className="w-full px-2 py-1.5 rounded-md border border-border text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+          ) : (
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                value={values[f.key] || ""}
+                onChange={(e) => setVal(f.key, e.target.value)}
+                placeholder={f.example ? `Ej: ${f.example}` : "Escribe el valor..."}
+                className="flex-1 px-2 py-1.5 rounded-md border border-border text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <ContactFieldPicker onSelect={(v) => setVal(f.key, v)} />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /**
  * Constructor de automatizaciones por palabra clave para un canal.
@@ -247,11 +453,13 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
             onChange={(v) => {
               const [name, lang] = v.split("::");
               const tpl = templates.find((t) => t.name === name && t.language === lang);
+              // Al cambiar de plantilla se reinician las variables configuradas.
               updateAction(ruleId, idx, {
                 templateName: name,
                 templateLanguage: lang,
                 templateCategory: tpl?.category || "",
                 templateComponents: tpl?.components,
+                templateVariables: {},
               });
             }}
             options={
@@ -372,20 +580,32 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1.5">Entonces:</label>
               <div className="space-y-2">
-                {rule.actions.map((action, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <DropdownSelect
-                      className="min-w-[200px] [&>button]:py-1.5 [&>button]:text-xs"
-                      value={action.type}
-                      onChange={(v) => changeActionType(rule.id, idx, v)}
-                      options={ACTION_TYPES.filter((a) => !a.whatsappOnly || isWhatsApp).map((a) => ({ value: a.type, label: a.label }))}
-                    />
-                    {renderActionInput(rule.id, idx, action)}
-                    <button onClick={() => removeAction(rule.id, idx)} className="p-1 rounded-md text-red-500 hover:bg-red-50 shrink-0" aria-label="Eliminar acción">
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
+                {rule.actions.map((action, idx) => {
+                  const tplFields = action.type === "reply_template" ? getTemplateFields(action.templateComponents) : [];
+                  return (
+                    <div key={idx}>
+                      <div className="flex items-center gap-2">
+                        <DropdownSelect
+                          className="min-w-[200px] [&>button]:py-1.5 [&>button]:text-xs"
+                          value={action.type}
+                          onChange={(v) => changeActionType(rule.id, idx, v)}
+                          options={ACTION_TYPES.filter((a) => !a.whatsappOnly || isWhatsApp).map((a) => ({ value: a.type, label: a.label }))}
+                        />
+                        {renderActionInput(rule.id, idx, action)}
+                        <button onClick={() => removeAction(rule.id, idx)} className="p-1 rounded-md text-red-500 hover:bg-red-50 shrink-0" aria-label="Eliminar acción">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                      {tplFields.length > 0 && (
+                        <TemplateVarsEditor
+                          fields={tplFields}
+                          values={action.templateVariables || {}}
+                          onChange={(next) => updateAction(rule.id, idx, { templateVariables: next })}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               <button onClick={() => addAction(rule.id)} className="mt-2 flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
                 <Plus className="h-3 w-3" /> Agregar acción

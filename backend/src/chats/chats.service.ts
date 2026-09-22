@@ -243,6 +243,13 @@ export class ChatsService {
           ...(a.templateLanguage !== undefined ? { templateLanguage: String(a.templateLanguage || 'es') } : {}),
           ...(a.templateCategory !== undefined ? { templateCategory: String(a.templateCategory || '') } : {}),
           ...(Array.isArray(a.templateComponents) ? { templateComponents: a.templateComponents } : {}),
+          ...(a.templateVariables && typeof a.templateVariables === 'object'
+            ? {
+                templateVariables: Object.fromEntries(
+                  Object.entries(a.templateVariables).map(([k, v]) => [String(k), String(v ?? '')]),
+                ),
+              }
+            : {}),
         }));
       return {
         id: r?.id || `rule_${Date.now()}_${i}`,
@@ -1233,6 +1240,7 @@ export class ChatsService {
       templateLanguage?: string;
       templateCategory?: string;
       templateComponents?: any[];
+      templateVariables?: Record<string, string>;
     },
     rule: { name?: string },
     triggerContent: string,
@@ -1311,15 +1319,26 @@ export class ChatsService {
         const templateName = String(action.templateName || '').trim();
         if (!templateName) break;
         const languageCode = String(action.templateLanguage || 'es').trim() || 'es';
+        const templateDef = Array.isArray(action.templateComponents) ? action.templateComponents : undefined;
         try {
+          // Construir los parámetros (components) que Meta espera a partir de la
+          // definición de la plantilla, resolviendo variables con datos del
+          // contacto o con los ejemplos de la propia plantilla. Sin esto, Meta
+          // rechaza plantillas con variables/botones con el error #132000.
+          const record = await this.clientRecordRepo.findOne({ where: { id: recordId } }).catch(() => null);
+          const sendComponents = this.buildAutomationTemplateComponents(
+            templateDef,
+            record,
+            action.templateVariables || {},
+          );
           await this.sendTemplateMessage(
             conversation.id,
             templateName,
             languageCode,
-            undefined,
+            sendComponents,
             undefined,
             `[Plantilla: ${templateName}]`,
-            Array.isArray(action.templateComponents) ? action.templateComponents : undefined,
+            templateDef,
             action.templateCategory || undefined,
           );
           await this.createSystemNote(
@@ -1335,6 +1354,133 @@ export class ChatsService {
       default:
         console.warn(`[Automation] Unknown action type: ${action.type} (trigger: "${triggerContent.substring(0, 40)}")`);
     }
+  }
+
+  /**
+   * Construye los `components` (parámetros) que la WhatsApp Cloud API espera al
+   * enviar una plantilla, a partir de su DEFINICIÓN (templateComponents de Meta) y
+   * de los valores configurados en la regla (`vars`).
+   *
+   * Resolución de cada variable de texto:
+   *   1. Valor configurado en la regla (texto fijo o placeholder de contacto).
+   *   2. Si es un placeholder ({{firstName}}, {{fullName}}...), se sustituye por
+   *      el dato del contacto.
+   *   3. Fallback: el ejemplo de la propia plantilla o el nombre del contacto.
+   *
+   * Claves esperadas en `vars`: body_1.., header_1.., button_<idx>, header_media.
+   * Cubre header de texto/imagen/video/documento, body y botones dinámicos.
+   * Devuelve `undefined` si la plantilla no requiere ningún parámetro.
+   */
+  private buildAutomationTemplateComponents(
+    def: any[] | undefined,
+    record: ClientRecord | null,
+    vars: Record<string, string> = {},
+  ): any[] | undefined {
+    if (!Array.isArray(def) || def.length === 0) return undefined;
+
+    const components: any[] = [];
+
+    const contactFullName = record
+      ? [record.firstName, record.lastName].filter(Boolean).join(' ').trim()
+      : '';
+
+    // Sustituye placeholders de contacto por sus valores reales.
+    const resolveContactField = (val: string): string => {
+      switch (val.trim()) {
+        case '{{firstName}}': return record?.firstName || '';
+        case '{{lastName}}': return record?.lastName || '';
+        case '{{fullName}}': return contactFullName;
+        case '{{phone}}': return record?.phone || '';
+        case '{{email}}': return record?.email || '';
+        default: return val;
+      }
+    };
+
+    // Resuelve el valor final de una variable de texto.
+    const resolveText = (key: string, example: string | undefined, index: number): string => {
+      const configured = vars[key];
+      if (configured !== undefined && configured !== '') {
+        const resolved = resolveContactField(configured);
+        if (resolved && resolved.trim()) return resolved;
+      }
+      // Sin valor configurado: heurística de saludo + ejemplo de la plantilla.
+      if (index === 0 && contactFullName) return contactFullName;
+      if (example && String(example).trim()) return String(example);
+      if (contactFullName) return contactFullName;
+      return ' '; // Meta no acepta cadenas vacías
+    };
+
+    const countVars = (text?: string): number =>
+      text ? (text.match(/\{\{\d+\}\}/g) || []).length : 0;
+
+    for (const comp of def) {
+      const type = String(comp?.type || '').toUpperCase();
+
+      if (type === 'HEADER') {
+        const format = String(comp?.format || 'TEXT').toUpperCase();
+        if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(format)) {
+          // Si el usuario configuró una media propia, se envía aquí. Si no, el
+          // fallback de header_handle en sendTemplateMessage la resuelve.
+          const media = (vars['header_media'] || '').trim();
+          if (media) {
+            const fmt = format.toLowerCase(); // image | video | document
+            components.push({
+              type: 'header',
+              parameters: [{ type: fmt, [fmt]: { link: media } }],
+            });
+          }
+          continue;
+        }
+        const varCount = countVars(comp?.text);
+        if (varCount > 0) {
+          const examples: string[] = comp?.example?.header_text || [];
+          components.push({
+            type: 'header',
+            parameters: Array.from({ length: varCount }, (_, i) => ({
+              type: 'text',
+              text: resolveText(`header_${i + 1}`, examples[i], i),
+            })),
+          });
+        }
+      } else if (type === 'BODY') {
+        const varCount = countVars(comp?.text);
+        if (varCount > 0) {
+          const examples: string[] = comp?.example?.body_text?.[0] || [];
+          components.push({
+            type: 'body',
+            parameters: Array.from({ length: varCount }, (_, i) => ({
+              type: 'text',
+              text: resolveText(`body_${i + 1}`, examples[i], i),
+            })),
+          });
+        }
+      } else if (type === 'BUTTONS') {
+        const buttons: any[] = Array.isArray(comp?.buttons) ? comp.buttons : [];
+        buttons.forEach((btn: any, idx: number) => {
+          const btnType = String(btn?.type || '').toUpperCase();
+          const example = Array.isArray(btn?.example) ? btn.example[0] : btn?.example;
+          // Botón URL dinámico: la URL contiene una variable {{1}}.
+          if (btnType === 'URL' && countVars(btn?.url) > 0) {
+            components.push({
+              type: 'button',
+              sub_type: 'url',
+              index: idx,
+              parameters: [{ type: 'text', text: resolveText(`button_${idx}`, example, -1) }],
+            });
+          } else if (btnType === 'COPY_CODE') {
+            components.push({
+              type: 'button',
+              sub_type: 'copy_code',
+              index: idx,
+              parameters: [{ type: 'coupon_code', coupon_code: resolveText(`button_${idx}`, example, -1) }],
+            });
+          }
+          // QUICK_REPLY, PHONE_NUMBER y URL estáticos no requieren parámetros.
+        });
+      }
+    }
+
+    return components.length > 0 ? components : undefined;
   }
 
   /**
