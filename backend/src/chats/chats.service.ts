@@ -26,6 +26,7 @@ import { MailgunService } from '../providers/mailgun.service';
 import { EmailDomainService } from '../providers/email-domain.service';
 import { EmailUnsubscribeService } from '../providers/email-unsubscribe.service';
 import { UserTenant } from '../users/user-tenant.entity';
+import sharp from 'sharp';
 
 export type AssignmentFilter = 'all' | 'unassigned' | 'mine';
 
@@ -3745,28 +3746,37 @@ export class ChatsService {
     url: string,
   ): Promise<string> {
     // 1) Descargar la imagen desde la URL de origen
-    let imgBuffer: Buffer;
-    let contentType: string;
+    let rawBuffer: Buffer;
     try {
       const imgRes = await fetch(url);
       if (!imgRes.ok) {
         throw new Error(`No se pudo descargar la imagen (HTTP ${imgRes.status})`);
       }
-      contentType = imgRes.headers.get('content-type') || 'image/jpeg';
-      // Solo mime types de imagen soportados por WhatsApp para headers de plantilla
-      if (!/^image\/(jpeg|jpg|png)$/i.test(contentType)) {
-        // Si el servidor de origen no reporta un mime válido, asumir jpeg
-        contentType = 'image/jpeg';
-      }
-      imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-      if (imgBuffer.length === 0) {
+      rawBuffer = Buffer.from(await imgRes.arrayBuffer());
+      if (rawBuffer.length === 0) {
         throw new Error('La imagen descargada está vacía');
       }
     } catch (err: any) {
       throw new Error(`Error al descargar la imagen del header: ${err.message || err}`);
     }
 
-    const ext = contentType.includes('png') ? 'png' : 'jpg';
+    // 2) Normalizar la imagen a un formato que WhatsApp acepte sin ambigüedad.
+    // Meta exige JPG/PNG RGB(A) de 8 bits/canal. Muchas imágenes fallan con 131053
+    // por ser PNG de 16 bits, en paleta/escala de grises, o con perfiles de color
+    // exóticos (CMYK). Re-codificamos a JPEG aplanando alfa sobre fondo blanco, lo
+    // que garantiza RGB 8-bit. También limitamos el tamaño para no exceder límites.
+    let imgBuffer: Buffer;
+    const contentType = 'image/jpeg';
+    const ext = 'jpg';
+    try {
+      imgBuffer = await sharp(rawBuffer)
+        .flatten({ background: { r: 255, g: 255, b: 255 } })
+        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 85, chromaSubsampling: '4:2:0' })
+        .toBuffer();
+    } catch (err: any) {
+      throw new Error(`No se pudo procesar la imagen del header: ${err.message || err}`);
+    }
     const boundary = `----FormBoundary${Date.now()}${Math.floor(Math.random() * 1e9)}`;
     const parts: Buffer[] = [];
     parts.push(
