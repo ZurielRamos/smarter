@@ -225,7 +225,7 @@ export class ChatsService {
     const VALID_ACTIONS = new Set([
       'set_status', 'set_opt_in_whatsapp', 'set_opt_in_email',
       'add_tag', 'remove_tag', 'set_conversation_status',
-      'assign_agent', 'assign_team', 'reply',
+      'assign_agent', 'assign_team', 'reply', 'reply_template',
     ]);
 
     const clean = (Array.isArray(rules) ? rules : []).map((r, i) => {
@@ -238,6 +238,11 @@ export class ChatsService {
           type: a.type,
           ...(a.value !== undefined ? { value: a.value } : {}),
           ...(a.message !== undefined ? { message: String(a.message || '') } : {}),
+          // Campos de la acción "reply_template" (responder con plantilla de WhatsApp)
+          ...(a.templateName !== undefined ? { templateName: String(a.templateName || '') } : {}),
+          ...(a.templateLanguage !== undefined ? { templateLanguage: String(a.templateLanguage || 'es') } : {}),
+          ...(a.templateCategory !== undefined ? { templateCategory: String(a.templateCategory || '') } : {}),
+          ...(Array.isArray(a.templateComponents) ? { templateComponents: a.templateComponents } : {}),
         }));
       return {
         id: r?.id || `rule_${Date.now()}_${i}`,
@@ -1190,6 +1195,7 @@ export class ChatsService {
    *     'add_tag' / 'remove_tag' value: string
    *     'set_conversation_status' value: 'open'|'resolved'|'archived'
    *     'reply'                 message: string
+   *     'reply_template'        templateName, templateLanguage, templateCategory, templateComponents (solo WhatsApp)
    *     'assign_agent'          value: userId
    *     'assign_team'           value: teamId
    *
@@ -1219,7 +1225,15 @@ export class ChatsService {
   private async executeAutomationAction(
     inbox: Inbox,
     conversation: Conversation,
-    action: { type: string; value?: any; message?: string },
+    action: {
+      type: string;
+      value?: any;
+      message?: string;
+      templateName?: string;
+      templateLanguage?: string;
+      templateCategory?: string;
+      templateComponents?: any[];
+    },
     rule: { name?: string },
     triggerContent: string,
   ): Promise<void> {
@@ -1287,6 +1301,36 @@ export class ChatsService {
           );
         }
         break;
+
+      case 'reply_template': {
+        // Solo canales de WhatsApp pueden responder con plantilla.
+        if (inbox.channel !== 'whatsapp') {
+          console.warn(`[Automation] reply_template ignorado: el canal "${inbox.channel}" no soporta plantillas.`);
+          break;
+        }
+        const templateName = String(action.templateName || '').trim();
+        if (!templateName) break;
+        const languageCode = String(action.templateLanguage || 'es').trim() || 'es';
+        try {
+          await this.sendTemplateMessage(
+            conversation.id,
+            templateName,
+            languageCode,
+            undefined,
+            undefined,
+            `[Plantilla: ${templateName}]`,
+            Array.isArray(action.templateComponents) ? action.templateComponents : undefined,
+            action.templateCategory || undefined,
+          );
+          await this.createSystemNote(
+            conversation.id,
+            `${ruleName}: respuesta automática con plantilla "${templateName}".`,
+          ).catch(() => {});
+        } catch (err: any) {
+          console.warn('[Automation] reply_template failed:', err?.message || err);
+        }
+        break;
+      }
 
       default:
         console.warn(`[Automation] Unknown action type: ${action.type} (trigger: "${triggerContent.substring(0, 40)}")`);

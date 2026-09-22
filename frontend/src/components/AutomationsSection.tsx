@@ -10,6 +10,20 @@ interface AutomationAction {
   type: string;
   value?: any;
   message?: string;
+  // Campos para "reply_template" (responder con plantilla de WhatsApp)
+  templateName?: string;
+  templateLanguage?: string;
+  templateCategory?: string;
+  templateComponents?: any[];
+}
+
+// Plantilla de WhatsApp devuelta por Meta (endpoint /chats/whatsapp/templates)
+interface WhatsAppTemplate {
+  name: string;
+  language: string;
+  status: string;
+  category: string;
+  components: any[];
 }
 
 interface AutomationRule {
@@ -33,7 +47,8 @@ const CONVERSATION_STATUSES = ["open", "resolved", "archived"];
 const ACTION_TYPES: Array<{
   type: string;
   label: string;
-  input: "status" | "boolean" | "text" | "conversationStatus" | "message" | "agent" | "team" | "none";
+  input: "status" | "boolean" | "text" | "conversationStatus" | "message" | "agent" | "team" | "template" | "none";
+  whatsappOnly?: boolean;
 }> = [
   { type: "set_status", label: "Cambiar estado del contacto", input: "status" },
   { type: "set_opt_in_whatsapp", label: "Opt-in WhatsApp", input: "boolean" },
@@ -42,6 +57,7 @@ const ACTION_TYPES: Array<{
   { type: "remove_tag", label: "Quitar etiqueta", input: "text" },
   { type: "set_conversation_status", label: "Estado de la conversación", input: "conversationStatus" },
   { type: "reply", label: "Responder mensaje", input: "message" },
+  { type: "reply_template", label: "Responder con plantilla", input: "template", whatsappOnly: true },
   { type: "assign_agent", label: "Asignar a agente", input: "agent" },
   { type: "assign_team", label: "Asignar a equipo", input: "team" },
 ];
@@ -66,15 +82,20 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [channel, setChannel] = useState<string>("");
+  const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [keywordInputs, setKeywordInputs] = useState<Record<string, string>>({});
 
+  const isWhatsApp = channel === "whatsapp";
+
   useEffect(() => {
     setLoading(true);
     api.get(`/chats/inboxes/${inboxId}`)
       .then(({ data }) => {
+        setChannel(data.channel || "");
         const existing = Array.isArray(data.metadata?.automations) ? data.metadata.automations : [];
         setRules(existing.map((r: any) => ({
           id: r.id || uid(),
@@ -90,6 +111,14 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
     api.get(`/tenants/${tenantId}/members`).then(({ data }) => setMembers(data || [])).catch(() => {});
     api.get(`/teams`, { params: { tenantId } }).then(({ data }) => setTeams(data || [])).catch(() => {});
   }, [inboxId, tenantId]);
+
+  // Cargar plantillas de WhatsApp solo cuando el canal es WhatsApp.
+  useEffect(() => {
+    if (channel !== "whatsapp") return;
+    api.get<WhatsAppTemplate[]>(`/chats/whatsapp/templates`, { params: { inboxId } })
+      .then(({ data }) => setTemplates(Array.isArray(data) ? data.filter((t) => t.status === "APPROVED") : []))
+      .catch(() => {});
+  }, [channel, inboxId]);
 
   const markDirty = () => setSaved(false);
 
@@ -146,12 +175,15 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
 
   // Al cambiar el tipo de acción, inicializa un valor por defecto sensato.
   const changeActionType = (ruleId: string, idx: number, type: string) => {
-    let patch: Partial<AutomationAction> = { type, value: undefined, message: undefined };
+    let patch: Partial<AutomationAction> = { type, value: undefined, message: undefined, templateName: undefined, templateLanguage: undefined, templateCategory: undefined, templateComponents: undefined };
     if (type === "set_status") patch.value = "cliente";
     else if (type === "set_opt_in_whatsapp" || type === "set_opt_in_email") patch.value = false;
     else if (type === "set_conversation_status") patch.value = "resolved";
     else if (type === "add_tag" || type === "remove_tag") patch.value = "";
     else if (type === "reply") patch.message = "";
+    else if (type === "reply_template") {
+      patch = { type, value: undefined, message: undefined, templateName: "", templateLanguage: "", templateCategory: "", templateComponents: undefined };
+    }
     updateAction(ruleId, idx, patch);
   };
 
@@ -205,6 +237,34 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
         return (
           <input type="text" value={action.message || ""} onChange={(e) => updateAction(ruleId, idx, { message: e.target.value })} placeholder="Texto de respuesta" className={`${inputCls} flex-1`} />
         );
+      case "template": {
+        // Clave única por nombre+idioma (una plantilla puede tener varios idiomas)
+        const currentValue = action.templateName ? `${action.templateName}::${action.templateLanguage || ""}` : "";
+        return (
+          <DropdownSelect
+            className="min-w-[220px] flex-1 [&>button]:py-1.5 [&>button]:text-xs"
+            value={currentValue}
+            onChange={(v) => {
+              const [name, lang] = v.split("::");
+              const tpl = templates.find((t) => t.name === name && t.language === lang);
+              updateAction(ruleId, idx, {
+                templateName: name,
+                templateLanguage: lang,
+                templateCategory: tpl?.category || "",
+                templateComponents: tpl?.components,
+              });
+            }}
+            options={
+              templates.length === 0
+                ? [{ value: "", label: "No hay plantillas aprobadas" }]
+                : [
+                    { value: "", label: "Selecciona plantilla" },
+                    ...templates.map((t) => ({ value: `${t.name}::${t.language}`, label: `${t.name} (${t.language})` })),
+                  ]
+            }
+          />
+        );
+      }
       case "agent":
         return (
           <DropdownSelect
@@ -318,7 +378,7 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
                       className="min-w-[200px] [&>button]:py-1.5 [&>button]:text-xs"
                       value={action.type}
                       onChange={(v) => changeActionType(rule.id, idx, v)}
-                      options={ACTION_TYPES.map((a) => ({ value: a.type, label: a.label }))}
+                      options={ACTION_TYPES.filter((a) => !a.whatsappOnly || isWhatsApp).map((a) => ({ value: a.type, label: a.label }))}
                     />
                     {renderActionInput(rule.id, idx, action)}
                     <button onClick={() => removeAction(rule.id, idx)} className="p-1 rounded-md text-red-500 hover:bg-red-50 shrink-0" aria-label="Eliminar acción">
