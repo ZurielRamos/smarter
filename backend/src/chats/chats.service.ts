@@ -1373,7 +1373,11 @@ export class ChatsService {
         }
         const templateName = String(action.templateName || '').trim();
         if (!templateName) break;
-        const languageCode = String(action.templateLanguage || 'es').trim() || 'es';
+        const requestedLanguage = String(action.templateLanguage || 'es').trim() || 'es';
+        // Resolver el idioma REAL con el que la plantilla está aprobada en Meta,
+        // para evitar el error #132001 cuando el guardado (p. ej. "es") no coincide
+        // con la traducción aprobada (p. ej. "es_CO").
+        const languageCode = await this.resolveTemplateLanguage(inbox, templateName, requestedLanguage);
         const templateDef = Array.isArray(action.templateComponents) ? action.templateComponents : undefined;
         try {
           // Construir los parámetros (components) que Meta espera a partir de la
@@ -3906,6 +3910,56 @@ export class ChatsService {
     }
   }
 
+  /**
+   * Resuelve el código de idioma REAL con el que una plantilla está aprobada en
+   * Meta. Meta rechaza el envío con #132001 ("Template name does not exist in the
+   * translation") cuando el language.code enviado no coincide EXACTAMENTE con el
+   * de la traducción aprobada (p. ej. se envía "es" pero la plantilla está en
+   * "es_CO"). Este helper consulta las plantillas del WABA y devuelve:
+   *   1. El idioma preferido si existe una traducción con ese código exacto.
+   *   2. Una variante que comparte la base (es -> es_CO, o es_CO -> es).
+   *   3. La única traducción aprobada si solo hay una.
+   *   4. El idioma preferido tal cual (fallback) si no se pudo resolver.
+   */
+  private async resolveTemplateLanguage(
+    inbox: Inbox,
+    templateName: string,
+    preferredLanguage: string,
+  ): Promise<string> {
+    const preferred = (preferredLanguage || '').trim();
+    if (!inbox.wabaId || !inbox.accessToken) return preferred || 'es';
+
+    try {
+      const res = await fetch(
+        `https://graph.facebook.com/v21.0/${inbox.wabaId}/message_templates?fields=name,language,status&name=${encodeURIComponent(templateName)}&limit=50&access_token=${inbox.accessToken}`,
+      );
+      const data = await res.json();
+      const all: any[] = Array.isArray(data.data) ? data.data : [];
+      // Solo las traducciones de ESTA plantilla (por nombre exacto).
+      const translations = all.filter((t) => t?.name === templateName);
+      if (translations.length === 0) return preferred || 'es';
+
+      const langs: string[] = translations.map((t) => String(t.language));
+
+      // 1) Coincidencia exacta.
+      if (preferred && langs.includes(preferred)) return preferred;
+
+      // 2) Misma base de idioma (es <-> es_CO, es_MX, etc.).
+      const base = (preferred || 'es').split(/[_-]/)[0].toLowerCase();
+      const sameBase = langs.find((l) => l.split(/[_-]/)[0].toLowerCase() === base);
+      if (sameBase) return sameBase;
+
+      // 3) Única traducción disponible.
+      if (langs.length === 1) return langs[0];
+
+      // 4) Fallback: lo pedido (Meta decidirá).
+      return preferred || langs[0] || 'es';
+    } catch (err) {
+      console.warn('[Templates] resolveTemplateLanguage failed:', (err as any)?.message || err);
+      return preferred || 'es';
+    }
+  }
+
   async createWhatsAppTemplate(inboxId: string, templateData: { name: string; category: string; language: string; components: any[] }): Promise<any> {
     const inbox = await this.findInboxById(inboxId);
     if (!inbox.wabaId || !inbox.accessToken) throw new Error('Inbox not configured for WhatsApp');
@@ -4090,6 +4144,10 @@ export class ChatsService {
 
     const inbox = conversation.inbox;
     if (!inbox.accessToken || inbox.channel !== 'whatsapp') throw new Error('Inbox not configured for templates');
+
+    // Resolver el idioma REAL de la plantilla en Meta para evitar #132001 cuando
+    // el idioma solicitado no coincide con la traducción aprobada (es vs es_CO).
+    languageCode = await this.resolveTemplateLanguage(inbox, templateName, languageCode);
 
     // Respetar consentimiento (opt-in) del contacto: si tiene el opt-in de
     // WhatsApp desactivado, no se le pueden enviar plantillas. Solo se permiten
