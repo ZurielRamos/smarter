@@ -402,11 +402,13 @@ export class CampaignsService {
         throw new BadRequestException('La campaña no tiene una plantilla de WhatsApp configurada');
       }
     } else if (campaign.channel === 'sms') {
-      if (!campaign.messageTemplate) {
+      // El mensaje puede venir de una plantilla (emailTemplateId, resuelta por
+      // resolveTextContent) o del texto inline (messageTemplate).
+      if (!campaign.emailTemplateId && !campaign.messageTemplate) {
         throw new BadRequestException('La campaña no tiene un mensaje configurado');
       }
     } else if (campaign.channel === 'llamada') {
-      if (!campaign.messageTemplate && !campaign.callAudioCode) {
+      if (!campaign.emailTemplateId && !campaign.messageTemplate && !campaign.callAudioCode) {
         throw new BadRequestException('La campaña de llamada necesita un mensaje o audio configurado');
       }
     } else if (campaign.channel === 'email') {
