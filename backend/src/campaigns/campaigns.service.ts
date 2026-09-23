@@ -394,6 +394,41 @@ export class CampaignsService {
     });
   }
 
+  /**
+   * Devuelve los envíos fallidos de una ejecución (sendId) con el motivo del
+   * fallo y el nombre del contacto, para poder identificar por qué falló cada uno.
+   */
+  async getSendFailures(
+    sendId: string,
+  ): Promise<Array<{ recordId: string; phone: string; contactName: string; errorCode: string | null; createdAt: Date }>> {
+    const logs = await this.sendLogRepository.find({
+      where: { sendId, status: 'failed' },
+      order: { createdAt: 'ASC' },
+      take: 500,
+    });
+    if (logs.length === 0) return [];
+
+    // Resolver nombres de contacto en un solo query.
+    const recordIds = Array.from(new Set(logs.map((l) => l.recordId).filter(Boolean)));
+    const records = recordIds.length
+      ? await this.clientRepository.find({ where: { id: In(recordIds) } })
+      : [];
+    const nameById = new Map(
+      records.map((r) => [
+        r.id,
+        r.fullName || [r.firstName, r.lastName].filter(Boolean).join(' ') || r.phone || '',
+      ]),
+    );
+
+    return logs.map((l) => ({
+      recordId: l.recordId,
+      phone: l.phone,
+      contactName: nameById.get(l.recordId) || l.phone || '',
+      errorCode: l.errorCode,
+      createdAt: l.createdAt,
+    }));
+  }
+
   async sendCampaign(campaignId: string): Promise<CampaignSend> {
     const campaign = await this.findOne(campaignId);
 

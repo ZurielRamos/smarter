@@ -142,6 +142,12 @@ export class CampaignsController {
     return this.campaignsService.getSends(id);
   }
 
+  // Detalle de fallos de una ejecución: teléfono, contacto y motivo del fallo.
+  @Get('sends/:sendId/failures')
+  getSendFailures(@Param('sendId') sendId: string) {
+    return this.campaignsService.getSendFailures(sendId);
+  }
+
   @Post(':id/send')
   sendCampaign(@Param('id') id: string) {
     return this.campaignsService.sendCampaign(id);

@@ -60,6 +60,14 @@ interface CampaignSendRecord {
   createdAt: string;
 }
 
+interface SendFailure {
+  recordId: string;
+  phone: string;
+  contactName: string;
+  errorCode: string | null;
+  createdAt: string;
+}
+
 const statusColors: Record<string, { bg: string; text: string }> = {
   draft: { bg: "bg-muted", text: "text-muted-foreground" },
   active: { bg: "bg-green-100 dark:bg-green-500/15", text: "text-green-700 dark:text-green-300" },
@@ -106,6 +114,10 @@ export function CampanaDetail() {
   const [savingCall, setSavingCall] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
   const [sends, setSends] = useState<CampaignSendRecord[]>([]);
+  // Fallos por ejecución (sendId -> lista de fallos) y cuál está expandida.
+  const [expandedFailures, setExpandedFailures] = useState<string | null>(null);
+  const [failuresBySend, setFailuresBySend] = useState<Record<string, SendFailure[]>>({});
+  const [loadingFailures, setLoadingFailures] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const [recordLists, setRecordLists] = useState<RecordListItem[]>([]);
@@ -254,6 +266,26 @@ export function CampanaDetail() {
       const msg = err.response?.data?.message || "Error al enviar la campaña";
       setSendError(msg);
       setSending(false);
+    }
+  };
+
+  // Expande/colapsa el detalle de fallos de una ejecución y los carga on-demand.
+  const toggleFailures = async (sendId: string) => {
+    if (expandedFailures === sendId) {
+      setExpandedFailures(null);
+      return;
+    }
+    setExpandedFailures(sendId);
+    if (!failuresBySend[sendId]) {
+      setLoadingFailures(sendId);
+      try {
+        const { data } = await api.get<SendFailure[]>(`/campaigns/sends/${sendId}/failures`);
+        setFailuresBySend((prev) => ({ ...prev, [sendId]: data }));
+      } catch {
+        setFailuresBySend((prev) => ({ ...prev, [sendId]: [] }));
+      } finally {
+        setLoadingFailures(null);
+      }
     }
   };
 
@@ -1046,6 +1078,41 @@ export function CampanaDetail() {
                         {/* Error message */}
                         {s.status === "failed" && s.errorMessage && (
                           <p className="text-[11px] text-red-500 mt-2">{s.errorMessage}</p>
+                        )}
+
+                        {/* Detalle de fallos por destinatario */}
+                        {s.totalFailed > 0 && (
+                          <div className="mt-2">
+                            <button
+                              onClick={() => toggleFailures(s.id)}
+                              className="text-[11px] font-medium text-red-600 hover:text-red-700 hover:underline"
+                            >
+                              {expandedFailures === s.id ? "Ocultar motivo de fallos" : `Ver motivo de fallos (${s.totalFailed})`}
+                            </button>
+                            {expandedFailures === s.id && (
+                              <div className="mt-2 rounded-md border border-red-100 bg-red-50/40 divide-y divide-red-100">
+                                {loadingFailures === s.id ? (
+                                  <p className="text-[11px] text-muted-foreground px-3 py-2">Cargando...</p>
+                                ) : (failuresBySend[s.id]?.length ?? 0) === 0 ? (
+                                  <p className="text-[11px] text-muted-foreground px-3 py-2">Sin detalle disponible.</p>
+                                ) : (
+                                  failuresBySend[s.id].map((f, i) => (
+                                    <div key={i} className="flex items-start justify-between gap-3 px-3 py-1.5">
+                                      <div className="min-w-0">
+                                        <p className="text-[11px] font-medium text-foreground truncate">{f.contactName || f.phone}</p>
+                                        {f.contactName && f.phone && (
+                                          <p className="text-[10px] text-muted-foreground truncate">{f.phone}</p>
+                                        )}
+                                      </div>
+                                      <span className="text-[11px] text-red-600 text-right shrink-0 max-w-[55%] break-words">
+                                        {f.errorCode || "Error desconocido"}
+                                      </span>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     );
