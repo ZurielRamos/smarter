@@ -18,46 +18,73 @@ export class SmsService {
     this.token = this.configService.get<string>('LABSMOBILE_TOKEN', '');
   }
 
+  /** Cabecera de autenticación Basic (username:tokenApi) para la API JSON. */
+  private authHeader(): string {
+    const credentials = Buffer.from(`${this.username}:${this.token}`).toString('base64');
+    return `Basic ${credentials}`;
+  }
+
   /**
-   * Send a single SMS via LabsMobile API.
+   * Send a single SMS via LabsMobile HTTP/POST JSON API.
    * Phone must be in international format (e.g. 573001234567).
+   *
+   * Endpoint: POST https://api.labsmobile.com/json/send
+   * Auth: Basic (username:tokenApi). Respuesta JSON: { code, message, subid }.
+   * code === 0 (o "0") indica éxito.
    */
   async sendSms(phone: string, message: string, sender?: string): Promise<SmsSendResult> {
     const cleanPhone = phone.replace(/[^0-9]/g, '');
     if (!cleanPhone) return { success: false, error: 'invalid_phone' };
 
-    const params = new URLSearchParams({
-      username: this.username,
-      password: this.token,
-      msisdn: cleanPhone,
+    const body: Record<string, any> = {
       message,
-    });
-    if (sender) params.append('sender', sender);
+      recipient: [{ msisdn: cleanPhone }],
+    };
+    // Remitente alfanumérico (opcional). En la API JSON el campo es "tpoa".
+    if (sender) body.tpoa = sender;
 
     try {
-      const res = await fetch(
-        `https://api.labsmobile.com/get/send.php?${params.toString()}`,
-      );
+      const res = await fetch('https://api.labsmobile.com/json/send', {
+        method: 'POST',
+        headers: {
+          Authorization: this.authHeader(),
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
 
       const text = await res.text();
 
-      if (!res.ok) {
-        this.logger.warn(`[SMS] HTTP ${res.status} for ${cleanPhone}`);
-        return { success: false, error: `http_${res.status}` };
+      // Log de la respuesta CRUDA de LabsMobile (siempre), para diagnóstico.
+      this.logger.log(
+        `[SMS] Respuesta LabsMobile para ${cleanPhone} — HTTP ${res.status}: ${text.substring(0, 500)}`,
+      );
+
+      let data: any = null;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        // Respuesta no-JSON: registrar el cuerpo para diagnóstico.
+        this.logger.warn(`[SMS] Respuesta no-JSON de LabsMobile (HTTP ${res.status}): ${text.substring(0, 200)}`);
+        return { success: false, error: `respuesta_invalida_http_${res.status}` };
       }
 
-      // Parse XML response: <response><code>0</code><message>...</message><subid>...</subid></response>
-      const codeMatch = text.match(/<code>(\d+)<\/code>/);
-      const subIdMatch = text.match(/<subid>([^<]+)<\/subid>/);
-      const msgMatch = text.match(/<message>([^<]+)<\/message>/);
+      // Log estructurado de la respuesta parseada.
+      this.logger.log(`[SMS] Respuesta LabsMobile parseada para ${cleanPhone}: ${JSON.stringify(data)}`);
 
-      const code = codeMatch ? parseInt(codeMatch[1]) : -1;
+      // El code puede venir como número (0) o string ("0").
+      const code = data?.code !== undefined ? String(data.code) : null;
+      const apiMessage = data?.message || data?.description || '';
 
-      if (code === 0) {
-        return { success: true, subId: subIdMatch?.[1] || undefined };
+      if (code === '0') {
+        return { success: true, subId: data?.subid ? String(data.subid) : undefined };
       }
 
-      return { success: false, error: msgMatch?.[1] || `code_${code}` };
+      // Fallo: devolver el mensaje real de LabsMobile (o el code si no hay mensaje).
+      const reason = apiMessage || (code ? `code_${code}` : `http_${res.status}`);
+      this.logger.warn(`[SMS] Fallo al enviar a ${cleanPhone}: code=${code ?? 'null'} msg="${apiMessage}"`);
+      return { success: false, error: reason };
     } catch (err) {
       this.logger.error(`[SMS] Error sending to ${cleanPhone}:`, err);
       return { success: false, error: String(err) };
@@ -65,18 +92,22 @@ export class SmsService {
   }
 
   /**
-   * Check account balance (credits available).
+   * Check account balance (credits available) via the JSON API.
+   * Endpoint: GET https://api.labsmobile.com/json/balance
    */
   async getBalance(): Promise<number | null> {
     try {
-      const params = new URLSearchParams({
-        username: this.username,
-        password: this.token,
+      const res = await fetch('https://api.labsmobile.com/json/balance', {
+        headers: {
+          Authorization: this.authHeader(),
+          Accept: 'application/json',
+        },
       });
-      const res = await fetch(`https://api.labsmobile.com/get/balance.php?${params.toString()}`);
-      const text = await res.text();
-      const match = text.match(/<messages>([\d.]+)<\/messages>/);
-      return match ? parseFloat(match[1]) : null;
+      const data = await res.json();
+      // La respuesta trae el saldo en "credits" (o "balance" según versión).
+      const raw = data?.credits ?? data?.balance ?? data?.messages;
+      const value = typeof raw === 'string' ? parseFloat(raw) : raw;
+      return typeof value === 'number' && !Number.isNaN(value) ? value : null;
     } catch {
       return null;
     }
