@@ -499,6 +499,15 @@ export async function createRecordList(payload: {
   return data;
 }
 
+export async function matchRecords(payload: {
+  tenantId: string;
+  field: 'documentNumber' | 'phone' | 'email' | 'whatsappId';
+  values: string[];
+}): Promise<{ matchedIds: string[]; matchedCount: number; unmatched: string[]; totalProvided: number }> {
+  const { data } = await api.post('/record-lists/match', payload);
+  return data;
+}
+
 export async function getRecordListRecords(listId: string, page = 1, limit = 50): Promise<ClientsResponse> {
   const { data } = await api.get<ClientsResponse>(`/record-lists/${listId}/records`, { params: { page, limit } });
   return data;

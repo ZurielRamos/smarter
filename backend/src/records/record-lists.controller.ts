@@ -27,6 +27,15 @@ export class RecordListsController {
     return this.listsService.getRecords(id, +page, +limit);
   }
 
+  @Post('match')
+  match(@Body() body: {
+    tenantId: string;
+    field: 'documentNumber' | 'phone' | 'email' | 'whatsappId';
+    values: string[];
+  }) {
+    return this.listsService.matchRecords(body.tenantId, body.field, body.values);
+  }
+
   @Post('preview')
   preview(@Body() body: {
     tenantId: string;

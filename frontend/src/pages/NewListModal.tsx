@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Plus, Trash2, ChevronDown, Users, Layers } from "lucide-react";
+import { X, Plus, Trash2, ChevronDown, Users, Layers, ClipboardList, CheckCircle2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
-import { createRecordList, getCustomFields } from "@/services/api";
+import { createRecordList, getCustomFields, matchRecords, addRecordsToList } from "@/services/api";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import axios from "axios";
 
@@ -121,7 +121,13 @@ const SYSTEM_FIELDS: FieldOption[] = [
 export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) {
   const isEdit = !!editData;
   const [name, setName] = useState(editData?.name || "");
-  const [type, setType] = useState<"static" | "dynamic">(editData?.type || "dynamic");
+  const [type, setType] = useState<"static" | "dynamic" | "match">(editData?.type || "dynamic");
+
+  // === Match-by-values state ===
+  const [matchField, setMatchField] = useState<"documentNumber" | "phone" | "email" | "whatsappId">("documentNumber");
+  const [matchText, setMatchText] = useState("");
+  const [matchResult, setMatchResult] = useState<{ matchedIds: string[]; matchedCount: number; unmatched: string[]; totalProvided: number } | null>(null);
+  const [matching, setMatching] = useState(false);
   const [groupLogic, setGroupLogic] = useState<"and" | "or">(
     editData?.filters?.groupLogic || editData?.filters?.logic || "and"
   );
@@ -215,8 +221,71 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
   const getFieldDef = (fieldValue: string) => allFields.find((f) => f.value === fieldValue);
   const needsValue = (op: string) => !["is_empty", "is_not_empty"].includes(op);
 
+  // === Match helpers ===
+  // Split pasted text by newlines, commas, semicolons, tabs or spaces.
+  const parseMatchValues = (text: string): string[] => {
+    return text
+      .split(/[\n,;\t]+/)
+      .map((v) => v.trim())
+      .filter((v) => v.length > 0);
+  };
+
+  const matchValues = parseMatchValues(matchText);
+
+  const MATCH_FIELD_OPTIONS = [
+    { value: "documentNumber", label: "Nº documento" },
+    { value: "phone", label: "Teléfono" },
+    { value: "email", label: "Email" },
+    { value: "whatsappId", label: "WhatsApp ID" },
+  ];
+
+  const handleVerifyMatch = async () => {
+    if (matchValues.length === 0) { setError("Pega al menos un valor para buscar."); return; }
+    setMatching(true);
+    setError("");
+    setMatchResult(null);
+    try {
+      const result = await matchRecords({ tenantId, field: matchField, values: matchValues });
+      setMatchResult(result);
+    } catch {
+      setError("Error al verificar coincidencias.");
+    } finally {
+      setMatching(false);
+    }
+  };
+
+  // Re-verify when field changes if there's already text and a prior result.
+  useEffect(() => {
+    setMatchResult(null);
+  }, [matchField, matchText]);
+
   const handleSubmit = async () => {
     if (!name.trim()) { setError("Ingresa un nombre para la lista."); return; }
+
+    // Match type: resolve values -> IDs -> create static list with matched records.
+    if (type === "match" && !isEdit) {
+      if (matchValues.length === 0) { setError("Pega al menos un valor para buscar."); return; }
+      setSaving(true);
+      setError("");
+      try {
+        const result = matchResult ?? await matchRecords({ tenantId, field: matchField, values: matchValues });
+        if (result.matchedCount === 0) {
+          setError("No se encontró ningún contacto con esos valores.");
+          setMatchResult(result);
+          setSaving(false);
+          return;
+        }
+        const list = await createRecordList({ tenantId, name: name.trim(), type: "static" });
+        await addRecordsToList(list.id, result.matchedIds);
+        onCreated();
+      } catch {
+        setError("Error al crear la lista por coincidencia.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     setSaving(true);
     setError("");
     try {
@@ -281,7 +350,7 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
           {/* Type */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">Tipo de lista</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className={`grid gap-2 ${isEdit ? "grid-cols-2" : "grid-cols-3"}`}>
               <button type="button" onClick={() => setType("static")} className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-all ${type === "static" ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100" : "border-border text-muted-foreground hover:border-muted-foreground/40"}`}>
                 <span className="block text-sm font-medium">Estática</span>
                 <span className="block text-[10px] text-muted-foreground mt-0.5">Contactos fijos</span>
@@ -290,6 +359,12 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
                 <span className="block text-sm font-medium">Dinámica</span>
                 <span className="block text-[10px] text-muted-foreground mt-0.5">Basada en filtros</span>
               </button>
+              {!isEdit && (
+                <button type="button" onClick={() => setType("match")} className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-all ${type === "match" ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100" : "border-border text-muted-foreground hover:border-muted-foreground/40"}`}>
+                  <span className="block text-sm font-medium">Por coincidencia</span>
+                  <span className="block text-[10px] text-muted-foreground mt-0.5">Pegar documentos/teléfonos</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -435,6 +510,88 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
             </div>
           )}
 
+          {/* Match by pasted values */}
+          {type === "match" && (
+            <div className="space-y-4 pt-3 border-t border-border">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="h-4 w-4 text-brand-500" />
+                <span className="text-xs font-semibold text-foreground">Coincidencia de valores</span>
+              </div>
+
+              {/* Field selector */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Buscar por</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {MATCH_FIELD_OPTIONS.map((f) => (
+                    <button
+                      key={f.value}
+                      type="button"
+                      onClick={() => setMatchField(f.value as typeof matchField)}
+                      className={`px-2 py-2 rounded-lg text-xs font-medium border transition-all ${matchField === f.value ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-700 dark:text-brand-100" : "border-border text-muted-foreground hover:border-muted-foreground/40"}`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Paste area */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-medium text-muted-foreground">Pega los valores</label>
+                  {matchValues.length > 0 && (
+                    <span className="text-[10px] text-muted-foreground">{matchValues.length.toLocaleString()} valores</span>
+                  )}
+                </div>
+                <textarea
+                  value={matchText}
+                  onChange={(e) => setMatchText(e.target.value)}
+                  rows={7}
+                  placeholder={"Pega aquí una lista larga, uno por línea o separados por comas.\nEj:\n1032456789\n1098765432\n80123456"}
+                  className="w-full px-3 py-2.5 border border-border bg-background text-foreground placeholder:text-muted-foreground rounded-lg text-sm font-mono focus:ring-2 focus:ring-inset focus:ring-brand-500 focus:border-brand-500 outline-none transition-all resize-y"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">Separa por saltos de línea, comas, punto y coma o tabulaciones.</p>
+              </div>
+
+              {/* Verify button */}
+              <button
+                type="button"
+                onClick={handleVerifyMatch}
+                disabled={matching || matchValues.length === 0}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-brand-300 text-brand-700 dark:text-brand-100 hover:bg-brand-50 dark:hover:bg-brand-700/30 disabled:opacity-50 transition-colors"
+              >
+                {matching ? "Verificando..." : "Verificar coincidencias"}
+              </button>
+
+              {/* Result */}
+              {matchResult && (
+                <div className="rounded-xl border border-border bg-muted/50 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span className="text-sm font-semibold text-foreground">
+                      {matchResult.matchedCount.toLocaleString()} contacto{matchResult.matchedCount === 1 ? "" : "s"} encontrado{matchResult.matchedCount === 1 ? "" : "s"}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">de {matchResult.totalProvided.toLocaleString()} valores</span>
+                  </div>
+                  {matchResult.unmatched.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+                          {matchResult.unmatched.length.toLocaleString()} sin coincidencia
+                        </span>
+                        <p className="text-[10px] text-muted-foreground break-words line-clamp-3 mt-0.5">
+                          {matchResult.unmatched.slice(0, 50).join(", ")}
+                          {matchResult.unmatched.length > 50 ? "…" : ""}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Error */}
           {error && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
 
@@ -455,10 +612,16 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={saving || !name.trim()}
+                disabled={saving || !name.trim() || (type === "match" && matchValues.length === 0)}
                 className="px-4 py-2 text-sm font-medium rounded-lg bg-brand-800 hover:bg-brand-700 text-white disabled:opacity-50 transition-colors"
               >
-                {saving ? "Guardando..." : isEdit ? "Guardar cambios" : "Crear lista"}
+                {saving
+                  ? (type === "match" ? "Creando lista..." : "Guardando...")
+                  : isEdit
+                    ? "Guardar cambios"
+                    : type === "match"
+                      ? "Crear lista con coincidencias"
+                      : "Crear lista"}
               </button>
             </div>
           </div>

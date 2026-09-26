@@ -238,6 +238,102 @@ export class RecordListsService {
     }
   }
 
+  // === Match: resolve pasted values (documents, phones, etc.) to client IDs ===
+
+  // Columns allowed for matching, mapped from the frontend field key to the DB column.
+  private static readonly MATCH_COLUMNS: Record<string, string> = {
+    documentNumber: 'r.document_number',
+    phone: 'r.phone',
+    email: 'r.email',
+    whatsappId: 'r.whatsapp_id',
+  };
+
+  /**
+   * Normalizes a single pasted value for matching.
+   * - phone: keeps only digits (strips spaces, dashes, parentheses, leading +).
+   * - email: trims + lowercases.
+   * - others (documentNumber, whatsappId): trims.
+   */
+  private normalizeMatchValue(field: string, raw: string): string {
+    const v = (raw || '').trim();
+    if (!v) return '';
+    if (field === 'phone') return v.replace(/\D/g, '');
+    if (field === 'email') return v.toLowerCase();
+    return v;
+  }
+
+  async matchRecords(
+    tenantId: string,
+    field: string,
+    values: string[],
+  ): Promise<{ matchedIds: string[]; matchedCount: number; unmatched: string[]; totalProvided: number }> {
+    const col = RecordListsService.MATCH_COLUMNS[field];
+    if (!col) {
+      throw new NotFoundException(`Field "${field}" is not supported for matching`);
+    }
+
+    // Normalize + dedupe the provided values, keeping a map back to the original input.
+    const normalizedToOriginal = new Map<string, string>();
+    for (const raw of values || []) {
+      const norm = this.normalizeMatchValue(field, raw);
+      if (norm && !normalizedToOriginal.has(norm)) {
+        normalizedToOriginal.set(norm, (raw || '').trim());
+      }
+    }
+
+    const totalProvided = normalizedToOriginal.size;
+    if (totalProvided === 0) {
+      return { matchedIds: [], matchedCount: 0, unmatched: [], totalProvided: 0 };
+    }
+
+    const normalizedValues = [...normalizedToOriginal.keys()];
+
+    // For phone matching we compare against a digits-only version of the stored column
+    // so formatting differences (spaces, +, dashes) don't prevent a match.
+    const comparison =
+      field === 'phone'
+        ? `regexp_replace(${col}, '\\D', '', 'g')`
+        : field === 'email'
+          ? `LOWER(${col})`
+          : col;
+
+    // Chunk to stay well under Postgres parameter limits even for very large pastes.
+    const CHUNK = 1000;
+    const matchedIds: string[] = [];
+    const foundNormalized = new Set<string>();
+
+    for (let i = 0; i < normalizedValues.length; i += CHUNK) {
+      const chunk = normalizedValues.slice(i, i + CHUNK);
+      const rows = await this.recordRepo
+        .createQueryBuilder('r')
+        .select(['r.id AS id', `${comparison} AS matchval`])
+        .where('r.tenant_id = :tenantId', { tenantId })
+        .andWhere('r.deleted_at IS NULL')
+        .andWhere(`${comparison} IN (:...vals)`, { vals: chunk })
+        .getRawMany<{ id: string; matchval: string }>();
+
+      for (const row of rows) {
+        matchedIds.push(row.id);
+        if (row.matchval != null) foundNormalized.add(String(row.matchval));
+      }
+    }
+
+    // Dedupe IDs (a normalized value could match multiple clients; keep all unique clients).
+    const uniqueIds = [...new Set(matchedIds)];
+
+    const unmatched: string[] = [];
+    for (const [norm, original] of normalizedToOriginal.entries()) {
+      if (!foundNormalized.has(norm)) unmatched.push(original);
+    }
+
+    return {
+      matchedIds: uniqueIds,
+      matchedCount: uniqueIds.length,
+      unmatched,
+      totalProvided,
+    };
+  }
+
   // === Preview: count records matching filters ===
   async previewCount(tenantId: string, filters: { groups: { logic: 'and' | 'or'; conditions: { field: string; operator: string; value: string }[] }[]; groupLogic: 'and' | 'or' }): Promise<{ count: number }> {
     const qb = this.recordRepo.createQueryBuilder('r')
