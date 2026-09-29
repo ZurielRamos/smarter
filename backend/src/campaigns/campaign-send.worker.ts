@@ -132,13 +132,20 @@ export class CampaignSendWorker extends WorkerHost {
       return;
     }
 
-    // Mark as sending
-    await this.sendRepo.update(sendId, { status: 'sending', startedAt: new Date() });
+    // ¿Es una reanudación? Si el envío ya tiene progreso previo (resumeOffset o
+    // contadores), continuamos desde ahí en vez de empezar de cero.
+    const isResume = (send.resumeOffset || 0) > 0 || (send.totalSent || 0) > 0 || (send.totalFailed || 0) > 0;
+
+    // Mark as sending. En reanudación NO reseteamos contadores ni startedAt.
+    await this.sendRepo.update(sendId, {
+      status: 'sending',
+      ...(isResume ? {} : { startedAt: new Date() }),
+    });
     this.gateway.emitSendProgress(sendId, campaign.tenantId, {
       status: 'sending',
       totalRecipients: recipientIds.length,
-      totalSent: 0,
-      totalFailed: 0,
+      totalSent: send.totalSent || 0,
+      totalFailed: send.totalFailed || 0,
     });
 
     // Dispatch webhook: campaign started
@@ -168,24 +175,43 @@ export class CampaignSendWorker extends WorkerHost {
       }
     }
 
-    let totalSent = 0;
-    let totalFailed = 0;
+    // Contadores y punto de inicio. En reanudación arrancan desde lo ya procesado.
+    let totalSent = send.totalSent || 0;
+    let totalFailed = send.totalFailed || 0;
+    const startOffset = send.resumeOffset || 0;
     const batchSize = 50;
     const totalRecipients = recipientIds.length;
 
     try {
-      for (let offset = 0; offset < totalRecipients; offset += batchSize) {
+      for (let offset = startOffset; offset < totalRecipients; offset += batchSize) {
+        // Pausa cooperativa: antes de procesar cada lote, releemos el estado. Si
+        // fue pausado, guardamos el cursor y salimos SIN liquidar créditos (la
+        // reserva se mantiene hasta que el envío realmente termine al reanudar).
+        const fresh = await this.sendRepo.findOne({ where: { id: sendId }, select: { status: true } });
+        if (fresh?.status === 'paused') {
+          await this.sendRepo.update(sendId, { totalSent, totalFailed, resumeOffset: offset });
+          this.gateway.emitSendProgress(sendId, campaign.tenantId, {
+            status: 'paused',
+            totalRecipients,
+            totalSent,
+            totalFailed,
+          });
+          this.logger.log(`[Worker] Send ${sendId} pausado en offset ${offset}`);
+          return; // salir sin marcar completed ni liquidar reserva
+        }
+
         const batchIds = recipientIds.slice(offset, offset + batchSize);
 
         // Load client records for this batch
         const clients = await this.clientRepo.find({ where: { id: In(batchIds) } });
-        const logs: Partial<CampaignSendLog>[] = [];
 
-        for (const client of clients) {
+        // Procesa un cliente y DEVUELVE sus logs (no muta estado compartido),
+        // para poder ejecutar varios envíos en paralelo de forma segura.
+        const processClient = async (client: ClientRecord): Promise<Partial<CampaignSendLog>[]> => {
+          const logs: Partial<CampaignSendLog>[] = [];
           if (campaign.channel === 'email' || campaign.channel === 'email_transaccional') {
             // Email channel: validate email instead of phone
             if (!client.email) {
-              totalFailed++;
               logs.push({
                 sendId,
                 campaignId,
@@ -196,12 +222,11 @@ export class CampaignSendWorker extends WorkerHost {
                 status: 'failed',
                 errorCode: 'no_email',
               });
-              continue;
+              return logs;
             }
           } else if (!client.phone && !(campaign.channel === 'whatsapp' && client.whatsappId)) {
             // Para WhatsApp se acepta el BSUID (whatsappId) cuando no hay teléfono.
             // Para SMS/llamada el teléfono es obligatorio.
-            totalFailed++;
             logs.push({
               sendId,
               campaignId,
@@ -212,7 +237,7 @@ export class CampaignSendWorker extends WorkerHost {
               status: 'failed',
               errorCode: 'no_phone',
             });
-            continue;
+            return logs;
           }
 
           if (campaign.channel === 'sms') {
@@ -222,7 +247,6 @@ export class CampaignSendWorker extends WorkerHost {
             const result = await this.smsService.sendSms(client.phone, smsMessage);
 
             if (result.success) {
-              totalSent++;
               logs.push({
                 sendId,
                 campaignId,
@@ -235,7 +259,6 @@ export class CampaignSendWorker extends WorkerHost {
                 sentAt: new Date(),
               });
             } else {
-              totalFailed++;
               logs.push({
                 sendId,
                 campaignId,
@@ -266,7 +289,6 @@ export class CampaignSendWorker extends WorkerHost {
             });
 
             if (result.success) {
-              totalSent++;
               logs.push({
                 sendId,
                 campaignId,
@@ -279,7 +301,6 @@ export class CampaignSendWorker extends WorkerHost {
                 sentAt: new Date(),
               });
             } else {
-              totalFailed++;
               logs.push({
                 sendId,
                 campaignId,
@@ -295,7 +316,6 @@ export class CampaignSendWorker extends WorkerHost {
             // === Email via SMTP ===
             const emailAddress = client.email;
             if (!emailAddress) {
-              totalFailed++;
               logs.push({
                 sendId,
                 campaignId,
@@ -306,12 +326,11 @@ export class CampaignSendWorker extends WorkerHost {
                 status: 'failed',
                 errorCode: 'no_email',
               });
-              continue;
+              return logs;
             }
 
             const smtpConfig = inbox.metadata?.smtp;
             if (!smtpConfig?.host || !smtpConfig?.user || !smtpConfig?.pass) {
-              totalFailed++;
               logs.push({
                 sendId,
                 campaignId,
@@ -322,7 +341,7 @@ export class CampaignSendWorker extends WorkerHost {
                 status: 'failed',
                 errorCode: 'smtp_not_configured',
               });
-              continue;
+              return logs;
             }
 
             const emailContent = await this.resolveEmailContent(campaign, client);
@@ -338,7 +357,6 @@ export class CampaignSendWorker extends WorkerHost {
             });
 
             if (result.success) {
-              totalSent++;
               logs.push({
                 sendId,
                 campaignId,
@@ -351,7 +369,6 @@ export class CampaignSendWorker extends WorkerHost {
                 sentAt: new Date(),
               });
             } else {
-              totalFailed++;
               logs.push({
                 sendId,
                 campaignId,
@@ -367,7 +384,6 @@ export class CampaignSendWorker extends WorkerHost {
             // === Email Transaccional via Mailgun API ===
             const emailAddress = client.email;
             if (!emailAddress) {
-              totalFailed++;
               logs.push({
                 sendId,
                 campaignId,
@@ -378,13 +394,12 @@ export class CampaignSendWorker extends WorkerHost {
                 status: 'failed',
                 errorCode: 'no_email',
               });
-              continue;
+              return logs;
             }
 
             // Check if unsubscribed
             const isUnsub = await this.emailUnsubscribeService.isUnsubscribed(campaign.tenantId, emailAddress);
             if (isUnsub) {
-              totalFailed++;
               logs.push({
                 sendId,
                 campaignId,
@@ -395,12 +410,11 @@ export class CampaignSendWorker extends WorkerHost {
                 status: 'failed',
                 errorCode: 'unsubscribed',
               });
-              continue;
+              return logs;
             }
 
             const emailConfig = await this.emailDomainService.findByInbox(inbox.id);
             if (!emailConfig) {
-              totalFailed++;
               logs.push({
                 sendId,
                 campaignId,
@@ -411,7 +425,7 @@ export class CampaignSendWorker extends WorkerHost {
                 status: 'failed',
                 errorCode: 'mailgun_not_configured',
               });
-              continue;
+              return logs;
             }
 
             const emailContent = await this.resolveEmailContent(campaign, client);
@@ -432,7 +446,6 @@ export class CampaignSendWorker extends WorkerHost {
                 unsubscribeUrl: this.emailUnsubscribeService.getUnsubscribeUrl(campaign.tenantId, emailAddress),
               });
 
-              totalSent++;
               logs.push({
                 sendId,
                 campaignId,
@@ -445,7 +458,6 @@ export class CampaignSendWorker extends WorkerHost {
                 sentAt: new Date(),
               });
             } catch (err: any) {
-              totalFailed++;
               logs.push({
                 sendId,
                 campaignId,
@@ -481,7 +493,6 @@ export class CampaignSendWorker extends WorkerHost {
             );
 
             if (result.success) {
-              totalSent++;
               logs.push({
                 sendId,
                 campaignId,
@@ -494,7 +505,6 @@ export class CampaignSendWorker extends WorkerHost {
                 sentAt: new Date(),
               });
             } else {
-              totalFailed++;
               logs.push({
                 sendId,
                 campaignId,
@@ -507,7 +517,44 @@ export class CampaignSendWorker extends WorkerHost {
               });
             }
           }
+          return logs;
+        };
+
+        // Procesa el lote con concurrencia controlada. Meta permite 80 msg/s
+        // (tier 1) y más en tiers superiores; enviar de a uno desperdiciaba esa
+        // capacidad y hacía que 10k envíos tardaran horas. Con un pool de envíos
+        // en paralelo aprovechamos el ancho de banda respetando el limiter de
+        // BullMQ (80/s) que actúa como techo de seguridad.
+        const CONCURRENCY = 20;
+        const logs: Partial<CampaignSendLog>[] = [];
+        for (let i = 0; i < clients.length; i += CONCURRENCY) {
+          const slice = clients.slice(i, i + CONCURRENCY);
+          const results = await Promise.all(
+            slice.map((client) =>
+              processClient(client).catch((err) => {
+                this.logger.warn(`[Worker] Error enviando a ${client.id}:`, err);
+                return [{
+                  sendId,
+                  campaignId,
+                  tenantId: campaign.tenantId,
+                  recordId: client.id,
+                  phone: (client.phone || client.whatsappId || '').substring(0, 20),
+                  channel: campaign.channel || 'whatsapp',
+                  status: 'failed',
+                  errorCode: 'send_exception',
+                }] as Partial<CampaignSendLog>[];
+              }),
+            ),
+          );
+          for (const r of results) logs.push(...r);
         }
+
+        // Contadores derivados del resultado del lote (evita condiciones de
+        // carrera al no mutar variables compartidas dentro del paralelismo).
+        const batchSent = logs.filter((l) => l.status === 'sent').length;
+        const batchFailed = logs.length - batchSent;
+        totalSent += batchSent;
+        totalFailed += batchFailed;
 
         // Batch insert logs
         if (logs.length > 0) {
@@ -529,8 +576,12 @@ export class CampaignSendWorker extends WorkerHost {
           await this.logCampaignActivities(successfulSends, campaign, clients);
         }
 
-        // Update progress
-        await this.sendRepo.update(sendId, { totalSent, totalFailed });
+        // Update progress y cursor de reanudación (offset tras este lote).
+        await this.sendRepo.update(sendId, {
+          totalSent,
+          totalFailed,
+          resumeOffset: offset + batchIds.length,
+        });
 
         // Emit real-time progress
         this.gateway.emitSendProgress(sendId, campaign.tenantId, {
