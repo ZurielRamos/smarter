@@ -8,6 +8,13 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // En producción la app corre detrás de un reverse proxy / load balancer.
+  // Sin 'trust proxy', Express (y por ende el ThrottlerGuard, que limita por IP)
+  // ve la IP del proxy para TODOS los clientes, compartiendo el límite de rate
+  // entre todos los usuarios y provocando 429 masivos al enviar campañas.
+  // Confiar en el proxy hace que req.ip sea la IP real del cliente (X-Forwarded-For).
+  app.set('trust proxy', 1);
+
   // Body parsers robustos: algunos webhooks (p. ej. SendPulse) pueden llegar
   // con payloads grandes o con Content-Type poco estándar. Subimos el límite y
   // aceptamos JSON tanto para application/json como para text/plain y

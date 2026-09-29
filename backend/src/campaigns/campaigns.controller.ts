@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -137,6 +138,9 @@ export class CampaignsController {
     return this.campaignsService.preview(body.segments, body.tenantId, body.channel);
   }
 
+  // Endpoint de solo lectura consultado en loop (polling de progreso de envío).
+  // Se exime del rate limiter para que el seguimiento del progreso no genere 429.
+  @SkipThrottle()
   @Get(':id/sends')
   getSends(@Param('id') id: string) {
     return this.campaignsService.getSends(id);
@@ -153,11 +157,25 @@ export class CampaignsController {
     return this.campaignsService.sendCampaign(id);
   }
 
+  // Pausar un envío en curso (pausa cooperativa: el worker se detiene en el
+  // siguiente lote y guarda el cursor).
+  @Post('sends/:sendId/pause')
+  pauseSend(@Param('sendId') sendId: string) {
+    return this.campaignsService.pauseSend(sendId);
+  }
+
+  // Reanudar un envío pausado (continúa desde donde quedó, sin re-reservar).
+  @Post('sends/:sendId/resume')
+  resumeSend(@Param('sendId') sendId: string) {
+    return this.campaignsService.resumeSend(sendId);
+  }
+
   /**
    * GET /campaigns/:id/stats
    * Email campaign metrics: open rate, click rate, bounce rate, unsubscribe rate.
    * Optionally filter by sendId with ?sendId=xxx
    */
+  @SkipThrottle()
   @Get(':id/stats')
   async getStats(@Param('id') id: string, @Query('sendId') sendId?: string) {
     const where: any = { campaignId: id };

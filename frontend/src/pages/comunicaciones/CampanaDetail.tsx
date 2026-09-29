@@ -269,6 +269,27 @@ export function CampanaDetail() {
     }
   };
 
+  // Pausa un envío en curso.
+  const handlePauseSend = async (sendId: string) => {
+    try {
+      const { data } = await api.post<CampaignSendRecord>(`/campaigns/sends/${sendId}/pause`);
+      setSends((prev) => prev.map((s) => (s.id === sendId ? { ...s, ...data } : s)));
+    } catch (err: any) {
+      setSendError(err.response?.data?.message || "No se pudo pausar el envío");
+    }
+  };
+
+  // Reanuda un envío pausado y vuelve a escuchar su progreso.
+  const handleResumeSend = async (sendId: string) => {
+    try {
+      const { data } = await api.post<CampaignSendRecord>(`/campaigns/sends/${sendId}/resume`);
+      setSends((prev) => prev.map((s) => (s.id === sendId ? { ...s, ...data } : s)));
+      connectSendWs(sendId);
+    } catch (err: any) {
+      setSendError(err.response?.data?.message || "No se pudo reanudar el envío");
+    }
+  };
+
   // Expande/colapsa el detalle de fallos de una ejecución y los carga on-demand.
   const toggleFailures = async (sendId: string) => {
     if (expandedFailures === sendId) {
@@ -290,14 +311,20 @@ export function CampanaDetail() {
   };
 
   const connectSendWs = (sendId: string) => {
-    const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
+    // Base del WebSocket. En producción no hay VITE_WS_URL, así que usamos el
+    // mismo origen (same-origin) donde el proxy hace upgrade de /ws/*. El default
+    // 'localhost:3001' anterior nunca conectaba en prod, dejando el polling de
+    // respaldo corriendo indefinidamente y disparando 429 por exceso de peticiones.
+    const wsUrl = import.meta.env.VITE_WS_URL
+      ? import.meta.env.VITE_WS_URL.replace(/\/ws$/, '')
+      : window.location.origin;
     let resolved = false;
 
     // Primary: WebSocket for real-time
     import('socket.io-client').then(({ io }) => {
       const socket = io(`${wsUrl}/ws/campaigns`, {
         query: { tenantId: campaign?.tenantId },
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'],
       });
 
       socket.on('connect', () => {
@@ -326,25 +353,31 @@ export function CampanaDetail() {
       setTimeout(() => socket.disconnect(), 120000);
     }).catch(() => {});
 
-    // Fallback: lightweight polling every 3s
-    const pollInterval = setInterval(async () => {
-      if (resolved) { clearInterval(pollInterval); return; }
-      try {
-        const { data: allSends } = await api.get<CampaignSendRecord[]>(`/campaigns/${campaign!.id}/sends`);
-        const current = allSends.find((s) => s.id === sendId);
-        if (current) {
-          setSends((prev) => prev.map((s) => s.id === sendId ? current : s));
-          if (current.status === 'completed' || current.status === 'failed') {
-            resolved = true;
-            setSending(false);
-            clearInterval(pollInterval);
+    // Fallback: polling de respaldo cada 5s, y SOLO si el WebSocket no resolvió
+    // en los primeros 5s. En el caso normal (WS conectado) este poll nunca arranca,
+    // evitando peticiones innecesarias contra /api.
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+    const pollStartTimeout = setTimeout(() => {
+      if (resolved) return;
+      pollInterval = setInterval(async () => {
+        if (resolved) { if (pollInterval) clearInterval(pollInterval); return; }
+        try {
+          const { data: allSends } = await api.get<CampaignSendRecord[]>(`/campaigns/${campaign!.id}/sends`);
+          const current = allSends.find((s) => s.id === sendId);
+          if (current) {
+            setSends((prev) => prev.map((s) => s.id === sendId ? current : s));
+            if (current.status === 'completed' || current.status === 'failed') {
+              resolved = true;
+              setSending(false);
+              if (pollInterval) clearInterval(pollInterval);
+            }
           }
-        }
-      } catch {}
-    }, 3000);
+        } catch {}
+      }, 5000);
+    }, 5000);
 
     // Stop polling after 2 min
-    setTimeout(() => clearInterval(pollInterval), 120000);
+    setTimeout(() => { clearTimeout(pollStartTimeout); if (pollInterval) clearInterval(pollInterval); }, 120000);
   };
 
   const handleOpenSegmentEditor = () => {
@@ -1012,7 +1045,7 @@ export function CampanaDetail() {
                     return (
                       <div key={s.id} className={cn(
                         "p-4 rounded-lg border transition-all",
-                        isActive ? "border-amber-200 bg-amber-50/30" : s.status === "completed" ? "border-green-100 bg-green-50/20" : s.status === "failed" ? "border-red-100 bg-red-50/20" : "border-border bg-muted"
+                        isActive ? "border-amber-200 bg-amber-50/30" : s.status === "paused" ? "border-orange-200 bg-orange-50/30" : s.status === "completed" ? "border-green-100 bg-green-50/20" : s.status === "failed" ? "border-red-100 bg-red-50/20" : "border-border bg-muted"
                       )}>
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
@@ -1020,20 +1053,41 @@ export function CampanaDetail() {
                               "h-2.5 w-2.5 rounded-full",
                               s.status === "completed" ? "bg-green-500" :
                               isActive ? "bg-amber-500 animate-pulse" :
+                              s.status === "paused" ? "bg-orange-500" :
                               s.status === "failed" ? "bg-red-500" : "bg-muted-foreground/50"
                             )} />
                             <span className="text-sm font-medium text-foreground">
                               {s.status === "completed" ? "Completado" :
                                s.status === "sending" ? "Enviando..." :
                                s.status === "queued" ? "En cola..." :
+                               s.status === "paused" ? "Pausado" :
                                s.status === "failed" ? "Fallido" : "Pendiente"}
                             </span>
                           </div>
-                          <span className="text-xs text-muted-foreground">{new Date(s.createdAt).toLocaleString()}</span>
+                          <div className="flex items-center gap-2">
+                            {/* Pausar / Reanudar */}
+                            {(s.status === "sending" || s.status === "queued") && (
+                              <button
+                                onClick={() => handlePauseSend(s.id)}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 hover:text-amber-800 border border-amber-200 hover:bg-amber-100/50 rounded-md px-2 py-1 transition-colors"
+                              >
+                                <Pause className="h-3 w-3" /> Pausar
+                              </button>
+                            )}
+                            {s.status === "paused" && (
+                              <button
+                                onClick={() => handleResumeSend(s.id)}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700 hover:text-green-800 border border-green-200 hover:bg-green-100/50 rounded-md px-2 py-1 transition-colors"
+                              >
+                                <Play className="h-3 w-3" /> Reanudar
+                              </button>
+                            )}
+                            <span className="text-xs text-muted-foreground">{new Date(s.createdAt).toLocaleString()}</span>
+                          </div>
                         </div>
 
-                        {/* Progress bar for active sends */}
-                        {isActive && s.totalRecipients > 0 && (
+                        {/* Progress bar for active/paused sends */}
+                        {(isActive || s.status === "paused") && s.totalRecipients > 0 && (
                           <div className="mb-3">
                             <div className="flex justify-between text-[11px] text-muted-foreground mb-1">
                               <span>{processed.toLocaleString()} / {s.totalRecipients.toLocaleString()} procesados</span>
@@ -1041,7 +1095,10 @@ export function CampanaDetail() {
                             </div>
                             <div className="h-2 bg-muted rounded-full overflow-hidden">
                               <div
-                                className="h-full rounded-full bg-amber-500 transition-all duration-300"
+                                className={cn(
+                                  "h-full rounded-full transition-all duration-300",
+                                  s.status === "paused" ? "bg-orange-500" : "bg-amber-500",
+                                )}
                                 style={{ width: `${progress}%` }}
                               />
                             </div>
