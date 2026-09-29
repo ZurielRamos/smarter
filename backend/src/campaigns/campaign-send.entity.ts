@@ -24,7 +24,7 @@ export class CampaignSend {
   campaign: Campaign;
 
   @Column({ type: 'varchar', default: 'pending' })
-  status: string; // pending, sending, completed, failed
+  status: string; // pending, queued, sending, paused, completed, failed
 
   @Column({ name: 'total_recipients', type: 'integer', default: 0 })
   totalRecipients: number;
@@ -41,6 +41,14 @@ export class CampaignSend {
   /** Snapshot of recipient record IDs at execution time */
   @Column({ name: 'recipient_ids', type: 'jsonb', nullable: true })
   recipientIds: string[] | null;
+
+  /**
+   * Índice del snapshot `recipientIds` desde el cual continuar al reanudar un
+   * envío pausado. El worker lo persiste en cada lote y arranca desde aquí, para
+   * no reenviar destinatarios ya procesados.
+   */
+  @Column({ name: 'resume_offset', type: 'integer', default: 0 })
+  resumeOffset: number;
 
   @Column({ name: 'error_message', type: 'text', nullable: true })
   errorMessage: string;

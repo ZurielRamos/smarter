@@ -15,6 +15,7 @@ import { WhatsAppService } from './whatsapp.service';
 import { CallService } from './call.service';
 import type { CampaignSendJobData } from './campaign-send.worker';
 import { BillingService } from '../billing/billing.service';
+import { CampaignsGateway } from './campaigns.gateway';
 
 @Injectable()
 export class CampaignsService {
@@ -39,6 +40,7 @@ export class CampaignsService {
     private readonly whatsappService: WhatsAppService,
     private readonly callService: CallService,
     private readonly billingService: BillingService,
+    private readonly gateway: CampaignsGateway,
   ) {}
 
   async findAll(tenantId?: string): Promise<Campaign[]> {
@@ -392,6 +394,55 @@ export class CampaignsService {
       where: { campaignId },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /**
+   * Pausa un envío en curso. Es una pausa COOPERATIVA: solo marca el estado como
+   * 'paused'; el worker relee el estado al iniciar cada lote y se detiene guardando
+   * el cursor (resumeOffset). No se liquidan créditos: la reserva se mantiene hasta
+   * que el envío realmente termine al reanudar.
+   */
+  async pauseSend(sendId: string): Promise<CampaignSend> {
+    const send = await this.sendRepository.findOneByOrFail({ id: sendId });
+    if (send.status !== 'sending' && send.status !== 'queued') {
+      throw new BadRequestException('Solo se pueden pausar envíos en curso');
+    }
+    await this.sendRepository.update(sendId, { status: 'paused' });
+    // Emitir de inmediato para que la UI refleje la pausa sin esperar al worker.
+    const campaign = await this.campaignRepository.findOneBy({ id: send.campaignId });
+    if (campaign?.tenantId) {
+      this.gateway.emitSendProgress(sendId, campaign.tenantId, {
+        status: 'paused',
+        totalRecipients: send.totalRecipients,
+        totalSent: send.totalSent,
+        totalFailed: send.totalFailed,
+      });
+    }
+    return this.sendRepository.findOneByOrFail({ id: sendId });
+  }
+
+  /**
+   * Reanuda un envío pausado: lo re-encola con los mismos datos. El worker
+   * continúa desde `resumeOffset`. NO vuelve a reservar créditos (la reserva
+   * original sigue vigente).
+   */
+  async resumeSend(sendId: string): Promise<CampaignSend> {
+    const send = await this.sendRepository.findOneByOrFail({ id: sendId });
+    if (send.status !== 'paused') {
+      throw new BadRequestException('Solo se pueden reanudar envíos en pausa');
+    }
+    await this.sendRepository.update(sendId, { status: 'queued' });
+    await this.sendQueue.add(
+      'send-campaign',
+      { sendId, campaignId: send.campaignId },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      },
+    );
+    return this.sendRepository.findOneByOrFail({ id: sendId });
   }
 
   /**
