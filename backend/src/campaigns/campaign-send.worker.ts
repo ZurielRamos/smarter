@@ -1014,16 +1014,24 @@ export class CampaignSendWorker extends WorkerHost {
           '-ar 44100',
           '-ac 2',
           '-preset veryfast',
-          // Baseline profile + level 3.1: máxima compatibilidad con el reproductor
-          // de WhatsApp (High profile causa "el video no está disponible").
+          // Constrained Baseline + level 3.0: el perfil que el decodificador de
+          // hardware de Android acepta sin problemas (High/Main fallan en Android
+          // aunque iOS los reproduzca).
           '-profile:v baseline',
-          '-level 3.1',
+          '-level 3.0',
           '-pix_fmt yuv420p',
+          // GOP corto con keyframe cada ~2s: Android necesita keyframes tempranos y
+          // frecuentes para generar el thumbnail y arrancar la reproducción.
+          '-g 48',
+          '-keyint_min 48',
+          '-sc_threshold 0',
           // faststart mueve el moov atom al inicio (requerido para streaming).
           '-movflags +faststart',
-          // Escala a la altura máxima manteniendo aspecto. Redondea ancho y alto a
-          // múltiplos de 2 (obligatorio para yuv420p/h264) con force_divisible_by.
-          `-vf scale=-2:'min(${opts.maxHeight},ih)':force_original_aspect_ratio=decrease:force_divisible_by=2`,
+          // Escala a la altura máxima manteniendo aspecto. force_divisible_by=16:
+          // el decodificador de hardware de Android exige ancho y alto múltiplos de
+          // 16; una dimensión como 406 hace que Android no pueda decodificar
+          // ("algo falló con el archivo de video") aunque iOS sí lo reproduzca.
+          `-vf scale=-2:'min(${opts.maxHeight},ih)':force_original_aspect_ratio=decrease:force_divisible_by=16,format=yuv420p`,
         ])
         .format('mp4')
         .on('end', () => resolve())
