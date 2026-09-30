@@ -18,6 +18,10 @@ RUN npm run build
 FROM node:20-alpine AS production
 WORKDIR /app
 
+# ffmpeg: se usa para comprimir videos de header de plantilla que superan el
+# límite de 16MB de WhatsApp antes de enviarlos en campañas.
+RUN apk add --no-cache ffmpeg
+
 # Copy backend build and production dependencies
 COPY backend/package.json backend/package-lock.json* ./
 RUN npm ci --omit=dev --legacy-peer-deps

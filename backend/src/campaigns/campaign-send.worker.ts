@@ -4,6 +4,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Job } from 'bullmq';
 import sharp from 'sharp';
+import ffmpeg from 'fluent-ffmpeg';
+import { promises as fsp } from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { CampaignSend } from './campaign-send.entity';
 import { CampaignSendLog } from './campaign-send-log.entity';
 import { Campaign } from './campaign.entity';
@@ -885,19 +889,139 @@ export class CampaignSendWorker extends WorkerHost {
       throw new Error(`Error al descargar el ${fmt} del encabezado: ${err.message || err}`);
     }
 
-    // 2) Subir a R2 para obtener una URL pública estable.
+    // 2) Si es un video que supera el límite de WhatsApp (16MB), comprimirlo con
+    // ffmpeg para que quepa. WhatsApp rechaza videos >16777216 bytes tanto por
+    // Media API como por link, así que la única forma de enviarlo es reducirlo.
+    const WA_VIDEO_LIMIT = 16 * 1024 * 1024; // 16 MiB
+    let filename = `header.${fmt === 'video' ? 'mp4' : 'bin'}`;
+    if (fmt === 'video' && buffer.length > WA_VIDEO_LIMIT) {
+      this.logger.log(
+        `[Worker] Video de header (${buffer.length} bytes) supera 16MB; comprimiendo con ffmpeg...`,
+      );
+      buffer = await this.compressVideoUnder16MB(buffer, WA_VIDEO_LIMIT);
+      contentType = 'video/mp4';
+      filename = 'header.mp4';
+      this.logger.log(`[Worker] Video comprimido a ${buffer.length} bytes.`);
+      if (buffer.length > WA_VIDEO_LIMIT) {
+        throw new Error(
+          `No se pudo comprimir el video del encabezado por debajo de 16MB (quedó en ${(buffer.length / 1048576).toFixed(1)}MB). Usa un video de ejemplo más corto o de menor resolución en la plantilla.`,
+        );
+      }
+    }
+
+    // 3) Subir a R2 para obtener una URL pública estable.
     const stored = await this.mediaStorageService.uploadBuffer(buffer, {
       channel: 'template',
       tenantId: tenantId || 'shared',
       conversationId: 'campaign-header',
       messageId: `hdr-${Date.now()}`,
       mimeType: contentType,
-      filename: `header.${fmt === 'video' ? 'mp4' : 'bin'}`,
+      filename,
     });
     if (!stored?.url) {
       throw new Error('No se pudo almacenar el archivo del encabezado en el storage público');
     }
     return stored.url;
+  }
+
+  /**
+   * Comprime un video para que quepa bajo `targetBytes` (límite de WhatsApp de
+   * 16MB) usando ffmpeg. Estrategia:
+   *   - Calcula un bitrate total objetivo a partir de la duración real del video
+   *     para acercarse al tamaño deseado (con margen de seguridad del 90%).
+   *   - Re-escala a máximo 720p de altura y usa H.264 + AAC (compatibles con WA).
+   *   - Si tras el primer intento sigue excediendo, reintenta con bitrate y
+   *     resolución más agresivos.
+   * Trabaja sobre archivos temporales porque ffmpeg opera con rutas de disco.
+   */
+  private async compressVideoUnder16MB(input: Buffer, targetBytes: number): Promise<Buffer> {
+    const tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'wa-video-'));
+    const inPath = path.join(tmpDir, 'in.mp4');
+    const outPath = path.join(tmpDir, 'out.mp4');
+    try {
+      await fsp.writeFile(inPath, input);
+      const durationSec = await this.probeVideoDuration(inPath);
+
+      // Presupuesto de bits objetivo (90% del límite para dejar margen al muxing
+      // y al audio). bits = bytes * 8. bitrate(kbps) = bits / duración / 1000.
+      const safeBytes = targetBytes * 0.9;
+      const attempts = [
+        { maxHeight: 720, audioKbps: 128 },
+        { maxHeight: 540, audioKbps: 96 },
+        { maxHeight: 480, audioKbps: 64 },
+        { maxHeight: 360, audioKbps: 48 },
+      ];
+
+      let lastBuffer: Buffer | null = null;
+      for (const attempt of attempts) {
+        const totalKbps = Math.max(
+          200,
+          Math.floor((safeBytes * 8) / Math.max(1, durationSec) / 1000),
+        );
+        const videoKbps = Math.max(150, totalKbps - attempt.audioKbps);
+
+        await this.runFfmpeg(inPath, outPath, {
+          videoKbps,
+          audioKbps: attempt.audioKbps,
+          maxHeight: attempt.maxHeight,
+        });
+
+        const out = await fsp.readFile(outPath);
+        lastBuffer = out;
+        if (out.length <= targetBytes) {
+          return out;
+        }
+        this.logger.warn(
+          `[Worker] Compresión a ${attempt.maxHeight}p quedó en ${out.length} bytes; reintentando más agresivo...`,
+        );
+      }
+      // Devolver el mejor (más pequeño) intento aunque exceda; el llamador valida.
+      return lastBuffer as Buffer;
+    } finally {
+      await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+
+  /** Obtiene la duración (segundos) de un video usando ffprobe. */
+  private probeVideoDuration(filePath: string): Promise<number> {
+    return new Promise((resolve) => {
+      ffmpeg.ffprobe(filePath, (err, data) => {
+        if (err) {
+          resolve(0);
+          return;
+        }
+        const dur = data?.format?.duration;
+        resolve(typeof dur === 'number' && dur > 0 ? dur : 0);
+      });
+    });
+  }
+
+  /** Ejecuta una pasada de compresión H.264/AAC con ffmpeg. */
+  private runFfmpeg(
+    inPath: string,
+    outPath: string,
+    opts: { videoKbps: number; audioKbps: number; maxHeight: number },
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      ffmpeg(inPath)
+        .videoCodec('libx264')
+        .audioCodec('aac')
+        .outputOptions([
+          `-b:v ${opts.videoKbps}k`,
+          `-maxrate ${Math.floor(opts.videoKbps * 1.2)}k`,
+          `-bufsize ${opts.videoKbps * 2}k`,
+          `-b:a ${opts.audioKbps}k`,
+          '-preset veryfast',
+          '-movflags +faststart',
+          '-pix_fmt yuv420p',
+          // Escala a la altura máxima manteniendo aspecto; ancho par (obligatorio h264).
+          `-vf scale=-2:'min(${opts.maxHeight},ih)'`,
+        ])
+        .format('mp4')
+        .on('end', () => resolve())
+        .on('error', (err) => reject(new Error(`ffmpeg falló: ${err.message}`)))
+        .save(outPath);
+    });
   }
 
   /**
