@@ -889,19 +889,22 @@ export class CampaignSendWorker extends WorkerHost {
       throw new Error(`Error al descargar el ${fmt} del encabezado: ${err.message || err}`);
     }
 
-    // 2) Si es un video que supera el límite de WhatsApp (16MB), comprimirlo con
-    // ffmpeg para que quepa. WhatsApp rechaza videos >16777216 bytes tanto por
-    // Media API como por link, así que la única forma de enviarlo es reducirlo.
+    // 2) Si es un video, SIEMPRE se re-codifica con ffmpeg a un perfil compatible
+    // con Android (Constrained Baseline, dimensiones múltiplo de 16, keyframes
+    // frecuentes). No basta con mirar el tamaño: un video puede pesar <16MB pero
+    // venir en perfil High / resolución no alineada, que iOS reproduce pero
+    // Android no ("algo falló con el archivo de video"). WhatsApp además rechaza
+    // videos >16MB, así que la re-codificación también garantiza que quepa.
     const WA_VIDEO_LIMIT = 16 * 1024 * 1024; // 16 MiB
     let filename = `header.${fmt === 'video' ? 'mp4' : 'bin'}`;
-    if (fmt === 'video' && buffer.length > WA_VIDEO_LIMIT) {
+    if (fmt === 'video') {
       this.logger.log(
-        `[Worker] Video de header (${buffer.length} bytes) supera 16MB; comprimiendo con ffmpeg...`,
+        `[Worker] Re-codificando video de header (${buffer.length} bytes) a perfil compatible con Android...`,
       );
       buffer = await this.compressVideoUnder16MB(buffer, WA_VIDEO_LIMIT);
       contentType = 'video/mp4';
       filename = 'header.mp4';
-      this.logger.log(`[Worker] Video comprimido a ${buffer.length} bytes.`);
+      this.logger.log(`[Worker] Video re-codificado a ${buffer.length} bytes.`);
       if (buffer.length > WA_VIDEO_LIMIT) {
         throw new Error(
           `No se pudo comprimir el video del encabezado por debajo de 16MB (quedó en ${(buffer.length / 1048576).toFixed(1)}MB). Usa un video de ejemplo más corto o de menor resolución en la plantilla.`,
