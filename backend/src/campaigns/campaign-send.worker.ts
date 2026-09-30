@@ -1011,11 +1011,19 @@ export class CampaignSendWorker extends WorkerHost {
           `-maxrate ${Math.floor(opts.videoKbps * 1.2)}k`,
           `-bufsize ${opts.videoKbps * 2}k`,
           `-b:a ${opts.audioKbps}k`,
+          '-ar 44100',
+          '-ac 2',
           '-preset veryfast',
-          '-movflags +faststart',
+          // Baseline profile + level 3.1: máxima compatibilidad con el reproductor
+          // de WhatsApp (High profile causa "el video no está disponible").
+          '-profile:v baseline',
+          '-level 3.1',
           '-pix_fmt yuv420p',
-          // Escala a la altura máxima manteniendo aspecto; ancho par (obligatorio h264).
-          `-vf scale=-2:'min(${opts.maxHeight},ih)'`,
+          // faststart mueve el moov atom al inicio (requerido para streaming).
+          '-movflags +faststart',
+          // Escala a la altura máxima manteniendo aspecto. Redondea ancho y alto a
+          // múltiplos de 2 (obligatorio para yuv420p/h264) con force_divisible_by.
+          `-vf scale=-2:'min(${opts.maxHeight},ih)':force_original_aspect_ratio=decrease:force_divisible_by=2`,
         ])
         .format('mp4')
         .on('end', () => resolve())
