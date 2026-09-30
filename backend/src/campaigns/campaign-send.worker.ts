@@ -24,6 +24,7 @@ import { TemplatesService } from '../templates/templates.service';
 import { MailgunService } from '../providers/mailgun.service';
 import { EmailDomainService } from '../providers/email-domain.service';
 import { EmailUnsubscribeService } from '../providers/email-unsubscribe.service';
+import { MediaStorageService } from '../media/media-storage.service';
 
 export interface CampaignSendJobData {
   sendId: string;
@@ -39,6 +40,14 @@ export interface CampaignSendJobData {
 })
 export class CampaignSendWorker extends WorkerHost {
   private readonly logger = new Logger(CampaignSendWorker.name);
+
+  /**
+   * Caché en memoria del parámetro de header ya resuelto por cada media de
+   * ejemplo (keyed por su header_handle). Evita re-descargar/re-subir el mismo
+   * archivo por cada destinatario de la campaña. Se resuelve UNA vez por
+   * ejecución del worker (el proceso corre con concurrency=1).
+   */
+  private readonly headerMediaCache = new Map<string, any>();
 
   constructor(
     @InjectRepository(CampaignSend)
@@ -69,6 +78,7 @@ export class CampaignSendWorker extends WorkerHost {
     private readonly mailgunService: MailgunService,
     private readonly emailDomainService: EmailDomainService,
     private readonly emailUnsubscribeService: EmailUnsubscribeService,
+    private readonly mediaStorageService: MediaStorageService,
   ) {
     super();
   }
@@ -490,6 +500,7 @@ export class CampaignSendWorker extends WorkerHost {
               campaign.whatsappTemplateLanguage || 'es',
               variables,
               templateComponents,
+              inbox.tenantId,
             );
 
             if (result.success) {
@@ -719,6 +730,7 @@ export class CampaignSendWorker extends WorkerHost {
     languageCode: string,
     variables: Record<string, string>,
     templateComponents?: any[] | null,
+    tenantId?: string,
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     const components: any[] = [];
 
@@ -740,18 +752,14 @@ export class CampaignSendWorker extends WorkerHost {
       }
       const fmt = String(defHeader.format).toLowerCase(); // image | video | document
       try {
-        if (fmt === 'image') {
-          // Re-subir la imagen para evitar 131053 (formato/color no soportado).
-          const mediaId = await this.uploadWhatsAppMediaFromUrl(phoneNumberId, accessToken, exampleHandle);
-          components.push({ type: 'header', parameters: [{ type: 'image', image: { id: mediaId } }] });
-        } else {
-          // Video/documento: NO se pueden enviar por link del ejemplo porque el
-          // header_handle apunta a la CDN de WhatsApp (scontent.whatsapp.net), que
-          // Meta no puede descargar (HTTP 403 -> 131053). Se re-sube el archivo de
-          // ejemplo a la Media API para obtener un media id fiable.
-          const mediaId = await this.uploadWhatsAppFileFromUrl(phoneNumberId, accessToken, exampleHandle);
-          components.push({ type: 'header', parameters: [{ type: fmt, [fmt]: { id: mediaId } }] });
-        }
+        const headerParam = await this.resolveHeaderMediaParam(
+          fmt,
+          exampleHandle,
+          phoneNumberId,
+          accessToken,
+          tenantId,
+        );
+        components.push({ type: 'header', parameters: [headerParam] });
       } catch (err: any) {
         return {
           success: false,
@@ -810,6 +818,86 @@ export class CampaignSendWorker extends WorkerHost {
     } catch (error) {
       return { success: false, error: String(error) };
     }
+  }
+
+  /**
+   * Resuelve el parámetro `parameters[0]` del header de una plantilla para el
+   * envío, reutilizando SIEMPRE el media de ejemplo que se subió a Meta al crear
+   * la plantilla (no se sube nada manualmente). Estrategia por tipo:
+   *
+   *   - IMAGE: se descarga, se normaliza a JPEG y se re-sube a la Media API para
+   *     obtener un media `id` (evita 131053 por formato/color no soportado).
+   *   - VIDEO / DOCUMENT: la Media API tiene límite de ~16MB y muchos videos de
+   *     ejemplo lo superan, además el header_handle de la CDN de WhatsApp expira
+   *     (Meta lo descarga con 403). Por eso el archivo se copia a nuestro storage
+   *     público (R2) y se envía por `link` con esa URL estable, que Meta sí puede
+   *     descargar sin límite de 16MB ni expiración.
+   *
+   * El resultado se cachea por header_handle para no repetir el trabajo por cada
+   * destinatario de la campaña.
+   */
+  private async resolveHeaderMediaParam(
+    fmt: string,
+    exampleHandle: string,
+    phoneNumberId: string,
+    accessToken: string,
+    tenantId?: string,
+  ): Promise<any> {
+    const cacheKey = `${fmt}:${exampleHandle}`;
+    const cached = this.headerMediaCache.get(cacheKey);
+    if (cached) return cached;
+
+    let param: any;
+    if (fmt === 'image') {
+      const mediaId = await this.uploadWhatsAppMediaFromUrl(phoneNumberId, accessToken, exampleHandle);
+      param = { type: 'image', image: { id: mediaId } };
+    } else {
+      // Video/documento: copiar a R2 y enviar por link estable.
+      const link = await this.mirrorMediaToPublicUrl(exampleHandle, fmt, tenantId);
+      param = { type: fmt, [fmt]: { link } };
+    }
+
+    this.headerMediaCache.set(cacheKey, param);
+    return param;
+  }
+
+  /**
+   * Descarga el media de ejemplo (video/documento) y lo sube a nuestro storage
+   * público (R2), devolviendo una URL estable que Meta puede descargar por link.
+   * Necesario porque la Media API rechaza archivos >16MB y el header_handle de la
+   * CDN de WhatsApp expira (produce 403 al enviar).
+   */
+  private async mirrorMediaToPublicUrl(
+    url: string,
+    fmt: string,
+    tenantId?: string,
+  ): Promise<string> {
+    // 1) Descargar el archivo de ejemplo desde la CDN de WhatsApp.
+    let buffer: Buffer;
+    let contentType: string;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`No se pudo descargar el archivo (HTTP ${res.status})`);
+      contentType = res.headers.get('content-type') || (fmt === 'video' ? 'video/mp4' : 'application/octet-stream');
+      buffer = Buffer.from(await res.arrayBuffer());
+      if (buffer.length === 0) throw new Error('El archivo descargado está vacío');
+    } catch (err: any) {
+      throw new Error(`Error al descargar el ${fmt} del encabezado: ${err.message || err}`);
+    }
+
+    // 2) Subir a R2 para obtener una URL pública estable.
+    const stored = await this.mediaStorageService.uploadBuffer(buffer, {
+      channel: 'template',
+      tenantId: tenantId || 'shared',
+      conversationId: 'campaign-header',
+      messageId: `hdr-${Date.now()}`,
+      mimeType: contentType,
+      filename: `header.${fmt === 'video' ? 'mp4' : 'bin'}`,
+    });
+    if (!stored?.url) {
+      throw new Error('No se pudo almacenar el archivo del encabezado en el storage público');
+    }
+    return stored.url;
   }
 
   /**
@@ -886,82 +974,6 @@ export class CampaignSendWorker extends WorkerHost {
         uploadData?.error?.error_data?.details ||
         JSON.stringify(uploadData);
       throw new Error(`WhatsApp rechazó la subida de la imagen: ${metaMsg}`);
-    }
-    return uploadData.id;
-  }
-
-  /**
-   * Descarga un archivo (video/documento) desde una URL y lo sube tal cual a la
-   * Media API de WhatsApp, devolviendo el media id. A diferencia de
-   * uploadWhatsAppMediaFromUrl, NO re-codifica el archivo (sharp solo procesa
-   * imágenes): preserva los bytes y el content-type original. Se usa para el
-   * video/documento de ejemplo de la plantilla, ya que su header_handle apunta a
-   * la CDN de WhatsApp y Meta no puede descargarlo por link (HTTP 403 -> 131053).
-   */
-  private async uploadWhatsAppFileFromUrl(
-    phoneNumberId: string,
-    accessToken: string,
-    url: string,
-  ): Promise<string> {
-    // 1) Descargar el archivo de origen.
-    let fileBuffer: Buffer;
-    let contentType: string;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`No se pudo descargar el archivo (HTTP ${res.status})`);
-      contentType = res.headers.get('content-type') || 'application/octet-stream';
-      fileBuffer = Buffer.from(await res.arrayBuffer());
-      if (fileBuffer.length === 0) throw new Error('El archivo descargado está vacío');
-    } catch (err: any) {
-      throw new Error(`Error al descargar el archivo del header: ${err.message || err}`);
-    }
-
-    // 2) Determinar una extensión coherente con el content-type.
-    const extMap: Record<string, string> = {
-      'video/mp4': 'mp4',
-      'video/3gpp': '3gp',
-      'application/pdf': 'pdf',
-    };
-    const ext = extMap[contentType.toLowerCase()] || 'bin';
-
-    // 3) Subir por multipart preservando el tipo real.
-    const boundary = `----FormBoundary${Date.now()}${Math.floor(Math.random() * 1e9)}`;
-    const parts: Buffer[] = [];
-    parts.push(
-      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="messaging_product"\r\n\r\nwhatsapp\r\n`),
-    );
-    parts.push(
-      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="type"\r\n\r\n${contentType}\r\n`),
-    );
-    parts.push(
-      Buffer.from(
-        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="header.${ext}"\r\nContent-Type: ${contentType}\r\n\r\n`,
-      ),
-    );
-    parts.push(fileBuffer);
-    parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
-
-    let uploadData: any;
-    try {
-      const uploadRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/media`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        },
-        body: Buffer.concat(parts),
-      });
-      uploadData = await uploadRes.json();
-    } catch (err: any) {
-      throw new Error(`Error de red al subir el archivo a WhatsApp: ${err.message || err}`);
-    }
-
-    if (!uploadData?.id) {
-      const metaMsg =
-        uploadData?.error?.message ||
-        uploadData?.error?.error_data?.details ||
-        JSON.stringify(uploadData);
-      throw new Error(`WhatsApp rechazó la subida del archivo: ${metaMsg}`);
     }
     return uploadData.id;
   }
