@@ -1182,7 +1182,10 @@ export function Clients() {
               ? { tenantId, filters: advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined, updates, actorId: user?.id, actorName: user?.name || user?.email }
               : { ids: [...selectedIds], updates, actorId: user?.id, actorName: user?.name || user?.email };
             await tenantApi.put("/records/bulk", payload);
-            const fieldName = Object.keys(updates)[0] || "campo";
+            const topKey = Object.keys(updates)[0] || "campo";
+            const fieldName = topKey === "customData"
+              ? Object.keys((updates as any).customData || {})[0] || "campo"
+              : topKey;
             toast.success(`${fieldName} actualizado para ${bulkSelectAll ? total : selectedIds.size} contactos`);
             setSelectedIds(new Set()); setBulkSelectAll(false);
             loadClients();

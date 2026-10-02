@@ -711,18 +711,41 @@ export class RecordsService {
     return { contacts, messages };
   }
 
-  async bulkUpdate(ids: string[], updates: Partial<{ status: string; assignedTo: string | null; assignedTeamId: string | null; tags: string[] }>, actorId?: string, actorName?: string): Promise<{ updated: number }> {
+  async bulkUpdate(ids: string[], updates: Partial<{ status: string; assignedTo: string | null; assignedTeamId: string | null; tags: string[]; customData: Record<string, any> }>, actorId?: string, actorName?: string): Promise<{ updated: number }> {
     if (ids.length === 0) return { updated: 0 };
 
     // Get tenant from first record for activity logging
     const sample = await this.recordRepository.findOne({ where: { id: ids[0] } });
     const tenantId = sample?.tenantId;
 
+    // Separate custom field updates (jsonb merge) from real entity columns.
+    // customData keys are NOT entity columns, so Repository.update() would
+    // silently drop them. We merge them into the custom_data jsonb instead.
+    const { customData, ...columnUpdates } = updates as any;
+    const hasColumnUpdates = Object.keys(columnUpdates).length > 0;
+    const hasCustomData = customData && Object.keys(customData).length > 0;
+
     // Process in batches to avoid PostgreSQL parameter limit (~32767)
     const BATCH_SIZE = 5000;
     for (let i = 0; i < ids.length; i += BATCH_SIZE) {
       const batch = ids.slice(i, i + BATCH_SIZE);
-      await this.recordRepository.update(batch, updates as any);
+      if (hasColumnUpdates) {
+        await this.recordRepository.update(batch, columnUpdates);
+      }
+      if (hasCustomData) {
+        // Merge the provided keys into custom_data without clobbering the rest:
+        // custom_data = COALESCE(custom_data, '{}') || $json
+        await this.recordRepository
+          .createQueryBuilder()
+          .update()
+          .set({
+            customData: () =>
+              `COALESCE(custom_data, '{}'::jsonb) || :mergeData::jsonb`,
+          })
+          .where('id = ANY(:ids)', { ids: batch })
+          .setParameter('mergeData', JSON.stringify(customData))
+          .execute();
+      }
     }
 
     // Log activities in bulk (async, non-blocking)
@@ -892,7 +915,7 @@ export class RecordsService {
     return qb;
   }
 
-  async bulkUpdateByFilter(tenantId: string, updates: Partial<{ status: string; assignedTo: string | null; assignedTeamId: string | null; tags: string[] }>, filters?: Array<{ field: string; operator: string; value: string }>, assignedTo?: string, assignedTeamId?: string, actorId?: string, actorName?: string): Promise<{ updated: number }> {
+  async bulkUpdateByFilter(tenantId: string, updates: Partial<{ status: string; assignedTo: string | null; assignedTeamId: string | null; tags: string[]; customData: Record<string, any> }>, filters?: Array<{ field: string; operator: string; value: string }>, assignedTo?: string, assignedTeamId?: string, actorId?: string, actorName?: string): Promise<{ updated: number }> {
     const qb = this.buildFilterQuery(tenantId, filters, assignedTo, assignedTeamId);
     const ids = await qb.select('client.id').getRawMany();
     if (ids.length === 0) return { updated: 0 };

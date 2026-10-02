@@ -51,8 +51,13 @@ export function BulkActionBar({ count, allSelected, total, fields, onClear, onSe
     let value: any = fieldValue;
     if (selectedField.fieldType === "boolean") value = fieldValue === "true";
     if (selectedField.fieldType === "number") value = Number(fieldValue);
+    // System fields map to real entity columns; custom fields must be nested
+    // under `customData` so the backend merges them into the jsonb column.
+    const updates = selectedField.isSystem
+      ? { [key]: value }
+      : { customData: { [key]: value } };
     setBulkLoading(true);
-    Promise.resolve(onBulkUpdate({ [key]: value })).finally(() => setBulkLoading(false));
+    Promise.resolve(onBulkUpdate(updates)).finally(() => setBulkLoading(false));
     setEditOpen(false);
     setSelectedField(null);
     setFieldValue("");

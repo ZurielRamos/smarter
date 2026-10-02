@@ -136,7 +136,7 @@ export class RecordsController {
   }
 
   @Put('bulk')
-  bulkUpdate(@Body() body: { ids?: string[]; filters?: Array<{ field: string; operator: string; value: string }>; tenantId?: string; assignedTo?: string; assignedTeamId?: string; updates: Partial<{ status: string; assignedTo: string | null; assignedTeamId: string | null; tags: string[] }>; actorId?: string; actorName?: string }) {
+  bulkUpdate(@Body() body: { ids?: string[]; filters?: Array<{ field: string; operator: string; value: string }>; tenantId?: string; assignedTo?: string; assignedTeamId?: string; updates: Partial<{ status: string; assignedTo: string | null; assignedTeamId: string | null; tags: string[]; customData: Record<string, any> }>; actorId?: string; actorName?: string }) {
     if (body.ids && body.ids.length > 0) {
       return this.recordsService.bulkUpdate(body.ids, body.updates, body.actorId, body.actorName);
     }
