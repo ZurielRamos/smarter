@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Save, Loader2, CheckCircle2, Plus, Trash2, Zap, User, ImagePlus } from "lucide-react";
-import { api } from "@/services/api";
+import { api, getCustomFields } from "@/services/api";
 import { DropdownSelect } from "./ui/dropdown-select";
 
 // ── Tipos ──────────────────────────────────────────────────────────────
@@ -52,8 +52,10 @@ interface AutomationRule {
   actions: AutomationAction[];
 }
 
-// Estados de contacto disponibles (coincide con SYSTEM_FIELDS del backend).
-const CONTACT_STATUSES = [
+// Estados por defecto (fallback). Los estados reales se cargan del campo de
+// sistema "status" configurado para la cuenta; esta lista solo se usa si aún
+// no cargaron o si el tenant no definió opciones.
+const DEFAULT_CONTACT_STATUSES = [
   "lead", "contactado", "interesado", "oportunidad",
   "cliente", "premium", "fidelizado", "inactivo", "perdido",
 ];
@@ -289,6 +291,7 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
   const [members, setMembers] = useState<Member[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [channel, setChannel] = useState<string>("");
+  const [contactStatuses, setContactStatuses] = useState<string[]>(DEFAULT_CONTACT_STATUSES);
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -316,6 +319,16 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
     // Cargar agentes y equipos para los selectores de asignación
     api.get(`/tenants/${tenantId}/members`).then(({ data }) => setMembers(data || [])).catch(() => {});
     api.get(`/teams`, { params: { tenantId } }).then(({ data }) => setTeams(data || [])).catch(() => {});
+    // Cargar los estados de contacto realmente configurados para la cuenta
+    // (campo de sistema "status"), con fallback a los estados por defecto.
+    getCustomFields(tenantId)
+      .then((fields) => {
+        const statusField = fields.find((f) => f.fieldKey === "status");
+        if (statusField?.options && statusField.options.length > 0) {
+          setContactStatuses(statusField.options);
+        }
+      })
+      .catch(() => {});
   }, [inboxId, tenantId]);
 
   // Cargar plantillas de WhatsApp solo cuando el canal es WhatsApp.
@@ -361,7 +374,8 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
   };
 
   const addAction = (ruleId: string) => {
-    setRules((prev) => prev.map((r) => (r.id === ruleId ? { ...r, actions: [...r.actions, { type: "set_status", value: "cliente" }] } : r)));
+    const defaultStatus = contactStatuses[0] || "lead";
+    setRules((prev) => prev.map((r) => (r.id === ruleId ? { ...r, actions: [...r.actions, { type: "set_status", value: defaultStatus }] } : r)));
     markDirty();
   };
 
@@ -382,7 +396,7 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
   // Al cambiar el tipo de acción, inicializa un valor por defecto sensato.
   const changeActionType = (ruleId: string, idx: number, type: string) => {
     let patch: Partial<AutomationAction> = { type, value: undefined, message: undefined, templateName: undefined, templateLanguage: undefined, templateCategory: undefined, templateComponents: undefined };
-    if (type === "set_status") patch.value = "cliente";
+    if (type === "set_status") patch.value = contactStatuses[0] || "lead";
     else if (type === "set_opt_in_whatsapp" || type === "set_opt_in_email") patch.value = false;
     else if (type === "set_conversation_status") patch.value = "resolved";
     else if (type === "add_tag" || type === "remove_tag") patch.value = "";
@@ -414,7 +428,7 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
             className={ddCls}
             value={action.value || ""}
             onChange={(v) => updateAction(ruleId, idx, { value: v })}
-            options={CONTACT_STATUSES.map((s) => ({ value: s, label: s }))}
+            options={contactStatuses.map((s) => ({ value: s, label: s }))}
           />
         );
       case "conversationStatus":
