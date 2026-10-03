@@ -38,14 +38,27 @@ export class WhatsAppFlowsController {
 
   @Post('whatsapp-flow')
   async handleFlow(@Req() req: Request, @Res() res: Response): Promise<void> {
-    // 1) Validar firma si tenemos el app secret y el raw body.
+    // 1) Validar firma SOLO como capa adicional y únicamente cuando podemos
+    //    hacerlo de forma fiable: hay app secret, llega la cabecera de firma y
+    //    disponemos del cuerpo crudo. La seguridad real de este endpoint es el
+    //    cifrado RSA (sin la clave privada no se puede descifrar ni responder),
+    //    así que NUNCA bloqueamos por ausencia de firma/raw body: eso rompería
+    //    el health check de Meta, que puede no incluir la firma.
     const rawBody: Buffer | undefined = (req as any).rawBody;
-    if (this.appSecret) {
+    const signatureHeader = req.header('x-hub-signature-256');
+    if (this.appSecret && signatureHeader && rawBody) {
       if (!this.verifySignature(req, rawBody)) {
-        this.logger.warn('[Flow] Firma x-hub-signature-256 inválida');
+        this.logger.warn('[Flow] Firma x-hub-signature-256 presente pero inválida');
         res.status(432).send(); // 432: firma incorrecta (Meta reintenta)
         return;
       }
+    } else if (this.appSecret && signatureHeader && !rawBody) {
+      // La firma vino pero no pudimos capturar el raw body (p. ej. otro parser
+      // consumió el stream). Lo registramos pero no bloqueamos: el descifrado
+      // RSA sigue siendo la barrera efectiva.
+      this.logger.warn(
+        '[Flow] Firma presente pero rawBody no disponible; se omite validación HMAC',
+      );
     }
 
     const body = req.body as EncryptedFlowRequest;

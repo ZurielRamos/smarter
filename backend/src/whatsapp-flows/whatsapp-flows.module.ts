@@ -1,7 +1,6 @@
-import { Module, NestModule, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import * as express from 'express';
 import { FlowCryptoService } from './flow-crypto.service';
 import { FlowDataService } from './flow-data.service';
 import { FlowSubmissionsService } from './flow-submissions.service';
@@ -18,14 +17,14 @@ import { FlowSenderService } from './flow-sender.service';
 /**
  * Módulo del endpoint de WhatsApp Flows.
  *
- * Registra un parser JSON específico para la ruta del Flow que, además de
- * parsear el cuerpo, guarda el buffer crudo en `req.rawBody`. Ese raw body
- * es imprescindible para validar la firma HMAC `x-hub-signature-256`, ya que
- * cualquier re-serialización del JSON cambiaría los bytes y rompería el HMAC.
+ * El cuerpo crudo (req.rawBody), necesario para validar la firma HMAC
+ * x-hub-signature-256, se captura en el parser JSON global de main.ts (el
+ * único parser que procesa esta ruta). No se registra un parser adicional
+ * aquí para evitar el doble parseo del stream, que dejaba el rawBody vacío.
  *
  * Persistencia: entidades WhatsAppFlow (definición) y WhatsAppFlowSubmission
- * (respuestas), más repos de ClientRecord y Conversation para vincular cada
- * respuesta al contacto y a la conversación.
+ * (respuestas), más repos de ClientRecord, Conversation e Inbox para vincular
+ * cada respuesta al contacto, a la conversación y al canal.
  */
 @Module({
   imports: [
@@ -54,20 +53,4 @@ import { FlowSenderService } from './flow-sender.service';
     FlowSenderService,
   ],
 })
-export class WhatsAppFlowsModule implements NestModule {
-  configure(consumer: MiddlewareConsumer): void {
-    consumer
-      .apply(
-        express.json({
-          type: () => true, // Meta puede enviar Content-Type variado.
-          verify: (req: any, _res, buf: Buffer) => {
-            req.rawBody = buf;
-          },
-        }),
-      )
-      .forRoutes({
-        path: 'webhooks/whatsapp-flow',
-        method: RequestMethod.POST,
-      });
-  }
-}
+export class WhatsAppFlowsModule {}

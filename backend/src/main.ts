@@ -24,6 +24,13 @@ async function bootstrap() {
     express.json({
       limit: '10mb',
       type: ['application/json', 'application/*+json', 'text/plain'],
+      // Guardamos el cuerpo crudo para poder validar firmas HMAC (p. ej. el
+      // x-hub-signature-256 del endpoint de WhatsApp Flows). Re-serializar el
+      // JSON no reproduce los bytes exactos que firmó Meta, por eso se captura
+      // aquí, en el único parser que efectivamente corre.
+      verify: (req: any, _res, buf: Buffer) => {
+        req.rawBody = buf;
+      },
     }),
   );
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
