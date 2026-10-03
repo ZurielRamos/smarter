@@ -2,6 +2,8 @@ import { Injectable, Inject, forwardRef, NotFoundException, BadRequestException 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan, SelectQueryBuilder } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
+import { FlowSubmissionsService } from '../whatsapp-flows/flow-submissions.service';
 import { Inbox } from './inbox.entity';
 import { Conversation } from './conversation.entity';
 import { Message } from './message.entity';
@@ -124,6 +126,7 @@ export class ChatsService {
     private readonly mailgunService: MailgunService,
     private readonly emailDomainService: EmailDomainService,
     private readonly emailUnsubscribeService: EmailUnsubscribeService,
+    private readonly flowSubmissionsService: FlowSubmissionsService,
   ) {}
 
   // === INBOXES ===
@@ -4125,6 +4128,30 @@ export class ChatsService {
     return uploadData.id;
   }
 
+  /**
+   * Devuelve el índice del botón de tipo FLOW dentro de la definición de la
+   * plantilla, o -1 si no hay. El índice es la posición dentro del array de
+   * botones del componente BUTTONS.
+   */
+  private findFlowButtonIndex(templateComponents?: any[]): number {
+    const buttons = (templateComponents || []).find(
+      (c: any) => (c?.type || '').toUpperCase() === 'BUTTONS',
+    )?.buttons;
+    if (!Array.isArray(buttons)) return -1;
+    return buttons.findIndex((b: any) => (b?.type || '').toUpperCase() === 'FLOW');
+  }
+
+  /**
+   * Extrae el flow_id del botón de Flow de la definición de la plantilla.
+   */
+  private getFlowId(templateComponents?: any[]): string | null {
+    const buttons = (templateComponents || []).find(
+      (c: any) => (c?.type || '').toUpperCase() === 'BUTTONS',
+    )?.buttons;
+    const flowBtn = (buttons || []).find((b: any) => (b?.type || '').toUpperCase() === 'FLOW');
+    return flowBtn?.flow_id ? String(flowBtn.flow_id) : null;
+  }
+
   async sendTemplateMessage(
     conversationId: string,
     templateName: string,
@@ -4280,6 +4307,50 @@ export class ChatsService {
         sendError = err.message || 'No se pudo preparar la imagen de la plantilla';
       }
       messageBody.template.components = components;
+    }
+
+    // Botón de WhatsApp Flow: si la definición de la plantilla incluye un botón
+    // tipo FLOW, Meta exige enviar su componente runtime con un flow_token (de lo
+    // contrario rechaza con #131009 "Parameter value is not valid"). Generamos el
+    // token, registramos la submission (para vincular las respuestas al contacto)
+    // e inyectamos el componente del botón.
+    if (!sendError) {
+      try {
+        const flowButtonIndex = this.findFlowButtonIndex(templateComponents);
+        if (flowButtonIndex !== -1) {
+          const flowToken = `flw_${crypto.randomBytes(16).toString('hex')}`;
+          const existing = messageBody.template.components || [];
+          const alreadyHasFlowButton = existing.some(
+            (c: any) => c?.type === 'button' && c?.sub_type === 'flow',
+          );
+          if (!alreadyHasFlowButton) {
+            existing.push({
+              type: 'button',
+              sub_type: 'flow',
+              index: String(flowButtonIndex),
+              parameters: [{ type: 'action', action: { flow_token: flowToken } }],
+            });
+            messageBody.template.components = existing;
+          }
+
+          // Registrar la submission para correlacionar las respuestas del Flow.
+          await this.flowSubmissionsService
+            .startSubmission({
+              tenantId: inbox.tenantId,
+              flowToken,
+              inboxId: inbox.id,
+              recordId: conversation.recordId ?? null,
+              conversationId: conversation.id,
+              contactIdentifier: conversation.contactId ?? null,
+              metaFlowId: this.getFlowId(templateComponents),
+            })
+            .catch((err) =>
+              console.warn('[Templates] No se pudo registrar la submission del Flow:', err.message),
+            );
+        }
+      } catch (err: any) {
+        console.error('[Templates] Flow button injection error:', err);
+      }
     }
 
     let data: any = null;
