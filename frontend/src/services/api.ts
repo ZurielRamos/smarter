@@ -798,6 +798,13 @@ export interface FlowSubmissionRecord {
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Definición del Flow (incluida en by-record) para mapear claves/valores a
+  // preguntas y títulos de opciones legibles.
+  flow?: {
+    id: string;
+    name: string;
+    flowJson: Record<string, any> | null;
+  } | null;
 }
 
 /** Respuestas de WhatsApp Flows asociadas a un contacto. */

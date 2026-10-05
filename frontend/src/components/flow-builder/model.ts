@@ -480,6 +480,115 @@ export function screenOptions(model: FlowModel, exceptId?: string): { id: string
     .map((s) => ({ id: s.id, title: s.title || s.id }));
 }
 
+// ─── Describir respuestas de forma legible ──────────────────────────
+
+export interface DescribedAnswer {
+  key: string; // nombre técnico del campo
+  question: string; // label/pregunta (o el key si no se encuentra)
+  value: string; // valor legible (título de la opción, o el valor crudo)
+  screen: string; // título de la pantalla a la que pertenece
+}
+
+/**
+ * Convierte el responseData de una submission en respuestas legibles usando el
+ * flow.json: resuelve el label de cada campo (la pregunta) y traduce los ids de
+ * opción a sus títulos (data-source). Agrupa por pantalla.
+ */
+/** Normaliza el texto de una pregunta (recorta espacios y saltos). */
+function cleanQuestion(text: string | null): string | null {
+  if (!text) return null;
+  const t = text.replace(/\s+/g, " ").trim();
+  return t.length ? t : null;
+}
+
+export function describeSubmission(
+  flowJson: Record<string, any> | null | undefined,
+  responseData: Record<string, any>,
+): DescribedAnswer[] {
+  const data = responseData || {};
+
+  const translate = (val: any, options?: Map<string, string>): string => {
+    if (val == null || val === "") return "—";
+    if (Array.isArray(val)) {
+      return val.map((v) => options?.get(String(v)) || String(v)).join(", ");
+    }
+    if (typeof val === "boolean") return val ? "Sí" : "No";
+    return options?.get(String(val)) || String(val);
+  };
+
+  const TEXT_TYPES = new Set([
+    "TextSubheading",
+    "TextBody",
+    "TextHeading",
+    "TextCaption",
+    "RichText",
+  ]);
+
+  const result: DescribedAnswer[] = [];
+  const seen = new Set<string>();
+
+  // Recorremos el flow.json EN SU ORDEN NATURAL (pantalla por pantalla, campo
+  // por campo) y para cada campo tomamos su valor del responseData. Así el
+  // resultado respeta el orden del formulario, no el orden arbitrario de las
+  // claves del objeto responseData.
+  if (flowJson?.screens) {
+    for (const s of flowJson.screens) {
+      const screenTitle = s.title || s.id;
+
+      const walkChildren = (children: any[]) => {
+        let lastText: string | null = null;
+        for (const node of children || []) {
+          if (!node || typeof node !== "object") continue;
+          if (TEXT_TYPES.has(node.type) && typeof node.text === "string") {
+            lastText = node.text;
+            continue;
+          }
+          if (node.name && (node.label != null || node["data-source"])) {
+            const name = node.name as string;
+            if (Object.prototype.hasOwnProperty.call(data, name) && !seen.has(name)) {
+              const opts = Array.isArray(node["data-source"])
+                ? new Map<string, string>(
+                    node["data-source"].map((o: any) => [String(o.id), String(o.title)]),
+                  )
+                : undefined;
+              const question = cleanQuestion(lastText) || node.label || name;
+              result.push({
+                key: name,
+                question,
+                value: translate(data[name], opts),
+                screen: screenTitle,
+              });
+              seen.add(name);
+            }
+            lastText = null; // el texto ya se consumió para este campo
+          }
+          if (Array.isArray(node.children)) walkChildren(node.children);
+          if (Array.isArray(node.then)) walkChildren(node.then);
+          if (Array.isArray(node.else)) walkChildren(node.else);
+        }
+      };
+
+      const layoutChildren: any[] = s.layout?.children || [];
+      for (const c of layoutChildren) {
+        if (c?.type === "Form" && Array.isArray(c.children)) {
+          walkChildren(c.children);
+        } else {
+          walkChildren([c]);
+        }
+      }
+    }
+  }
+
+  // Campos presentes en la respuesta que no se encontraron en el flow.json
+  // (p. ej. flows sin definición cacheada). Se añaden al final, sin perder nada.
+  for (const [key, raw] of Object.entries(data)) {
+    if (key === "flow_token" || key === "completed" || seen.has(key)) continue;
+    result.push({ key, question: key, value: translate(raw), screen: "" });
+  }
+
+  return result;
+}
+
 // ─── Validación del Flow ────────────────────────────────────────────
 
 export interface FlowValidationIssue {

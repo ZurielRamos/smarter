@@ -192,8 +192,11 @@ export class FlowSubmissionsService {
   }
 
   findByRecord(recordId: string): Promise<WhatsAppFlowSubmission[]> {
+    // Incluir la definición del Flow (flowJson) para que el frontend pueda
+    // mostrar las preguntas y los títulos de las opciones, no los ids crudos.
     return this.submissionRepo.find({
       where: { recordId },
+      relations: { flow: true },
       order: { createdAt: 'DESC' },
     });
   }

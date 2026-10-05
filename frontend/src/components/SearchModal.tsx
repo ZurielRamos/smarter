@@ -165,8 +165,8 @@ export function SearchModal({ open, onClose }: SearchModalProps) {
                         onClick={() => navigateTo(`/${slug}/comunicaciones/conversaciones/${msg.conversationId}`)}
                         className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-muted transition-colors text-left"
                       >
-                        <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-                          <MessageSquare className="h-4 w-4 text-emerald-600" />
+                        <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 flex items-center justify-center shrink-0">
+                          <MessageSquare className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-foreground truncate">{highlightMatch(msg.content, query)}</p>
@@ -205,6 +205,6 @@ function highlightMatch(text: string, query: string): React.ReactNode {
   const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
   const parts = truncated.split(regex);
   return parts.map((part, i) =>
-    regex.test(part) ? <mark key={i} className="bg-amber-100 text-amber-900 rounded px-0.5">{part}</mark> : part
+    regex.test(part) ? <mark key={i} className="bg-amber-100 dark:bg-amber-500/25 text-amber-900 dark:text-amber-200 rounded px-0.5">{part}</mark> : part
   );
 }
