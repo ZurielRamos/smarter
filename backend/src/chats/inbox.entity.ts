@@ -65,6 +65,20 @@ export class Inbox {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any> | null;
 
+  // === WhatsApp Flows: clave de cifrado por número ===
+  // Clave privada RSA del endpoint de Flows, CIFRADA en reposo (AES-256).
+  // La pública correspondiente se registra en el phone_number_id de este inbox.
+  @Column({ name: 'flow_private_key', type: 'text', nullable: true })
+  flowPrivateKey: string | null;
+
+  // Clave pública en PEM (texto plano; no es secreta).
+  @Column({ name: 'flow_public_key', type: 'text', nullable: true })
+  flowPublicKey: string | null;
+
+  // Estado del registro de la clave en Meta: none | registered | error
+  @Column({ name: 'flow_key_status', type: 'varchar', length: 20, nullable: true })
+  flowKeyStatus: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

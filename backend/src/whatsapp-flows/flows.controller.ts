@@ -18,6 +18,7 @@ import type { SendFlowInput, SendFlowTemplateInput } from './flow-sender.service
 import { FlowProvisioningService } from './flow-provisioning.service';
 import type { CreateFlowOnMetaInput } from './flow-provisioning.service';
 import { FlowSyncService } from './flow-sync.service';
+import { FlowEncryptionKeyService } from './flow-encryption-key.service';
 
 /**
  * API de gestión y consulta de WhatsApp Flows y sus respuestas, por tenant.
@@ -32,7 +33,22 @@ export class FlowsController {
     private readonly sender: FlowSenderService,
     private readonly provisioning: FlowProvisioningService,
     private readonly sync: FlowSyncService,
+    private readonly keys: FlowEncryptionKeyService,
   ) {}
+
+  // ---- Cifrado por canal (clave por número) ----
+
+  /** Genera el par de claves del canal y registra la pública en Meta. */
+  @Post('encryption/:inboxId/setup')
+  setupEncryption(@Param('inboxId') inboxId: string, @Body() body: { force?: boolean }) {
+    return this.keys.setupForInbox(inboxId, !!body?.force);
+  }
+
+  /** Estado de la clave de cifrado del canal (local + lo que reporta Meta). */
+  @Get('encryption/:inboxId/status')
+  encryptionStatus(@Param('inboxId') inboxId: string) {
+    return this.keys.getStatus(inboxId);
+  }
 
   // ---- Definiciones de Flows ----
 

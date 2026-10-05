@@ -6,6 +6,7 @@ import { getClient, getConversationsByRecord, getNotes, deleteNote, getActivitie
 import type { ClientRecord, ConversationRecord, NoteRecord, ActivityRecord, ContactEventRecord, CustomField } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { AddNoteModal } from "./AddNoteModal";
+import { EditRecordModal } from "./EditRecordModal";
 import { ConversationPreviewModal } from "./ConversationPreviewModal";
 import { ChannelPickerModal } from "./ChannelPickerModal";
 import { toast } from "sonner";
@@ -208,6 +209,7 @@ export function ClientDetail() {
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [previewConversation, setPreviewConversation] = useState<ConversationRecord | null>(null);
   const [showChannelPicker, setShowChannelPicker] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [activities, setActivities] = useState<ActivityRecord[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesPage, setActivitiesPage] = useState(1);
@@ -349,7 +351,14 @@ export function ClientDetail() {
             {/* Left Column - Profile Card + Activity */}
             <div className="space-y-6">
               {/* Profile Card */}
-              <div className="bg-card rounded-xl border border-border p-6 text-center">
+              <div className="relative bg-card rounded-xl border border-border p-6 text-center">
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  title="Editar contacto"
+                  className="absolute top-3 right-3 h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
                 <div className={`relative h-20 w-20 mx-auto rounded-full flex items-center justify-center text-3xl font-semibold text-muted-foreground ${client.hasAdTracking ? "ring-3 ring-blue-500 ring-offset-2 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-500/20 dark:to-indigo-500/20" : "bg-muted"}`}>
                   {client.avatarUrl ? (
                     <img src={client.avatarUrl} alt={fullName} className="h-full w-full rounded-full object-cover" />
@@ -662,6 +671,20 @@ export function ClientDetail() {
           client={client}
           onClose={() => setShowNoteModal(false)}
           onSaved={() => { setShowNoteModal(false); toast.success("Nota guardada"); loadNotes(); }}
+        />
+      )}
+
+      {/* Edit Contact Modal */}
+      {showEditModal && client && (
+        <EditRecordModal
+          tenantId={tenantId}
+          client={client}
+          onClose={() => setShowEditModal(false)}
+          onUpdated={(updated) => {
+            setClient(updated);
+            setShowEditModal(false);
+            toast.success("Contacto actualizado");
+          }}
         />
       )}
 

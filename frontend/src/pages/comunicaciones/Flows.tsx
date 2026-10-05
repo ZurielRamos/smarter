@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Loader2, Workflow, X, Upload, Download, AlertTriangle } from "lucide-react";
+import { Plus, Loader2, Workflow, X, Upload, Download, AlertTriangle, ShieldCheck, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/services/api";
 import { getInboxes, type InboxSummary } from "@/services/api";
@@ -67,6 +67,72 @@ function WhatsAppInboxPicker({
           onChange={onChange}
           options={inboxes.map((i) => ({ value: i.id, label: i.name }))}
         />
+      )}
+      {inboxId && <EncryptionStatusPanel inboxId={inboxId} />}
+    </div>
+  );
+}
+
+// Estado de la clave de cifrado del canal + botón para configurarla.
+// La clave es por número; sin ella, los Flows con endpoint no funcionan.
+function EncryptionStatusPanel({ inboxId }: { inboxId: string }) {
+  const [status, setStatus] = useState<{ hasKey: boolean; status: string; metaStatus?: string | null } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [setting, setSetting] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    api
+      .get(`/whatsapp-flows/encryption/${inboxId}/status`)
+      .then(({ data }) => setStatus(data))
+      .catch(() => setStatus(null))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inboxId]);
+
+  const setup = async () => {
+    setSetting(true);
+    try {
+      await api.post(`/whatsapp-flows/encryption/${inboxId}/setup`, {});
+      toast.success("Cifrado configurado y registrado en Meta");
+      load();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "No se pudo configurar el cifrado");
+    } finally {
+      setSetting(false);
+    }
+  };
+
+  if (loading) {
+    return <p className="text-[10px] text-muted-foreground mt-1.5">Verificando cifrado…</p>;
+  }
+
+  const ok = status?.hasKey && (status.metaStatus === "VALID" || status.status === "registered");
+
+  return (
+    <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px]">
+      {ok ? (
+        <span className="flex items-center gap-1 text-green-600">
+          <ShieldCheck className="h-3 w-3" /> Cifrado activo{status?.metaStatus ? ` (${status.metaStatus})` : ""}
+        </span>
+      ) : (
+        <span className="flex items-center gap-1 text-amber-600">
+          <ShieldAlert className="h-3 w-3" /> Sin clave de cifrado para este número
+        </span>
+      )}
+      {!ok && (
+        <button
+          onClick={setup}
+          disabled={setting}
+          className="flex items-center gap-1 px-2 py-1 rounded-md bg-brand-700 hover:bg-brand-600 text-white text-[10px] font-medium transition-colors disabled:opacity-50"
+        >
+          {setting ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+          Configurar cifrado
+        </button>
       )}
     </div>
   );

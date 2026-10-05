@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WhatsAppFlow } from './entities/whatsapp-flow.entity';
 import { Inbox } from '../chats/inbox.entity';
+import { FlowEncryptionKeyService } from './flow-encryption-key.service';
 
 const GRAPH_VERSION = 'v21.0';
 
@@ -59,17 +60,20 @@ export class FlowProvisioningService {
     private readonly flowRepo: Repository<WhatsAppFlow>,
     @InjectRepository(Inbox)
     private readonly inboxRepo: Repository<Inbox>,
+    private readonly keys: FlowEncryptionKeyService,
   ) {}
 
   /**
-   * Endpoint URI por defecto del sistema (donde Meta hace el data_exchange).
+   * Endpoint URI del sistema, POR NÚMERO. La clave de cifrado es por número,
+   * así que el endpoint incluye el phone_number_id para resolver qué clave usar.
    */
-  private defaultEndpointUri(): string {
+  private endpointUriForNumber(phoneNumberId: string | null): string {
     const base =
       this.configService.get<string>('PUBLIC_BASE_URL') ||
       this.configService.get<string>('META_BASE_URL') ||
       'https://crm.strategee.us';
-    return `${base.replace(/\/$/, '')}/webhooks/whatsapp-flow`;
+    const root = `${base.replace(/\/$/, '')}/webhooks/whatsapp-flow`;
+    return phoneNumberId ? `${root}/${phoneNumberId}` : root;
   }
 
   async createFlow(input: CreateFlowOnMetaInput): Promise<ProvisionResult> {
@@ -88,7 +92,25 @@ export class FlowProvisioningService {
     const endpointUri =
       input.endpointUri === null
         ? null
-        : input.endpointUri || (usesEndpoint ? this.defaultEndpointUri() : null);
+        : input.endpointUri ||
+          (usesEndpoint ? this.endpointUriForNumber(inbox.phoneNumberId) : null);
+
+    // Si el Flow usa endpoint, asegurar que el número tenga su clave de cifrado
+    // registrada en Meta ANTES de crear el Flow (sin clave, el health check y
+    // el data_exchange fallarían). setupForInbox es idempotente.
+    if (usesEndpoint) {
+      try {
+        await this.keys.setupForInbox(inbox.id);
+      } catch (err: any) {
+        return {
+          success: false,
+          flowId: null,
+          metaFlowId: null,
+          status: null,
+          error: `No se pudo preparar la clave de cifrado del número: ${err.message}`,
+        };
+      }
+    }
 
     // 1) Crear el Flow en Meta (nace en DRAFT).
     const createBody: Record<string, any> = {

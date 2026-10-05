@@ -318,6 +318,39 @@ export async function createClient(payload: CreateClientPayload): Promise<Client
   return data;
 }
 
+export type UpdateClientPayload = Partial<{
+  avatarUrl: string;
+  firstName: string;
+  lastName: string;
+  company: string;
+  jobTitle: string;
+  phone: string;
+  countryCode: string;
+  email: string;
+  website: string;
+  documentType: string;
+  documentNumber: string;
+  gender: string;
+  birthDate: string;
+  city: string;
+  region: string;
+  address: string;
+  status: string;
+  channelSource: string;
+  source: string;
+  score: number;
+  optInWhatsapp: boolean;
+  optInEmail: boolean;
+  tags: string[];
+  notes: string;
+  customData: Record<string, any>;
+}>;
+
+export async function updateClient(id: string, payload: UpdateClientPayload): Promise<ClientRecord> {
+  const { data } = await api.put<ClientRecord>(`/records/${id}`, payload);
+  return data;
+}
+
 // === Custom Fields ===
 
 export interface CustomField {

@@ -70,12 +70,28 @@ export class FlowCryptoService {
     return !!this.privateKey;
   }
 
+  /** Clave privada global del .env (fallback de compatibilidad). */
+  getEnvPrivateKey(): string | null {
+    return this.privateKey;
+  }
+
   /**
    * Descifra la petición entrante de Meta.
+   *
+   * @param body payload cifrado de Meta.
+   * @param privateKeyOverride clave privada PEM a usar (la del inbox del número).
+   *        Si se omite, cae a la clave global del .env (compatibilidad).
+   * @param passphraseOverride passphrase de la clave override (opcional).
    */
-  decryptRequest(body: EncryptedFlowRequest): DecryptedFlowRequest {
-    if (!this.privateKey) {
-      throw new Error('WHATSAPP_FLOW_PRIVATE_KEY no configurada');
+  decryptRequest(
+    body: EncryptedFlowRequest,
+    privateKeyOverride?: string | null,
+    passphraseOverride?: string,
+  ): DecryptedFlowRequest {
+    const privateKey = privateKeyOverride || this.privateKey;
+    const passphrase = privateKeyOverride ? passphraseOverride : this.passphrase;
+    if (!privateKey) {
+      throw new Error('No hay clave privada disponible para descifrar el Flow');
     }
 
     const { encrypted_flow_data, encrypted_aes_key, initial_vector } = body;
@@ -85,8 +101,8 @@ export class FlowCryptoService {
     try {
       aesKeyBuffer = crypto.privateDecrypt(
         {
-          key: this.privateKey,
-          passphrase: this.passphrase,
+          key: privateKey,
+          passphrase,
           padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
           oaepHash: 'sha256',
         },

@@ -15,6 +15,8 @@ import { Inbox } from '../chats/inbox.entity';
 import { FlowSenderService } from './flow-sender.service';
 import { FlowSyncService } from './flow-sync.service';
 import { FlowProvisioningService } from './flow-provisioning.service';
+import { SecretCryptoService } from './secret-crypto.service';
+import { FlowEncryptionKeyService } from './flow-encryption-key.service';
 
 /**
  * Módulo del endpoint de WhatsApp Flows.
@@ -48,6 +50,8 @@ import { FlowProvisioningService } from './flow-provisioning.service';
     FlowSenderService,
     FlowSyncService,
     FlowProvisioningService,
+    SecretCryptoService,
+    FlowEncryptionKeyService,
   ],
   exports: [
     FlowCryptoService,
@@ -57,6 +61,8 @@ import { FlowProvisioningService } from './flow-provisioning.service';
     FlowSenderService,
     FlowSyncService,
     FlowProvisioningService,
+    SecretCryptoService,
+    FlowEncryptionKeyService,
   ],
 })
 export class WhatsAppFlowsModule {}
