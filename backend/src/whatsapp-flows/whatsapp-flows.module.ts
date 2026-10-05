@@ -13,6 +13,8 @@ import { ClientRecord } from '../records/record.entity';
 import { Conversation } from '../chats/conversation.entity';
 import { Inbox } from '../chats/inbox.entity';
 import { FlowSenderService } from './flow-sender.service';
+import { FlowSyncService } from './flow-sync.service';
+import { FlowProvisioningService } from './flow-provisioning.service';
 
 /**
  * Módulo del endpoint de WhatsApp Flows.
@@ -44,6 +46,8 @@ import { FlowSenderService } from './flow-sender.service';
     FlowSubmissionsService,
     FlowsService,
     FlowSenderService,
+    FlowSyncService,
+    FlowProvisioningService,
   ],
   exports: [
     FlowCryptoService,
@@ -51,6 +55,8 @@ import { FlowSenderService } from './flow-sender.service';
     FlowSubmissionsService,
     FlowsService,
     FlowSenderService,
+    FlowSyncService,
+    FlowProvisioningService,
   ],
 })
 export class WhatsAppFlowsModule {}

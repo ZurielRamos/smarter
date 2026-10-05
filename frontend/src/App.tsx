@@ -37,6 +37,9 @@ const CanalDetail = lazy(() => import("./pages/comunicaciones/CanalDetail").then
 const Plantillas = lazy(() => import("./pages/comunicaciones/Plantillas").then((m) => ({ default: m.Plantillas })));
 const PlantillaEmpty = lazy(() => import("./pages/comunicaciones/PlantillaEmpty").then((m) => ({ default: m.PlantillaEmpty })));
 const PlantillaDetail = lazy(() => import("./pages/comunicaciones/PlantillaDetail").then((m) => ({ default: m.PlantillaDetail })));
+const Flows = lazy(() => import("./pages/comunicaciones/Flows").then((m) => ({ default: m.Flows })));
+const FlowEmpty = lazy(() => import("./pages/comunicaciones/FlowEmpty").then((m) => ({ default: m.FlowEmpty })));
+const FlowDetail = lazy(() => import("./pages/comunicaciones/FlowDetail").then((m) => ({ default: m.FlowDetail })));
 const Bots = lazy(() => import("./pages/comunicaciones/Bots").then((m) => ({ default: m.Bots })));
 const BotEmpty = lazy(() => import("./pages/comunicaciones/BotEmpty").then((m) => ({ default: m.BotEmpty })));
 const BotDetail = lazy(() => import("./pages/comunicaciones/BotDetail").then((m) => ({ default: m.BotDetail })));
@@ -157,6 +160,10 @@ function App() {
                 <Route path="plantillas" element={<Plantillas />}>
                   <Route index element={<PlantillaEmpty />} />
                   <Route path=":templateId" element={<PlantillaDetail />} />
+                </Route>
+                <Route path="flows" element={<Flows />}>
+                  <Route index element={<FlowEmpty />} />
+                  <Route path=":flowId" element={<FlowDetail />} />
                 </Route>
                 <Route path="bots" element={<Bots />}>
                   <Route index element={<BotEmpty />} />

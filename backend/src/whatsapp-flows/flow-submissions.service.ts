@@ -190,4 +190,34 @@ export class FlowSubmissionsService {
   findByFlowToken(flowToken: string): Promise<WhatsAppFlowSubmission | null> {
     return this.submissionRepo.findOne({ where: { flowToken } });
   }
+
+  findByFlow(flowId: string): Promise<WhatsAppFlowSubmission[]> {
+    return this.submissionRepo.find({
+      where: { flowId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
+   * Resuelve la definición del Flow (WhatsAppFlow) asociada a un flow_token.
+   * Primero busca la submission para obtener flowId/metaFlowId y, con eso,
+   * carga la definición. Devuelve null si no hay forma de resolverla.
+   */
+  async resolveFlowByToken(flowToken: string): Promise<WhatsAppFlow | null> {
+    if (!flowToken) return null;
+    const submission = await this.submissionRepo.findOne({ where: { flowToken } });
+    if (!submission) return null;
+
+    if (submission.flowId) {
+      const byId = await this.flowRepo.findOne({ where: { id: submission.flowId } });
+      if (byId) return byId;
+    }
+    if (submission.metaFlowId) {
+      const byMeta = await this.flowRepo.findOne({
+        where: { tenantId: submission.tenantId, metaFlowId: submission.metaFlowId },
+      });
+      if (byMeta) return byMeta;
+    }
+    return null;
+  }
 }

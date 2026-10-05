@@ -1,5 +1,5 @@
 import { Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
-import { MessageSquare, Settings2, Inbox, Megaphone, Radio, FileText, Bot } from "lucide-react";
+import { MessageSquare, Settings2, Inbox, Megaphone, Radio, FileText, Bot, Workflow } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import headerBg from "@/assets/header-background.jpg";
 
@@ -16,6 +16,7 @@ export function ComunicacionesLayout() {
     if (path.includes("/campanas")) return "campanas";
     if (path.includes("/canales")) return "canales";
     if (path.includes("/plantillas")) return "plantillas";
+    if (path.includes("/flows")) return "flows";
     if (path.includes("/bots")) return "bots";
     return "conversaciones";
   })();
@@ -45,6 +46,7 @@ export function ComunicacionesLayout() {
     { key: "canales", path: "canales", icon: <Radio className="h-4.5 w-4.5" />, label: "Canales" },
     { key: "campanas", path: "campanas", icon: <Megaphone className="h-4.5 w-4.5" />, label: "Campañas" },
     { key: "plantillas", path: "plantillas", icon: <FileText className="h-4.5 w-4.5" />, label: "Plantillas" },
+    { key: "flows", path: "flows", icon: <Workflow className="h-4.5 w-4.5" />, label: "Flows" },
     { key: "bots", path: "bots", icon: <Bot className="h-4.5 w-4.5" />, label: "Bots" },
   ];
 
