@@ -152,12 +152,23 @@ export function parseFlowJson(flowJson: Record<string, any>): FlowModel {
   const routing: Record<string, string[]> = flowJson?.routing_model || {};
 
   const screens: FlowScreenModel[] = screensRaw.map((s) => {
-    const formChildren = extractFormChildren(s);
-    const footer = formChildren.find((c) => c.type === "Footer");
-    const components = formChildren
-      .filter((c) => c.type !== "Footer")
-      .map(parseComponent)
+    const layoutChildren: any[] = s?.layout?.children || [];
+    const form = layoutChildren.find((c: any) => c.type === "Form");
+    const footer = (form?.children || layoutChildren).find((c: any) => c.type === "Footer");
+
+    // Componentes que estaban FUERA del Form (headings sueltos en el layout).
+    const outside = layoutChildren
+      .filter((c: any) => c.type !== "Form" && c.type !== "Footer")
+      .map((c: any) => parseComponent(c, true))
       .filter(Boolean) as FlowComponent[];
+
+    // Componentes DENTRO del Form (excluyendo el Footer).
+    const inside = (form?.children || [])
+      .filter((c: any) => c.type !== "Footer")
+      .map((c: any) => parseComponent(c, false))
+      .filter(Boolean) as FlowComponent[];
+
+    const components = [...outside, ...inside];
 
     const nexts = routing[s.id];
     const dataSchema: Record<string, string> = {};
@@ -166,6 +177,8 @@ export function parseFlowJson(flowJson: Record<string, any>): FlowModel {
         dataSchema[k] = v?.__example__ != null ? String(v.__example__) : "";
       }
     }
+
+    const footerAction = footer?.["on-click-action"];
 
     return {
       _id: uid("s"),
@@ -177,6 +190,11 @@ export function parseFlowJson(flowJson: Record<string, any>): FlowModel {
       footerLabel: footer?.label || "Continuar",
       next: Array.isArray(nexts) && nexts.length > 0 ? nexts[0] : footerNavTarget(footer),
       dataSchema: Object.keys(dataSchema).length ? dataSchema : undefined,
+      // Preservación quirúrgica.
+      _rawScreen: s,
+      _formName: form?.name,
+      _footerActionName: footerAction?.name,
+      _rawFooter: footer,
     };
   });
 
@@ -193,20 +211,10 @@ function footerNavTarget(footer: any): string | null {
   return null;
 }
 
-function extractFormChildren(screen: any): any[] {
-  const children = screen?.layout?.children || [];
-  const form = children.find((c: any) => c.type === "Form");
-  if (form) {
-    const outside = children.filter((c: any) => c.type !== "Form");
-    return [...outside, ...(form.children || [])];
-  }
-  return children;
-}
-
-function parseComponent(c: any): FlowComponent | null {
+function parseComponent(c: any, outsideForm: boolean): FlowComponent | null {
   const type = c.type as FlowComponentType;
   if (!COMPONENT_META[type]) return null;
-  const comp: FlowComponent = { _id: uid(), type };
+  const comp: FlowComponent = { _id: uid(), type, _raw: c, _outsideForm: outsideForm };
   if (c.text != null) comp.text = c.text;
   if (c.name != null) comp.name = c.name;
   if (c.label != null) comp.label = c.label;
@@ -236,71 +244,31 @@ function parseComponent(c: any): FlowComponent | null {
   // If condicional
   if (type === "If") {
     comp.condition = c.condition || "";
-    comp.thenComponents = (c.then || []).map(parseComponent).filter(Boolean) as FlowComponent[];
-    comp.elseComponents = (c.else || []).map(parseComponent).filter(Boolean) as FlowComponent[];
+    comp.thenComponents = (c.then || []).map((x: any) => parseComponent(x, false)).filter(Boolean) as FlowComponent[];
+    comp.elseComponents = (c.else || []).map((x: any) => parseComponent(x, false)).filter(Boolean) as FlowComponent[];
   }
   return comp;
 }
 
 // ─── Serialize: modelo del editor → flow.json (Meta) ────────────────
 
+/**
+ * Serialización QUIRÚRGICA: parte del flow.json original de cada pantalla y
+ * aplica solo los cambios del editor, preservando:
+ *  - la posición de los componentes (fuera/dentro del Form) tal como venían,
+ *  - la acción del Footer original (data_exchange | navigate | complete) y su
+ *    payload,
+ *  - cualquier propiedad que el editor no gestiona (no se pierde nada),
+ *  - el data schema de la pantalla.
+ * Los componentes/pantallas NUEVOS (sin _raw) se generan desde cero.
+ */
 export function serializeToFlowJson(model: FlowModel): Record<string, any> {
   const routing_model: Record<string, string[]> = {};
   for (const s of model.screens) {
     routing_model[s.id] = s.next ? [s.next] : [];
   }
 
-  const screens = model.screens.map((s) => {
-    const isTerminal = !s.next;
-    const children = s.components.map((c) => serializeComponent(c));
-
-    const payload: Record<string, string> = {};
-    collectFieldPayload(s.components, payload);
-    // Reenviar también los datos recibidos (data) hacia la siguiente pantalla.
-    if (s.dataSchema) {
-      for (const k of Object.keys(s.dataSchema)) payload[k] = `\${data.${k}}`;
-    }
-
-    const footer = {
-      type: "Footer",
-      label: s.footerLabel || (isTerminal ? "Enviar" : "Continuar"),
-      "on-click-action": isTerminal
-        ? { name: "complete", payload }
-        : {
-            name: "navigate",
-            next: { type: "screen", name: s.next },
-            payload,
-          },
-    };
-
-    const screen: Record<string, any> = {
-      id: s.id,
-      title: s.title,
-      ...(isTerminal ? { terminal: true, success: true } : {}),
-    };
-
-    // data schema (lo que la pantalla recibe)
-    if (s.dataSchema && Object.keys(s.dataSchema).length) {
-      screen.data = {};
-      for (const [k, example] of Object.entries(s.dataSchema)) {
-        screen.data[k] = { type: "string", __example__: example || "" };
-      }
-    } else {
-      screen.data = {};
-    }
-
-    screen.layout = {
-      type: "SingleColumnLayout",
-      children: [
-        {
-          type: "Form",
-          name: `form_${s.id.toLowerCase()}`,
-          children: [...children, footer],
-        },
-      ],
-    };
-    return screen;
-  });
+  const screens = model.screens.map((s) => serializeScreen(s));
 
   return {
     version: model.version || "7.3",
@@ -308,6 +276,104 @@ export function serializeToFlowJson(model: FlowModel): Record<string, any> {
     routing_model,
     screens,
   };
+}
+
+function serializeScreen(s: FlowScreenModel): Record<string, any> {
+  const isTerminal = !s.next;
+
+  // Componentes dentro / fuera del Form, respetando su posición original.
+  // Un componente nuevo (sin _raw) hereda la posición: textos sueltos quedan
+  // dentro del Form por defecto (comportamiento estándar), salvo que su _raw
+  // dijera lo contrario.
+  const outsideChildren = s.components
+    .filter((c) => c._outsideForm)
+    .map((c) => serializeComponent(c));
+  const insideChildren = s.components
+    .filter((c) => !c._outsideForm)
+    .map((c) => serializeComponent(c));
+
+  // Footer: partir del original si existía y actualizar solo label + routing.
+  const footer = serializeFooter(s, isTerminal);
+
+  // Partir de la pantalla original para no perder propiedades no gestionadas.
+  const screen: Record<string, any> = s._rawScreen
+    ? { ...s._rawScreen }
+    : { id: s.id, title: s.title };
+
+  screen.id = s.id;
+  screen.title = s.title;
+  if (isTerminal) {
+    screen.terminal = true;
+    screen.success = true;
+  } else {
+    delete screen.terminal;
+    delete screen.success;
+  }
+
+  // data schema (lo que la pantalla recibe).
+  if (s.dataSchema && Object.keys(s.dataSchema).length) {
+    screen.data = {};
+    for (const [k, example] of Object.entries(s.dataSchema)) {
+      screen.data[k] = { type: "string", __example__: example || "" };
+    }
+  } else if (s._rawScreen?.data && Object.keys(s._rawScreen.data).length) {
+    screen.data = s._rawScreen.data; // preservar el data original si lo había
+  } else {
+    screen.data = {};
+  }
+
+  // Reconstruir el layout preservando el tipo original y el nombre del Form.
+  const layoutType = s._rawScreen?.layout?.type || "SingleColumnLayout";
+  const formName = s._formName || `form_${s.id.toLowerCase()}`;
+
+  screen.layout = {
+    type: layoutType,
+    children: [
+      ...outsideChildren,
+      {
+        type: "Form",
+        name: formName,
+        children: [...insideChildren, footer],
+      },
+    ],
+  };
+  return screen;
+}
+
+/**
+ * Construye el Footer preservando el original: mantiene su acción
+ * (data_exchange/navigate/complete) y reconstruye el payload con los campos
+ * actuales de la pantalla. Solo cambia label y, en navigate, el destino.
+ */
+function serializeFooter(s: FlowScreenModel, isTerminal: boolean): Record<string, any> {
+  const payload: Record<string, string> = {};
+  collectFieldPayload(s.components, payload);
+  if (s.dataSchema) {
+    for (const k of Object.keys(s.dataSchema)) payload[k] = `\${data.${k}}`;
+  }
+
+  // Determinar la acción: preservar la original salvo que el routing la fuerce.
+  let actionName = s._footerActionName;
+  if (!actionName) {
+    // Footer nuevo: terminal => complete; con endpoint-less navigation => navigate.
+    actionName = isTerminal ? "complete" : "navigate";
+  }
+  // Coherencia con el routing: si ahora es terminal, debe ser complete.
+  if (isTerminal && actionName !== "complete") actionName = "complete";
+  // Si dejó de ser terminal y era complete, pasa a la acción de navegación.
+  if (!isTerminal && actionName === "complete") actionName = s._footerActionName === "navigate" ? "navigate" : "data_exchange";
+
+  const action: Record<string, any> = { name: actionName, payload };
+  if (actionName === "navigate") {
+    action.next = { type: "screen", name: s.next };
+  }
+
+  // Partir del footer original para conservar cualquier extra.
+  const base = s._rawFooter ? { ...s._rawFooter } : { type: "Footer" };
+  base.type = "Footer";
+  base.label = s.footerLabel || (isTerminal ? "Enviar" : "Continuar");
+  base["on-click-action"] = action;
+  return base;
 }
 
 function collectFieldPayload(components: FlowComponent[], payload: Record<string, string>) {
@@ -326,36 +392,51 @@ function isFieldComponent(type: FlowComponentType): boolean {
   return COMPONENT_META[type]?.isField;
 }
 
+/**
+ * Serializa un componente de forma quirúrgica: si tiene _raw (ya existía),
+ * parte de él y sobrescribe solo lo que el editor gestiona, preservando el
+ * resto. Si es nuevo, lo genera desde cero.
+ */
 function serializeComponent(c: FlowComponent): Record<string, any> {
-  const out: Record<string, any> = { type: c.type };
   const meta = COMPONENT_META[c.type];
 
+  // If: estructura propia, recursiva.
   if (c.type === "If") {
+    const out: Record<string, any> = c._raw ? { ...c._raw } : { type: "If" };
+    out.type = "If";
     out.condition = c.condition || "";
     out.then = (c.thenComponents || []).map(serializeComponent);
     if (c.elseComponents && c.elseComponents.length) {
       out.else = c.elseComponents.map(serializeComponent);
+    } else {
+      delete out.else;
     }
     return out;
   }
 
-  if (meta.hasText && c.text != null) out.text = c.text;
+  // Partir del raw original (preserva props no gestionadas) o de cero.
+  const out: Record<string, any> = c._raw ? { ...c._raw } : { type: c.type };
+  out.type = c.type;
+
+  if (meta.hasText) {
+    if (c.text != null) out.text = c.text;
+  }
 
   if (meta.isField) {
     if (c.name) out.name = c.name;
     if (c.label != null) out.label = c.label;
     out.required = !!c.required;
-    if (c.helperText) out["helper-text"] = c.helperText;
-    if (c.description) out.description = c.description;
-    if (c.type === "TextInput" && c.inputType) out["input-type"] = c.inputType;
+    setOrDelete(out, "helper-text", c.helperText);
+    setOrDelete(out, "description", c.description);
     if (c.type === "TextInput") {
-      if (c.minChars != null) out["min-chars"] = c.minChars;
-      if (c.maxChars != null) out["max-chars"] = c.maxChars;
+      if (c.inputType) out["input-type"] = c.inputType;
+      setOrDelete(out, "min-chars", c.minChars);
+      setOrDelete(out, "max-chars", c.maxChars);
     }
-    if (c.type === "TextArea" && c.maxChars != null) out["max-length"] = c.maxChars;
+    if (c.type === "TextArea") setOrDelete(out, "max-length", c.maxChars);
     if (c.type === "DatePicker") {
-      if (c.minDate) out["min-date"] = c.minDate;
-      if (c.maxDate) out["max-date"] = c.maxDate;
+      setOrDelete(out, "min-date", c.minDate);
+      setOrDelete(out, "max-date", c.maxDate);
     }
   }
 
@@ -364,15 +445,15 @@ function serializeComponent(c: FlowComponent): Record<string, any> {
   }
 
   if (c.type === "Image") {
-    if (c.src) out.src = c.src;
-    if (c.altText) out["alt-text"] = c.altText;
-    if (c.scaleType) out["scale-type"] = c.scaleType;
+    setOrDelete(out, "src", c.src);
+    setOrDelete(out, "alt-text", c.altText);
+    setOrDelete(out, "scale-type", c.scaleType);
   }
   if (c.type === "ImageCarousel" && c.images) {
     out.images = c.images.map((im) => ({ src: im.src, "alt-text": im.altText || "" }));
   }
   if (c.type === "EmbeddedLink") {
-    if (c.text) out.text = c.text;
+    if (c.text != null) out.text = c.text;
     if (c.linkScreen) {
       out["on-click-action"] = { name: "navigate", next: { type: "screen", name: c.linkScreen } };
     } else if (c.url) {
@@ -384,6 +465,12 @@ function serializeComponent(c: FlowComponent): Record<string, any> {
   }
 
   return out;
+}
+
+/** Asigna la clave si el valor está definido; si no, la elimina del objeto. */
+function setOrDelete(obj: Record<string, any>, key: string, value: any) {
+  if (value === undefined || value === null || value === "") delete obj[key];
+  else obj[key] = value;
 }
 
 // Opciones de pantallas destino para selectores de routing/navegación.

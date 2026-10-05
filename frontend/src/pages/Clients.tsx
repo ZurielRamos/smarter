@@ -792,6 +792,8 @@ export function Clients() {
                 tenantId={tenantId}
                 groupByField={kanbanField}
                 fieldOptions={kanbanVisibleColumns[kanbanField] || getKanbanFieldOptions()}
+                allOptions={getKanbanFieldOptions()}
+                isCustomized={!!kanbanVisibleColumns[kanbanField]}
                 fieldLabel={getKanbanFieldLabel()}
                 assignedTo={ownerFilter === "mine" ? user?.id : undefined}
                 assignedTeamId={ownerFilter === "myTeam" ? getUserTeamId() : undefined}

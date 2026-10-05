@@ -37,6 +37,15 @@ export interface FlowComponent {
   _id: string; // id interno del editor (no va al flow.json)
   type: FlowComponentType;
 
+  // ── Preservación quirúrgica ──
+  // Nodo original tal cual venía en el flow.json (si el componente ya existía).
+  // Al serializar se parte de este raw y se aplican SOLO las props editadas,
+  // conservando cualquier propiedad que el editor no gestiona.
+  _raw?: Record<string, any>;
+  // true si en el original este componente estaba FUERA del Form (headings
+  // sueltos en el layout). Se usa para recolocarlo igual al serializar.
+  _outsideForm?: boolean;
+
   // Texto (headings / body / caption / richtext)
   text?: string;
 
@@ -89,6 +98,17 @@ export interface FlowScreenModel {
   // Datos que esta pantalla espera recibir de la anterior (data schema).
   // Mapa nombre -> ejemplo. Se referencian con ${data.nombre}.
   dataSchema?: Record<string, string>;
+
+  // ── Preservación quirúrgica ──
+  // Pantalla original completa (si ya existía en el flow.json).
+  _rawScreen?: Record<string, any>;
+  // Nombre original del Form (p. ej. "form_intro"); si no, se deriva del id.
+  _formName?: string;
+  // Acción original del Footer tal cual venía: "data_exchange" | "navigate" |
+  // "complete". Se preserva para no cambiar la semántica de navegación.
+  _footerActionName?: string;
+  // Footer original completo (para conservar su estructura exacta).
+  _rawFooter?: Record<string, any>;
 }
 
 export interface FlowModel {

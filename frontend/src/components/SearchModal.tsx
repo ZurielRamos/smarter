@@ -87,8 +87,7 @@ export function SearchModal({ open, onClose }: SearchModalProps) {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: -10 }}
           transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="w-full max-w-xl rounded-2xl shadow-2xl border border-white/30 overflow-hidden"
-          style={{ background: "rgba(255, 255, 255, 0.96)", backdropFilter: "blur(24px)" }}
+          className="w-full max-w-xl rounded-2xl shadow-2xl border border-border bg-popover backdrop-blur-xl overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Search input */}

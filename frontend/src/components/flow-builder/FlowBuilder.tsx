@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import {
   DndContext,
   pointerWithin,
@@ -27,6 +27,14 @@ interface FlowBuilderProps {
 }
 
 export function FlowBuilder({ flowJson, flowId, canEdit, onSaved }: FlowBuilderProps) {
+  // JSON original tal cual vino de Meta/BD. Se conserva para NO degradarlo:
+  // mientras el usuario no edite, se envía este original a Meta en vez del
+  // re-serializado (nuestro serializador simplifica la estructura y Meta lo
+  // marcaría con warnings aunque el Flow funcione).
+  const originalJsonRef = useRef<Record<string, any> | null>(
+    flowJson && Object.keys(flowJson).length ? flowJson : null,
+  );
+
   const [model, setModel] = useState<FlowModel>(() => {
     const parsed = parseFlowJson(flowJson || {});
     if (parsed.screens.length === 0) parsed.screens.push(createScreen(0));
@@ -54,6 +62,13 @@ export function FlowBuilder({ flowJson, flowId, canEdit, onSaved }: FlowBuilderP
   const [validating, setValidating] = useState(false);
   const [metaValidated, setMetaValidated] = useState<null | boolean>(null);
 
+  // Devuelve el JSON a enviar a Meta: el ORIGINAL si no hubo ediciones (para no
+  // degradar un Flow que ya funciona), o el re-serializado si el usuario editó.
+  const buildJsonToSend = (): Record<string, any> => {
+    if (!dirty && originalJsonRef.current) return originalJsonRef.current;
+    return serializeToFlowJson(model);
+  };
+
   const handleValidate = async () => {
     // Primero la validación local; si hay errores de estructura, ni llamamos a Meta.
     if (errors.length > 0) {
@@ -63,7 +78,7 @@ export function FlowBuilder({ flowJson, flowId, canEdit, onSaved }: FlowBuilderP
     setValidating(true);
     setMetaValidated(null);
     try {
-      const json = serializeToFlowJson(model);
+      const json = buildJsonToSend();
       const { data } = await api.post(`/whatsapp-flows/${flowId}/validate`, { flowJson: json });
       setMetaErrors(data?.errors || []);
       if (!data?.metaReachable) {
@@ -270,7 +285,7 @@ export function FlowBuilder({ flowJson, flowId, canEdit, onSaved }: FlowBuilderP
       toast.error(`Corrige ${errors.length} error(es) antes de guardar`);
       return;
     }
-    const json = serializeToFlowJson(model);
+    const json = buildJsonToSend();
     setSaving(true);
     try {
       const { data } = await api.post(`/whatsapp-flows/${flowId}/flow-json`, { flowJson: json });

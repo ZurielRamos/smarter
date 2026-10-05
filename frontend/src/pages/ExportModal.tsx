@@ -137,8 +137,7 @@ export function ExportModal({ open, onClose, filters, assignedTo, assignedTeamId
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-          className="w-full max-w-2xl max-h-[85vh] rounded-2xl shadow-2xl border border-white/30 flex flex-col overflow-hidden"
-          style={{ background: "rgba(255, 255, 255, 0.96)", backdropFilter: "blur(24px)" }}
+          className="w-full max-w-2xl max-h-[85vh] rounded-2xl shadow-2xl border border-border bg-popover backdrop-blur-xl flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}

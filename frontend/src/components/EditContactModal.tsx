@@ -88,8 +88,7 @@ export function EditContactModal({ client, onClose, onSaved }: { client: ClientR
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4" onClick={onClose}>
       <div
-        className="w-full max-w-2xl rounded-2xl shadow-2xl border border-white/30 flex flex-col max-h-[85vh] overflow-hidden"
-        style={{ background: "rgba(255, 255, 255, 0.94)", backdropFilter: "blur(24px)" }}
+        className="w-full max-w-2xl rounded-2xl shadow-2xl border border-border bg-popover backdrop-blur-xl flex flex-col max-h-[85vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

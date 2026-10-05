@@ -134,8 +134,7 @@ export function NewRecordModal({ tenantId, onClose, onCreated }: Props) {
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl rounded-2xl shadow-2xl border border-white/30 flex flex-col max-h-[85vh] overflow-hidden"
-        style={{ background: "rgba(255, 255, 255, 0.94)", backdropFilter: "blur(24px)" }}
+        className="w-full max-w-2xl rounded-2xl shadow-2xl border border-border bg-popover backdrop-blur-xl flex flex-col max-h-[85vh] overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">

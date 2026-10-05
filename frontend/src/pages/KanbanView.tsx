@@ -6,7 +6,12 @@ import type { ClientRecord } from "@/services/api";
 interface KanbanViewProps {
   tenantId: string;
   groupByField: string;
+  /** Columns the user wants visible (already filtered by the visibility menu). */
   fieldOptions: string[];
+  /** Full universe of options for this field (visible or not). */
+  allOptions?: string[];
+  /** True when the user has explicitly customized column visibility. */
+  isCustomized?: boolean;
   fieldLabel: string;
   assignedTo?: string;
   assignedTeamId?: string;
@@ -49,12 +54,108 @@ interface ColumnState {
   isFiltered: boolean; // true when search/sort differs from initial load
 }
 
-export function KanbanView({ tenantId, groupByField, fieldOptions, fieldLabel, assignedTo, assignedTeamId, onMoveClient, onClientClick, onContextMenu }: KanbanViewProps) {
+export function KanbanView({ tenantId, groupByField, fieldOptions, allOptions, isCustomized, fieldLabel, assignedTo, assignedTeamId, onMoveClient, onClientClick, onContextMenu }: KanbanViewProps) {
+  // Persisted custom order of columns, keyed by tenant + grouping field.
+  const orderStorageKey = `kanbanColOrder_${tenantId}_${groupByField}`;
+  const loadSavedOrder = useCallback((): string[] | null => {
+    try {
+      const raw = localStorage.getItem(orderStorageKey);
+      if (raw) return JSON.parse(raw) as string[];
+    } catch { /* ignore */ }
+    return null;
+  }, [orderStorageKey]);
+
   const [columnsState, setColumnsState] = useState<Record<string, ColumnState>>({});
   const [initialLoading, setInitialLoading] = useState(true);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [draggingClient, setDraggingClient] = useState<string | null>(null);
-  const [columnKeys, setColumnKeys] = useState<string[]>(fieldOptions);
+  // Initialize already in the saved order so columns never visibly reorder
+  // after the first paint.
+  const [columnKeys, setColumnKeys] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(`kanbanColOrder_${tenantId}_${groupByField}`);
+      if (raw) {
+        const saved = JSON.parse(raw) as string[];
+        const inSaved = saved.filter((k) => fieldOptions.includes(k));
+        const rest = fieldOptions.filter((k) => !inSaved.includes(k));
+        return [...inSaved, ...rest];
+      }
+    } catch { /* ignore */ }
+    return fieldOptions;
+  });
+
+  // Column drag-to-reorder state.
+  const [draggingColumn, setDraggingColumn] = useState<string | null>(null);
+  const [dragOverColKey, setDragOverColKey] = useState<string | null>(null);
+
+  // Synchronous drag context. Native DnD fires dragover/drop before React
+  // state updates settle, so we track the active drag through a ref that is
+  // written during dragstart and read inside dragover/drop handlers.
+  const dragCtx = useRef<{ type: "column" | "card" | null; key: string | null }>({ type: null, key: null });
+
+  // Reorders a list of column keys according to the saved order. Keys not in
+  // the saved order keep their relative position at the end.
+  const applySavedOrder = useCallback((keys: string[]): string[] => {
+    const saved = loadSavedOrder();
+    if (!saved) return keys;
+    const inSaved = saved.filter((k) => keys.includes(k));
+    const rest = keys.filter((k) => !inSaved.includes(k));
+    return [...inSaved, ...rest];
+  }, [loadSavedOrder]);
+
+  // Scroll container + auto-scroll state for horizontal drag near the edges.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const autoScrollRef = useRef<{ raf: number | null; speed: number }>({ raf: null, speed: 0 });
+
+  const stopAutoScroll = useCallback(() => {
+    if (autoScrollRef.current.raf !== null) {
+      cancelAnimationFrame(autoScrollRef.current.raf);
+      autoScrollRef.current.raf = null;
+    }
+    autoScrollRef.current.speed = 0;
+  }, []);
+
+  // Keeps scrolling while a non-zero speed is set. Re-schedules itself.
+  const runAutoScroll = useCallback(() => {
+    const el = scrollRef.current;
+    const { speed } = autoScrollRef.current;
+    if (!el || speed === 0) {
+      autoScrollRef.current.raf = null;
+      return;
+    }
+    el.scrollLeft += speed;
+    autoScrollRef.current.raf = requestAnimationFrame(runAutoScroll);
+  }, []);
+
+  // Called on every dragover over the board: computes a scroll speed based on
+  // how close the pointer is to the left/right edge of the scroll container.
+  const updateAutoScroll = useCallback((clientX: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const EDGE = 80; // px zone near each edge that triggers scrolling
+    const MAX_SPEED = 24; // px per frame at the very edge
+
+    let speed = 0;
+    const distLeft = clientX - rect.left;
+    const distRight = rect.right - clientX;
+
+    if (distLeft < EDGE) {
+      speed = -MAX_SPEED * (1 - Math.max(distLeft, 0) / EDGE);
+    } else if (distRight < EDGE) {
+      speed = MAX_SPEED * (1 - Math.max(distRight, 0) / EDGE);
+    }
+
+    autoScrollRef.current.speed = speed;
+    if (speed !== 0 && autoScrollRef.current.raf === null) {
+      autoScrollRef.current.raf = requestAnimationFrame(runAutoScroll);
+    } else if (speed === 0) {
+      stopAutoScroll();
+    }
+  }, [runAutoScroll, stopAutoScroll]);
+
+  // Safety: stop any running loop on unmount.
+  useEffect(() => stopAutoScroll, [stopAutoScroll]);
 
   // Single initial request to load all columns
   useEffect(() => {
@@ -79,29 +180,18 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, fieldLabel, a
         };
       }
 
-      // Add __unassigned__ if it has data
-      if (res.counts["__unassigned__"] || res.columns["__unassigned__"]) {
-        const colData = res.columns["__unassigned__"];
-        newState["__unassigned__"] = {
-          clients: colData?.data || [],
-          total: colData?.total || res.counts["__unassigned__"] || 0,
-          page: 1,
-          loading: false,
-          loadingMore: false,
-          search: "",
-          sortBy: "createdAt",
-          isFiltered: false,
-        };
-        keys.push("__unassigned__");
-      }
-
-      // Also check for columns with data not in fieldOptions
-      for (const key of Object.keys(res.counts)) {
-        if (!newState[key] && key !== "__unassigned__") {
-          const colData = res.columns[key];
-          newState[key] = {
+      // Extra columns found in the data (unassigned + orphan values not in the
+      // field's option universe). These are surfaced only when the user has NOT
+      // customized column visibility; otherwise we strictly honor fieldOptions
+      // so that hiding a column always works, even if it has data.
+      const universe = allOptions || fieldOptions;
+      if (!isCustomized) {
+        // __unassigned__ bucket
+        if (res.counts["__unassigned__"] || res.columns["__unassigned__"]) {
+          const colData = res.columns["__unassigned__"];
+          newState["__unassigned__"] = {
             clients: colData?.data || [],
-            total: colData?.total || res.counts[key] || 0,
+            total: colData?.total || res.counts["__unassigned__"] || 0,
             page: 1,
             loading: false,
             loadingMore: false,
@@ -109,14 +199,40 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, fieldLabel, a
             sortBy: "createdAt",
             isFiltered: false,
           };
-          keys.push(key);
+          keys.push("__unassigned__");
+        }
+
+        // Orphan values: present in data but not part of the configured options
+        for (const key of Object.keys(res.counts)) {
+          if (!newState[key] && key !== "__unassigned__" && !universe.includes(key)) {
+            const colData = res.columns[key];
+            newState[key] = {
+              clients: colData?.data || [],
+              total: colData?.total || res.counts[key] || 0,
+              page: 1,
+              loading: false,
+              loadingMore: false,
+              search: "",
+              sortBy: "createdAt",
+              isFiltered: false,
+            };
+            keys.push(key);
+          }
         }
       }
 
       setColumnsState(newState);
-      setColumnKeys(keys);
+      // Preserve the already-rendered order (from the lazy init / previous
+      // state) and only append any newly discovered keys at the end. This
+      // avoids a visible reorder flash after the first paint.
+      setColumnKeys((prev) => {
+        const kept = prev.filter((k) => keys.includes(k));
+        const added = keys.filter((k) => !kept.includes(k));
+        const merged = [...kept, ...added];
+        return applySavedOrder(merged);
+      });
     }).catch(() => {}).finally(() => setInitialLoading(false));
-  }, [tenantId, groupByField, fieldOptions, assignedTo, assignedTeamId]);
+  }, [tenantId, groupByField, fieldOptions, allOptions, isCustomized, assignedTo, assignedTeamId, applySavedOrder]);
 
   // Load more for a specific column
   const loadMore = useCallback(async (colKey: string) => {
@@ -164,17 +280,83 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, fieldLabel, a
     }
   }, [tenantId, groupByField, assignedTo, assignedTeamId]);
 
-  // Drag handlers
+  // Card drag handlers
   function handleDragStart(e: React.DragEvent, clientId: string) {
     e.dataTransfer.setData("clientId", clientId);
     e.dataTransfer.effectAllowed = "move";
-    setDraggingClient(clientId);
+    dragCtx.current = { type: "card", key: clientId };
+    // Defer the state update: mutating the DOM synchronously inside dragstart
+    // can abort the native drag in some browsers.
+    requestAnimationFrame(() => setDraggingClient(clientId));
   }
-  function handleDragEnd() { setDraggingClient(null); setDragOverColumn(null); }
-  function handleDragOver(e: React.DragEvent, colKey: string) { e.preventDefault(); setDragOverColumn(colKey); }
+
+  // Column drag-to-reorder handlers
+  function persistOrder(order: string[]) {
+    try { localStorage.setItem(orderStorageKey, JSON.stringify(order)); } catch { /* ignore */ }
+  }
+
+  function handleColumnDragStart(e: React.DragEvent, colKey: string) {
+    e.dataTransfer.setData("columnKey", colKey);
+    e.dataTransfer.effectAllowed = "move";
+    dragCtx.current = { type: "column", key: colKey };
+    // Defer the state update: mutating the DOM synchronously inside dragstart
+    // can abort the native drag in some browsers.
+    requestAnimationFrame(() => setDraggingColumn(colKey));
+  }
+
+  function handleColumnDragEnd() {
+    // Persist whatever order resulted from the live reordering during drag.
+    setColumnKeys((prev) => { persistOrder(prev); return prev; });
+    dragCtx.current = { type: null, key: null };
+    setDraggingColumn(null);
+    setDragOverColKey(null);
+    stopAutoScroll();
+  }
+
+  // Drop just persists; the actual reorder already happened live on dragover.
+  function handleColumnDrop() {
+    setColumnKeys((prev) => { persistOrder(prev); return prev; });
+    dragCtx.current = { type: null, key: null };
+    setDraggingColumn(null);
+    setDragOverColKey(null);
+    stopAutoScroll();
+  }
+  function handleDragEnd() { dragCtx.current = { type: null, key: null }; setDraggingClient(null); setDragOverColumn(null); stopAutoScroll(); }
   function handleDragLeave() { setDragOverColumn(null); }
+
+  // Moves the dragged column so it sits at the hovered column's position.
+  // Works in both directions and updates live for a real-time preview.
+  function moveColumnOver(targetKey: string) {
+    const dragged = dragCtx.current.key;
+    if (!dragged || dragged === targetKey) return;
+    setColumnKeys((prev) => {
+      const from = prev.indexOf(dragged);
+      const to = prev.indexOf(targetKey);
+      if (from === -1 || to === -1 || from === to) return prev;
+      const next = [...prev];
+      next.splice(from, 1);
+      next.splice(to, 0, dragged);
+      return next;
+    });
+  }
+
+  // Single dragover handler on each column; branches on the active drag type.
+  function handleColumnAreaDragOver(e: React.DragEvent, colKey: string) {
+    if (dragCtx.current.type === "column") {
+      e.preventDefault();
+      if (dragCtx.current.key !== colKey) {
+        moveColumnOver(colKey);
+      }
+    } else if (dragCtx.current.type === "card") {
+      e.preventDefault();
+      setDragOverColumn(colKey);
+    }
+  }
+
   function handleDrop(e: React.DragEvent, colKey: string) {
     e.preventDefault();
+    // Column reordering takes priority and is handled by its own drop target.
+    if (dragCtx.current.type === "column") { handleColumnDrop(); return; }
     const clientId = e.dataTransfer.getData("clientId");
     if (clientId && colKey !== "__unassigned__") {
       // Find source column and remove client optimistically
@@ -193,8 +375,10 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, fieldLabel, a
       });
       onMoveClient(clientId, colKey);
     }
+    dragCtx.current = { type: null, key: null };
     setDragOverColumn(null);
     setDraggingClient(null);
+    stopAutoScroll();
   }
 
   const totalContacts = Object.values(columnsState).reduce((sum, col) => sum + col.total, 0);
@@ -209,7 +393,12 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, fieldLabel, a
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="flex-1 overflow-x-auto overflow-y-hidden">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-x-auto overflow-y-hidden"
+        onDragOver={(e) => { if (dragCtx.current.type) updateAutoScroll(e.clientX); }}
+        onDragEnd={() => { dragCtx.current = { type: null, key: null }; setDraggingColumn(null); setDragOverColKey(null); setDraggingClient(null); setDragOverColumn(null); stopAutoScroll(); }}
+      >
         <div className="flex gap-3 h-full p-4 min-w-max">
           {columnKeys.map((colKey) => {
             const col = columnsState[colKey];
@@ -222,13 +411,17 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, fieldLabel, a
                 state={col}
                 isDragOver={dragOverColumn === colKey}
                 draggingClient={draggingClient}
+                isColumnDragOver={dragOverColKey === colKey}
+                isColumnDragging={draggingColumn === colKey}
                 onReload={(search, sortBy) => reloadColumn(colKey, search, sortBy)}
                 onLoadMore={() => loadMore(colKey)}
-                onDragOver={(e) => handleDragOver(e, colKey)}
+                onAreaDragOver={(e) => handleColumnAreaDragOver(e, colKey)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, colKey)}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
+                onColumnDragStart={(e) => handleColumnDragStart(e, colKey)}
+                onColumnDragEnd={handleColumnDragEnd}
                 onClientClick={onClientClick}
                 onContextMenu={onContextMenu}
               />
@@ -245,28 +438,37 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, fieldLabel, a
 
 // === Column ===
 function KanbanColumn({
-  colKey, label, state, isDragOver, draggingClient,
+  colKey, label, state, isDragOver, draggingClient, isColumnDragOver, isColumnDragging,
   onReload, onLoadMore,
-  onDragOver, onDragLeave, onDrop, onDragStart, onDragEnd, onClientClick, onContextMenu,
+  onAreaDragOver, onDragLeave, onDrop, onDragStart, onDragEnd,
+  onColumnDragStart, onColumnDragEnd,
+  onClientClick, onContextMenu,
 }: {
   colKey: string;
   label: string;
   state: ColumnState;
   isDragOver: boolean;
   draggingClient: string | null;
+  isColumnDragOver: boolean;
+  isColumnDragging: boolean;
   onReload: (search: string, sortBy: SortOption) => void;
   onLoadMore: () => void;
-  onDragOver: (e: React.DragEvent) => void;
+  onAreaDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
   onDragStart: (e: React.DragEvent, id: string) => void;
   onDragEnd: () => void;
+  onColumnDragStart: (e: React.DragEvent) => void;
+  onColumnDragEnd: () => void;
   onClientClick: (client: ClientRecord) => void;
   onContextMenu: (e: React.MouseEvent, client: ClientRecord) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState(state.search);
   const [localSort, setLocalSort] = useState(state.sortBy);
+  // Only true while the pointer is pressed on the drag handle, so the whole
+  // column becomes draggable (correct drag image) but ONLY from the handle.
+  const [handleActive, setHandleActive] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
 
@@ -300,11 +502,35 @@ function KanbanColumn({
 
   return (
     <div
-      className={`flex flex-col w-[280px] shrink-0 rounded-xl border transition-colors ${isDragOver ? "border-emerald-300 bg-emerald-50/50 dark:bg-emerald-500/10" : "border-border bg-background"}`}
-      onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
+      draggable={handleActive}
+      onDragStart={(e) => {
+        // A card drag bubbles up to here (target is the card, not this root).
+        // Let it through untouched so we never cancel a card drag.
+        if (e.target !== e.currentTarget) return;
+        if (!handleActive) { e.preventDefault(); return; }
+        onColumnDragStart(e);
+      }}
+      onDragEnd={(e) => {
+        if (e.target !== e.currentTarget) return;
+        setHandleActive(false);
+        onColumnDragEnd();
+      }}
+      className={`relative flex flex-col w-[280px] shrink-0 rounded-xl border transition-all ${isColumnDragging ? "opacity-40" : ""} ${isColumnDragOver ? "border-emerald-400 ring-2 ring-emerald-400/40" : isDragOver ? "border-emerald-300 bg-emerald-50/50 dark:bg-emerald-500/10" : "border-border bg-background"}`}
+      onDragOver={onAreaDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
     >
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border shrink-0">
+      <div className="group/header flex items-center gap-2 px-3 py-2.5 border-b border-border shrink-0">
+        {/* Drag handle: pressing it makes the whole column draggable */}
+        <span
+          onMouseDown={() => setHandleActive(true)}
+          onMouseUp={() => setHandleActive(false)}
+          title="Arrastrar para reordenar"
+          className="flex items-center justify-center -ml-1 text-muted-foreground/50 hover:text-muted-foreground cursor-grab active:cursor-grabbing shrink-0"
+        >
+          <GripVertical className="h-4 w-4" />
+        </span>
         <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: COLUMN_COLORS[colKey] || "#9ca3af" }} />
         <span className="text-sm font-medium text-foreground capitalize truncate">{label}</span>
         <span className="text-xs text-muted-foreground font-medium bg-muted px-1.5 py-0.5 rounded-full">{state.total}</span>

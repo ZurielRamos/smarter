@@ -424,13 +424,15 @@ export class RecordsService {
       if (this.SYSTEM_COLUMNS.has(groupBy)) {
         qb.andWhere(`(client.${this.toSnakeCase(groupBy)} IS NULL OR client.${this.toSnakeCase(groupBy)} = '')`);
       } else {
-        qb.andWhere(`(client.custom_data ->> :groupBy IS NULL OR client.custom_data ->> :groupBy = '')`, { groupBy });
+        const groupKey = this.customDataKey(groupBy);
+        qb.andWhere(`(client.custom_data ->> :groupKey IS NULL OR client.custom_data ->> :groupKey = '')`, { groupKey });
       }
     } else {
       if (this.SYSTEM_COLUMNS.has(groupBy)) {
         qb.andWhere(`client.${this.toSnakeCase(groupBy)} = :columnValue`, { columnValue });
       } else {
-        qb.andWhere(`client.custom_data ->> :groupBy = :columnValue`, { groupBy, columnValue });
+        const groupKey = this.customDataKey(groupBy);
+        qb.andWhere(`client.custom_data ->> :groupKey = :columnValue`, { groupKey, columnValue });
       }
     }
 
@@ -476,9 +478,10 @@ export class RecordsService {
         params,
       );
     } else {
+      const groupKey = this.customDataKey(groupBy);
       results = await this.recordRepository.query(
         `SELECT custom_data ->> $2 as value, COUNT(*) as count FROM clients WHERE tenant_id = $1${extraWhere} GROUP BY custom_data ->> $2`,
-        [tenantId, groupBy, ...params.slice(1)],
+        [tenantId, groupKey, ...params.slice(1)],
       );
     }
 
@@ -524,6 +527,16 @@ export class RecordsService {
       createdAt: 'created_at', updatedAt: 'updated_at', avatarUrl: 'avatar_url',
     };
     return map[field] || field;
+  }
+
+  /**
+   * Resolves the JSONB key stored in custom_data for a grouping/filter field.
+   * The frontend prefixes custom (non-system) select fields with "custom_" to
+   * disambiguate them from system fields, but the value is actually stored
+   * under the bare key. Strip that UI prefix before querying custom_data.
+   */
+  private customDataKey(field: string): string {
+    return field.startsWith('custom_') ? field.slice('custom_'.length) : field;
   }
 
   private readonly TIMESTAMP_FIELDS = new Set(['lastContactAt', 'lastActivityAt', 'birthDate', 'createdAt', 'updatedAt']);

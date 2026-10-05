@@ -756,8 +756,7 @@ export function AdminAccountDetail() {
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ duration: 0.2 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-lg rounded-2xl shadow-2xl border border-white/30 p-6 max-h-[90vh] overflow-y-auto"
-              style={{ background: "rgba(255, 255, 255, 0.92)", backdropFilter: "blur(20px)" }}
+              className="w-full max-w-lg rounded-2xl shadow-2xl border border-border bg-popover backdrop-blur-xl p-6 max-h-[90vh] overflow-y-auto"
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-6">

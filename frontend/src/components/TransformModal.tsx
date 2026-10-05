@@ -53,8 +53,7 @@ export function TransformModal({ open, onClose, fieldLabel, sourceFields, value,
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.25 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg rounded-2xl shadow-2xl border border-white/30 overflow-visible"
-            style={{ background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(20px)' }}
+            className="w-full max-w-lg rounded-2xl shadow-2xl border border-border bg-popover backdrop-blur-xl overflow-visible"
           >
             <div className="p-5 overflow-visible">
               {/* Header */}
