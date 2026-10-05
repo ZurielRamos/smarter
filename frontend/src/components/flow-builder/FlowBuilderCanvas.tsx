@@ -230,14 +230,67 @@ function ComponentPreview({ comp }: { comp: FlowComponent }) {
           <span className="text-[10px] text-gray-700 dark:text-gray-300">{comp.label}</span>
         </div>
       );
-    case "Image":
+    case "RichText":
       return (
+        <p className="text-[11px] text-gray-700 dark:text-gray-300 leading-snug whitespace-pre-wrap">
+          {comp.text}
+        </p>
+      );
+    case "PhotoPicker":
+      return (
+        <div>
+          <p className="text-[10px] text-gray-500 mb-0.5">{comp.label}{comp.required ? " *" : ""}</p>
+          <div className="w-full h-10 rounded-md border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center gap-1.5 text-[10px] text-gray-400">
+            📷 {comp.description || "Subir foto"}
+          </div>
+        </div>
+      );
+    case "DocumentPicker":
+      return (
+        <div>
+          <p className="text-[10px] text-gray-500 mb-0.5">{comp.label}{comp.required ? " *" : ""}</p>
+          <div className="w-full h-10 rounded-md border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center gap-1.5 text-[10px] text-gray-400">
+            📎 {comp.description || "Subir documento"}
+          </div>
+        </div>
+      );
+    case "Image":
+      return comp.src && /^https?:\/\/.+/.test(comp.src) ? (
+        <img src={comp.src} alt={comp.altText || ""} className="w-full max-h-24 object-contain rounded-md" />
+      ) : (
         <div className="w-full h-16 rounded-md bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-[10px] text-gray-400">
           {comp.altText || "Imagen"}
         </div>
       );
+    case "ImageCarousel":
+      return (
+        <div className="flex gap-1 overflow-hidden">
+          {(comp.images || []).slice(0, 3).map((_, i) => (
+            <div key={i} className="h-12 w-12 shrink-0 rounded-md bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-[9px] text-gray-400">
+              {i + 1}
+            </div>
+          ))}
+          <div className="h-12 flex items-center text-[9px] text-gray-400">carrusel</div>
+        </div>
+      );
     case "EmbeddedLink":
       return <p className="text-[11px] text-brand-600 underline">{comp.text}</p>;
+    case "If":
+      return (
+        <div className="rounded-md border border-dashed border-purple-300 dark:border-purple-500/40 bg-purple-50/50 dark:bg-purple-500/10 p-2">
+          <p className="text-[9px] font-semibold text-purple-600 dark:text-purple-300 uppercase mb-1">
+            Si {comp.condition || "…"}
+          </p>
+          <div className="text-[9px] text-gray-500 pl-2 border-l-2 border-purple-200">
+            Entonces: {(comp.thenComponents || []).length} componente(s)
+          </div>
+          {comp.elseComponents && comp.elseComponents.length > 0 && (
+            <div className="text-[9px] text-gray-500 pl-2 border-l-2 border-gray-200 mt-1">
+              Si no: {comp.elseComponents.length} componente(s)
+            </div>
+          )}
+        </div>
+      );
     default:
       return <p className="text-[10px] text-gray-400">{comp.type}</p>;
   }

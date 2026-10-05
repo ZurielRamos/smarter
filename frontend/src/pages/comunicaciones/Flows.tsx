@@ -1,10 +1,76 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Loader2, Workflow, X, Upload, Download } from "lucide-react";
+import { Plus, Loader2, Workflow, X, Upload, Download, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/services/api";
 import { getInboxes, type InboxSummary } from "@/services/api";
+import { DropdownSelect } from "@/components/ui/dropdown-select";
+
+// Hook que carga los canales de WhatsApp del tenant con estado de error visible
+// (sin tragarse fallos silenciosamente, para poder diagnosticar).
+function useWhatsAppInboxes(tenantId: string) {
+  const [inboxes, setInboxes] = useState<InboxSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    setLoading(true);
+    setError(null);
+    getInboxes(tenantId)
+      .then((list) => {
+        setInboxes(list.filter((i) => i.channel === "whatsapp"));
+      })
+      .catch((err) => {
+        setError(err?.response?.data?.message || err?.message || "No se pudieron cargar los canales");
+      })
+      .finally(() => setLoading(false));
+  }, [tenantId]);
+
+  return { inboxes, loading, error };
+}
+
+// Selector de canal de WhatsApp con dropdown propio (no nativo) y mensajes de
+// estado claros (cargando / sin canales / error).
+function WhatsAppInboxPicker({
+  inboxId,
+  onChange,
+  inboxes,
+  loading,
+  error,
+}: {
+  inboxId: string;
+  onChange: (id: string) => void;
+  inboxes: InboxSummary[];
+  loading: boolean;
+  error: string | null;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-foreground mb-1.5">Canal (WhatsApp)</label>
+      {loading ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground px-3 py-2 border border-border rounded-lg">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Cargando canales…
+        </div>
+      ) : error ? (
+        <div className="flex items-center gap-1.5 text-[11px] text-red-600 px-3 py-2 border border-red-200 rounded-lg">
+          <AlertTriangle className="h-3.5 w-3.5" /> {error}
+        </div>
+      ) : inboxes.length === 0 ? (
+        <div className="text-[11px] text-amber-600 px-3 py-2 border border-amber-200 rounded-lg">
+          No hay canales de WhatsApp conectados en este espacio.
+        </div>
+      ) : (
+        <DropdownSelect
+          value={inboxId}
+          onChange={onChange}
+          options={inboxes.map((i) => ({ value: i.id, label: i.name }))}
+        />
+      )}
+    </div>
+  );
+}
 
 export interface WhatsAppFlowItem {
   id: string;
@@ -222,19 +288,12 @@ function ImportFlowsModal({
   onImported: () => void;
 }) {
   const [inboxId, setInboxId] = useState("");
-  const [inboxes, setInboxes] = useState<InboxSummary[]>([]);
+  const { inboxes, loading: loadingInboxes, error: inboxesError } = useWhatsAppInboxes(tenantId);
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
-    if (!tenantId) return;
-    getInboxes(tenantId)
-      .then((list) => {
-        const wa = list.filter((i) => i.channel === "whatsapp");
-        setInboxes(wa);
-        if (wa.length === 1) setInboxId(wa[0].id);
-      })
-      .catch(() => {});
-  }, [tenantId]);
+    if (inboxes.length === 1) setInboxId(inboxes[0].id);
+  }, [inboxes]);
 
   const handleImport = async () => {
     if (!inboxId) {
@@ -275,21 +334,13 @@ function ImportFlowsModal({
             Trae los Flows que ya existen en la cuenta de WhatsApp (WABA) del canal seleccionado,
             incluidos los creados en el panel de Meta.
           </p>
-          <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">Canal (WhatsApp)</label>
-            <select
-              value={inboxId}
-              onChange={(e) => setInboxId(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:border-brand-300"
-            >
-              <option value="">Selecciona…</option>
-              {inboxes.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <WhatsAppInboxPicker
+            inboxId={inboxId}
+            onChange={setInboxId}
+            inboxes={inboxes}
+            loading={loadingInboxes}
+            error={inboxesError}
+          />
         </div>
         <div className="px-5 py-4 border-t border-border flex items-center justify-end gap-2">
           <button
@@ -335,22 +386,15 @@ function CreateFlowModal({
   const [name, setName] = useState("");
   const [category, setCategory] = useState<string>("SURVEY");
   const [inboxId, setInboxId] = useState("");
-  const [inboxes, setInboxes] = useState<InboxSummary[]>([]);
+  const { inboxes, loading: loadingInboxes, error: inboxesError } = useWhatsAppInboxes(tenantId);
   const [flowJsonText, setFlowJsonText] = useState("");
   const [publish, setPublish] = useState(false);
   const [saving, setSaving] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!tenantId) return;
-    getInboxes(tenantId)
-      .then((list) => {
-        const wa = list.filter((i) => i.channel === "whatsapp");
-        setInboxes(wa);
-        if (wa.length === 1) setInboxId(wa[0].id);
-      })
-      .catch(() => {});
-  }, [tenantId]);
+    if (inboxes.length === 1) setInboxId(inboxes[0].id);
+  }, [inboxes]);
 
   const validateJson = (text: string): Record<string, any> | null => {
     try {
@@ -443,33 +487,19 @@ function CreateFlowModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-foreground mb-1.5">Categoría</label>
-              <select
+              <DropdownSelect
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:border-brand-300"
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+                onChange={setCategory}
+                options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+              />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">Canal (WhatsApp)</label>
-              <select
-                value={inboxId}
-                onChange={(e) => setInboxId(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:border-brand-300"
-              >
-                <option value="">Selecciona…</option>
-                {inboxes.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <WhatsAppInboxPicker
+              inboxId={inboxId}
+              onChange={setInboxId}
+              inboxes={inboxes}
+              loading={loadingInboxes}
+              error={inboxesError}
+            />
           </div>
 
           <div>

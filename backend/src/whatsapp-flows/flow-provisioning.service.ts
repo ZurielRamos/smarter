@@ -210,6 +210,71 @@ export class FlowProvisioningService {
   }
 
   /**
+   * Valida un flow.json contra el validador de Meta SIN marcarlo como guardado
+   * definitivo (equivale al botón "Ejecutar/validar" del editor de Meta).
+   *
+   * Sube el asset a /{flow_id}/assets y devuelve los validation_errors que Meta
+   * detecta, con la ruta exacta del problema. Requiere que el Flow exista en
+   * Meta; si no tiene metaFlowId, solo se puede validar localmente.
+   *
+   * NOTA: subir el asset reemplaza el borrador en Meta. Como el Flow está en
+   * DRAFT mientras se edita, esto es equivalente a lo que hace el editor de
+   * Meta al validar. Sí persistimos el flowJson en BD para mantener coherencia.
+   */
+  async validateFlowOnMeta(
+    localFlowId: string,
+    flowJson: Record<string, any>,
+  ): Promise<{
+    valid: boolean;
+    errors: Array<{ code?: string; type?: string; message: string; pointer?: string }>;
+    metaReachable: boolean;
+  }> {
+    const flow = await this.flowRepo.findOne({ where: { id: localFlowId } });
+    if (!flow) throw new BadRequestException('Flow local no encontrado');
+
+    // Validación local básica siempre disponible.
+    if (!flow.metaFlowId) {
+      return { valid: true, errors: [], metaReachable: false };
+    }
+
+    const inbox = await this.resolveInbox(flow.tenantId, flow.inboxId);
+    if (!inbox?.accessToken) {
+      return { valid: true, errors: [], metaReachable: false };
+    }
+
+    const uploadRes = await this.uploadFlowJson(flow.metaFlowId, inbox.accessToken, flowJson);
+    const rawErrors: any[] = uploadRes.data?.validation_errors || [];
+
+    // Si no hubo errores bloqueantes, guardamos el JSON en BD (quedó aplicado).
+    if (uploadRes.ok) {
+      flow.flowJson = flowJson;
+      flow.dataApiVersion = flowJson?.data_api_version || flow.dataApiVersion || null;
+      flow.entryScreen = this.extractEntryScreen(flowJson);
+      await this.flowRepo.save(flow);
+    }
+
+    const errors = rawErrors.map((e) => ({
+      code: e.error,
+      type: e.error_type,
+      message: e.message || String(e),
+      pointer: this.extractPointer(e.message),
+    }));
+
+    return {
+      valid: errors.filter((e) => e.type !== 'WARNING').length === 0,
+      errors,
+      metaReachable: true,
+    };
+  }
+
+  /** Extrae la ruta "$root/..." del mensaje de error de Meta, si existe. */
+  private extractPointer(message?: string): string | undefined {
+    if (!message) return undefined;
+    const m = message.match(/\$root[\w/\[\]0-9.-]*/);
+    return m ? m[0] : undefined;
+  }
+
+  /**
    * Publica un Flow ya existente (local) que esté en DRAFT.
    */
   async publishFlow(localFlowId: string): Promise<ProvisionResult> {

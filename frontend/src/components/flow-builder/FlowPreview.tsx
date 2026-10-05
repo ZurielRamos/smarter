@@ -191,9 +191,67 @@ function PreviewComponent({ comp }: { comp: FlowComponent }) {
           </div>
         )
       );
+    case "RichText":
+      return <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">{renderMarkdown(comp.text || "")}</p>;
+    case "PhotoPicker":
+      return (
+        <div>
+          <p className="text-[11px] text-gray-600 mb-1">{comp.label}{comp.required ? " *" : ""}</p>
+          <div className="w-full h-11 rounded-lg border border-dashed border-gray-300 flex items-center justify-center gap-2 text-xs text-gray-400">
+            📷 {comp.description || "Subir foto"}
+          </div>
+        </div>
+      );
+    case "DocumentPicker":
+      return (
+        <div>
+          <p className="text-[11px] text-gray-600 mb-1">{comp.label}{comp.required ? " *" : ""}</p>
+          <div className="w-full h-11 rounded-lg border border-dashed border-gray-300 flex items-center justify-center gap-2 text-xs text-gray-400">
+            📎 {comp.description || "Subir documento"}
+          </div>
+        </div>
+      );
+    case "ImageCarousel":
+      return (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {(comp.images || []).map((im, i) =>
+            im.src && /^https?:\/\/.+/.test(im.src) ? (
+              <img key={i} src={im.src} alt={im.altText || ""} className="h-24 rounded-lg object-cover shrink-0" />
+            ) : (
+              <div key={i} className="h-24 w-32 rounded-lg bg-gray-100 flex items-center justify-center text-[11px] text-gray-400 shrink-0">
+                {im.altText || `Imagen ${i + 1}`}
+              </div>
+            ),
+          )}
+        </div>
+      );
     case "EmbeddedLink":
       return <p className="text-xs text-brand-600 underline">{comp.text}</p>;
+    case "If":
+      // En la vista previa, el If no evalúa (no hay datos reales): se muestran
+      // ambas ramas atenuadas para que el usuario vea el contenido.
+      return (
+        <div className="rounded-lg border border-dashed border-purple-200 bg-purple-50/40 p-2 space-y-1.5">
+          <p className="text-[10px] text-purple-500">Si {comp.condition}</p>
+          {(comp.thenComponents || []).map((sc) => (
+            <PreviewComponent key={sc._id} comp={sc} />
+          ))}
+          {(comp.elseComponents || []).map((sc) => (
+            <PreviewComponent key={sc._id} comp={sc} />
+          ))}
+        </div>
+      );
     default:
       return null;
   }
+}
+
+// Markdown muy básico para RichText (bold/italic inline).
+function renderMarkdown(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  return parts.map((p, i) => {
+    if (p.startsWith("**") && p.endsWith("**")) return <strong key={i}>{p.slice(2, -2)}</strong>;
+    if (p.startsWith("*") && p.endsWith("*")) return <em key={i}>{p.slice(1, -1)}</em>;
+    return <span key={i}>{p}</span>;
+  });
 }

@@ -7,6 +7,7 @@ export type FlowComponentType =
   | "TextSubheading"
   | "TextBody"
   | "TextCaption"
+  | "RichText"
   | "TextInput"
   | "TextArea"
   | "Dropdown"
@@ -14,33 +15,64 @@ export type FlowComponentType =
   | "CheckboxGroup"
   | "DatePicker"
   | "OptIn"
+  | "PhotoPicker"
+  | "DocumentPicker"
   | "Image"
-  | "EmbeddedLink";
+  | "ImageCarousel"
+  | "EmbeddedLink"
+  | "If";
 
 export interface FlowOption {
   id: string;
   title: string;
 }
 
+export interface CarouselImage {
+  src: string;
+  altText?: string;
+}
+
 // Componente de una pantalla con un id interno estable para DnD.
 export interface FlowComponent {
   _id: string; // id interno del editor (no va al flow.json)
   type: FlowComponentType;
-  // Texto (headings / body / caption)
+
+  // Texto (headings / body / caption / richtext)
   text?: string;
+
   // Campos de formulario
   name?: string;
   label?: string;
   required?: boolean;
   helperText?: string;
-  inputType?: string; // text | number | email | phone (TextInput)
+  description?: string;
+  inputType?: string; // text | number | email | phone | password | passcode (TextInput)
+
+  // Validaciones avanzadas
+  minChars?: number;
+  maxChars?: number;
+  minDate?: string; // ISO (DatePicker)
+  maxDate?: string;
+
   // Opciones (dropdown / radio / checkbox)
   options?: FlowOption[];
+
   // Image
   src?: string;
   altText?: string;
-  // EmbeddedLink
-  url?: string;
+  scaleType?: "cover" | "contain";
+
+  // ImageCarousel
+  images?: CarouselImage[];
+
+  // EmbeddedLink / OptIn navegación: pantalla a abrir
+  linkScreen?: string | null; // id de pantalla destino
+  url?: string; // para EmbeddedLink con open_url
+
+  // If (lógica condicional)
+  condition?: string;
+  thenComponents?: FlowComponent[];
+  elseComponents?: FlowComponent[];
 }
 
 export interface FlowScreenModel {
@@ -50,11 +82,13 @@ export interface FlowScreenModel {
   terminal?: boolean;
   success?: boolean;
   components: FlowComponent[];
-  // Texto del botón de la pantalla (Footer). La acción (data_exchange o
-  // complete) se deriva de si la pantalla es terminal.
+  // Texto del botón de la pantalla (Footer).
   footerLabel: string;
-  // Siguiente pantalla (routing lineal). null = terminal.
+  // Siguiente pantalla (routing). null = terminal.
   next: string | null;
+  // Datos que esta pantalla espera recibir de la anterior (data schema).
+  // Mapa nombre -> ejemplo. Se referencian con ${data.nombre}.
+  dataSchema?: Record<string, string>;
 }
 
 export interface FlowModel {
@@ -67,7 +101,7 @@ export interface FlowModel {
 export interface ComponentTypeMeta {
   type: FlowComponentType;
   label: string;
-  category: "texto" | "entrada" | "seleccion" | "medios";
+  category: "texto" | "entrada" | "seleccion" | "medios" | "logica";
   isField: boolean; // tiene name/required
   hasText: boolean;
   hasOptions: boolean;

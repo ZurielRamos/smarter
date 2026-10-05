@@ -92,6 +92,15 @@ export class FlowsController {
     return this.provisioning.updateFlowJson(id, body.flowJson);
   }
 
+  /**
+   * Valida el flow.json contra Meta (equivale al botón "Ejecutar" del editor):
+   * devuelve los validation_errors con la ruta exacta del problema.
+   */
+  @Post(':id/validate')
+  validate(@Param('id') id: string, @Body() body: { flowJson: Record<string, any> }) {
+    return this.provisioning.validateFlowOnMeta(id, body.flowJson);
+  }
+
   /** Publica un Flow local que está en DRAFT. */
   @Post(':id/publish')
   publish(@Param('id') id: string) {
