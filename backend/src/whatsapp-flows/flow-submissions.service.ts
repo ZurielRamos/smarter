@@ -122,6 +122,17 @@ export class FlowSubmissionsService {
     submission.status = completed ? 'completed' : 'in_progress';
     if (completed) submission.completedAt = new Date();
 
+    // Vincular la submission con la definición local del Flow si falta el
+    // flow_id. Las respuestas disparadas desde plantillas llegan con
+    // meta_flow_id pero sin flow_id local; sin este enlace no aparecen en la
+    // vista "Respuestas" (que consulta por flow_id).
+    if (!submission.flowId && submission.metaFlowId && submission.tenantId) {
+      const flow = await this.flowRepo.findOne({
+        where: { tenantId: submission.tenantId, metaFlowId: submission.metaFlowId },
+      });
+      if (flow) submission.flowId = flow.id;
+    }
+
     const saved = await this.submissionRepo.save(submission);
 
     // Al completar, intenta reflejar los datos en el contacto si está vinculado.

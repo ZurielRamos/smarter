@@ -1005,6 +1005,30 @@ export class ChatsService {
             content = msg.interactive.button_reply?.title || '[interactive]';
           } else if (msg.interactive?.type === 'list_reply') {
             content = msg.interactive.list_reply?.title || '[interactive]';
+          } else if (msg.interactive?.type === 'nfm_reply') {
+            // El usuario COMPLETÓ un WhatsApp Flow (acción "complete"). Meta no
+            // envía el "complete" al endpoint data_exchange, sino aquí como
+            // nfm_reply con el response_json (incluye flow_token + datos finales).
+            content = '[Flow completado]';
+            messageType = 'text';
+            try {
+              const raw = msg.interactive.nfm_reply?.response_json;
+              const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw || {};
+              const flowToken = parsed.flow_token || parsed.flowToken;
+              if (flowToken) {
+                await this.flowSubmissionsService.recordScreen({
+                  flowToken,
+                  screen: 'FLOW_COMPLETE',
+                  data: parsed,
+                  completed: true,
+                });
+              } else {
+                console.warn('[Flow] nfm_reply sin flow_token:', JSON.stringify(parsed).slice(0, 200));
+              }
+            } catch (err: any) {
+              console.error('[Flow] Error procesando nfm_reply:', err.message);
+            }
+            break;
           } else {
             content = msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || '[interactive]';
           }
