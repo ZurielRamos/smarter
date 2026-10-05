@@ -11,7 +11,7 @@ import { ChatInput } from "./ChatInput";
 import { chatApi } from "./api";
 import { getDisplayName, STATUS_OPTIONS, CONVERSATION_STATUS_OPTIONS, normalizeConvStatus } from "./types";
 import type { Conversation, Message, Label, TenantMember } from "./types";
-import { createContactEvent, getClient } from "@/services/api";
+import { createContactEvent, getClient, getCustomFields } from "@/services/api";
 import type { ClientRecord } from "@/services/api";
 import { toast } from "sonner";
 
@@ -69,6 +69,12 @@ export const ChatPanel = memo(function ChatPanel({
   const [eventForm, setEventForm] = useState({ type: "purchase", name: "", value: "", currency: "COP" });
   const [editingClient, setEditingClient] = useState<ClientRecord | null>(null);
   const [loadingEditContact, setLoadingEditContact] = useState(false);
+  // Estados de contacto reales configurados para la cuenta (campo de sistema
+  // "status"). Se derivan label/color; STATUS_OPTIONS actúa como fallback y
+  // como fuente de colores para los estados conocidos.
+  const [statusOptions, setStatusOptions] = useState<Array<{ value: string; label: string; color: string }>>(
+    STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label, color: s.color })),
+  );
   const chatHeaderMenuRef = useRef<HTMLDivElement>(null);
 
   // --- In-chat search ---
@@ -80,6 +86,31 @@ export const ChatPanel = memo(function ChatPanel({
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const displayName = activeConversation ? getDisplayName(activeConversation) : "";
+
+  // Carga los estados de contacto configurados para la cuenta. Reutiliza los
+  // colores/labels de STATUS_OPTIONS para los estados conocidos y asigna una
+  // paleta rotatoria + label capitalizado a los estados personalizados nuevos.
+  useEffect(() => {
+    if (!tenantId) return;
+    let cancelled = false;
+    getCustomFields(tenantId)
+      .then((fields) => {
+        if (cancelled) return;
+        const options = fields.find((f) => f.fieldKey === "status")?.options;
+        if (!options || options.length === 0) return;
+        const FALLBACK_COLORS = ["bg-blue-500", "bg-sky-500", "bg-indigo-500", "bg-amber-500", "bg-green-500", "bg-purple-500", "bg-emerald-500", "bg-teal-500", "bg-pink-500", "bg-orange-500", "bg-cyan-500", "bg-gray-400"];
+        setStatusOptions(options.map((value, i) => {
+          const known = STATUS_OPTIONS.find((s) => s.value === value);
+          return {
+            value,
+            label: known?.label || value.charAt(0).toUpperCase() + value.slice(1),
+            color: known?.color || FALLBACK_COLORS[i % FALLBACK_COLORS.length],
+          };
+        }));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [tenantId]);
 
   // Reset búsqueda al cambiar de conversación.
   useEffect(() => {
@@ -381,7 +412,7 @@ export const ChatPanel = memo(function ChatPanel({
     if (!recordId) return;
     try {
       await chatApi.put(`/records/${recordId}`, { status: newStatus });
-      toast.success(`Estado cambiado a "${STATUS_OPTIONS.find((s) => s.value === newStatus)?.label || newStatus}"`);
+      toast.success(`Estado cambiado a "${statusOptions.find((s) => s.value === newStatus)?.label || newStatus}"`);
       setChatHeaderMenuOpen(false);
       setShowStatusSubmenu(false);
     } catch {
@@ -586,8 +617,8 @@ export const ChatPanel = memo(function ChatPanel({
                   <ChevronLeft className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 </button>
                 {showStatusSubmenu && (
-                  <div className="absolute right-full top-0 mr-1 w-44 bg-popover text-popover-foreground border border-border rounded-lg shadow-lg py-1">
-                    {STATUS_OPTIONS.map((status) => (
+                  <div className="absolute right-full top-0 mr-1 w-44 bg-popover text-popover-foreground border border-border rounded-lg shadow-lg py-1 max-h-72 overflow-y-auto">
+                    {statusOptions.map((status) => (
                       <button key={status.value} onClick={() => handleChangeStatus(status.value)} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-left text-foreground hover:bg-muted transition-colors">
                         <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${status.color}`} /> <span className="flex-1">{status.label}</span>
                       </button>

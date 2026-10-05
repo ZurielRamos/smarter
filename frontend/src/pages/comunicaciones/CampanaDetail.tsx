@@ -536,7 +536,7 @@ export function CampanaDetail() {
             onClick={() => setCampaignTab(key)}
             className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
               campaignTab === key
-                ? "border-brand-600 text-brand-700"
+                ? "border-brand-600 dark:border-brand-300 text-brand-700 dark:text-brand-200"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -655,18 +655,18 @@ export function CampanaDetail() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={async () => { if (campaign.listId) { const { data: updated } = await api.put(`/campaigns/${campaign.id}`, { listId: null }); setCampaign(updated); } }}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${!campaign.listId ? "border-brand-500 bg-brand-50/50" : "border-border hover:border-border"}`}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${!campaign.listId ? "border-brand-500 bg-brand-50/50 dark:bg-brand-500/10" : "border-border hover:border-border"}`}
                 >
-                  <p className={`text-sm font-semibold ${!campaign.listId ? "text-brand-800" : "text-foreground"}`}>Segmentación</p>
+                  <p className={`text-sm font-semibold ${!campaign.listId ? "text-brand-800 dark:text-brand-200" : "text-foreground"}`}>Segmentación</p>
                   <p className="text-[11px] text-muted-foreground mt-1">Define condiciones para filtrar contactos dinámicamente al enviar</p>
                 </button>
                 <button
                   onClick={() => { if (!campaign.listId) setCampaign({ ...campaign, listId: "pending" }); }}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${campaign.listId ? "border-brand-500 bg-brand-50/50" : "border-border hover:border-border"}`}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${campaign.listId ? "border-brand-500 bg-brand-50/50 dark:bg-brand-500/10" : "border-border hover:border-border"}`}
                 >
                   <div className="flex items-center gap-2">
                     <List className="h-4 w-4" />
-                    <p className={`text-sm font-semibold ${campaign.listId ? "text-brand-800" : "text-foreground"}`}>Lista</p>
+                    <p className={`text-sm font-semibold ${campaign.listId ? "text-brand-800 dark:text-brand-200" : "text-foreground"}`}>Lista</p>
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1">Usa una lista pre-definida de contactos (estática o dinámica)</p>
                 </button>
@@ -679,14 +679,14 @@ export function CampanaDetail() {
                     const selectedList = recordLists.find((l) => l.id === campaign.listId);
                     if (selectedList) {
                       return (
-                        <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-brand-200 bg-brand-50/50">
+                        <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-brand-200 dark:border-brand-500/30 bg-brand-50/50 dark:bg-brand-500/10">
                           <div>
                             <p className="text-sm font-medium text-foreground">{selectedList.name}</p>
                             <p className="text-[11px] text-muted-foreground">{selectedList.type === "dynamic" ? "Dinámica — se recalcula al enviar" : "Estática"}{selectedList.type === "static" && selectedList.recordIds ? ` · ${selectedList.recordIds.length} contactos` : ""}</p>
                           </div>
                           <button
                             onClick={() => setCampaign({ ...campaign, listId: "pending" })}
-                            className="text-xs text-brand-600 hover:text-brand-800 font-medium"
+                            className="text-xs text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-100 font-medium"
                           >
                             Cambiar
                           </button>
@@ -707,7 +707,7 @@ export function CampanaDetail() {
                               const { data: updated } = await api.put(`/campaigns/${campaign.id}`, { listId: list.id });
                               setCampaign(updated);
                             }}
-                            className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-border hover:border-brand-300 hover:bg-brand-50/30 text-left transition-all"
+                            className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-border hover:border-brand-300 hover:bg-brand-50/30 dark:hover:bg-brand-500/10 text-left transition-all"
                           >
                             <div>
                               <p className="text-sm font-medium text-foreground">{list.name}</p>
@@ -772,12 +772,12 @@ export function CampanaDetail() {
                   onClick={() => autoSaveSchedule({ isRecurring: false })}
                   className={cn(
                     "p-4 rounded-xl border-2 text-left transition-all",
-                    !campaign.isRecurring ? "border-brand-500 bg-brand-50/50" : "border-border hover:border-border"
+                    !campaign.isRecurring ? "border-brand-500 bg-brand-50/50 dark:bg-brand-500/10" : "border-border hover:border-border"
                   )}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <Calendar className="h-4 w-4" />
-                    <p className={cn("text-sm font-semibold", !campaign.isRecurring ? "text-brand-800" : "text-foreground")}>Envío único</p>
+                    <p className={cn("text-sm font-semibold", !campaign.isRecurring ? "text-brand-800 dark:text-brand-200" : "text-foreground")}>Envío único</p>
                   </div>
                   <p className="text-[11px] text-muted-foreground">Enviar una vez, de forma manual o en una fecha programada</p>
                 </button>
@@ -785,12 +785,12 @@ export function CampanaDetail() {
                   onClick={() => autoSaveSchedule({ isRecurring: true })}
                   className={cn(
                     "p-4 rounded-xl border-2 text-left transition-all",
-                    campaign.isRecurring ? "border-brand-500 bg-brand-50/50" : "border-border hover:border-border"
+                    campaign.isRecurring ? "border-brand-500 bg-brand-50/50 dark:bg-brand-500/10" : "border-border hover:border-border"
                   )}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <RefreshCw className="h-4 w-4" />
-                    <p className={cn("text-sm font-semibold", campaign.isRecurring ? "text-brand-800" : "text-foreground")}>Envío recurrente</p>
+                    <p className={cn("text-sm font-semibold", campaign.isRecurring ? "text-brand-800 dark:text-brand-200" : "text-foreground")}>Envío recurrente</p>
                   </div>
                   <p className="text-[11px] text-muted-foreground">Enviar automáticamente en días y horas específicos cada semana</p>
                 </button>
@@ -812,7 +812,7 @@ export function CampanaDetail() {
                         onClick={() => autoSaveSchedule({ sendDate: null, sendTime: null })}
                         className={cn(
                           "px-3 py-2.5 rounded-lg border text-sm font-medium transition-all text-center",
-                          !campaign.sendDate ? "border-brand-500 bg-brand-50 text-brand-700" : "border-border text-muted-foreground hover:border-border"
+                          !campaign.sendDate ? "border-brand-500 bg-brand-50 dark:bg-brand-500/15 text-brand-700 dark:text-brand-200" : "border-border text-muted-foreground hover:border-border"
                         )}
                       >
                         Manual (ahora)
@@ -822,7 +822,7 @@ export function CampanaDetail() {
                         onClick={() => autoSaveSchedule({ sendDate: campaign.sendDate || new Date().toISOString().split("T")[0] })}
                         className={cn(
                           "px-3 py-2.5 rounded-lg border text-sm font-medium transition-all text-center",
-                          campaign.sendDate ? "border-brand-500 bg-brand-50 text-brand-700" : "border-border text-muted-foreground hover:border-border"
+                          campaign.sendDate ? "border-brand-500 bg-brand-50 dark:bg-brand-500/15 text-brand-700 dark:text-brand-200" : "border-border text-muted-foreground hover:border-border"
                         )}
                       >
                         Programado
@@ -881,7 +881,7 @@ export function CampanaDetail() {
                         return (
                           <div key={dayKey} className={cn(
                             "flex items-center gap-3 p-3 rounded-lg border transition-all",
-                            isSelected ? "border-brand-200 bg-brand-50/30" : "border-border bg-muted/50"
+                            isSelected ? "border-brand-200 dark:border-brand-500/30 bg-brand-50/30 dark:bg-brand-500/10" : "border-border bg-muted/50"
                           )}>
                             <button
                               type="button"
@@ -896,7 +896,7 @@ export function CampanaDetail() {
                               }}
                               className={cn(
                                 "w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                                isSelected ? "border-brand-600 bg-brand-600" : "border-border"
+                                isSelected ? "border-brand-600 bg-brand-600 dark:border-brand-400 dark:bg-brand-400" : "border-border"
                               )}
                             >
                               {isSelected && (
@@ -971,7 +971,7 @@ export function CampanaDetail() {
                         <p className="text-[11px] text-amber-600 text-center">Configura el contenido del mensaje en la pestaña General antes de enviar</p>
                       )}
                       {sendError && (
-                        <p className="text-[11px] text-red-600 text-center bg-red-50 px-3 py-2 rounded-lg">{sendError}</p>
+                        <p className="text-[11px] text-red-600 dark:text-red-400 text-center bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg">{sendError}</p>
                       )}
                     </div>
                   );
@@ -996,7 +996,7 @@ export function CampanaDetail() {
                         <Button
                           onClick={() => handleStatusChange("paused")}
                           variant="outline"
-                          className="flex-1 py-2.5 border-amber-300 text-amber-700 hover:bg-amber-50 gap-2"
+                          className="flex-1 py-2.5 border-amber-300 dark:border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/10 gap-2"
                         >
                           <Pause className="h-4 w-4" />
                           Pausar programación
@@ -1045,7 +1045,7 @@ export function CampanaDetail() {
                     return (
                       <div key={s.id} className={cn(
                         "p-4 rounded-lg border transition-all",
-                        isActive ? "border-amber-200 bg-amber-50/30" : s.status === "paused" ? "border-orange-200 bg-orange-50/30" : s.status === "completed" ? "border-green-100 bg-green-50/20" : s.status === "failed" ? "border-red-100 bg-red-50/20" : "border-border bg-muted"
+                        isActive ? "border-amber-200 dark:border-amber-500/30 bg-amber-50/30 dark:bg-amber-500/10" : s.status === "paused" ? "border-orange-200 dark:border-orange-500/30 bg-orange-50/30 dark:bg-orange-500/10" : s.status === "completed" ? "border-green-100 dark:border-green-500/25 bg-green-50/20 dark:bg-green-500/10" : s.status === "failed" ? "border-red-100 dark:border-red-500/25 bg-red-50/20 dark:bg-red-500/10" : "border-border bg-muted"
                       )}>
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
@@ -1069,7 +1069,7 @@ export function CampanaDetail() {
                             {(s.status === "sending" || s.status === "queued") && (
                               <button
                                 onClick={() => handlePauseSend(s.id)}
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 hover:text-amber-800 border border-amber-200 hover:bg-amber-100/50 rounded-md px-2 py-1 transition-colors"
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-300 hover:text-amber-800 dark:hover:text-amber-200 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100/50 dark:hover:bg-amber-500/15 rounded-md px-2 py-1 transition-colors"
                               >
                                 <Pause className="h-3 w-3" /> Pausar
                               </button>
@@ -1077,7 +1077,7 @@ export function CampanaDetail() {
                             {s.status === "paused" && (
                               <button
                                 onClick={() => handleResumeSend(s.id)}
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700 hover:text-green-800 border border-green-200 hover:bg-green-100/50 rounded-md px-2 py-1 transition-colors"
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200 border border-green-200 dark:border-green-500/30 hover:bg-green-100/50 dark:hover:bg-green-500/15 rounded-md px-2 py-1 transition-colors"
                               >
                                 <Play className="h-3 w-3" /> Reanudar
                               </button>
@@ -1147,7 +1147,7 @@ export function CampanaDetail() {
                               {expandedFailures === s.id ? "Ocultar motivo de fallos" : `Ver motivo de fallos (${s.totalFailed})`}
                             </button>
                             {expandedFailures === s.id && (
-                              <div className="mt-2 rounded-md border border-red-100 bg-red-50/40 divide-y divide-red-100">
+                              <div className="mt-2 rounded-md border border-red-100 dark:border-red-500/25 bg-red-50/40 dark:bg-red-500/10 divide-y divide-red-100 dark:divide-red-500/20">
                                 {loadingFailures === s.id ? (
                                   <p className="text-[11px] text-muted-foreground px-3 py-2">Cargando...</p>
                                 ) : (failuresBySend[s.id]?.length ?? 0) === 0 ? (

@@ -22,7 +22,20 @@ export class UsersService {
   ) {}
 
   async findAll(): Promise<User[]> {
-    return this.userRepo.find({ order: { createdAt: 'DESC' } });
+    // Excluir membresías "removed": la relación tenantRoles es eager, por lo que
+    // un find() normal traería también las desvinculadas. Usamos QueryBuilder con
+    // un LEFT JOIN condicionado para que los usuarios sin cuentas sigan apareciendo.
+    return this.userRepo
+      .createQueryBuilder('user')
+      .leftJoinAndSelect(
+        'user.tenantRoles',
+        'tenantRole',
+        'tenantRole.status != :removed',
+        { removed: 'removed' },
+      )
+      .leftJoinAndSelect('tenantRole.tenant', 'tenant')
+      .orderBy('user.createdAt', 'DESC')
+      .getMany();
   }
 
   async findOne(id: string): Promise<User> {

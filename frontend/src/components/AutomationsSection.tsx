@@ -167,7 +167,7 @@ function ContactFieldPicker({ onSelect }: { onSelect: (value: string) => void })
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="h-[30px] px-2 border border-border rounded-md text-muted-foreground hover:text-brand-600 hover:border-brand-300 transition-colors shrink-0"
+        className="h-[30px] px-2 border border-border rounded-md text-muted-foreground hover:text-brand-600 dark:hover:text-brand-300 hover:border-brand-300 transition-colors shrink-0"
         title="Insertar campo del contacto"
       >
         <User className="h-3.5 w-3.5" />
@@ -244,7 +244,7 @@ function TemplateVarsEditor({
                   <button type="button" onClick={() => setVal(f.key, "")} className="text-[11px] text-red-500 hover:underline ml-auto">Quitar</button>
                 </div>
               ) : (
-                <label className="flex items-center justify-center gap-1.5 h-9 border border-dashed border-border rounded-md cursor-pointer hover:border-brand-300 text-[11px] text-muted-foreground hover:text-brand-600 transition-colors">
+                <label className="flex items-center justify-center gap-1.5 h-9 border border-dashed border-border rounded-md cursor-pointer hover:border-brand-300 text-[11px] text-muted-foreground hover:text-brand-600 dark:hover:text-brand-300 transition-colors">
                   <input
                     type="file"
                     className="hidden"
@@ -517,7 +517,7 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
       <div className="flex items-start justify-between mb-3">
         <div>
           <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-            <Zap className="h-3.5 w-3.5 text-brand-600" /> Automatizaciones
+            <Zap className="h-3.5 w-3.5 text-brand-600 dark:text-brand-300" /> Automatizaciones
           </h2>
           <p className="text-[11px] text-muted-foreground mt-0.5 max-w-md">
             Cuando un contacto envíe un mensaje que coincida con las palabras clave, se ejecutarán las acciones configuradas.
@@ -540,7 +540,7 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
             <div className="flex items-center gap-2 mb-3">
               <button
                 onClick={() => updateRule(rule.id, { enabled: !rule.enabled })}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${rule.enabled ? "bg-brand-600" : "bg-gray-300"}`}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${rule.enabled ? "bg-brand-600" : "bg-gray-300 dark:bg-gray-600"}`}
                 aria-label="Activar regla"
               >
                 <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-card transition-transform shadow-sm ${rule.enabled ? "translate-x-[18px]" : "translate-x-1"}`} />
@@ -552,7 +552,7 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
                 className="flex-1 px-2 py-1 rounded-md border border-border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="Nombre de la regla"
               />
-              <button onClick={() => removeRule(rule.id)} className="p-1.5 rounded-md text-red-500 hover:bg-red-50" aria-label="Eliminar regla">
+              <button onClick={() => removeRule(rule.id)} className="p-1.5 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10" aria-label="Eliminar regla">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -571,9 +571,9 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
               </div>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {rule.keywords.map((kw) => (
-                  <span key={kw} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-xs">
+                  <span key={kw} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-brand-50 dark:bg-brand-500/15 border border-brand-200 dark:border-brand-500/30 text-brand-700 dark:text-brand-200 text-xs">
                     {kw}
-                    <button onClick={() => removeKeyword(rule.id, kw)} className="text-brand-400 hover:text-brand-700 font-bold leading-none">×</button>
+                    <button onClick={() => removeKeyword(rule.id, kw)} className="text-brand-400 hover:text-brand-700 dark:hover:text-brand-100 font-bold leading-none">×</button>
                   </span>
                 ))}
               </div>
@@ -606,7 +606,7 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
                           options={ACTION_TYPES.filter((a) => !a.whatsappOnly || isWhatsApp).map((a) => ({ value: a.type, label: a.label }))}
                         />
                         {renderActionInput(rule.id, idx, action)}
-                        <button onClick={() => removeAction(rule.id, idx)} className="p-1 rounded-md text-red-500 hover:bg-red-50 shrink-0" aria-label="Eliminar acción">
+                        <button onClick={() => removeAction(rule.id, idx)} className="p-1 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 shrink-0" aria-label="Eliminar acción">
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
@@ -621,7 +621,7 @@ export function AutomationsSection({ inboxId, tenantId }: { inboxId: string; ten
                   );
                 })}
               </div>
-              <button onClick={() => addAction(rule.id)} className="mt-2 flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
+              <button onClick={() => addAction(rule.id)} className="mt-2 flex items-center gap-1 text-xs text-brand-600 dark:text-brand-300 hover:text-brand-700 dark:hover:text-brand-200 font-medium">
                 <Plus className="h-3 w-3" /> Agregar acción
               </button>
             </div>

@@ -107,7 +107,7 @@ function ScheduleTab({ inboxId }: { inboxId: string }) {
                 key={key}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors ${
                   day.enabled ? "border-border bg-card" : "border-border bg-muted/50"
-                } ${isFestivo ? "mt-4 border-amber-200" : ""}`}
+                } ${isFestivo ? "mt-4 border-amber-200 dark:border-amber-500/30" : ""}`}
               >
                 {/* Toggle */}
                 <button
@@ -122,7 +122,7 @@ function ScheduleTab({ inboxId }: { inboxId: string }) {
                 </button>
 
                 {/* Day label */}
-                <span className={`text-sm font-medium w-24 shrink-0 ${day.enabled ? "text-foreground" : "text-muted-foreground"} ${isFestivo ? "text-amber-700" : ""}`}>
+                <span className={`text-sm font-medium w-24 shrink-0 ${day.enabled ? "text-foreground" : "text-muted-foreground"} ${isFestivo ? "text-amber-700 dark:text-amber-400" : ""}`}>
                   {label}
                 </span>
 
@@ -236,7 +236,7 @@ function CollaboratorsTab({ inboxId }: { inboxId: string }) {
                 const agent = agents.find((a) => a.userId === c.referenceId);
                 return (
                   <div key={c.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted border border-border">
-                    <div className="h-7 w-7 rounded-full bg-brand-100 flex items-center justify-center text-xs font-bold text-brand-700">
+                    <div className="h-7 w-7 rounded-full bg-brand-100 dark:bg-brand-500/20 flex items-center justify-center text-xs font-bold text-brand-700 dark:text-brand-200">
                       {agent?.user.name.charAt(0).toUpperCase() || "?"}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -255,7 +255,7 @@ function CollaboratorsTab({ inboxId }: { inboxId: string }) {
           {availableAgents.length > 0 && (
             <div className="mt-2 space-y-1">
               {availableAgents.map((a) => (
-                <button key={a.userId} onClick={() => handleAdd("user", a.userId)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-dashed border-border hover:border-brand-300 hover:bg-brand-50/30 transition-colors">
+                <button key={a.userId} onClick={() => handleAdd("user", a.userId)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-dashed border-border hover:border-brand-300 hover:bg-brand-50/30 dark:hover:bg-brand-500/10 transition-colors">
                   <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">{a.user.name}</span>
                   <span className="text-[10px] text-muted-foreground ml-auto">{a.user.email}</span>
@@ -276,8 +276,8 @@ function CollaboratorsTab({ inboxId }: { inboxId: string }) {
                 const team = teams.find((t) => t.id === c.referenceId);
                 return (
                   <div key={c.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted border border-border">
-                    <div className="h-7 w-7 rounded-full bg-purple-100 flex items-center justify-center">
-                      <Users className="h-3.5 w-3.5 text-purple-600" />
+                    <div className="h-7 w-7 rounded-full bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center">
+                      <Users className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{team?.name || "Equipo"}</p>
@@ -295,7 +295,7 @@ function CollaboratorsTab({ inboxId }: { inboxId: string }) {
           {availableTeams.length > 0 && (
             <div className="mt-2 space-y-1">
               {availableTeams.map((t) => (
-                <button key={t.id} onClick={() => handleAdd("team", t.id)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-dashed border-border hover:border-purple-300 hover:bg-purple-50/30 transition-colors">
+                <button key={t.id} onClick={() => handleAdd("team", t.id)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-dashed border-border hover:border-purple-300 hover:bg-purple-50/30 dark:hover:bg-purple-500/10 transition-colors">
                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">{t.name}</span>
                   {t.description && <span className="text-[10px] text-muted-foreground ml-auto">{t.description}</span>}
@@ -397,7 +397,7 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
   const profile = data.businessProfile || {};
   const waba = data.waba || {};
 
-  const qualityColor = phone.quality_rating === "GREEN" ? "text-green-600 bg-green-50 border-green-200" : phone.quality_rating === "YELLOW" ? "text-yellow-600 bg-yellow-50 border-yellow-200" : phone.quality_rating === "RED" ? "text-red-600 bg-red-50 border-red-200" : "text-muted-foreground bg-muted border-border";
+  const qualityColor = phone.quality_rating === "GREEN" ? "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/25" : phone.quality_rating === "YELLOW" ? "text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-500/10 border-yellow-200 dark:border-yellow-500/25" : phone.quality_rating === "RED" ? "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/25" : "text-muted-foreground bg-muted border-border";
   const qualityLabel = phone.quality_rating === "GREEN" ? "Alta" : phone.quality_rating === "YELLOW" ? "Media" : phone.quality_rating === "RED" ? "Baja" : phone.quality_rating || "No disponible";
 
   const tierLabels: Record<string, string> = {
@@ -410,17 +410,17 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
   };
 
   const nameStatusLabels: Record<string, { label: string; color: string }> = {
-    APPROVED: { label: "Aprobado", color: "text-green-700 bg-green-50" },
-    AVAILABLE_WITHOUT_REVIEW: { label: "Disponible", color: "text-blue-700 bg-blue-50" },
-    DECLINED: { label: "Rechazado", color: "text-red-700 bg-red-50" },
-    EXPIRED: { label: "Expirado", color: "text-orange-700 bg-orange-50" },
-    PENDING_REVIEW: { label: "En revisión", color: "text-yellow-700 bg-yellow-50" },
+    APPROVED: { label: "Aprobado", color: "text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-500/10" },
+    AVAILABLE_WITHOUT_REVIEW: { label: "Disponible", color: "text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10" },
+    DECLINED: { label: "Rechazado", color: "text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-500/10" },
+    EXPIRED: { label: "Expirado", color: "text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-500/10" },
+    PENDING_REVIEW: { label: "En revisión", color: "text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-500/10" },
     NONE: { label: "Sin nombre", color: "text-foreground bg-muted" },
   };
 
   const verificationLabels: Record<string, { label: string; color: string }> = {
-    verified: { label: "Verificado", color: "text-green-700 bg-green-50" },
-    not_verified: { label: "No verificado", color: "text-orange-700 bg-orange-50" },
+    verified: { label: "Verificado", color: "text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-500/10" },
+    not_verified: { label: "No verificado", color: "text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-500/10" },
   };
 
   return (
@@ -431,7 +431,7 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-sm font-semibold text-foreground">Perfil de negocio</h4>
             {!editingProfile ? (
-              <button onClick={() => { setEditingProfile(true); setProfileForm({ about: profile?.about || "", description: profile?.description || "", address: profile?.address || "", email: profile?.email || "", websites: profile?.websites?.join(", ") || "", vertical: profile?.vertical || "" }); }} className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
+              <button onClick={() => { setEditingProfile(true); setProfileForm({ about: profile?.about || "", description: profile?.description || "", address: profile?.address || "", email: profile?.email || "", websites: profile?.websites?.join(", ") || "", vertical: profile?.vertical || "" }); }} className="flex items-center gap-1 text-xs text-brand-600 dark:text-brand-300 hover:text-brand-700 dark:hover:text-brand-200 font-medium">
                 <Edit3 className="h-3 w-3" /> Editar perfil
               </button>
             ) : (
@@ -450,8 +450,8 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
               {profile?.profile_picture_url ? (
                 <img src={profile.profile_picture_url} alt="Perfil" className="h-16 w-16 rounded-full object-cover border-2 border-border" />
               ) : (
-                <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center border-2 border-green-200">
-                  <Building2 className="h-7 w-7 text-green-600" />
+                <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-500/15 flex items-center justify-center border-2 border-green-200 dark:border-green-500/30">
+                  <Building2 className="h-7 w-7 text-green-600 dark:text-green-400" />
                 </div>
               )}
               <label className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
@@ -464,18 +464,18 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
               <p className="text-sm text-muted-foreground mt-0.5">{phone.display_phone_number || "—"}</p>
               <div className="flex items-center gap-2 mt-2">
                 {phone.is_official_business_account && (
-                  <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
+                  <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 font-medium">
                     <CheckCircle2 className="h-3 w-3" /> Cuenta oficial
                   </span>
                 )}
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${phone.status === "CONNECTED" ? "bg-green-50 text-green-700" : phone.status === "PENDING" ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${phone.status === "CONNECTED" ? "bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-300" : phone.status === "PENDING" ? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300" : "bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300"}`}>
                   {phone.status || "Desconocido"}
                 </span>
               </div>
               {phone.status === "PENDING" && (
                 <div className="mt-2">
                   {!showRegister ? (
-                    <button onClick={() => setShowRegister(true)} className="text-xs text-brand-600 hover:text-brand-700 font-medium">
+                    <button onClick={() => setShowRegister(true)} className="text-xs text-brand-600 dark:text-brand-300 hover:text-brand-700 dark:hover:text-brand-200 font-medium">
                       Registrar número para Cloud API
                     </button>
                   ) : (
@@ -517,7 +517,7 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
                 <label className="text-[10px] text-muted-foreground uppercase font-medium mb-0.5 block">Sitios web (separados por coma)</label>
                 <input type="text" value={profileForm.websites} onChange={(e) => setProfileForm({ ...profileForm, websites: e.target.value })} placeholder="https://tusitio.com, https://otro.com" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
               </div>
-              {profileError && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{profileError}</p>}
+              {profileError && <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg">{profileError}</p>}
             </div>
           ) : (
             <div className="space-y-2.5">
@@ -525,7 +525,7 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
               {profile?.description && <div><p className="text-[10px] text-muted-foreground uppercase font-medium mb-0.5">Descripción</p><p className="text-sm text-foreground">{profile.description}</p></div>}
               {profile?.address && <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-sm text-foreground">{profile.address}</span></div>}
               {profile?.email && <div className="flex items-center gap-2"><MailIcon className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-sm text-foreground">{profile.email}</span></div>}
-              {profile?.websites?.length > 0 && <div className="flex items-start gap-2"><Globe className="h-3.5 w-3.5 text-muted-foreground mt-0.5" /><div className="space-y-0.5">{profile.websites.map((url: string, i: number) => <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm text-brand-600 hover:underline">{url} <ExternalLink className="h-3 w-3" /></a>)}</div></div>}
+              {profile?.websites?.length > 0 && <div className="flex items-start gap-2"><Globe className="h-3.5 w-3.5 text-muted-foreground mt-0.5" /><div className="space-y-0.5">{profile.websites.map((url: string, i: number) => <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm text-brand-600 dark:text-brand-300 hover:underline">{url} <ExternalLink className="h-3 w-3" /></a>)}</div></div>}
               {!profile?.about && !profile?.description && !profile?.address && !profile?.email && !profile?.websites?.length && <p className="text-xs text-muted-foreground italic">Sin información de perfil. Haz clic en "Editar perfil" para configurar.</p>}
             </div>
           )}
@@ -570,7 +570,7 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground uppercase font-medium mb-1">Verificación de código</p>
-              <span className={`text-xs px-2 py-1 rounded font-medium ${phone.code_verification_status === "VERIFIED" ? "bg-green-50 text-green-700" : "bg-muted text-foreground"}`}>
+              <span className={`text-xs px-2 py-1 rounded font-medium ${phone.code_verification_status === "VERIFIED" ? "bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-300" : "bg-muted text-foreground"}`}>
                 {phone.code_verification_status === "VERIFIED" ? "Verificado" : phone.code_verification_status || "No disponible"}
               </span>
             </div>
@@ -586,7 +586,7 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground uppercase font-medium mb-1">Revisión de cuenta</p>
-              <span className={`text-xs px-2 py-1 rounded font-medium ${waba.account_review_status === "APPROVED" ? "bg-green-50 text-green-700" : "bg-muted text-foreground"}`}>
+              <span className={`text-xs px-2 py-1 rounded font-medium ${waba.account_review_status === "APPROVED" ? "bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-300" : "bg-muted text-foreground"}`}>
                 {waba.account_review_status || "No disponible"}
               </span>
             </div>
@@ -628,12 +628,12 @@ function WhatsAppStatusTab({ inboxId }: { inboxId: string }) {
         <div className="bg-muted rounded-xl border border-border p-4">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-[10px] text-muted-foreground uppercase font-semibold">IDs técnicos</h4>
-            <button onClick={handleSyncPhone} disabled={syncing} className="flex items-center gap-1 text-[11px] text-brand-600 hover:text-brand-700 font-medium disabled:opacity-50">
+            <button onClick={handleSyncPhone} disabled={syncing} className="flex items-center gap-1 text-[11px] text-brand-600 dark:text-brand-300 hover:text-brand-700 dark:hover:text-brand-200 font-medium disabled:opacity-50">
               {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
               Sincronizar
             </button>
           </div>
-          {syncResult && <p className="text-[10px] text-green-600 mb-2">{syncResult}</p>}
+          {syncResult && <p className="text-[10px] text-green-600 dark:text-green-400 mb-2">{syncResult}</p>}
           <div className="space-y-1 text-xs font-mono">
             {data.phoneNumberId && <div className="flex justify-between"><span className="text-muted-foreground">Phone Number ID</span><span className="text-foreground">{data.phoneNumberId}</span></div>}
             {data.wabaId && <div className="flex justify-between"><span className="text-muted-foreground">WABA ID</span><span className="text-foreground">{data.wabaId}</span></div>}
@@ -698,10 +698,10 @@ function BotsTab({ inboxId, tenantId }: { inboxId: string; tenantId: string }) {
 
         {/* Currently assigned bot */}
         {assignedBot ? (
-          <div className="bg-card rounded-xl border border-green-200 p-4 mb-4">
+          <div className="bg-card rounded-xl border border-green-200 dark:border-green-500/30 p-4 mb-4">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center">
-                <Bot className="h-5 w-5 text-green-600" />
+              <div className="h-10 w-10 rounded-lg bg-green-50 dark:bg-green-500/10 flex items-center justify-center">
+                <Bot className="h-5 w-5 text-green-600 dark:text-green-400" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-foreground">{assignedBot.name}</p>
@@ -709,7 +709,7 @@ function BotsTab({ inboxId, tenantId }: { inboxId: string; tenantId: string }) {
                   <p className="text-[11px] text-muted-foreground truncate">{assignedBot.description}</p>
                 )}
                 <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                  assignedBot.status === "active" ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"
+                  assignedBot.status === "active" ? "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300" : "bg-muted text-muted-foreground"
                 }`}>
                   {assignedBot.status}
                 </span>
@@ -717,7 +717,7 @@ function BotsTab({ inboxId, tenantId }: { inboxId: string; tenantId: string }) {
               <button
                 onClick={() => handleAssign(null)}
                 disabled={saving}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 text-xs font-medium disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 text-xs font-medium disabled:opacity-50 transition-colors"
               >
                 {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
                 Desasignar
@@ -740,7 +740,7 @@ function BotsTab({ inboxId, tenantId }: { inboxId: string; tenantId: string }) {
         )}
 
         {saved && (
-          <div className="flex items-center gap-1.5 mb-4 text-xs text-green-600">
+          <div className="flex items-center gap-1.5 mb-4 text-xs text-green-600 dark:text-green-400">
             <CheckCircle2 className="h-3.5 w-3.5" />
             Cambios guardados
           </div>
@@ -763,14 +763,14 @@ function BotsTab({ inboxId, tenantId }: { inboxId: string; tenantId: string }) {
                     key={bot.id}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors ${
                       isAssigned
-                        ? "border-green-200 bg-green-50/50"
-                        : "border-border bg-card hover:border-brand-200 hover:bg-brand-50/20"
+                        ? "border-green-200 dark:border-green-500/30 bg-green-50/50 dark:bg-green-500/10"
+                        : "border-border bg-card hover:border-brand-200 hover:bg-brand-50/20 dark:hover:bg-brand-500/10"
                     }`}
                   >
                     <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
-                      isAssigned ? "bg-green-100" : "bg-muted"
+                      isAssigned ? "bg-green-100 dark:bg-green-500/15" : "bg-muted"
                     }`}>
-                      <Bot className={`h-4 w-4 ${isAssigned ? "text-green-600" : "text-muted-foreground"}`} />
+                      <Bot className={`h-4 w-4 ${isAssigned ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground">{bot.name}</p>
@@ -779,14 +779,14 @@ function BotsTab({ inboxId, tenantId }: { inboxId: string; tenantId: string }) {
                       )}
                     </div>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                      bot.status === "active" ? "bg-green-100 text-green-700" :
-                      bot.status === "draft" ? "bg-yellow-100 text-yellow-700" :
+                      bot.status === "active" ? "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300" :
+                      bot.status === "draft" ? "bg-yellow-100 dark:bg-yellow-500/15 text-yellow-700 dark:text-yellow-300" :
                       "bg-muted text-muted-foreground"
                     }`}>
                       {bot.status}
                     </span>
                     {isAssigned ? (
-                      <span className="text-[10px] text-green-600 font-medium px-2">Asignado</span>
+                      <span className="text-[10px] text-green-600 dark:text-green-400 font-medium px-2">Asignado</span>
                     ) : (
                       <button
                         onClick={() => handleAssign(bot.id)}
@@ -855,7 +855,7 @@ export function CanalDetail() {
             onClick={() => setActiveTab(key)}
             className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
               activeTab === key
-                ? "border-brand-600 text-brand-700"
+                ? "border-brand-600 dark:border-brand-300 text-brand-700 dark:text-brand-200"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >

@@ -185,7 +185,7 @@ export function WhatsAppTemplateSelector({
                       onClick={() => handleSelectTemplate(t)}
                       className={cn(
                         "w-full px-3 py-2.5 text-left transition-colors hover:bg-muted",
-                        isSelected && "bg-green-50"
+                        isSelected && "bg-green-50 dark:bg-green-500/10"
                       )}
                     >
                       <div className="flex items-center justify-between">
@@ -195,7 +195,7 @@ export function WhatsAppTemplateSelector({
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
                               {t.language}
                             </span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 shrink-0">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300 shrink-0">
                               {t.category}
                             </span>
                           </div>
@@ -227,7 +227,7 @@ export function WhatsAppTemplateSelector({
                 <button
                   type="button"
                   onClick={addVariable}
-                  className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800 font-medium transition-colors"
+                  className="flex items-center gap-1 text-xs text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-100 font-medium transition-colors"
                 >
                   <Plus className="h-3 w-3" />
                   Agregar variable
@@ -248,7 +248,7 @@ export function WhatsAppTemplateSelector({
                     />
                     <button
                       onClick={() => removeVariable(varNum)}
-                      className="p-1 text-muted-foreground hover:text-red-500 transition-colors rounded hover:bg-red-50"
+                      className="p-1 text-muted-foreground hover:text-red-500 transition-colors rounded hover:bg-red-50 dark:hover:bg-red-500/10"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -259,9 +259,9 @@ export function WhatsAppTemplateSelector({
           )}
 
           {/* Preview */}
-          <div className="mb-5 rounded-xl border border-green-200 bg-green-50/50 overflow-hidden">
-            <div className="px-4 py-2 bg-green-100/60 border-b border-green-200">
-              <p className="text-[11px] font-semibold text-green-800 uppercase tracking-wide">Vista previa</p>
+          <div className="mb-5 rounded-xl border border-green-200 dark:border-green-500/25 bg-green-50/50 dark:bg-green-500/5 overflow-hidden">
+            <div className="px-4 py-2 bg-green-100/60 dark:bg-green-500/10 border-b border-green-200 dark:border-green-500/25">
+              <p className="text-[11px] font-semibold text-green-800 dark:text-green-300 uppercase tracking-wide">Vista previa</p>
             </div>
             <div className="p-4 space-y-2">
               {headerComponent?.text && (
@@ -334,7 +334,7 @@ function FieldDropdown({
           <button
             type="button"
             onClick={() => { onChange(""); setOpen(false); }}
-            className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${!value ? "bg-brand-50 text-brand-700 font-medium" : "text-muted-foreground hover:bg-muted"}`}
+            className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${!value ? "bg-brand-50 dark:bg-brand-500/15 text-brand-700 dark:text-brand-200 font-medium" : "text-muted-foreground hover:bg-muted"}`}
           >
             Sin asignar
           </button>
@@ -343,7 +343,7 @@ function FieldDropdown({
               key={opt.field}
               type="button"
               onClick={() => { onChange(opt.field); setOpen(false); }}
-              className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${opt.field === value ? "bg-brand-50 text-brand-700 font-medium" : "text-foreground hover:bg-muted"}`}
+              className={`w-full px-3 py-1.5 text-xs text-left transition-colors ${opt.field === value ? "bg-brand-50 dark:bg-brand-500/15 text-brand-700 dark:text-brand-200 font-medium" : "text-foreground hover:bg-muted"}`}
             >
               {opt.label}
             </button>

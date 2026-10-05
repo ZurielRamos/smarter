@@ -22,17 +22,17 @@ interface Template {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  APPROVED: { label: "Activa", color: "bg-green-50 text-green-700 border-green-200", icon: CheckCircle2 },
-  PENDING: { label: "En revisión", color: "bg-yellow-50 text-yellow-700 border-yellow-200", icon: Clock },
-  REJECTED: { label: "Rechazada", color: "bg-red-50 text-red-700 border-red-200", icon: XCircle },
-  PAUSED: { label: "Pausada", color: "bg-orange-50 text-orange-700 border-orange-200", icon: Pause },
+  APPROVED: { label: "Activa", color: "bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-300 border-green-200 dark:border-green-500/25", icon: CheckCircle2 },
+  PENDING: { label: "En revisión", color: "bg-yellow-50 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-500/25", icon: Clock },
+  REJECTED: { label: "Rechazada", color: "bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/25", icon: XCircle },
+  PAUSED: { label: "Pausada", color: "bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-500/25", icon: Pause },
   DISABLED: { label: "Desactivada", color: "bg-muted text-foreground border-border", icon: XCircle },
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  MARKETING: "bg-purple-100 text-purple-700",
-  UTILITY: "bg-blue-100 text-blue-700",
-  AUTHENTICATION: "bg-amber-100 text-amber-700",
+  MARKETING: "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300",
+  UTILITY: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  AUTHENTICATION: "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
 };
 
 const LANGUAGES: Array<{ code: string; label: string }> = [
@@ -71,7 +71,7 @@ function CustomSelect({ value, onChange, options, placeholder, compact }: {
       {open && (
         <div className="absolute z-20 mt-1 w-full min-w-[160px] bg-card border border-border rounded-lg shadow-lg py-1 max-h-[200px] overflow-y-auto">
           {options.map((opt) => (
-            <button key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); }} className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors ${value === opt.value ? "text-brand-700 font-medium bg-brand-50/50" : "text-foreground"}`}>
+            <button key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); }} className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors ${value === opt.value ? "text-brand-700 dark:text-brand-200 font-medium bg-brand-50/50 dark:bg-brand-500/15" : "text-foreground"}`}>
               {opt.label}
             </button>
           ))}
@@ -334,7 +334,7 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
             {step === 2 && (
               <div className="space-y-5">
                 <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center"><FileText className="h-4 w-4 text-green-600" /></div>
+                  <div className="h-8 w-8 rounded-lg bg-green-100 dark:bg-green-500/15 flex items-center justify-center"><FileText className="h-4 w-4 text-green-600 dark:text-green-400" /></div>
                   <div>
                     <h3 className="text-base font-semibold text-foreground">{name}</h3>
                     <p className="text-[11px] text-muted-foreground">{category} · {LANGUAGES.find(l => l.code === language)?.label}</p>
@@ -357,7 +357,7 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                       { key: "video", label: "Video", icon: PlayCircle },
                       { key: "document", label: "Documento", icon: FileText },
                     ] as const).map(({ key, label, icon: Icon }) => (
-                      <button key={key} onClick={() => setHeaderType(key)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${headerType === key ? "border-brand-500 bg-brand-50 text-brand-700" : "border-border text-muted-foreground hover:bg-muted"}`}>
+                      <button key={key} onClick={() => setHeaderType(key)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${headerType === key ? "border-brand-500 bg-brand-50 dark:bg-brand-500/15 text-brand-700 dark:text-brand-200" : "border-border text-muted-foreground hover:bg-muted"}`}>
                         <Icon className="h-3.5 w-3.5" />
                         {label}
                       </button>
@@ -387,10 +387,10 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                           <button onClick={() => { setHeaderMediaHandle(""); setHeaderMediaPreview(""); }} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center"><X className="h-3 w-3" /></button>
                         </div>
                       ) : headerMediaHandle ? (
-                        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-green-50 border border-green-200">
-                          <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                          <p className="text-xs text-green-700">Archivo subido correctamente</p>
-                          <button onClick={() => { setHeaderMediaHandle(""); setHeaderMediaPreview(""); }} className="ml-auto p-1 rounded hover:bg-green-100 text-green-600"><X className="h-3 w-3" /></button>
+                        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/25">
+                          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                          <p className="text-xs text-green-700 dark:text-green-300">Archivo subido correctamente</p>
+                          <button onClick={() => { setHeaderMediaHandle(""); setHeaderMediaPreview(""); }} className="ml-auto p-1 rounded hover:bg-green-100 dark:hover:bg-green-500/20 text-green-600 dark:text-green-400"><X className="h-3 w-3" /></button>
                         </div>
                       ) : (
                         <label className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-dashed border-border hover:border-brand-400 hover:bg-brand-50/20 cursor-pointer transition-colors">
@@ -447,14 +447,14 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                       <button className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Código: ```texto```"><Code className="h-3.5 w-3.5" /></button>
                       <button className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Insertar emoji"><Smile className="h-3.5 w-3.5" /></button>
                     </div>
-                    <button onClick={insertVariable} className="text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1">
+                    <button onClick={insertVariable} className="text-xs text-brand-600 dark:text-brand-300 hover:text-brand-700 dark:hover:text-brand-200 font-medium flex items-center gap-1">
                       <Plus className="h-3 w-3" /> Agregar variable
                     </button>
                   </div>
                   {bodyText.match(/\{\{\d+\}\}/g) && (
-                    <div className="mt-3 p-3 rounded-lg bg-blue-50 border border-blue-100 space-y-2">
-                      <p className="text-[11px] text-blue-800 font-medium">Valores de ejemplo para las variables</p>
-                      <p className="text-[10px] text-blue-600 mb-2">Meta requiere ejemplos para aprobar la plantilla. Escribe un valor representativo para cada variable.</p>
+                    <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/25 space-y-2">
+                      <p className="text-[11px] text-blue-800 dark:text-blue-300 font-medium">Valores de ejemplo para las variables</p>
+                      <p className="text-[10px] text-blue-600 dark:text-blue-400 mb-2">Meta requiere ejemplos para aprobar la plantilla. Escribe un valor representativo para cada variable.</p>
                       <div className="space-y-1.5">
                         {(bodyText.match(/\{\{\d+\}\}/g) || []).map((v, i) => (
                           <div key={i} className="flex items-center gap-2">
@@ -520,7 +520,7 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                                   <input type="text" value={btn.url || ""} onChange={(e) => handleUpdateButton(i, "url", e.target.value)} placeholder="https://www.ejemplo.com/{{1}}" className="w-full px-2.5 py-1.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                                 </div>
                               </div>
-                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
+                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10 text-muted-foreground hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
                             </div>
                           </div>
                         )}
@@ -551,7 +551,7 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                                   </div>
                                 </div>
                               </div>
-                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
+                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10 text-muted-foreground hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
                             </div>
                           </div>
                         )}
@@ -575,7 +575,7 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                                   </div>
                                 </div>
                               </div>
-                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
+                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10 text-muted-foreground hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
                             </div>
                           </div>
                         )}
@@ -591,7 +591,7 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">{btn.text.length}/25</span>
                                 </div>
                               </div>
-                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
+                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10 text-muted-foreground hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
                             </div>
                           </div>
                         )}
@@ -619,10 +619,10 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                     <div><span className="text-muted-foreground">Botones:</span> <span className="font-medium">{buttons.length}</span></div>
                   </div>
                 </div>
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                  <p className="text-xs text-amber-800"><strong>Nota:</strong> La revisión generalmente tarda unos minutos, pero puede tomar hasta 24 horas.</p>
+                <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 rounded-xl p-4">
+                  <p className="text-xs text-amber-800 dark:text-amber-300"><strong>Nota:</strong> La revisión generalmente tarda unos minutos, pero puede tomar hasta 24 horas.</p>
                 </div>
-                {error && <div className="bg-red-50 border border-red-200 rounded-xl p-4"><p className="text-xs text-red-700">{error}</p></div>}
+                {error && <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/25 rounded-xl p-4"><p className="text-xs text-red-700 dark:text-red-300">{error}</p></div>}
               </div>
             )}
           </div>
@@ -675,7 +675,7 @@ function DeleteTemplateModal({ template, inboxId, onClose, onDeleted }: { templa
           <h3 className="text-base font-semibold text-foreground">Eliminar plantilla</h3>
         </div>
         <p className="text-sm text-muted-foreground mb-4">¿Eliminar <strong>{template.name}</strong> ({template.language})? Se eliminarán todas las versiones en todos los idiomas.</p>
-        {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg mb-3">{error}</p>}
+        {error && <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg mb-3">{error}</p>}
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted">Cancelar</button>
           <button onClick={handleDelete} disabled={deleting} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 flex items-center gap-1.5">
@@ -714,7 +714,7 @@ function TemplateDetail({ template, onClose }: { template: Template; onClose: ()
           <TemplatePreview headerType={header?.format?.toLowerCase() || (header?.text ? "text" : "none")} headerText={header?.text || ""} bodyText={body?.text || ""} footerText={footer?.text || ""} buttons={btns?.buttons || []} />
           <div className="mt-4 space-y-2">
             {template.quality_score?.score && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Calidad</span><span className="font-medium">{template.quality_score.score}</span></div>}
-            {template.rejected_reason && <div className="p-2.5 rounded-lg bg-red-50 border border-red-200"><p className="text-xs text-red-700"><strong>Rechazo:</strong> {template.rejected_reason}</p></div>}
+            {template.rejected_reason && <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/25"><p className="text-xs text-red-700 dark:text-red-300"><strong>Rechazo:</strong> {template.rejected_reason}</p></div>}
             <div className="flex justify-between text-xs"><span className="text-muted-foreground">ID</span><span className="font-mono text-foreground">{template.id}</span></div>
           </div>
         </div>
@@ -810,7 +810,7 @@ export function WhatsAppTemplatesManager({ inboxId }: { inboxId: string }) {
                     <td className="px-3 py-3 text-xs text-muted-foreground">{tpl.language}</td>
                     <td className="px-3 py-3"><span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border font-medium ${statusCfg.color}`}><StatusIcon className="h-2.5 w-2.5" /> {statusCfg.label}</span></td>
                     <td className="px-3 py-3"><span className={`text-xs font-medium ${qColor}`}>{qs ? "●" : "—"}</span></td>
-                    <td className="px-3 py-3"><button onClick={(e) => { e.stopPropagation(); setDeleteTarget(tpl); }} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button></td>
+                    <td className="px-3 py-3"><button onClick={(e) => { e.stopPropagation(); setDeleteTarget(tpl); }} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10 text-muted-foreground hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button></td>
                   </tr>
                 );
               })}

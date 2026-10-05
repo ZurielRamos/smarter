@@ -62,7 +62,7 @@ export function MessageEditor({ value, onChange, onSave, saving, variables }: Me
     range.deleteContents();
 
     const span = document.createElement("span");
-    span.className = "inline-block px-1.5 py-0.5 mx-0.5 rounded bg-brand-100 text-brand-700 text-xs font-medium select-all";
+    span.className = "inline-block px-1.5 py-0.5 mx-0.5 rounded bg-brand-100 dark:bg-brand-500/20 text-brand-700 dark:text-brand-200 text-xs font-medium select-all";
     span.contentEditable = "false";
     span.dataset.variable = tag;
     span.textContent = tag.replace("{{", "").replace("}}", "");
@@ -192,7 +192,7 @@ export function MessageEditor({ value, onChange, onSave, saving, variables }: Me
         const match = part.match(/^\{\{(.+)\}\}$/);
         if (match) {
           const label = AVAILABLE_VARIABLES.find((v) => v.field === match[1])?.label || match[1];
-          return `<span class="inline-block px-1.5 py-0.5 mx-0.5 rounded bg-brand-100 text-brand-700 text-xs font-medium" contenteditable="false" data-variable="${part}">${label}</span>`;
+          return `<span class="inline-block px-1.5 py-0.5 mx-0.5 rounded bg-brand-100 dark:bg-brand-500/20 text-brand-700 dark:text-brand-200 text-xs font-medium" contenteditable="false" data-variable="${part}">${label}</span>`;
         }
         return part.replace(/</g, "&lt;").replace(/>/g, "&gt;");
       })
@@ -212,7 +212,7 @@ export function MessageEditor({ value, onChange, onSave, saving, variables }: Me
   return (
     <div className="bg-card rounded-xl border border-border p-6">
       <div className="flex items-center gap-2 mb-4">
-        <MessageSquare className="h-5 w-5 text-brand-600" />
+        <MessageSquare className="h-5 w-5 text-brand-600 dark:text-brand-300" />
         <h2 className="text-base font-semibold text-foreground">Mensaje SMS</h2>
       </div>
 
@@ -231,8 +231,8 @@ export function MessageEditor({ value, onChange, onSave, saving, variables }: Me
                 className={cn(
                   "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium cursor-grab active:cursor-grabbing select-none transition-colors",
                   dragging === v.field
-                    ? "opacity-50 border-brand-300 bg-brand-50"
-                    : "bg-card border-border hover:border-brand-400 hover:bg-brand-50 text-foreground"
+                    ? "opacity-50 border-brand-300 bg-brand-50 dark:bg-brand-500/15"
+                    : "bg-card border-border hover:border-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10 text-foreground"
                 )}
               >
                 <GripVertical className="h-3 w-3 text-muted-foreground" />
@@ -254,7 +254,7 @@ export function MessageEditor({ value, onChange, onSave, saving, variables }: Me
             onDragLeave={handleDragLeave}
             className={cn(
               "w-full min-h-[140px] px-4 py-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 transition-colors whitespace-pre-wrap",
-              isDragOver ? "border-brand-400 bg-brand-50/50" : "border-border"
+              isDragOver ? "border-brand-400 bg-brand-50/50 dark:bg-brand-500/10" : "border-border"
             )}
           />
 

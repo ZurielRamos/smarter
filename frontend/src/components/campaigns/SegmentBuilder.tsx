@@ -109,7 +109,7 @@ function DraggableFieldChip({ field }: { field: FieldDef }) {
         "flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm cursor-grab active:cursor-grabbing select-none transition-colors",
         isDragging
           ? "opacity-30 border-dashed border-brand-300"
-          : "bg-card border-border hover:border-brand-400 hover:bg-brand-50"
+          : "bg-card border-border hover:border-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10"
       )}
     >
       <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
@@ -127,7 +127,7 @@ function ConditionDropZone({ groupId, isEmpty }: { groupId: string; isEmpty: boo
       ref={setNodeRef}
       className={cn(
         "rounded-lg border-2 border-dashed p-4 transition-all min-h-[60px] flex items-center justify-center",
-        isOver ? "border-brand-400 bg-brand-50" : "border-border",
+        isOver ? "border-brand-400 bg-brand-50 dark:bg-brand-500/10" : "border-border",
         isEmpty && "py-8"
       )}
     >
@@ -137,7 +137,7 @@ function ConditionDropZone({ groupId, isEmpty }: { groupId: string; isEmpty: boo
         </p>
       )}
       {isOver && (
-        <p className="text-sm text-brand-600 font-medium">Soltar aquí</p>
+        <p className="text-sm text-brand-600 dark:text-brand-300 font-medium">Soltar aquí</p>
       )}
     </div>
   );
@@ -164,7 +164,7 @@ function ConditionRow({
 
   return (
     <div className="flex items-center gap-2 p-3 bg-card rounded-lg border border-border">
-      <span className="text-sm font-medium text-brand-700 shrink-0">
+      <span className="text-sm font-medium text-brand-700 dark:text-brand-200 shrink-0">
         {fieldDef.label}
       </span>
 
@@ -215,7 +215,7 @@ function ConditionRow({
 
       <button
         onClick={onRemove}
-        className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-md transition-colors shrink-0"
+        className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors shrink-0"
       >
         <Trash2 className="h-4 w-4" />
       </button>
@@ -408,9 +408,9 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
               Condiciones de segmentación
             </h4>
             {matchedCount !== null && (
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-accent-50 rounded-full border border-accent-200">
-                <Users className="h-3.5 w-3.5 text-accent-600" />
-                <span className="text-sm font-medium text-accent-700">
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-accent-50 dark:bg-accent-500/15 rounded-full border border-accent-200 dark:border-accent-500/30">
+                <Users className="h-3.5 w-3.5 text-accent-600 dark:text-accent-300" />
+                <span className="text-sm font-medium text-accent-700 dark:text-accent-200">
                   {matchedCount.toLocaleString()} clientes
                 </span>
               </div>
@@ -419,11 +419,11 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
 
           {/* Preview sample */}
           {previewSample.length > 0 && (
-            <div className="mb-3 rounded-lg border border-accent-200 bg-accent-50 overflow-hidden">
-              <div className="px-3 py-1.5 text-xs font-medium text-accent-700 border-b border-accent-200">
+            <div className="mb-3 rounded-lg border border-accent-200 dark:border-accent-500/25 bg-accent-50 dark:bg-accent-500/10 overflow-hidden">
+              <div className="px-3 py-1.5 text-xs font-medium text-accent-700 dark:text-accent-200 border-b border-accent-200 dark:border-accent-500/25">
                 Muestra de resultados
               </div>
-              <div className="divide-y divide-accent-100 max-h-[120px] overflow-y-auto">
+              <div className="divide-y divide-accent-100 dark:divide-accent-500/20 max-h-[120px] overflow-y-auto">
                 {previewSample.map((client, idx) => (
                   <div key={idx} className="flex items-center gap-4 px-3 py-1.5 text-xs">
                     <span className="text-foreground flex-1">{client.fullName || client.firstName || "—"}</span>
@@ -521,9 +521,9 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
 
       <DragOverlay dropAnimation={null}>
         {activeField ? (
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-brand-300 bg-brand-50 text-sm shadow-lg cursor-grabbing">
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-brand-300 dark:border-brand-500/40 bg-brand-50 dark:bg-brand-500/15 text-sm shadow-lg cursor-grabbing">
             <GripVertical className="h-3.5 w-3.5 text-brand-400" />
-            <span className="font-medium text-brand-700">{activeField.label}</span>
+            <span className="font-medium text-brand-700 dark:text-brand-200">{activeField.label}</span>
           </div>
         ) : null}
       </DragOverlay>

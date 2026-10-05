@@ -138,7 +138,7 @@ export function EmailEditor({
             <label className="block text-xs font-medium text-muted-foreground">Usar plantilla</label>
             <button
               onClick={() => setShowTemplates(!showTemplates)}
-              className="text-[10px] text-brand-600 hover:text-brand-700 font-medium"
+              className="text-[10px] text-brand-600 dark:text-brand-300 hover:text-brand-700 dark:hover:text-brand-200 font-medium"
             >
               {showTemplates ? "Ocultar" : `Ver plantillas (${templates.length})`}
             </button>
@@ -153,7 +153,7 @@ export function EmailEditor({
                     onBodyChange(tpl.html || tpl.body || "");
                     setShowTemplates(false);
                   }}
-                  className="text-left px-3 py-2 rounded-lg border border-border bg-card hover:border-orange-300 hover:bg-orange-50/50 transition-colors"
+                  className="text-left px-3 py-2 rounded-lg border border-border bg-card hover:border-orange-300 hover:bg-orange-50/50 dark:hover:bg-orange-500/10 transition-colors"
                 >
                   <p className="text-xs font-medium text-foreground truncate">{tpl.name}</p>
                   <p className="text-[10px] text-muted-foreground truncate mt-0.5">{tpl.subject}</p>
@@ -186,7 +186,7 @@ export function EmailEditor({
               <button
                 key={v.field}
                 onClick={() => insertVariable(v.field)}
-                className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-card border-border hover:border-orange-400 hover:bg-orange-50 text-xs font-medium text-foreground transition-colors text-left"
+                className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-card border-border hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10 text-xs font-medium text-foreground transition-colors text-left"
               >
                 <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
                 <span className="truncate">{v.label}</span>

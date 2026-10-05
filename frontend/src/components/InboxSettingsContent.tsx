@@ -287,8 +287,8 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
               {smsSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : smsSaved ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
               {smsSaved ? "Guardado" : "Guardar"}
             </button>
-            <div className="mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
-              <p className="text-[10px] text-amber-800"><strong>Nota:</strong> Remitente personalizado no activo de momento.</p>
+            <div className="mt-3 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25">
+              <p className="text-[10px] text-amber-800 dark:text-amber-300"><strong>Nota:</strong> Remitente personalizado no activo de momento.</p>
             </div>
           </div>
         )}
@@ -299,7 +299,7 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
             <label className="block text-xs font-medium text-muted-foreground mb-2">Voz</label>
             <div className="grid grid-cols-4 gap-2">
               {["Mariana", "Penelope", "Conchita", "Mia", "Lucia", "Enrique", "Miguel"].map((v) => (
-                <button key={v} onClick={() => { setCallVoice(v); setCallSaved(false); }} className={`px-2 py-1.5 rounded-lg text-xs font-medium border transition-colors ${callVoice === v ? "border-purple-500 bg-purple-50 text-purple-700" : "border-border text-muted-foreground hover:bg-muted"}`}>{v}</button>
+                <button key={v} onClick={() => { setCallVoice(v); setCallSaved(false); }} className={`px-2 py-1.5 rounded-lg text-xs font-medium border transition-colors ${callVoice === v ? "border-purple-500 bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300" : "border-border text-muted-foreground hover:bg-muted"}`}>{v}</button>
               ))}
             </div>
             <button onClick={handleCallSave} disabled={callSaving} className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-xs font-medium disabled:opacity-50">
@@ -366,7 +366,7 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
                     <button
                       type="button"
                       onClick={() => setSmtpForm({ ...smtpForm, secure: !smtpForm.secure })}
-                      className={`w-full px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${smtpForm.secure ? "border-green-300 bg-green-50 text-green-700" : "border-border text-muted-foreground"}`}
+                      className={`w-full px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${smtpForm.secure ? "border-green-300 dark:border-green-500/40 bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-300" : "border-border text-muted-foreground"}`}
                     >
                       {smtpForm.secure ? "Sí" : "No"}
                     </button>
@@ -404,7 +404,7 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
             </div>
 
             <div className="flex items-center gap-2 mt-4">
-              <button onClick={handleSmtpTest} disabled={smtpTesting || !smtpForm.host || !smtpForm.user || !smtpForm.pass} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-300 text-orange-700 hover:bg-orange-50 text-xs font-medium disabled:opacity-50">
+              <button onClick={handleSmtpTest} disabled={smtpTesting || !smtpForm.host || !smtpForm.user || !smtpForm.pass} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-300 dark:border-orange-500/40 text-orange-700 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-500/10 text-xs font-medium disabled:opacity-50">
                 {smtpTesting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wifi className="h-3 w-3" />}
                 Probar conexión
               </button>
@@ -415,7 +415,7 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
             </div>
 
             {smtpTestResult && (
-              <div className={`mt-3 p-2.5 rounded-lg border text-xs ${smtpTestResult.success ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"}`}>
+              <div className={`mt-3 p-2.5 rounded-lg border text-xs ${smtpTestResult.success ? "bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/25 text-green-700 dark:text-green-300" : "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/25 text-red-700 dark:text-red-300"}`}>
                 {smtpTestResult.success ? (
                   <div className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3" /> Conexión SMTP exitosa</div>
                 ) : (
@@ -454,7 +454,7 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
                 {mailgunSaved ? "Guardado" : "Guardar configuración"}
               </button>
               {mailgunDomain && (
-                <button onClick={handleVerifyDomain} disabled={mailgunVerifying} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 text-xs font-medium disabled:opacity-50">
+                <button onClick={handleVerifyDomain} disabled={mailgunVerifying} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 dark:border-red-500/40 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 text-xs font-medium disabled:opacity-50">
                   {mailgunVerifying ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wifi className="h-3 w-3" />}
                   Verificar dominio
                 </button>
@@ -469,7 +469,7 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
                 {mailgunDnsRecords.length > 0 ? (
                   <div className="space-y-2">
                     {mailgunDnsRecords.map((record, idx) => (
-                      <div key={idx} className={`p-2.5 rounded-lg border text-[11px] ${record.valid ? "bg-green-50 border-green-200" : "bg-muted border-border"}`}>
+                      <div key={idx} className={`p-2.5 rounded-lg border text-[11px] ${record.valid ? "bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/25" : "bg-muted border-border"}`}>
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-medium text-foreground">{record.type}</span>
                           {record.valid !== undefined && (
@@ -489,7 +489,7 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
                 )}
 
                 {mailgunVerifyResult && (
-                  <div className={`mt-3 p-2.5 rounded-lg border text-xs ${mailgunVerifyResult.verified ? "bg-green-50 border-green-200 text-green-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+                  <div className={`mt-3 p-2.5 rounded-lg border text-xs ${mailgunVerifyResult.verified ? "bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/25 text-green-700 dark:text-green-300" : "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/25 text-amber-700 dark:text-amber-300"}`}>
                     {mailgunVerifyResult.verified ? (
                       <div className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3" /> Dominio verificado correctamente</div>
                     ) : (
@@ -540,7 +540,7 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
                       setInbox(data);
                     } catch {}
                   }}
-                  className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-medium"
+                  className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 text-xs font-medium"
                 >
                   <WifiOff className="h-3 w-3" /> Desconectar
                 </button>
@@ -565,10 +565,10 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
         )}
 
         {/* Danger zone */}
-        <div className="bg-card rounded-xl border border-red-200 p-5">
-          <h2 className="text-sm font-semibold text-red-600 mb-1">Zona de peligro</h2>
+        <div className="bg-card rounded-xl border border-red-200 dark:border-red-500/30 p-5">
+          <h2 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-1">Zona de peligro</h2>
           <p className="text-[11px] text-muted-foreground mb-3">Eliminar esta bandeja borrará todas las conversaciones asociadas.</p>
-          <button onClick={() => setShowDeleteModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-medium">
+          <button onClick={() => setShowDeleteModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 text-xs font-medium">
             <Trash2 className="h-3 w-3" /> Eliminar bandeja
           </button>
         </div>

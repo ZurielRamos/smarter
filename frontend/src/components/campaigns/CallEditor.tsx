@@ -128,7 +128,7 @@ export function CallEditor({
   return (
     <div className="bg-card rounded-xl border border-border p-6">
       <div className="flex items-center gap-2 mb-4">
-        <Phone className="h-5 w-5 text-brand-600" />
+        <Phone className="h-5 w-5 text-brand-600 dark:text-brand-300" />
         <h2 className="text-base font-semibold text-foreground">
           {channel === "sms" ? "Configuración de SMS" : "Configuración de Llamada"}
         </h2>
@@ -142,7 +142,7 @@ export function CallEditor({
           className={cn(
             "px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all",
             !useAudio
-              ? "border-brand-500 bg-brand-50 text-brand-800"
+              ? "border-brand-500 bg-brand-50 dark:bg-brand-500/15 text-brand-800 dark:text-brand-200"
               : "border-border text-muted-foreground hover:border-border"
           )}
         >
@@ -153,7 +153,7 @@ export function CallEditor({
           className={cn(
             "px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all",
             useAudio
-              ? "border-brand-500 bg-brand-50 text-brand-800"
+              ? "border-brand-500 bg-brand-50 dark:bg-brand-500/15 text-brand-800 dark:text-brand-200"
               : "border-border text-muted-foreground hover:border-border"
           )}
         >
@@ -220,7 +220,7 @@ export function CallEditor({
                       <div className="space-y-2">
                         {uniqueVars.map((varName) => (
                           <div key={varName} className="flex items-center gap-2">
-                            <code className="text-[11px] font-mono text-brand-700 bg-brand-50 px-1.5 py-1 rounded shrink-0 w-[130px] truncate">{`{{${varName}}}`}</code>
+                            <code className="text-[11px] font-mono text-brand-700 dark:text-brand-200 bg-brand-50 dark:bg-brand-500/15 px-1.5 py-1 rounded shrink-0 w-[130px] truncate">{`{{${varName}}}`}</code>
                             <span className="text-muted-foreground shrink-0">→</span>
                             <FieldDropdown
                               fields={AVAILABLE_VARIABLES}
@@ -242,7 +242,7 @@ export function CallEditor({
                   <p className="text-sm text-foreground whitespace-pre-wrap">{getPreview()}</p>
                 </div>
                 {selectedTemplate.translations.length > 1 && (
-                  <p className="text-[10px] text-brand-600 mt-2">
+                  <p className="text-[10px] text-brand-600 dark:text-brand-300 mt-2">
                     {selectedTemplate.translations.length} idiomas disponibles — se enviará según el idioma del contacto
                   </p>
                 )}
@@ -298,7 +298,7 @@ export function CallEditor({
             onClick={() => onLeaveVoicemailChange(!leaveVoicemail)}
             className={cn(
               "relative w-10 h-5 rounded-full transition-colors",
-              leaveVoicemail ? "bg-accent-500" : "bg-gray-300"
+              leaveVoicemail ? "bg-accent-500" : "bg-gray-300 dark:bg-gray-600"
             )}
           >
             <span
@@ -383,14 +383,14 @@ function TemplateDropdown({
                   onClick={() => { onSelect(t.id); setOpen(false); }}
                   className={cn(
                     "w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors",
-                    isActive ? "bg-brand-50 text-brand-700" : "text-foreground hover:bg-muted"
+                    isActive ? "bg-brand-50 dark:bg-brand-500/15 text-brand-700 dark:text-brand-200" : "text-foreground hover:bg-muted"
                   )}
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{t.name}</p>
                     {body && <p className="text-[11px] text-muted-foreground truncate mt-0.5">{body.substring(0, 50)}{body.length > 50 ? "..." : ""}</p>}
                   </div>
-                  {isActive && <Check className="h-4 w-4 text-brand-600 shrink-0" />}
+                  {isActive && <Check className="h-4 w-4 text-brand-600 dark:text-brand-300 shrink-0" />}
                 </button>
               );
             })}
@@ -435,8 +435,8 @@ function FieldDropdown({
         className={cn(
           "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-left text-xs transition-colors",
           selected ? "border-border bg-card text-foreground"
-            : isManual ? "border-blue-200 bg-blue-50 text-blue-700"
-            : "border-amber-200 bg-amber-50 text-amber-600"
+            : isManual ? "border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300"
+            : "border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300"
         )}
       >
         <span className="truncate">
@@ -455,7 +455,7 @@ function FieldDropdown({
                 onClick={() => { setManualMode(true); setManualValue(isManual ? value : ""); }}
                 className={cn(
                   "w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors border-b border-border",
-                  isManual ? "bg-blue-50 text-blue-700 font-medium" : "text-muted-foreground hover:bg-muted"
+                  isManual ? "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 font-medium" : "text-muted-foreground hover:bg-muted"
                 )}
               >
                 <span className="text-[10px]">✏️</span>
@@ -491,10 +491,10 @@ function FieldDropdown({
                 onClick={() => { onChange(f.field); setOpen(false); setManualMode(false); }}
                 className={cn(
                   "w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors",
-                  f.field === value ? "bg-brand-50 text-brand-700 font-medium" : "text-foreground hover:bg-muted"
+                  f.field === value ? "bg-brand-50 dark:bg-brand-500/15 text-brand-700 dark:text-brand-200 font-medium" : "text-foreground hover:bg-muted"
                 )}
               >
-                {f.field === value && <Check className="h-3 w-3 text-brand-600 shrink-0" />}
+                {f.field === value && <Check className="h-3 w-3 text-brand-600 dark:text-brand-300 shrink-0" />}
                 <span className="truncate">{f.label}</span>
                 <span className="text-[9px] text-muted-foreground ml-auto">{f.field}</span>
               </button>

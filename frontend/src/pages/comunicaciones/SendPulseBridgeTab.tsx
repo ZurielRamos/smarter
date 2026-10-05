@@ -227,7 +227,7 @@ export function SendPulseBridgeTab({ inboxId, tenantId }: { inboxId: string; ten
               )}
               <button
                 onClick={loadStatus}
-                className="flex items-center gap-1 text-[11px] text-brand-600 hover:text-brand-700 font-medium"
+                className="flex items-center gap-1 text-[11px] text-brand-600 dark:text-brand-300 hover:text-brand-700 dark:hover:text-brand-200 font-medium"
               >
                 <RefreshCw className="h-3 w-3" />
                 Actualizar estado
