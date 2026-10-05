@@ -782,3 +782,28 @@ export async function createContactEvent(payload: {
 export async function deleteContactEvent(id: string): Promise<void> {
   await api.delete(`/contact-events/${id}`);
 }
+
+// === WhatsApp Flow Submissions ===
+
+export interface FlowSubmissionRecord {
+  id: string;
+  flowId: string | null;
+  metaFlowId: string | null;
+  flowToken: string | null;
+  status: string; // started | in_progress | completed | abandoned | error
+  currentScreen: string | null;
+  responseData: Record<string, any>;
+  screenHistory: Array<{ screen: string; data: Record<string, any>; at: string }>;
+  contactIdentifier: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Respuestas de WhatsApp Flows asociadas a un contacto. */
+export async function getFlowSubmissionsByRecord(recordId: string): Promise<FlowSubmissionRecord[]> {
+  const { data } = await api.get<FlowSubmissionRecord[]>(
+    `/whatsapp-flows/submissions/by-record/${recordId}`,
+  );
+  return data;
+}
