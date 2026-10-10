@@ -5,4 +5,9 @@ export class UpdateTenantDto {
   isDev?: boolean;
   maxAgents?: number;
   tableConfig?: Record<string, any>;
+  features?: {
+    companies?: boolean;
+    projects?: boolean;
+    projectStatuses?: string[];
+  };
 }

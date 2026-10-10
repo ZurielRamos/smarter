@@ -4,13 +4,14 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './user.entity';
 import { UserTenant } from './user-tenant.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AssignTenantDto } from './dto/assign-tenant.dto';
+import { SyncTenantsDto } from './dto/sync-tenants.dto';
 
 @Injectable()
 export class UsersService {
@@ -19,6 +20,7 @@ export class UsersService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserTenant)
     private readonly userTenantRepo: Repository<UserTenant>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async findAll(): Promise<User[]> {
@@ -102,6 +104,10 @@ export class UsersService {
 
     if (existing) {
       existing.role = dto.role;
+      // Reactivar la membresía: si la fila venía de un "removed" (borrado lógico),
+      // asignar de nuevo debe volver a ponerla en 'active'. De lo contrario el
+      // usuario quedaría sin acceso pese a aparecer asignado.
+      existing.status = 'active';
       return this.userTenantRepo.save(existing);
     }
 
@@ -109,6 +115,7 @@ export class UsersService {
       userId,
       tenantId: dto.tenantId,
       role: dto.role,
+      status: 'active',
     });
     return this.userTenantRepo.save(ut);
   }
@@ -120,6 +127,64 @@ export class UsersService {
     if (!ut) throw new NotFoundException('Tenant role not found');
     ut.status = 'removed';
     await this.userTenantRepo.save(ut);
+  }
+
+  /**
+   * Reconcilia el conjunto completo de cuentas de un usuario en una sola
+   * transacción atómica. `dto.roles` representa el estado final deseado:
+   *   - las membresías presentes se crean o reactivan (status = 'active') con su rol;
+   *   - las membresías existentes que ya no estén en la lista se marcan 'removed'.
+   * Al ejecutarse en una transacción, nunca queda un estado intermedio donde el
+   * usuario pierda todas sus cuentas si algo falla a mitad de camino.
+   */
+  async syncTenants(userId: string, dto: SyncTenantsDto): Promise<UserTenant[]> {
+    await this.findOne(userId); // validar que el usuario existe
+
+    // Deduplicar por tenantId (si llegan repetidos, gana el último) y validar.
+    const desiredByTenant = new Map<string, string>();
+    for (const r of dto.roles ?? []) {
+      if (!r.tenantId) continue;
+      desiredByTenant.set(r.tenantId, r.role);
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(UserTenant);
+      const existingRows = await repo.find({ where: { userId } });
+      const existingByTenant = new Map(existingRows.map((row) => [row.tenantId, row]));
+
+      // 1. Crear o reactivar las cuentas deseadas.
+      for (const [tenantId, role] of desiredByTenant) {
+        const existing = existingByTenant.get(tenantId);
+        if (existing) {
+          existing.role = role as UserTenant['role'];
+          existing.status = 'active';
+          await repo.save(existing);
+        } else {
+          await repo.save(
+            repo.create({
+              userId,
+              tenantId,
+              role: role as UserTenant['role'],
+              status: 'active',
+            }),
+          );
+        }
+      }
+
+      // 2. Desvincular (soft-delete) las cuentas que ya no están en la lista.
+      for (const existing of existingRows) {
+        if (!desiredByTenant.has(existing.tenantId) && existing.status !== 'removed') {
+          existing.status = 'removed';
+          await repo.save(existing);
+        }
+      }
+
+      // Devolver el estado final activo con el tenant cargado.
+      return repo.find({
+        where: { userId, status: 'active' },
+        relations: { tenant: true },
+      });
+    });
   }
 
   async getUserTenants(userId: string): Promise<UserTenant[]> {

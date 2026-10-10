@@ -132,11 +132,26 @@ function defaultText(type: FlowComponentType): string {
   }
 }
 
+/**
+ * Convierte un índice (0,1,2…) a sufijo de letras (A, B, …, Z, AA, AB…).
+ * Meta exige que los IDs de pantalla solo tengan letras y guiones bajos (sin
+ * números), así que los IDs generados usan este sufijo en vez de un número.
+ */
+export function letterSuffix(index: number): string {
+  let n = index;
+  let s = "";
+  do {
+    s = String.fromCharCode(65 + (n % 26)) + s;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return s;
+}
+
 export function createScreen(index: number): FlowScreenModel {
   const n = index + 1;
   return {
     _id: uid("s"),
-    id: `SCREEN_${n}`,
+    id: `SCREEN_${letterSuffix(index)}`, // SCREEN_A, SCREEN_B, … (sin números)
     title: `Pantalla ${n}`,
     components: [],
     footerLabel: "Continuar",
@@ -216,6 +231,7 @@ function parseComponent(c: any, outsideForm: boolean): FlowComponent | null {
   if (!COMPONENT_META[type]) return null;
   const comp: FlowComponent = { _id: uid(), type, _raw: c, _outsideForm: outsideForm };
   if (c.text != null) comp.text = c.text;
+  if (c.markdown === true) comp.markdown = true;
   if (c.name != null) comp.name = c.name;
   if (c.label != null) comp.label = c.label;
   if (c.required != null) comp.required = !!c.required;
@@ -326,6 +342,20 @@ function serializeScreen(s: FlowScreenModel): Record<string, any> {
   const layoutType = s._rawScreen?.layout?.type || "SingleColumnLayout";
   const formName = s._formName || `form_${s.id.toLowerCase()}`;
 
+  // Caso especial RichText: Meta exige que, si una pantalla usa RichText, sea
+  // el ÚNICO componente de la pantalla (solo acompañado del Footer). No puede ir
+  // dentro de un Form ni junto a otros componentes. Si la pantalla es
+  // exclusivamente RichText, emitimos el RichText suelto + Footer, sin Form.
+  const richTextOnly =
+    s.components.length > 0 && s.components.every((c) => c.type === "RichText");
+  if (richTextOnly) {
+    screen.layout = {
+      type: layoutType,
+      children: [...s.components.map((c) => serializeComponent(c)), footer],
+    };
+    return screen;
+  }
+
   screen.layout = {
     type: layoutType,
     children: [
@@ -420,13 +450,32 @@ function serializeComponent(c: FlowComponent): Record<string, any> {
 
   if (meta.hasText) {
     if (c.text != null) out.text = c.text;
+    // markdown: true habilita formato (negrita, enlaces, listas) en TextBody y
+    // TextCaption. Meta solo lo acepta en esos dos componentes.
+    if ((c.type === "TextBody" || c.type === "TextCaption") && c.markdown) {
+      out.markdown = true;
+    } else {
+      delete out.markdown;
+    }
   }
 
   if (meta.isField) {
     if (c.name) out.name = c.name;
     if (c.label != null) out.label = c.label;
     out.required = !!c.required;
-    setOrDelete(out, "helper-text", c.helperText);
+    // helper-text SOLO en componentes que Meta lo permite (no en Dropdown,
+    // Radio, Checkbox ni OptIn: Meta devuelve INVALID_PROPERTY_KEY).
+    const allowsHelper =
+      c.type === "TextInput" ||
+      c.type === "TextArea" ||
+      c.type === "DatePicker" ||
+      c.type === "PhotoPicker" ||
+      c.type === "DocumentPicker";
+    if (allowsHelper) {
+      setOrDelete(out, "helper-text", c.helperText);
+    } else {
+      delete out["helper-text"];
+    }
     setOrDelete(out, "description", c.description);
     if (c.type === "TextInput") {
       if (c.inputType) out["input-type"] = c.inputType;
@@ -478,6 +527,86 @@ export function screenOptions(model: FlowModel, exceptId?: string): { id: string
   return model.screens
     .filter((s) => s.id !== exceptId)
     .map((s) => ({ id: s.id, title: s.title || s.id }));
+}
+
+/**
+ * Plantilla mínima válida para crear un Flow nuevo DESDE CERO en el editor
+ * visual, sin que el usuario escriba JSON. Una sola pantalla terminal con un
+ * título y un campo de texto de ejemplo, lista para editar visualmente.
+ */
+export function createStarterFlowJson(): Record<string, any> {
+  return {
+    version: "7.3",
+    data_api_version: "3.0",
+    routing_model: { SCREEN_INICIO: [] },
+    screens: [
+      {
+        id: "SCREEN_INICIO",
+        title: "Pantalla 1",
+        terminal: true,
+        success: true,
+        data: {},
+        layout: {
+          type: "SingleColumnLayout",
+          children: [
+            {
+              type: "Form",
+              name: "form_screen_inicio",
+              children: [
+                { type: "TextHeading", text: "Título de ejemplo" },
+                {
+                  type: "TextInput",
+                  name: "respuesta",
+                  label: "Tu respuesta",
+                  "input-type": "text",
+                  required: false,
+                },
+                {
+                  type: "Footer",
+                  label: "Enviar",
+                  "on-click-action": {
+                    name: "complete",
+                    payload: { respuesta: "${form.respuesta}" },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+  };
+}
+
+// ─── Límites de longitud de Meta (WhatsApp Flows) ───────────────────
+// Fuente: documentación de Meta/Sprinklr. Si se exceden, Meta rechaza el Flow.
+export const FLOW_LIMITS = {
+  heading: 80, // TextHeading
+  subheading: 80, // TextSubheading
+  body: 4096, // TextBody
+  caption: 4096, // TextCaption
+  richText: 4096,
+  label: 20, // label de inputs (TextInput, Dropdown, Radio, Checkbox, OptIn, DatePicker, pickers)
+  helperText: 80, // helper-text
+  optionTitle: 30, // título de cada opción (data-source)
+  footerLabel: 35, // texto del botón del Footer
+  screenTitle: 30, // título de pantalla
+} as const;
+
+/** Devuelve el límite de caracteres del "texto" de un componente de texto. */
+export function textLimitFor(type: FlowComponentType): number {
+  switch (type) {
+    case "TextHeading":
+      return FLOW_LIMITS.heading;
+    case "TextSubheading":
+      return FLOW_LIMITS.subheading;
+    case "TextCaption":
+      return FLOW_LIMITS.caption;
+    case "RichText":
+      return FLOW_LIMITS.richText;
+    default:
+      return FLOW_LIMITS.body;
+  }
 }
 
 // ─── Describir respuestas de forma legible ──────────────────────────
@@ -581,8 +710,11 @@ export function describeSubmission(
 
   // Campos presentes en la respuesta que no se encontraron en el flow.json
   // (p. ej. flows sin definición cacheada). Se añaden al final, sin perder nada.
+  // Se omiten claves reservadas internas (token, flags, ubicación), que se
+  // tratan por separado en la UI.
+  const RESERVED = new Set(["flow_token", "completed", "__location__"]);
   for (const [key, raw] of Object.entries(data)) {
-    if (key === "flow_token" || key === "completed" || seen.has(key)) continue;
+    if (RESERVED.has(key) || seen.has(key)) continue;
     result.push({ key, question: key, value: translate(raw), screen: "" });
   }
 
@@ -612,9 +744,14 @@ export function validateFlow(model: FlowModel): FlowValidationIssue[] {
 
   const seenScreenIds = new Set<string>();
   for (const s of model.screens) {
-    // IDs de pantalla válidos y únicos.
-    if (!/^[A-Z][A-Z0-9_]*$/.test(s.id)) {
-      issues.push({ level: "error", screenId: s.id, message: `ID de pantalla inválido: "${s.id}" (usa MAYÚSCULAS y _).` });
+    // IDs de pantalla válidos y únicos. Meta solo permite letras y guiones
+    // bajos (SIN números), p. ej. SCREEN_INICIO. No se permiten dígitos.
+    if (!/^[A-Za-z_]+$/.test(s.id)) {
+      issues.push({
+        level: "error",
+        screenId: s.id,
+        message: `ID de pantalla inválido: "${s.id}". Meta solo permite letras y guiones bajos (sin números). Ej: SCREEN_INICIO.`,
+      });
     }
     if (seenScreenIds.has(s.id)) {
       issues.push({ level: "error", screenId: s.id, message: `ID de pantalla duplicado: "${s.id}".` });
@@ -646,9 +783,72 @@ export function validateFlow(model: FlowModel): FlowValidationIssue[] {
       }
     }
 
+    // Límites de longitud de Meta.
+    const tooLong = (label: string, text: string | undefined, max: number) => {
+      if (text && text.length > max) {
+        issues.push({
+          level: "error",
+          screenId: s.id,
+          message: `${label} supera ${max} caracteres en "${s.id}" (${text.length}).`,
+        });
+      }
+    };
+    if ((s.title || "").length > FLOW_LIMITS.screenTitle) {
+      tooLong("El título de pantalla", s.title, FLOW_LIMITS.screenTitle);
+    }
+    tooLong("El texto del botón", s.footerLabel, FLOW_LIMITS.footerLabel);
+
+    const checkLen = (comps: FlowComponent[]) => {
+      for (const c of comps) {
+        const meta = COMPONENT_META[c.type];
+        if (meta?.hasText) tooLong(`El texto de ${meta.label}`, c.text, textLimitFor(c.type));
+        if (meta?.isField) {
+          // Meta exige que todo campo tenga etiqueta no vacía.
+          if (!c.label || !c.label.trim()) {
+            issues.push({
+              level: "error",
+              screenId: s.id,
+              message: `El campo "${c.name || meta.label}" en "${s.id}" no tiene etiqueta. Añade una etiqueta (Meta la exige).`,
+            });
+          }
+          // Nombre de campo (clave) obligatorio y sin espacios.
+          if (!c.name || !c.name.trim()) {
+            issues.push({
+              level: "error",
+              screenId: s.id,
+              message: `Un campo en "${s.id}" no tiene nombre de campo (clave).`,
+            });
+          }
+          tooLong(`La etiqueta de "${c.name || meta.label}"`, c.label, FLOW_LIMITS.label);
+          tooLong(`El texto de ayuda de "${c.name || meta.label}"`, c.helperText, FLOW_LIMITS.helperText);
+        }
+        if (meta?.hasOptions && c.options) {
+          for (const o of c.options) {
+            tooLong(`La opción "${o.id}"`, o.title, FLOW_LIMITS.optionTitle);
+          }
+        }
+        if (c.type === "If") {
+          checkLen(c.thenComponents || []);
+          checkLen(c.elseComponents || []);
+        }
+      }
+    };
+    checkLen(s.components);
+
     // Advertencia: pantalla sin componentes.
     if (s.components.length === 0) {
       issues.push({ level: "warning", screenId: s.id, message: `La pantalla "${s.id}" no tiene componentes.` });
+    }
+
+    // Regla de Meta para RichText: debe ser el ÚNICO componente de la pantalla
+    // (solo acompañado del botón). No puede convivir con campos ni otros textos.
+    const hasRichText = s.components.some((c) => c.type === "RichText");
+    if (hasRichText && s.components.length > 1) {
+      issues.push({
+        level: "error",
+        screenId: s.id,
+        message: `En "${s.id}": "Texto enriquecido" debe ser el único elemento de la pantalla (Meta no permite combinarlo con otros componentes). Muévelo a una pantalla propia.`,
+      });
     }
   }
 

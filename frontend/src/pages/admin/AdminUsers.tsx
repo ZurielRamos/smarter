@@ -830,14 +830,12 @@ function TenantsManagementModal({
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Remove all existing tenant roles
-      for (const tr of user.tenantRoles) {
-        await api.delete(`/users/${user.id}/tenants/${tr.tenantId}`);
-      }
-      // Add new ones
-      for (const r of roles) {
-        await api.post(`/users/${user.id}/tenants`, { tenantId: r.tenantId, role: r.role });
-      }
+      // Sincronización atómica: una sola llamada reconcilia todas las cuentas
+      // en una transacción en el backend. Reemplaza el frágil delete+post que
+      // podía dejar al usuario sin cuentas si algo fallaba a mitad de camino.
+      await api.put(`/users/${user.id}/tenants`, {
+        roles: roles.map((r) => ({ tenantId: r.tenantId, role: r.role })),
+      });
       onClose();
     } catch {
       // handle error

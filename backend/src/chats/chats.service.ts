@@ -300,10 +300,95 @@ export class ChatsService {
     return this.inboxRepo.save(inbox);
   }
 
+  /**
+   * Guarda la configuración de la "plantilla de bienvenida" del canal: la
+   * plantilla de WhatsApp que se envía automáticamente cuando un contacto
+   * escribe por PRIMERA vez (conversación nueva). Hace merge sobre
+   * inbox.metadata.firstMessageTemplate sin pisar el resto de metadata.
+   *
+   * Solo aplica a canales de WhatsApp. Si `enabled` es true, `templateName` es
+   * obligatorio. La forma del config espeja la acción `reply_template` de las
+   * automatizaciones para poder reutilizar el mismo envío.
+   */
+  async updateFirstMessageTemplate(
+    id: string,
+    cfg: {
+      enabled?: boolean;
+      templateName?: string;
+      templateLanguage?: string;
+      templateCategory?: string;
+      templateComponents?: any[];
+      templateVariables?: Record<string, string>;
+    },
+  ): Promise<Inbox> {
+    const inbox = await this.findInboxById(id);
+    if (inbox.channel !== 'whatsapp') {
+      throw new BadRequestException(
+        'La plantilla de bienvenida solo está disponible para canales de WhatsApp.',
+      );
+    }
+
+    const enabled = cfg?.enabled === true;
+    const templateName = String(cfg?.templateName || '').trim();
+    if (enabled && !templateName) {
+      throw new BadRequestException(
+        'Debes seleccionar una plantilla para activar la bienvenida automática.',
+      );
+    }
+
+    const clean = {
+      enabled,
+      templateName,
+      templateLanguage: String(cfg?.templateLanguage || 'es').trim() || 'es',
+      templateCategory: String(cfg?.templateCategory || '').trim(),
+      templateComponents: Array.isArray(cfg?.templateComponents) ? cfg!.templateComponents : [],
+      templateVariables:
+        cfg?.templateVariables && typeof cfg.templateVariables === 'object'
+          ? Object.fromEntries(
+              Object.entries(cfg.templateVariables).map(([k, v]) => [String(k), String(v ?? '')]),
+            )
+          : {},
+    };
+
+    inbox.metadata = { ...(inbox.metadata || {}), firstMessageTemplate: clean };
+    return this.inboxRepo.save(inbox);
+  }
+
   async findInboxById(id: string): Promise<Inbox> {
     const inbox = await this.inboxRepo.findOne({ where: { id } });
     if (!inbox) throw new NotFoundException('Inbox not found');
     return inbox;
+  }
+
+  /**
+   * Regla A: un tenant solo puede estar vinculado a UNA WABA.
+   *
+   * Verifica que, al conectar un número de WhatsApp, el tenant no tenga ya
+   * otro inbox de WhatsApp vinculado a una WABA distinta. Un mismo tenant SÍ
+   * puede tener varios números/inboxes de la MISMA WABA (por eso solo se
+   * rechaza cuando el `wabaId` existente es diferente). Varios tenants pueden
+   * compartir la misma WABA; esta regla no lo impide.
+   *
+   * @param currentInboxId Inbox que se está conectando (se excluye de la
+   *   comparación para permitir reconectar el mismo número).
+   */
+  private async assertSingleWabaPerTenant(
+    tenantId: string,
+    wabaId: string,
+    currentInboxId: string,
+  ): Promise<void> {
+    const whatsappInboxes = await this.inboxRepo.find({
+      where: { tenantId, channel: 'whatsapp' },
+    });
+    const conflict = whatsappInboxes.find(
+      (i) => i.id !== currentInboxId && i.wabaId && i.wabaId !== wabaId,
+    );
+    if (conflict) {
+      throw new BadRequestException(
+        `Este tenant ya está vinculado a la WABA ${conflict.wabaId}. ` +
+          `No se puede conectar un número de una WABA distinta (${wabaId}).`,
+      );
+    }
   }
 
   async getTenantByInboxId(inboxId: string): Promise<{ slug: string } | null> {
@@ -496,6 +581,11 @@ export class ChatsService {
   ): Promise<Inbox> {
     const inbox = await this.findInboxById(inboxId);
 
+    // Regla A: el tenant solo puede estar vinculado a una WABA.
+    if (data.wabaId) {
+      await this.assertSingleWabaPerTenant(inbox.tenantId, data.wabaId, inbox.id);
+    }
+
     inbox.accessToken = data.accessToken;
     inbox.status = 'connected';
 
@@ -668,6 +758,12 @@ export class ChatsService {
     }
 
     const inbox = await this.findInboxById(inboxId);
+
+    // Regla A: el tenant solo puede estar vinculado a una WABA.
+    if (wabaId) {
+      await this.assertSingleWabaPerTenant(inbox.tenantId, wabaId, inbox.id);
+    }
+
     inbox.accessToken = accessToken;
     inbox.wabaId = wabaId;
     inbox.phoneNumberId = phoneNumberId;
@@ -968,6 +1064,10 @@ export class ChatsService {
         }
       }
 
+      // "Primer mensaje" = conversación nueva. Solo es true cuando realmente se
+      // crea la conversación aquí (ni la búsqueda directa ni la reconciliación
+      // encontraron una previa para este contacto en este inbox).
+      let isNewConversation = false;
       if (!conversation) {
         conversation = this.conversationRepo.create({
           inboxId: inbox.id,
@@ -976,6 +1076,7 @@ export class ChatsService {
           status: 'open',
         });
         conversation = await this.conversationRepo.save(conversation);
+        isNewConversation = true;
       }
 
       // Determine message type and content
@@ -1233,10 +1334,81 @@ export class ChatsService {
         inbox: { id: inbox.id, name: inbox.name, channel: inbox.channel },
       }).catch(() => {});
 
-      // Trigger bot auto-reply if a bot is assigned
-      this.scheduleBotReply(inbox, conversation, content, { messageType, mediaUrl, mediaMimeType }).catch((err) => {
-        console.error('[Bot Auto-Reply] Failed:', err?.message || err);
-      });
+      // Plantilla de bienvenida: si es la PRIMERA vez que este contacto escribe
+      // (conversación nueva) y el canal tiene configurada una plantilla de
+      // bienvenida activa, se envía automáticamente. Devuelve true si se envió,
+      // en cuyo caso se SUPRIME el bot en este primer turno (decisión 1b): el
+      // bot seguirá respondiendo a partir del segundo mensaje.
+      let welcomeSent = false;
+      if (isNewConversation) {
+        welcomeSent = await this.sendFirstMessageTemplate(inbox, conversation).catch((err) => {
+          console.warn('[Welcome Template] Failed:', err?.message || err);
+          return false;
+        });
+      }
+
+      // Trigger bot auto-reply if a bot is assigned (salvo que ya se haya
+      // enviado la plantilla de bienvenida en este primer turno).
+      if (!welcomeSent) {
+        this.scheduleBotReply(inbox, conversation, content, { messageType, mediaUrl, mediaMimeType }).catch((err) => {
+          console.error('[Bot Auto-Reply] Failed:', err?.message || err);
+        });
+      }
+  }
+
+  /**
+   * Envía la plantilla de bienvenida configurada en el canal (inbox) cuando un
+   * contacto escribe por primera vez. Reutiliza la misma construcción de
+   * `components` que la acción `reply_template` de las automatizaciones y el
+   * envío vía `sendTemplateMessage`.
+   *
+   * - Solo aplica a canales de WhatsApp con `metadata.firstMessageTemplate.enabled`.
+   * - Ignora el opt-in del contacto (skipOptIn=true): es una respuesta inmediata
+   *   al mensaje que el propio contacto acaba de enviar (decisión 4).
+   *
+   * @returns true si la plantilla se envió (para suprimir el bot en este turno).
+   */
+  private async sendFirstMessageTemplate(inbox: Inbox, conversation: Conversation): Promise<boolean> {
+    if (inbox.channel !== 'whatsapp') return false;
+    const cfg = inbox.metadata?.firstMessageTemplate;
+    if (!cfg?.enabled) return false;
+
+    const templateName = String(cfg.templateName || '').trim();
+    if (!templateName) return false;
+
+    const requestedLanguage = String(cfg.templateLanguage || 'es').trim() || 'es';
+    const languageCode = await this.resolveTemplateLanguage(inbox, templateName, requestedLanguage);
+    const templateDef = Array.isArray(cfg.templateComponents) ? cfg.templateComponents : undefined;
+
+    const record = conversation.recordId
+      ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } }).catch(() => null)
+      : null;
+    const sendComponents = this.buildAutomationTemplateComponents(
+      templateDef,
+      record,
+      cfg.templateVariables || {},
+    );
+
+    await this.sendTemplateMessage(
+      conversation.id,
+      templateName,
+      languageCode,
+      sendComponents,
+      undefined,
+      `[Plantilla de bienvenida: ${templateName}]`,
+      templateDef,
+      cfg.templateCategory || undefined,
+      undefined,
+      true, // skipOptIn — ignora el opt-in para la bienvenida
+    );
+
+    await this.createSystemNote(
+      conversation.id,
+      `Bienvenida automática: se envió la plantilla "${templateName}" al primer mensaje del contacto.`,
+      inbox.tenantId,
+    ).catch(() => {});
+
+    return true;
   }
 
   /**
@@ -3987,9 +4159,57 @@ export class ChatsService {
     }
   }
 
+  /**
+   * Verifica contra Meta que un Flow esté en estado PUBLISHED. Devuelve el
+   * estado real (PUBLISHED | DRAFT | DEPRECATED | ...) o null si no se pudo
+   * consultar. Se usa para PRE-VALIDAR botones FLOW antes de crear la plantilla
+   * y así evitar intentos fallidos de creación (Meta penaliza el abuso).
+   */
+  private async getFlowStatus(inbox: Inbox, flowId: string): Promise<string | null> {
+    try {
+      const res = await fetch(
+        `https://graph.facebook.com/v21.0/${flowId}?fields=status&access_token=${inbox.accessToken}`,
+      );
+      const data = await res.json();
+      if (data?.error) {
+        console.warn('[Templates] No se pudo consultar el estado del Flow:', JSON.stringify(data.error));
+        return null;
+      }
+      return data?.status ? String(data.status).toUpperCase() : null;
+    } catch (err: any) {
+      console.warn('[Templates] getFlowStatus error:', err?.message || err);
+      return null;
+    }
+  }
+
   async createWhatsAppTemplate(inboxId: string, templateData: { name: string; category: string; language: string; components: any[] }): Promise<any> {
     const inbox = await this.findInboxById(inboxId);
     if (!inbox.wabaId || !inbox.accessToken) throw new Error('Inbox not configured for WhatsApp');
+
+    // PRE-VALIDACIÓN de botones FLOW (encuestas): Meta exige que el Flow esté
+    // PUBLISHED, de lo contrario rechaza la plantilla ("Debe publicarse el flujo
+    // asociado con el botón"). Verificamos ANTES de llamar al endpoint de
+    // creación para no acumular intentos fallidos.
+    const flowButtons: Array<{ id: string }> = [];
+    for (const comp of templateData.components || []) {
+      if (comp?.type === 'BUTTONS' && Array.isArray(comp.buttons)) {
+        for (const b of comp.buttons) {
+          if (String(b?.type).toUpperCase() === 'FLOW' && b?.flow_id) {
+            flowButtons.push({ id: String(b.flow_id) });
+          }
+        }
+      }
+    }
+    for (const fb of flowButtons) {
+      const status = await this.getFlowStatus(inbox, fb.id);
+      if (status !== 'PUBLISHED') {
+        throw new BadRequestException(
+          status
+            ? `La encuesta asociada al botón no está publicada en WhatsApp (estado: ${status}). Publícala antes de crear la plantilla.`
+            : 'No se pudo verificar el estado de la encuesta asociada al botón. Asegúrate de que esté publicada en WhatsApp e inténtalo de nuevo.',
+        );
+      }
+    }
 
     // Ensure example values exist for components with variables (fallback if frontend didn't provide them)
     const components = templateData.components.map((comp: any) => {
@@ -4005,9 +4225,30 @@ export class ChatsService {
           comp.example = { header_text: vars.map((_: string, i: number) => `ejemplo_${i + 1}`) };
         }
       }
+      // Normaliza los botones FLOW (encuestas) para enviar a Meta SOLO los
+      // campos válidos. Un `icon` o `navigate_screen` vacío provoca el error
+      // genérico "Invalid parameter" (#100), por eso se omiten si no tienen
+      // valor. Se fuerza flow_action: "navigate".
+      if (comp.type === 'BUTTONS' && Array.isArray(comp.buttons)) {
+        comp.buttons = comp.buttons.map((btn: any) => {
+          if (String(btn?.type).toUpperCase() !== 'FLOW') return btn;
+          const flowBtn: any = {
+            type: 'FLOW',
+            text: String(btn.text || '').trim(),
+            flow_id: String(btn.flow_id || '').trim(),
+            flow_action: 'navigate',
+          };
+          const screen = String(btn.navigate_screen || '').trim();
+          if (screen) flowBtn.navigate_screen = screen;
+          const icon = String(btn.icon || '').trim().toUpperCase();
+          if (['DOCUMENT', 'PROMOTION', 'REVIEW'].includes(icon)) flowBtn.icon = icon;
+          return flowBtn;
+        });
+      }
       return comp;
     });
 
+    const payload = { ...templateData, components };
     const res = await fetch(
       `https://graph.facebook.com/v21.0/${inbox.wabaId}/message_templates`,
       {
@@ -4016,11 +4257,25 @@ export class ChatsService {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${inbox.accessToken}`,
         },
-        body: JSON.stringify({ ...templateData, components }),
+        body: JSON.stringify(payload),
       },
     );
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message || 'Failed to create template');
+    if (data.error) {
+      // Meta devuelve "Invalid parameter" como mensaje genérico; el detalle real
+      // viene en error_user_msg / error_data.details / error_subcode. Lo
+      // registramos completo y lo propagamos para poder diagnosticar.
+      const err = data.error;
+      console.error('[Templates] Meta rejected template creation:', JSON.stringify(err));
+      console.error('[Templates] Payload sent:', JSON.stringify(payload));
+      const detail =
+        err.error_user_msg ||
+        err.error_data?.details ||
+        err.error_user_title ||
+        err.message ||
+        'Failed to create template';
+      throw new Error(detail);
+    }
     return data;
   }
 
@@ -4186,6 +4441,7 @@ export class ChatsService {
     templateComponents?: any[],
     category?: string,
     performedBy?: string,
+    skipOptIn = false,
   ): Promise<Message> {
     const conversation = await this.conversationRepo.findOne({
       where: { id: conversationId },
@@ -4204,7 +4460,11 @@ export class ChatsService {
     // WhatsApp desactivado, no se le pueden enviar plantillas. Solo se permiten
     // mensajes libres dentro de la ventana de conversación de 24h (validada en
     // sendMessage).
-    if (conversation.recordId) {
+    //
+    // Excepción (skipOptIn): la plantilla de bienvenida al primer mensaje se
+    // envía como respuesta inmediata al contacto que ACABA de escribir, por lo
+    // que se omite la verificación de opt-in para ese caso puntual.
+    if (!skipOptIn && conversation.recordId) {
       const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
       if (record && record.optInWhatsapp === false) {
         throw new BadRequestException(

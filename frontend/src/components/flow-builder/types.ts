@@ -48,6 +48,10 @@ export interface FlowComponent {
 
   // Texto (headings / body / caption / richtext)
   text?: string;
+  // Habilita el markdown (negrita, enlaces, listas) en TextBody/TextCaption.
+  // Meta solo renderiza el formato si el componente lleva markdown: true
+  // (requiere Flow JSON v5.1+). Sin esto, el texto se muestra plano.
+  markdown?: boolean;
 
   // Campos de formulario
   name?: string;

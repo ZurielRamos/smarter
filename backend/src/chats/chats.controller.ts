@@ -75,6 +75,23 @@ export class ChatsController {
     return this.chatsService.updateAutomations(id, body.rules);
   }
 
+  // Configure the first-message welcome template for a WhatsApp channel
+  @Put('inboxes/:id/first-message-template')
+  updateFirstMessageTemplate(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      enabled?: boolean;
+      templateName?: string;
+      templateLanguage?: string;
+      templateCategory?: string;
+      templateComponents?: any[];
+      templateVariables?: Record<string, string>;
+    },
+  ) {
+    return this.chatsService.updateFirstMessageTemplate(id, body);
+  }
+
   // === INBOX COLLABORATORS ===
 
   @Get('inboxes/:id/collaborators')

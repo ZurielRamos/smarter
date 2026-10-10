@@ -142,7 +142,33 @@ export class FlowSubmissionsService {
       );
     }
 
+    // Si la submission corresponde a una ENCUESTA (su metaFlowId coincide con
+    // una Survey), reflejarla como SurveyResponse con la atribución al agente
+    // (encargado del contacto o quien la envió). El gancho es opcional: si el
+    // módulo de encuestas no está disponible, no pasa nada.
+    if (completed && this.surveyIngestor) {
+      await this.surveyIngestor
+        .ingestWhatsAppSubmission(saved)
+        .catch((err: any) =>
+          this.logger.warn(`[FlowSubmission] Ingesta a encuesta falló: ${err?.message}`),
+        );
+    }
+
     return saved;
+  }
+
+  /**
+   * Gancho opcional hacia el módulo de encuestas. Se registra desde
+   * SurveysModule (setSurveyIngestor) para evitar una dependencia circular
+   * dura en el constructor. Si no está presente, el pipeline de Flows funciona
+   * igual que siempre.
+   */
+  private surveyIngestor: { ingestWhatsAppSubmission: (s: WhatsAppFlowSubmission) => Promise<void> } | null = null;
+
+  setSurveyIngestor(ingestor: {
+    ingestWhatsAppSubmission: (s: WhatsAppFlowSubmission) => Promise<void>;
+  }): void {
+    this.surveyIngestor = ingestor;
   }
 
   /**

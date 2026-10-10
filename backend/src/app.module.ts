@@ -27,6 +27,7 @@ import { AuditModule } from './audit/audit.module';
 import { EvolutionModule } from './evolution/evolution.module';
 import { SendPulseModule } from './sendpulse/sendpulse.module';
 import { WhatsAppFlowsModule } from './whatsapp-flows/whatsapp-flows.module';
+import { SurveysModule } from './surveys/surveys.module';
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { WhatsAppFlowsModule } from './whatsapp-flows/whatsapp-flows.module';
     EvolutionModule,
     SendPulseModule,
     WhatsAppFlowsModule,
+    SurveysModule,
   ],
   providers: [
     {

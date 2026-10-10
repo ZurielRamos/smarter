@@ -25,6 +25,9 @@ const Integraciones = lazy(() => import("./pages/Integraciones").then((m) => ({ 
 const Webhooks = lazy(() => import("./pages/Webhooks").then((m) => ({ default: m.Webhooks })));
 const WooCommerceIntegration = lazy(() => import("./pages/WooCommerceIntegration").then((m) => ({ default: m.WooCommerceIntegration })));
 const ApiReference = lazy(() => import("./pages/ApiReference").then((m) => ({ default: m.ApiReference })));
+const Encuestas = lazy(() => import("./pages/encuestas/Encuestas").then((m) => ({ default: m.Encuestas })));
+const EncuestaDetail = lazy(() => import("./pages/encuestas/EncuestaDetail").then((m) => ({ default: m.EncuestaDetail })));
+const PublicSurvey = lazy(() => import("./pages/encuestas/PublicSurvey").then((m) => ({ default: m.PublicSurvey })));
 const ComunicacionesLayout = lazy(() => import("./pages/comunicaciones/ComunicacionesLayout").then((m) => ({ default: m.ComunicacionesLayout })));
 const Conversaciones = lazy(() => import("./pages/comunicaciones/chat").then((m) => ({ default: m.Conversaciones })));
 const Etiquetas = lazy(() => import("./pages/comunicaciones/Etiquetas").then((m) => ({ default: m.Etiquetas })));
@@ -37,9 +40,6 @@ const CanalDetail = lazy(() => import("./pages/comunicaciones/CanalDetail").then
 const Plantillas = lazy(() => import("./pages/comunicaciones/Plantillas").then((m) => ({ default: m.Plantillas })));
 const PlantillaEmpty = lazy(() => import("./pages/comunicaciones/PlantillaEmpty").then((m) => ({ default: m.PlantillaEmpty })));
 const PlantillaDetail = lazy(() => import("./pages/comunicaciones/PlantillaDetail").then((m) => ({ default: m.PlantillaDetail })));
-const Flows = lazy(() => import("./pages/comunicaciones/Flows").then((m) => ({ default: m.Flows })));
-const FlowEmpty = lazy(() => import("./pages/comunicaciones/FlowEmpty").then((m) => ({ default: m.FlowEmpty })));
-const FlowDetail = lazy(() => import("./pages/comunicaciones/FlowDetail").then((m) => ({ default: m.FlowDetail })));
 const Bots = lazy(() => import("./pages/comunicaciones/Bots").then((m) => ({ default: m.Bots })));
 const BotEmpty = lazy(() => import("./pages/comunicaciones/BotEmpty").then((m) => ({ default: m.BotEmpty })));
 const BotDetail = lazy(() => import("./pages/comunicaciones/BotDetail").then((m) => ({ default: m.BotDetail })));
@@ -113,6 +113,7 @@ function App() {
             <Route path="/setup-password" element={<SetupPassword />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/f/:formSlug" element={<PublicForm />} />
+            <Route path="/s/:surveySlug" element={<PublicSurvey />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/data-deletion" element={<DataDeletion />} />
@@ -144,6 +145,9 @@ function App() {
               <Route path="/:slug/clients/:id" element={<ClientDetail />} />
               <Route path="/:slug/campaigns" element={<Campaigns />} />
               <Route path="/:slug/campaigns/:id" element={<CampaignDetail />} />
+              <Route path="/:slug/encuestas" element={<Encuestas />}>
+                <Route path=":surveyId" element={<EncuestaDetail />} />
+              </Route>
               <Route path="/:slug/comunicaciones" element={<ComunicacionesLayout />}>
                 <Route index element={<Navigate to="conversaciones" replace />} />
                 <Route path="conversaciones" element={<Conversaciones />} />
@@ -160,10 +164,6 @@ function App() {
                 <Route path="plantillas" element={<Plantillas />}>
                   <Route index element={<PlantillaEmpty />} />
                   <Route path=":templateId" element={<PlantillaDetail />} />
-                </Route>
-                <Route path="flows" element={<Flows />}>
-                  <Route index element={<FlowEmpty />} />
-                  <Route path=":flowId" element={<FlowDetail />} />
                 </Route>
                 <Route path="bots" element={<Bots />}>
                   <Route index element={<BotEmpty />} />

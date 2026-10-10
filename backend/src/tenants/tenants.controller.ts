@@ -23,6 +23,7 @@ import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { TenantsService } from './tenants.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
+import { UpdateTenantFeaturesDto } from './dto/update-tenant-features.dto';
 import { MediaStorageService } from '../media/media-storage.service';
 import { BillingService } from '../billing/billing.service';
 import { CreatePlanDto, RechargeDto } from '../billing/dto';
@@ -293,6 +294,34 @@ export class TenantsController {
     });
 
     return updated;
+  }
+
+  /**
+   * Activa/desactiva feature flags del tenant (módulos opcionales del CRM).
+   * Hace merge con los flags existentes para no pisar otros valores.
+   */
+  @Patch(':id/features')
+  @UseGuards(SuperAdminGuard)
+  async updateFeatures(
+    @Param('id') id: string,
+    @Body() dto: UpdateTenantFeaturesDto,
+    @Req() req: any,
+  ) {
+    const tenant = await this.tenantsService.findOne(id);
+    const mergedFeatures = { ...(tenant.features || {}), ...dto };
+    const updated = await this.tenantsService.update(id, { features: mergedFeatures });
+
+    await this.auditService.log({
+      adminUserId: req.user.id,
+      adminEmail: req.user.email,
+      action: 'tenant.features.update',
+      targetType: 'tenant',
+      targetId: id,
+      targetLabel: updated.name,
+      metadata: { changes: dto, features: mergedFeatures },
+    });
+
+    return { features: updated.features };
   }
 
   @Delete(':id')

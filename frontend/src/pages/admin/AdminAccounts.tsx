@@ -395,12 +395,7 @@ export function AdminAccounts() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                className="rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-white/15 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.6) 100%)',
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
-                }}
+                className="rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-border bg-popover backdrop-blur-xl shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between p-6 border-b border-border">
@@ -428,6 +423,9 @@ export function AdminAccounts() {
                         type="text"
                         id="orgName"
                         required
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck={false}
                         value={form.name}
                         onChange={(e) => {
                           setForm({ ...form, name: e.target.value });
@@ -435,7 +433,7 @@ export function AdminAccounts() {
                         }}
                         onBlur={checkNameAvailability}
                         placeholder=" "
-                        className={`peer w-full pl-11 pr-10 pt-5 pb-2 border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all bg-transparent ${
+                        className={`peer w-full pl-11 pr-10 pt-5 pb-2 border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all bg-transparent ${
                           nameStatus === "taken"
                             ? "border-red-400"
                             : nameStatus === "available"
@@ -445,7 +443,7 @@ export function AdminAccounts() {
                       />
                       <label
                         htmlFor="orgName"
-                        className="absolute left-11 top-1/2 -translate-y-1/2 text-sm text-muted-foreground transition-all duration-200 pointer-events-none peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-xs peer-focus:text-brand-600 peer-[:not(:placeholder-shown)]:top-2 peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-xs"
+                        className="absolute left-11 top-1/2 -translate-y-1/2 text-sm text-muted-foreground transition-all duration-200 pointer-events-none peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-xs peer-focus:text-brand-600 dark:peer-focus:text-brand-300 peer-[:not(:placeholder-shown)]:top-2 peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-xs"
                       >
                         Nombre de la organización
                       </label>
@@ -463,7 +461,7 @@ export function AdminAccounts() {
                     </div>
 
                     {/* Icono */}
-                    <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-dashed border-border hover:border-brand-400 hover:bg-brand-50/50 cursor-pointer transition-colors h-full">
+                    <label className="flex items-center gap-3 p-3 rounded-lg border-2 border-dashed border-border hover:border-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-500/10 cursor-pointer transition-colors h-full">
                       {iconPreview ? (
                         <img src={iconPreview} alt="icon" className="h-10 w-10 rounded-lg object-cover border border-border" />
                       ) : (
@@ -472,7 +470,7 @@ export function AdminAccounts() {
                         </div>
                       )}
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-brand-600 truncate">
+                        <p className="text-sm font-medium text-brand-600 dark:text-brand-300 truncate">
                           {iconPreview ? "Cambiar" : "Icono"}
                         </p>
                         <p className="text-xs text-muted-foreground">PNG / JPG</p>
@@ -494,7 +492,7 @@ export function AdminAccounts() {
                             value={form.ownerEmail}
                             onChange={(e) => setForm({ ...form, ownerEmail: e.target.value })}
                             placeholder="owner@empresa.com"
-                            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                            className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                           />
                           <p className="text-xs text-muted-foreground mt-1">Se le enviará una invitación como propietario</p>
                         </div>
@@ -505,7 +503,7 @@ export function AdminAccounts() {
                             value={form.ownerName}
                             onChange={(e) => setForm({ ...form, ownerName: e.target.value })}
                             placeholder="Nombre completo (opcional)"
-                            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                            className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                           />
                         </div>
                       </div>
@@ -522,7 +520,7 @@ export function AdminAccounts() {
                             min={1}
                             value={form.maxAgents}
                             onChange={(e) => setForm({ ...form, maxAgents: parseInt(e.target.value) || 1 })}
-                            className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                            className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                           />
                           <p className="text-xs text-muted-foreground mt-1">Número máximo de usuarios permitidos</p>
                         </div>
@@ -537,7 +535,7 @@ export function AdminAccounts() {
                             type="button"
                             onClick={() => setForm({ ...form, isDev: !form.isDev })}
                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                              form.isDev ? 'bg-brand-600' : 'bg-gray-300'
+                              form.isDev ? 'bg-brand-600' : 'bg-gray-300 dark:bg-gray-600'
                             }`}
                           >
                             <span
@@ -563,7 +561,7 @@ export function AdminAccounts() {
                           min={0}
                           value={form.monthlyCredits}
                           onChange={(e) => setForm({ ...form, monthlyCredits: parseInt(e.target.value) || 0 })}
-                          className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                          className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                         />
                         <p className="text-xs text-muted-foreground mt-1">Créditos otorgados al inicio de cada mes</p>
                       </div>
@@ -578,7 +576,7 @@ export function AdminAccounts() {
                           type="button"
                           onClick={() => setForm({ ...form, rollover: !form.rollover })}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ml-2 ${
-                            form.rollover ? 'bg-brand-600' : 'bg-gray-300'
+                            form.rollover ? 'bg-brand-600' : 'bg-gray-300 dark:bg-gray-600'
                           }`}
                         >
                           <span
@@ -673,10 +671,10 @@ export function AdminAccounts() {
 
               {/* Balance actual */}
               {rechargeBalance !== null && (
-                <div className="p-3 rounded-lg bg-brand-50 border border-brand-100 mb-4">
+                <div className="p-3 rounded-lg bg-brand-50 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/25 mb-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-brand-800">Balance actual</p>
-                    <p className="text-lg font-bold text-brand-700">{rechargeBalance.toLocaleString()}</p>
+                    <p className="text-sm font-medium text-brand-800 dark:text-brand-200">Balance actual</p>
+                    <p className="text-lg font-bold text-brand-700 dark:text-brand-100">{rechargeBalance.toLocaleString()}</p>
                   </div>
                 </div>
               )}
@@ -690,7 +688,7 @@ export function AdminAccounts() {
                   value={rechargeValue || ''}
                   placeholder="0"
                   onChange={(e) => setRechargeValue(parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
               </div>
 

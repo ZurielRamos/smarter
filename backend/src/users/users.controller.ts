@@ -11,6 +11,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AssignTenantDto } from './dto/assign-tenant.dto';
+import { SyncTenantsDto } from './dto/sync-tenants.dto';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SuperAdminGuard } from '../auth/super-admin.guard';
@@ -70,6 +71,16 @@ export class UsersController {
   @Post(':id/tenants')
   assignTenant(@Param('id') id: string, @Body() dto: AssignTenantDto) {
     return this.usersService.assignTenant(id, dto);
+  }
+
+  /**
+   * Reconcilia TODAS las cuentas del usuario en una sola operación atómica.
+   * El body representa el estado final deseado; reemplaza al flujo frágil de
+   * "borrar todo y recrear" que podía dejar al usuario sin cuentas.
+   */
+  @Put(':id/tenants')
+  syncTenants(@Param('id') id: string, @Body() dto: SyncTenantsDto) {
+    return this.usersService.syncTenants(id, dto);
   }
 
   @Delete(':id/tenants/:tenantId')

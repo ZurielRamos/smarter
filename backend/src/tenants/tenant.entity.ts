@@ -36,6 +36,20 @@ export class Tenant {
   @Column({ name: 'table_config', type: 'jsonb', nullable: true })
   tableConfig: Record<string, any> | null;
 
+  /**
+   * Feature flags por tenant. Default (ausente) = módulo apagado.
+   * Permite activar módulos opcionales del CRM sin afectar a tenants existentes.
+   */
+  @Column({ name: 'features', type: 'jsonb', nullable: true })
+  features: {
+    /** Módulo Empresas */
+    companies?: boolean;
+    /** Módulo Proyectos */
+    projects?: boolean;
+    /** Ciclo de estados de proyecto configurable; si no se define, se usa el default del servicio */
+    projectStatuses?: string[];
+  } | null;
+
   /** Tracking configuration for ad attribution */
   @Column({ name: 'tracking_config', type: 'jsonb', nullable: true })
   trackingConfig: {

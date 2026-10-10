@@ -16,6 +16,7 @@ export function Header() {
     { to: `/${slug}`, label: "Dashboard" },
     { to: `/${slug}/comunicaciones`, label: "Comunicaciones" },
     { to: `/${slug}/clients`, label: "Contactos" },
+    { to: `/${slug}/encuestas`, label: "Encuestas" },
   ];
 
   return (

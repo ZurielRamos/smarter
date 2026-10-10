@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuid } from 'uuid';
 import sharp from 'sharp';
 
@@ -367,5 +367,25 @@ export class MediaStorageService implements OnModuleInit {
     };
 
     return mimeMap[mimeType] || '';
+  }
+
+  /**
+   * Elimina un objeto de R2 a partir de su URL pública (la que devuelve
+   * uploadBuffer). Si la URL no pertenece a este bucket público o el storage no
+   * está inicializado, no hace nada. Idempotente.
+   */
+  async deleteByUrl(url: string | null | undefined): Promise<void> {
+    if (!url || !this.s3Client || !this.publicUrl) return;
+    const prefix = `${this.publicUrl.replace(/\/$/, '')}/`;
+    if (!url.startsWith(prefix)) return; // no es un objeto nuestro
+    const key = url.slice(prefix.length);
+    if (!key) return;
+    try {
+      await this.s3Client.send(
+        new DeleteObjectCommand({ Bucket: this.bucketName, Key: key }),
+      );
+    } catch (error) {
+      console.error('[MediaStorage] Error deleting object:', error);
+    }
   }
 }

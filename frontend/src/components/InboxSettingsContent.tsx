@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Save, Trash2, Wifi, WifiOff, CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react";
 import { api } from "@/services/api";
 import { AutomationsSection } from "./AutomationsSection";
+import { FirstMessageTemplateSection } from "./FirstMessageTemplateSection";
 
 interface Inbox {
   id: string;
@@ -273,6 +274,11 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
 
         {/* Automatizaciones por palabra clave */}
         <AutomationsSection inboxId={inbox.id} tenantId={inbox.tenantId} />
+
+        {/* Plantilla de bienvenida al primer mensaje (solo WhatsApp) */}
+        {inbox.channel === "whatsapp" && (
+          <FirstMessageTemplateSection inboxId={inbox.id} />
+        )}
 
         {/* Channel-specific config */}
         {inbox.channel === "sms" && (

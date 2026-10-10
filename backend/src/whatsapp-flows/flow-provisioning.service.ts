@@ -297,6 +297,166 @@ export class FlowProvisioningService {
   }
 
   /**
+   * Intenta ELIMINAR un Flow en Meta por su id. Meta solo permite borrar Flows
+   * que no estén publicados/en uso; si no se puede, devuelve ok:false con el
+   * motivo (el llamador puede desvincular localmente de todos modos).
+   */
+  /**
+   * Consulta en Meta el estado real de un Flow (PUBLISHED | DRAFT | DEPRECATED
+   * | THROTTLED | BLOCKED | ...). Devuelve null si no se pudo consultar. Se usa
+   * para filtrar las encuestas que realmente se pueden usar en un botón de
+   * plantilla (solo PUBLISHED).
+   */
+  async getFlowStatusOnMeta(
+    tenantId: string,
+    inboxId: string | null,
+    metaFlowId: string,
+  ): Promise<string | null> {
+    const inbox = await this.resolveInbox(tenantId, inboxId);
+    if (!inbox?.accessToken) return null;
+    try {
+      const res = await fetch(
+        `https://graph.facebook.com/${GRAPH_VERSION}/${metaFlowId}?fields=status`,
+        { headers: { Authorization: `Bearer ${inbox.accessToken}` } },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (data?.error) return null;
+      return data?.status ? String(data.status).toUpperCase() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Publica un Flow EXISTENTE en Meta por su metaFlowId (DRAFT -> PUBLISHED),
+   * sin crear uno nuevo. Pensado para encuestas ya vinculadas: evita el error
+   * "el nombre ya está publicado" que ocurre al intentar re-crear el Flow.
+   */
+  async publishExistingFlowOnMeta(
+    tenantId: string,
+    inboxId: string | null,
+    metaFlowId: string,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const inbox = await this.resolveInbox(tenantId, inboxId);
+    if (!inbox?.accessToken) {
+      return { ok: false, error: 'Sin access token del canal de WhatsApp' };
+    }
+    const res = await this.metaPost(`${metaFlowId}/publish`, inbox.accessToken, {});
+    if (res.ok && res.data?.success !== false) return { ok: true };
+    return { ok: false, error: this.errMsg(res.data, 'No se pudo publicar el Flow en Meta') };
+  }
+
+  async deleteFlowOnMeta(
+    tenantId: string,
+    inboxId: string | null,
+    metaFlowId: string,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const inbox = await this.resolveInbox(tenantId, inboxId);
+    if (!inbox?.accessToken) {
+      return { ok: false, error: 'Sin access token del canal de WhatsApp' };
+    }
+    try {
+      const res = await fetch(
+        `https://graph.facebook.com/${GRAPH_VERSION}/${metaFlowId}`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${inbox.accessToken}` } },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.success !== false) return { ok: true };
+      return { ok: false, error: this.errMsg(data, 'Meta no permitió eliminar el Flow') };
+    } catch (err: any) {
+      return { ok: false, error: err?.message || 'Error al eliminar el Flow en Meta' };
+    }
+  }
+
+  /**
+   * Sube un flow.json a un Flow EXISTENTE de Meta identificado por su metaFlowId
+   * (resolviendo el token del inbox del tenant). Devuelve si Meta lo aceptó y
+   * los errores de validación con su ruta. No requiere un registro en
+   * whatsapp_flows: pensado para el módulo de encuestas, que guarda su propio
+   * metaFlowId. No publica: el Flow mantiene su estado.
+   */
+  async uploadFlowJsonToMeta(
+    tenantId: string,
+    inboxId: string | null,
+    metaFlowId: string,
+    flowJson: Record<string, any>,
+  ): Promise<{
+    ok: boolean;
+    errors: Array<{ code?: string; type?: string; message: string; pointer?: string }>;
+    metaReachable: boolean;
+  }> {
+    this.validateFlowJson(flowJson);
+    const inbox = await this.resolveInbox(tenantId, inboxId);
+    if (!inbox?.accessToken) {
+      return { ok: false, errors: [], metaReachable: false };
+    }
+    const uploadRes = await this.uploadFlowJson(metaFlowId, inbox.accessToken, flowJson);
+    const rawErrors: any[] = uploadRes.data?.validation_errors || [];
+    const errors = rawErrors.map((e) => ({
+      code: e.error,
+      type: e.error_type,
+      message: e.message || String(e),
+      pointer: this.extractPointer(e.message) || e.pointers?.[0]?.path,
+    }));
+    return { ok: uploadRes.ok, errors, metaReachable: true };
+  }
+
+  /**
+   * Valida un flow.json ARBITRARIO contra el validador de Meta sin requerir un
+   * Flow local previo. Crea un Flow temporal en la WABA del inbox, le sube el
+   * asset para obtener los validation_errors y lo elimina. Es el mismo criterio
+   * que usa el editor de Meta al "Ejecutar". No deja basura en la cuenta.
+   */
+  async validateFlowJsonOnMeta(
+    tenantId: string,
+    inboxId: string,
+    flowJson: Record<string, any>,
+  ): Promise<{
+    valid: boolean;
+    errors: Array<{ code?: string; type?: string; message: string; pointer?: string }>;
+    metaReachable: boolean;
+  }> {
+    this.validateFlowJson(flowJson);
+    const inbox = await this.resolveInbox(tenantId, inboxId);
+    if (!inbox?.accessToken || !inbox.wabaId) {
+      return { valid: true, errors: [], metaReachable: false };
+    }
+
+    // 1) Crear Flow temporal.
+    const createRes = await this.metaPost(`${inbox.wabaId}/flows`, inbox.accessToken, {
+      name: `__validate_${Date.now()}`,
+      categories: ['SURVEY'],
+    });
+    if (!createRes.ok || !createRes.data?.id) {
+      return { valid: true, errors: [], metaReachable: false };
+    }
+    const tempId = String(createRes.data.id);
+
+    try {
+      // 2) Subir el asset => obtener validation_errors.
+      const uploadRes = await this.uploadFlowJson(tempId, inbox.accessToken, flowJson);
+      const rawErrors: any[] = uploadRes.data?.validation_errors || [];
+      const errors = rawErrors.map((e) => ({
+        code: e.error,
+        type: e.error_type,
+        message: e.message || String(e),
+        pointer: this.extractPointer(e.message) || e.pointers?.[0]?.path,
+      }));
+      return {
+        valid: errors.filter((e) => e.type !== 'WARNING').length === 0,
+        errors,
+        metaReachable: true,
+      };
+    } finally {
+      // 3) Borrar el Flow temporal (no dejar basura en Meta).
+      await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${tempId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${inbox.accessToken}` },
+      }).catch(() => {});
+    }
+  }
+
+  /**
    * Publica un Flow ya existente (local) que esté en DRAFT.
    */
   async publishFlow(localFlowId: string): Promise<ProvisionResult> {

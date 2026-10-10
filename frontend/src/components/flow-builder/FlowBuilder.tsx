@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { api } from "@/services/api";
 import type { FlowModel, FlowScreenModel, FlowComponent, FlowComponentType } from "./types";
 import { parseFlowJson, serializeToFlowJson, createComponent, createScreen, COMPONENT_META, validateFlow } from "./model";
+import { groupMetaErrors } from "./meta-errors";
 import { FlowBuilderSidebar } from "./FlowBuilderSidebar";
 import { FlowBuilderCanvas } from "./FlowBuilderCanvas";
 import { FlowBuilderProperties } from "./FlowBuilderProperties";
@@ -24,9 +25,28 @@ interface FlowBuilderProps {
   flowId: string;
   canEdit: boolean;
   onSaved: () => void;
+  /**
+   * Base de la API para guardar/validar el flow.json. Por defecto apunta a los
+   * WhatsApp Flows; la sección de Encuestas la sobreescribe con "/surveys" para
+   * operar sobre sus propios endpoints (que comparten el mismo motor de Flows).
+   */
+  apiBase?: string;
+  /**
+   * Muestra el botón "Ejecutar" que valida el flow.json contra Meta. Las
+   * encuestas locales (aún no publicadas en Meta) lo ocultan porque no existe
+   * un Flow en Meta contra el que validar; la validación local sigue activa.
+   */
+  showMetaValidation?: boolean;
 }
 
-export function FlowBuilder({ flowJson, flowId, canEdit, onSaved }: FlowBuilderProps) {
+export function FlowBuilder({
+  flowJson,
+  flowId,
+  canEdit,
+  onSaved,
+  apiBase = "/whatsapp-flows",
+  showMetaValidation = true,
+}: FlowBuilderProps) {
   // JSON original tal cual vino de Meta/BD. Se conserva para NO degradarlo:
   // mientras el usuario no edite, se envía este original a Meta en vez del
   // re-serializado (nuestro serializador simplifica la estructura y Meta lo
@@ -47,6 +67,7 @@ export function FlowBuilder({ flowJson, flowId, canEdit, onSaved }: FlowBuilderP
   const [showPreview, setShowPreview] = useState(false);
   const [showJson, setShowJson] = useState(false);
   const [showGlobal, setShowGlobal] = useState(false);
+  const [showIssues, setShowIssues] = useState(false);
   const [activeDragType, setActiveDragType] = useState<FlowComponentType | null>(null);
   const [isOverCanvas, setIsOverCanvas] = useState(false);
 
@@ -54,6 +75,8 @@ export function FlowBuilder({ flowJson, flowId, canEdit, onSaved }: FlowBuilderP
 
   const issues = useMemo(() => validateFlow(model), [model]);
   const errors = issues.filter((i) => i.level === "error");
+  const localErrorCount = errors.length;
+  const warningCount = issues.filter((i) => i.level === "warning").length;
 
   // Errores devueltos por Meta al "Ejecutar/validar" (con ruta exacta).
   const [metaErrors, setMetaErrors] = useState<
@@ -61,6 +84,12 @@ export function FlowBuilder({ flowJson, flowId, canEdit, onSaved }: FlowBuilderP
   >([]);
   const [validating, setValidating] = useState(false);
   const [metaValidated, setMetaValidated] = useState<null | boolean>(null);
+
+  // Contamos PROBLEMAS distintos de Meta (agrupando reglas por ruta), no reglas.
+  const metaGroups = useMemo(() => groupMetaErrors(metaErrors), [metaErrors]);
+  const metaBlockingCount = metaGroups.filter((g) => g.type !== "WARNING").length;
+  const metaWarningCount = metaGroups.filter((g) => g.type === "WARNING").length;
+  const totalIssueCount = issues.length + metaGroups.length;
 
   // Devuelve el JSON a enviar a Meta: el ORIGINAL si no hubo ediciones (para no
   // degradar un Flow que ya funciona), o el re-serializado si el usuario editó.
@@ -79,7 +108,7 @@ export function FlowBuilder({ flowJson, flowId, canEdit, onSaved }: FlowBuilderP
     setMetaValidated(null);
     try {
       const json = buildJsonToSend();
-      const { data } = await api.post(`/whatsapp-flows/${flowId}/validate`, { flowJson: json });
+      const { data } = await api.post(`${apiBase}/${flowId}/validate`, { flowJson: json });
       setMetaErrors(data?.errors || []);
       if (!data?.metaReachable) {
         toast.message("Validación local OK (el Flow aún no existe en Meta para validar allá)");
@@ -288,14 +317,36 @@ export function FlowBuilder({ flowJson, flowId, canEdit, onSaved }: FlowBuilderP
     const json = buildJsonToSend();
     setSaving(true);
     try {
-      const { data } = await api.post(`/whatsapp-flows/${flowId}/flow-json`, { flowJson: json });
-      if (data?.success) {
-        toast.success("Flow guardado en Meta");
+      const { data } = await api.post(`${apiBase}/${flowId}/flow-json`, { flowJson: json });
+
+      // Mostrar en el panel los errores que Meta devuelva al re-sincronizar (si
+      // los hay), con su ruta exacta. Si no hay, limpiar el panel.
+      if (data?.validationErrors?.length) {
+        setMetaErrors(
+          data.validationErrors.map((e: any) => ({
+            code: e.code ?? e.error,
+            type: e.type ?? e.error_type,
+            message: e.message || String(e),
+            pointer: e.pointer ?? e.pointers?.[0]?.path,
+          })),
+        );
+        setMetaValidated(false);
+      } else {
+        setMetaErrors([]);
+      }
+
+      // Las encuestas locales devuelven el objeto guardado; los Flows de Meta
+      // devuelven { success }. Tratamos como éxito salvo error explícito.
+      // `error` presente (encuesta en Meta rechazada) => el cambio quedó local
+      // pero Meta no se sincronizó: lo avisamos sin bloquear el guardado local.
+      if (data && data.success !== false && !data?.error) {
+        toast.success(showMetaValidation ? "Flow guardado en Meta" : "Encuesta guardada");
         setDirty(false);
         onSaved();
       } else {
         toast.error(data?.error || "No se pudo guardar");
-        if (data?.validationErrors?.length) console.error(data.validationErrors);
+        // El guardado local sí ocurrió; reflejamos que no está sucio en balde.
+        if (data?.success) setDirty(false);
       }
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Error al guardar");
@@ -340,26 +391,28 @@ export function FlowBuilder({ flowJson, flowId, canEdit, onSaved }: FlowBuilderP
             <Eye className="h-3.5 w-3.5" /> Vista previa
           </button>
           {/* Ejecutar: valida el flow.json contra Meta (como el editor de Meta) */}
-          <button
-            onClick={handleValidate}
-            disabled={validating}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50 ${
-              metaValidated === true
-                ? "border-green-300 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-500/10"
-                : metaValidated === false
-                  ? "border-red-300 text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-500/10"
-                  : "border-border text-foreground hover:bg-muted"
-            }`}
-          >
-            {validating ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : metaValidated === true ? (
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            ) : (
-              <PlayCircle className="h-3.5 w-3.5" />
-            )}
-            Ejecutar
-          </button>
+          {showMetaValidation && (
+            <button
+              onClick={handleValidate}
+              disabled={validating}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50 ${
+                metaValidated === true
+                  ? "border-green-300 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-500/10"
+                  : metaValidated === false
+                    ? "border-red-300 text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-500/10"
+                    : "border-border text-foreground hover:bg-muted"
+              }`}
+            >
+              {validating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : metaValidated === true ? (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              ) : (
+                <PlayCircle className="h-3.5 w-3.5" />
+              )}
+              Ejecutar
+            </button>
+          )}
           {canEdit && (
             <button
               onClick={handleSave}
@@ -367,7 +420,7 @@ export function FlowBuilder({ flowJson, flowId, canEdit, onSaved }: FlowBuilderP
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-xs font-medium transition-colors disabled:opacity-50"
             >
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              Guardar en Meta
+              {showMetaValidation ? "Guardar en Meta" : "Guardar"}
             </button>
           )}
         </div>
@@ -460,38 +513,44 @@ export function FlowBuilder({ flowJson, flowId, canEdit, onSaved }: FlowBuilderP
         </DragOverlay>
       </DndContext>
 
-      {/* Panel de errores/avisos de validación (locales + Meta) */}
+      {/* Barra-resumen de validación: un solo renglón con un botón que abre el
+          modal con el detalle completo (locales + Meta). */}
       {(issues.length > 0 || metaErrors.length > 0 || metaValidated === true) && (
-        <div className="border-t border-border px-3 py-2 max-h-36 overflow-y-auto bg-muted/20 shrink-0 space-y-1">
-          {/* Validación local */}
-          {issues.map((iss, i) => (
-            <div
-              key={`local-${i}`}
-              className={`flex items-start gap-1.5 text-[11px] ${
-                iss.level === "error" ? "text-red-600" : "text-amber-600"
-              }`}
-            >
-              <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-              <span>{iss.message}</span>
-            </div>
-          ))}
-
-          {/* Resultado de la validación en Meta */}
-          {metaValidated === true && metaErrors.length === 0 && (
-            <div className="flex items-center gap-1.5 text-[11px] text-green-600">
-              <CheckCircle2 className="h-3 w-3 shrink-0" />
-              <span>Meta validó el Flow sin errores.</span>
-            </div>
-          )}
-          {metaErrors.map((me, i) => (
-            <div key={`meta-${i}`} className={`flex items-start gap-1.5 text-[11px] ${me.type === "WARNING" ? "text-amber-600" : "text-red-600"}`}>
-              <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-              <span>
-                <span className="font-semibold">Meta{me.code ? ` · ${me.code}` : ""}:</span> {me.message}
-                {me.pointer && <span className="block font-mono text-[10px] text-muted-foreground mt-0.5">{me.pointer}</span>}
+        <div className="border-t border-border px-3 py-2 bg-muted/20 shrink-0 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 text-[11px]">
+            {localErrorCount > 0 && (
+              <span className="flex items-center gap-1 text-red-600">
+                <AlertTriangle className="h-3.5 w-3.5" /> {localErrorCount} error
+                {localErrorCount !== 1 ? "es" : ""} de formato
               </span>
-            </div>
-          ))}
+            )}
+            {warningCount + metaWarningCount > 0 && (
+              <span className="flex items-center gap-1 text-amber-600">
+                <AlertTriangle className="h-3.5 w-3.5" /> {warningCount + metaWarningCount} aviso
+                {warningCount + metaWarningCount !== 1 ? "s" : ""}
+              </span>
+            )}
+            {metaBlockingCount > 0 && (
+              <span className="flex items-center gap-1 text-red-600">
+                <AlertTriangle className="h-3.5 w-3.5" /> {metaBlockingCount} error
+                {metaBlockingCount !== 1 ? "es" : ""} de Meta
+              </span>
+            )}
+            {totalIssueCount === 0 && metaValidated === true && (
+              <span className="flex items-center gap-1 text-green-600">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Validado por Meta sin errores
+              </span>
+            )}
+          </div>
+          {totalIssueCount > 0 && (
+            <button
+              onClick={() => setShowIssues(true)}
+              className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border text-[11px] font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              <AlertTriangle className="h-3.5 w-3.5" /> Ver {totalIssueCount} problema
+              {totalIssueCount !== 1 ? "s" : ""}
+            </button>
+          )}
         </div>
       )}
 
@@ -508,6 +567,132 @@ export function FlowBuilder({ flowJson, flowId, canEdit, onSaved }: FlowBuilderP
           onClose={() => setShowGlobal(false)}
         />
       )}
+      {showIssues && (
+        <IssuesModal
+          issues={issues}
+          metaErrors={metaErrors}
+          onClose={() => setShowIssues(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Modal: detalle de problemas de validación (locales + Meta) ─────
+
+function IssuesModal({
+  issues,
+  metaErrors,
+  onClose,
+}: {
+  issues: Array<{ level: "error" | "warning"; message: string; screenId?: string }>;
+  metaErrors: Array<{ code?: string; type?: string; message: string; pointer?: string }>;
+  onClose: () => void;
+}) {
+  const localErrors = issues.filter((i) => i.level === "error");
+  const localWarnings = issues.filter((i) => i.level === "warning");
+  // Agrupar los errores de Meta por ruta: cada grupo es UN problema (aunque
+  // Meta reporte varias reglas para el mismo campo).
+  const groups = groupMetaErrors(metaErrors);
+  const metaBlocking = groups.filter((g) => g.type !== "WARNING");
+  const metaWarns = groups.filter((g) => g.type === "WARNING");
+
+  const totalProblems = issues.length + groups.length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-card text-card-foreground rounded-2xl shadow-xl w-full max-w-xl mx-4 max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <h3 className="text-sm font-semibold">
+              Problemas de validación{totalProblems > 0 ? ` (${totalProblems})` : ""}
+            </h3>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xs">
+            Cerrar
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {(localErrors.length > 0 || metaBlocking.length > 0) && (
+            <IssueGroup
+              title="Errores (impiden guardar/publicar)"
+              tone="error"
+              items={[
+                ...localErrors.map((i) => ({ message: i.message, where: i.screenId })),
+                ...metaBlocking.map((g) => ({
+                  message: g.messages.join(" "),
+                  where: g.pointer,
+                  tag: `Meta${g.codes.length ? ` · ${g.codes.join(", ")}` : ""}`,
+                })),
+              ]}
+            />
+          )}
+
+          {(localWarnings.length > 0 || metaWarns.length > 0) && (
+            <IssueGroup
+              title="Avisos (no bloquean, pero conviene revisar)"
+              tone="warning"
+              items={[
+                ...localWarnings.map((i) => ({ message: i.message, where: i.screenId })),
+                ...metaWarns.map((g) => ({
+                  message: g.messages.join(" "),
+                  where: g.pointer,
+                  tag: `Meta${g.codes.length ? ` · ${g.codes.join(", ")}` : ""}`,
+                })),
+              ]}
+            />
+          )}
+
+          {totalProblems === 0 && (
+            <p className="text-sm text-muted-foreground">No hay problemas.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IssueGroup({
+  title,
+  tone,
+  items,
+}: {
+  title: string;
+  tone: "error" | "warning";
+  items: Array<{ message: string; where?: string; tag?: string }>;
+}) {
+  if (items.length === 0) return null;
+  const color = tone === "error" ? "text-red-600" : "text-amber-600";
+  const border = tone === "error" ? "border-red-200 dark:border-red-500/30" : "border-amber-200 dark:border-amber-500/30";
+  const bg = tone === "error" ? "bg-red-50 dark:bg-red-500/10" : "bg-amber-50 dark:bg-amber-500/10";
+  return (
+    <div>
+      <h4 className={`text-[11px] font-semibold uppercase mb-2 ${color}`}>
+        {title} ({items.length})
+      </h4>
+      <div className="space-y-2">
+        {items.map((it, i) => (
+          <div key={i} className={`rounded-lg border ${border} ${bg} px-3 py-2`}>
+            <div className="flex items-start gap-2">
+              <AlertTriangle className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${color}`} />
+              <div className="min-w-0">
+                {it.tag && (
+                  <span className={`text-[9px] font-semibold ${color} mr-1.5`}>{it.tag}</span>
+                )}
+                <span className="text-xs text-foreground">{it.message}</span>
+                {it.where && (
+                  <p className="text-[10px] font-mono text-muted-foreground mt-1 break-all">
+                    {it.where}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

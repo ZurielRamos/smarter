@@ -1,14 +1,44 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Plus, Search, Trash2, Loader2, X, AlertTriangle, CheckCircle2, Clock, Pause, XCircle, ChevronRight, Bold, Italic, Strikethrough, Code, Smile, Megaphone, Wrench, ShieldCheck, FileText, ChevronDown, Globe, HelpCircle, Type, ImageIcon, PlayCircle, Send, ExternalLink, Phone, PhoneCall, Copy, UserPlus, Upload } from "lucide-react";
+import { Plus, Search, Trash2, Loader2, X, AlertTriangle, CheckCircle2, Clock, Pause, XCircle, ChevronRight, Bold, Italic, Strikethrough, Code, Smile, Megaphone, Wrench, ShieldCheck, FileText, ChevronDown, Globe, HelpCircle, Type, ImageIcon, PlayCircle, Send, ExternalLink, Phone, PhoneCall, Copy, UserPlus, Upload, ClipboardList } from "lucide-react";
 import { api } from "@/services/api";
+
+// Botón de plantilla en el estado local del editor. Incluye los campos del
+// botón FLOW (encuesta publicada en Meta): flow_id, nombre para mostrar,
+// pantalla inicial y el icono enumerado que acepta Meta.
+type TemplateButton = {
+  type: string;
+  text: string;
+  url?: string;
+  phone_number?: string;
+  flow_id?: string;
+  flowName?: string;
+  navigate_screen?: string;
+  icon?: string;
+};
 
 interface TemplateComponent {
   type: string;
   format?: string;
   text?: string;
-  buttons?: Array<{ type: string; text: string; url?: string; phone_number?: string }>;
+  buttons?: TemplateButton[];
   example?: any;
 }
+
+// Encuesta publicada como Flow en Meta (GET /surveys/published-flows).
+interface PublishedFlow {
+  id: string;
+  name: string;
+  metaFlowId: string;
+  firstScreen: string | null;
+}
+
+// Iconos que Meta permite para un botón de Flow (más "sin icono").
+const FLOW_ICON_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "", label: "Sin icono" },
+  { value: "DOCUMENT", label: "Documento" },
+  { value: "PROMOTION", label: "Promoción" },
+  { value: "REVIEW", label: "Reseña" },
+];
 
 interface Template {
   id: string;
@@ -115,6 +145,7 @@ function AddButtonDropdown({ onAdd }: { onAdd: (type: string) => void }) {
     { type: "URL", label: "Ir al sitio web", desc: "Abre un enlace en el navegador del cliente", icon: ExternalLink },
     { type: "PHONE_NUMBER", label: "Llamar a número de teléfono", desc: "Inicia una llamada telefónica al número indicado", icon: Phone },
     { type: "COPY_CODE", label: "Copiar código de oferta", desc: "El cliente copia un código de descuento al portapapeles", icon: Copy },
+    { type: "FLOW", label: "Enviar una encuesta", desc: "El cliente abre una de tus encuestas publicadas en WhatsApp", icon: ClipboardList },
   ];
 
   return (
@@ -141,7 +172,7 @@ function AddButtonDropdown({ onAdd }: { onAdd: (type: string) => void }) {
 
 function TemplatePreview({ headerType, headerText, bodyText, footerText, buttons, bodyExamples, headerExample, headerMediaPreview }: {
   headerType: string; headerText: string; bodyText: string; footerText: string;
-  buttons: Array<{ type: string; text: string; url?: string; phone_number?: string }>;
+  buttons: TemplateButton[];
   bodyExamples?: string[]; headerExample?: string; headerMediaPreview?: string;
 }) {
   // Replace variables with example values in preview
@@ -168,9 +199,23 @@ function TemplatePreview({ headerType, headerText, bodyText, footerText, buttons
         </div>
         {buttons.length > 0 && (
           <div className="mt-1 space-y-0.5">
-            {buttons.map((btn, i) => (
-              <div key={i} className="bg-card rounded-lg shadow-sm px-3 py-2 text-center text-[13px] text-blue-600 font-medium">{btn.text || "Botón"}</div>
-            ))}
+            {buttons.map((btn, i) => {
+              // Icono mostrado a la izquierda del texto, replicando la vista de
+              // Meta. El botón FLOW usa el icono seleccionado (documento /
+              // promoción / reseña); los demás usan su glifo de acción.
+              const flowIconMap: Record<string, any> = { DOCUMENT: FileText, PROMOTION: Megaphone, REVIEW: Smile };
+              let Icon: any = null;
+              if (btn.type === "FLOW") Icon = btn.icon ? flowIconMap[btn.icon] : ClipboardList;
+              else if (btn.type === "URL") Icon = ExternalLink;
+              else if (btn.type === "PHONE_NUMBER") Icon = Phone;
+              else if (btn.type === "COPY_CODE") Icon = Copy;
+              return (
+                <div key={i} className="bg-card rounded-lg shadow-sm px-3 py-2 flex items-center justify-center gap-1.5 text-[13px] text-blue-600 font-medium">
+                  {Icon && <Icon className="h-3.5 w-3.5" />}
+                  <span>{btn.text || "Botón"}</span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -188,7 +233,7 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
   const [headerText, setHeaderText] = useState("");
   const [bodyText, setBodyText] = useState("");
   const [footerText, setFooterText] = useState("");
-  const [buttons, setButtons] = useState<Array<{ type: string; text: string; url?: string; phone_number?: string }>>([]);
+  const [buttons, setButtons] = useState<TemplateButton[]>([]);
   const [bodyExamples, setBodyExamples] = useState<string[]>([]);
   const [headerExample, setHeaderExample] = useState("");
   const [headerMediaHandle, setHeaderMediaHandle] = useState("");
@@ -196,12 +241,30 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
   const [headerMediaUploading, setHeaderMediaUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Encuestas publicadas como Flow en Meta, para el botón "Enviar una encuesta".
+  const [publishedFlows, setPublishedFlows] = useState<PublishedFlow[]>([]);
+
+  // Resolver el tenant del inbox y cargar sus encuestas publicadas en Meta.
+  useEffect(() => {
+    let cancelled = false;
+    api.get(`/chats/inboxes/${inboxId}`)
+      .then(({ data }) => {
+        const tenantId = data?.tenantId;
+        if (!tenantId) return;
+        return api
+          .get<PublishedFlow[]>("/surveys/published-flows", { params: { tenantId } })
+          .then(({ data: flows }) => { if (!cancelled) setPublishedFlows(Array.isArray(flows) ? flows : []); });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [inboxId]);
 
   const handleAddButton = (type: string) => {
     if (buttons.length >= 10) return;
     if (type === "URL") setButtons([...buttons, { type: "URL", text: "", url: "" }]);
     else if (type === "PHONE_NUMBER") setButtons([...buttons, { type: "PHONE_NUMBER", text: "", phone_number: "" }]);
     else if (type === "COPY_CODE") setButtons([...buttons, { type: "COPY_CODE", text: "" }]);
+    else if (type === "FLOW") setButtons([...buttons, { type: "FLOW", text: "", flow_id: "", flowName: "", navigate_screen: "", icon: "" }]);
     else setButtons([...buttons, { type: "QUICK_REPLY", text: "" }]);
   };
   const handleRemoveButton = (i: number) => setButtons(buttons.filter((_, idx) => idx !== i));
@@ -249,6 +312,17 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
           if (b.type === "URL") return { type: "URL", text: b.text, url: b.url };
           if (b.type === "PHONE_NUMBER") return { type: "PHONE_NUMBER", text: b.text, phone_number: b.phone_number };
           if (b.type === "COPY_CODE") return { type: "COPY_CODE", example: b.text };
+          if (b.type === "FLOW") {
+            const flowBtn: any = {
+              type: "FLOW",
+              text: b.text,
+              flow_id: b.flow_id,
+              navigate_screen: b.navigate_screen,
+              flow_action: "navigate",
+            };
+            if (b.icon) flowBtn.icon = b.icon;
+            return flowBtn;
+          }
           return { type: "QUICK_REPLY", text: b.text };
         }) });
       }
@@ -589,6 +663,57 @@ function CreateTemplateModal({ inboxId, onClose, onCreated }: { inboxId: string;
                                 <div className="relative">
                                   <input type="text" value={btn.text} onChange={(e) => handleUpdateButton(i, "text", e.target.value)} placeholder="Texto de respuesta" maxLength={25} className="w-full px-2.5 py-1.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">{btn.text.length}/25</span>
+                                </div>
+                              </div>
+                              <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10 text-muted-foreground hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>
+                            </div>
+                          </div>
+                        )}
+                        {/* Flow (encuesta) Button */}
+                        {btn.type === "FLOW" && (
+                          <div>
+                            <p className="text-[11px] text-muted-foreground font-medium mb-2">Enviar una encuesta</p>
+                            <div className="flex items-start gap-2">
+                              <div className="flex-1 space-y-2">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="text-[10px] text-muted-foreground mb-0.5 block">Texto del botón</label>
+                                    <div className="relative">
+                                      <input type="text" value={btn.text} onChange={(e) => handleUpdateButton(i, "text", e.target.value)} placeholder="Responder encuesta" maxLength={25} className="w-full px-2.5 py-1.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">{btn.text.length}/25</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] text-muted-foreground mb-0.5 block">Icono</label>
+                                    <CustomSelect value={btn.icon || ""} onChange={(v) => handleUpdateButton(i, "icon", v)} options={FLOW_ICON_OPTIONS} compact />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground mb-0.5 block">Encuesta</label>
+                                  <CustomSelect
+                                    value={btn.flow_id || ""}
+                                    onChange={(v) => {
+                                      const flow = publishedFlows.find((f) => f.metaFlowId === v);
+                                      // Al seleccionar la encuesta, se fija flow_id, su primera pantalla
+                                      // (navigate_screen) y, si el texto estaba vacío, su nombre.
+                                      handleUpdateButton(i, "flow_id", v);
+                                      handleUpdateButton(i, "flowName", flow?.name || "");
+                                      handleUpdateButton(i, "navigate_screen", flow?.firstScreen || "");
+                                      if (!btn.text && flow?.name) handleUpdateButton(i, "text", flow.name.slice(0, 25));
+                                    }}
+                                    options={
+                                      publishedFlows.length === 0
+                                        ? [{ value: "", label: "No hay encuestas publicadas en WhatsApp" }]
+                                        : [
+                                            { value: "", label: "Selecciona una encuesta" },
+                                            ...publishedFlows.map((f) => ({ value: f.metaFlowId, label: f.name })),
+                                          ]
+                                    }
+                                    compact
+                                  />
+                                  {btn.flow_id && !btn.navigate_screen && (
+                                    <p className="text-[9px] text-amber-600 mt-1">Esta encuesta no tiene una pantalla inicial detectable; vuelve a publicarla si el botón falla.</p>
+                                  )}
                                 </div>
                               </div>
                               <button onClick={() => handleRemoveButton(i)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10 text-muted-foreground hover:text-red-500 mt-4"><X className="h-4 w-4" /></button>

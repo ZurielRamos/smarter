@@ -4,6 +4,7 @@ import { formalizeTenantRoles } from './001-formalize-tenant-roles.migration';
 import { addBotMediaHandling } from './002-add-bot-media-handling.migration';
 import { addBotTypeAndFlow } from './003-add-bot-type-and-flow.migration';
 import { addBotConsentConfig } from './004-add-bot-consent-config.migration';
+import { addTenantFeatures } from './005-add-tenant-features.migration';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ async function run() {
     await addBotMediaHandling(dataSource);
     await addBotTypeAndFlow(dataSource);
     await addBotConsentConfig(dataSource);
+    await addTenantFeatures(dataSource);
   } finally {
     await dataSource.destroy();
     console.log('[Runner] Conexión cerrada');
