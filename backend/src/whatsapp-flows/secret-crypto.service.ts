@@ -4,8 +4,16 @@ import * as crypto from 'crypto';
 
 /**
  * Cifrado simétrico en reposo para secretos (p. ej. la clave privada RSA de
- * Flows de cada inbox). Usa AES-256-GCM con una clave de 32 bytes derivada del
- * JWT_SECRET de la app (mismo patrón que email-unsubscribe, pero con GCM).
+ * Flows de cada inbox). Usa AES-256-GCM con una clave de 32 bytes derivada de
+ * un secreto dedicado.
+ *
+ * La clave se deriva de `SECRET_ENCRYPTION_KEY` si está definida; si no, cae a
+ * `JWT_SECRET` por compatibilidad hacia atrás. Se usa una variable DEDICADA
+ * para desacoplar el cifrado en reposo del secreto de sesiones JWT: así, rotar
+ * el JWT_SECRET (o tener distinto JWT_SECRET por entorno) no deja ilegibles los
+ * secretos cifrados. IMPORTANTE: este valor debe ser el MISMO en todos los
+ * entornos que compartan la base de datos; de lo contrario, lo cifrado en un
+ * entorno no se podrá descifrar en otro.
  *
  * Formato de salida: ivHex:tagHex:cipherHex
  */
@@ -14,7 +22,9 @@ export class SecretCryptoService {
   private readonly key: Buffer;
 
   constructor(private readonly configService: ConfigService) {
-    const secret = this.configService.get<string>('JWT_SECRET', 'default-secret');
+    const secret =
+      this.configService.get<string>('SECRET_ENCRYPTION_KEY') ||
+      this.configService.get<string>('JWT_SECRET', 'default-secret');
     this.key = crypto.createHash('sha256').update(secret).digest(); // 32 bytes
   }
 
