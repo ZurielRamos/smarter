@@ -1064,9 +1064,9 @@ export class ChatsService {
         }
       }
 
-      // "Primer mensaje" = conversación nueva. Solo es true cuando realmente se
-      // crea la conversación aquí (ni la búsqueda directa ni la reconciliación
-      // encontraron una previa para este contacto en este inbox).
+      // "Primer mensaje" = conversación nueva O conversación existente que aún
+      // no tiene ningún mensaje (p. ej. se vació o se creó sin actividad). En
+      // ambos casos el mensaje entrante actual es, de hecho, el primero.
       let isNewConversation = false;
       if (!conversation) {
         conversation = this.conversationRepo.create({
@@ -1077,6 +1077,13 @@ export class ChatsService {
         });
         conversation = await this.conversationRepo.save(conversation);
         isNewConversation = true;
+      } else {
+        // Conversación existente: comprobar si está vacía (0 mensajes) ANTES de
+        // guardar el entrante actual. Si lo está, se trata como primer mensaje.
+        const existingMsgCount = await this.messageRepo.count({
+          where: { conversationId: conversation.id },
+        });
+        if (existingMsgCount === 0) isNewConversation = true;
       }
 
       // Determine message type and content
@@ -1334,11 +1341,11 @@ export class ChatsService {
         inbox: { id: inbox.id, name: inbox.name, channel: inbox.channel },
       }).catch(() => {});
 
-      // Plantilla de bienvenida: si es la PRIMERA vez que este contacto escribe
-      // (conversación nueva) y el canal tiene configurada una plantilla de
-      // bienvenida activa, se envía automáticamente. Devuelve true si se envió,
-      // en cuyo caso se SUPRIME el bot en este primer turno (decisión 1b): el
-      // bot seguirá respondiendo a partir del segundo mensaje.
+      // Plantilla de bienvenida: si es el PRIMER mensaje del contacto en esta
+      // conversación (conversación nueva, o existente pero sin mensajes previos)
+      // y el canal tiene configurada una plantilla de bienvenida activa, se
+      // envía automáticamente. Devuelve true si se envió, en cuyo caso se
+      // SUPRIME el bot en este primer turno: el bot responde del 2º mensaje.
       let welcomeSent = false;
       if (isNewConversation) {
         welcomeSent = await this.sendFirstMessageTemplate(inbox, conversation).catch((err) => {
