@@ -498,7 +498,7 @@ export const ChatPanel = memo(function ChatPanel({
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-background min-w-0 overflow-hidden">
+    <div id="chat-panel-root" className="relative flex-1 flex flex-col bg-background min-w-0 overflow-hidden">
       {/* Header */}
       <div className="h-14 px-6 flex items-center justify-between border-b border-border bg-card shrink-0">
         {searchOpen ? (

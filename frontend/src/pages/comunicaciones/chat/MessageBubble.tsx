@@ -1,4 +1,5 @@
 import { memo, useState } from "react";
+import { createPortal } from "react-dom";
 import { StickyNote, Image, ClipboardList, Loader2 } from "lucide-react";
 import { formatWhatsAppText } from "@/utils/whatsapp-format";
 import { getFlowSubmissionById, type FlowSubmissionRecord } from "@/services/api";
@@ -223,6 +224,16 @@ function TemplateBubble({ msg }: { msg: Message }) {
 }
 
 /**
+ * Renderiza el nodo dentro del panel del chat (#chat-panel-root) mediante un
+ * portal, para que el modal se centre dentro del área del chat y no sobre toda
+ * la ventana. Si no existe el contenedor, cae a renderizar en su lugar.
+ */
+function renderInChatPanel(node: React.ReactNode): React.ReactNode {
+  const target = typeof document !== "undefined" ? document.getElementById("chat-panel-root") : null;
+  return target ? createPortal(node, target) : node;
+}
+
+/**
  * Chip clickeable para un mensaje de "Flow completado". Muestra el nombre del
  * flow/encuesta (guardado en msg.content) e indica que se pueden ver las
  * respuestas. Al hacer clic, carga la submission por id (referencia guardada en
@@ -287,16 +298,16 @@ function FlowCompletedChip({ msg }: { msg: Message }) {
         </span>
       </button>
 
-      {open && submission && (
-        <FlowSubmissionModal submission={submission} onClose={() => setOpen(false)} />
+      {open && submission && renderInChatPanel(
+        <FlowSubmissionModal submission={submission} onClose={() => setOpen(false)} contained />,
       )}
-      {open && !submission && error && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setOpen(false)}>
+      {open && !submission && error && renderInChatPanel(
+        <div className="absolute inset-0 z-50 flex items-center justify-center" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/50" />
           <div className="relative bg-card text-card-foreground rounded-xl shadow-xl px-5 py-4 mx-4 max-w-sm">
             <p className="text-sm text-foreground">{error}</p>
           </div>
-        </div>
+        </div>,
       )}
     </>
   );

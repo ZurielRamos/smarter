@@ -10,9 +10,16 @@ import type { FlowSubmissionRecord } from "@/services/api";
 export function FlowSubmissionModal({
   submission,
   onClose,
+  contained = false,
 }: {
   submission: FlowSubmissionRecord;
   onClose: () => void;
+  /**
+   * Si es true, el modal se posiciona ABSOLUTO dentro de su contenedor
+   * posicionado más cercano (p. ej. el panel del chat) en vez de FIJO sobre
+   * toda la ventana. Útil para centrarlo dentro del área del chat.
+   */
+  contained?: boolean;
 }) {
   const completed = submission.status === "completed";
   const answers = describeSubmission(submission.flow?.flowJson, submission.responseData || {});
@@ -30,7 +37,7 @@ export function FlowSubmissionModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className={`${contained ? "absolute" : "fixed"} inset-0 z-50 flex items-center justify-center`}>
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-card text-card-foreground rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
