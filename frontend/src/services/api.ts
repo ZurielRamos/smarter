@@ -814,3 +814,9 @@ export async function getFlowSubmissionsByRecord(recordId: string): Promise<Flow
   );
   return data;
 }
+
+/** Una respuesta de Flow por id (incluye la definición del Flow). */
+export async function getFlowSubmissionById(id: string): Promise<FlowSubmissionRecord> {
+  const { data } = await api.get<FlowSubmissionRecord>(`/whatsapp-flows/submissions/${id}`);
+  return data;
+}

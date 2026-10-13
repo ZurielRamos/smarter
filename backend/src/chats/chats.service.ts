@@ -1117,18 +1117,37 @@ export class ChatsService {
             // El usuario COMPLETÓ un WhatsApp Flow (acción "complete"). Meta no
             // envía el "complete" al endpoint data_exchange, sino aquí como
             // nfm_reply con el response_json (incluye flow_token + datos finales).
-            content = '[Flow completado]';
-            messageType = 'text';
+            //
+            // El mensaje se guarda como messageType='flow' con el NOMBRE del
+            // flow/encuesta en `content` (para que el preview y el chat lo
+            // muestren) y una referencia JSON a la submission en `mediaUrl`
+            // (mismo patrón que las plantillas), para que el frontend pueda
+            // abrir un modal con las respuestas al hacer clic.
+            messageType = 'flow';
+            content = 'Formulario completado';
             try {
               const raw = msg.interactive.nfm_reply?.response_json;
               const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw || {};
               const flowToken = parsed.flow_token || parsed.flowToken;
               if (flowToken) {
-                await this.flowSubmissionsService.recordScreen({
+                const submission = await this.flowSubmissionsService.recordScreen({
                   flowToken,
                   screen: 'FLOW_COMPLETE',
                   data: parsed,
                   completed: true,
+                  tenantIdFallback: inbox.tenantId,
+                });
+                // Nombre a mostrar: el del Flow/encuesta vinculado al token.
+                const flowDef = await this.flowSubmissionsService
+                  .resolveFlowByToken(flowToken)
+                  .catch(() => null);
+                const flowName = flowDef?.name?.trim() || 'Formulario';
+                content = flowName;
+                mediaUrl = JSON.stringify({
+                  kind: 'flow_completed',
+                  submissionId: submission?.id || null,
+                  flowToken,
+                  flowName,
                 });
               } else {
                 console.warn('[Flow] nfm_reply sin flow_token:', JSON.stringify(parsed).slice(0, 200));

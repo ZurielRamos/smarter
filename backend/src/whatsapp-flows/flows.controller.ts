@@ -149,6 +149,12 @@ export class FlowsController {
     return this.submissions.findByFlow(flowId);
   }
 
+  /** Una submission por id, con la definición del Flow (para el modal de chat). */
+  @Get('submissions/:id')
+  getSubmission(@Param('id') id: string) {
+    return this.submissions.findByIdWithFlow(id);
+  }
+
   // ---- Envío de un Flow a un contacto ----
 
   // Interactivo directo (dentro de la ventana de 24h).

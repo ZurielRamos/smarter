@@ -231,6 +231,18 @@ export class FlowSubmissionsService {
     return this.submissionRepo.findOne({ where: { flowToken } });
   }
 
+  /**
+   * Carga una submission por id INCLUYENDO la definición del Flow (flowJson,
+   * name) para que el frontend pueda renderizar preguntas/opciones legibles.
+   * Se usa al abrir el modal de respuestas desde el chat.
+   */
+  findByIdWithFlow(id: string): Promise<WhatsAppFlowSubmission | null> {
+    return this.submissionRepo.findOne({
+      where: { id },
+      relations: { flow: true },
+    });
+  }
+
   findByFlow(flowId: string): Promise<WhatsAppFlowSubmission[]> {
     return this.submissionRepo.find({
       where: { flowId },

@@ -1,6 +1,8 @@
 import { memo, useState } from "react";
-import { StickyNote, Image } from "lucide-react";
+import { StickyNote, Image, ClipboardList, Loader2 } from "lucide-react";
 import { formatWhatsAppText } from "@/utils/whatsapp-format";
+import { getFlowSubmissionById, type FlowSubmissionRecord } from "@/services/api";
+import { FlowSubmissionModal } from "@/components/flow-builder/FlowSubmissionModal";
 import type { Message } from "./types";
 
 interface MessageBubbleProps {
@@ -76,6 +78,7 @@ export const MessageBubble = memo(function MessageBubble({
       )}
       <div className={`${msg.messageType === "template" ? "max-w-[320px]" : msg.direction === "outbound" ? "max-w-[min(70%,400px)]" : "max-w-[min(40%,300px)]"} px-4 py-2.5 rounded-2xl text-sm break-words transition-shadow ${isActiveMatch ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${msg.messageType === "template" ? "bg-green-50/90 border border-green-200 text-gray-800 dark:bg-green-500/10 dark:border-green-500/25 dark:text-green-50 rounded-br-md backdrop-blur-sm" : msg.messageType === "note" ? "bg-yellow-100/90 border border-yellow-200 text-yellow-900 dark:bg-yellow-500/10 dark:border-yellow-500/25 dark:text-yellow-100 rounded-br-md backdrop-blur-sm" : msg.direction === "outbound" ? "bg-brand-600/90 text-white rounded-br-md backdrop-blur-sm" : "bg-white/90 border border-gray-200 text-gray-800 dark:bg-secondary dark:border-border dark:text-secondary-foreground rounded-bl-md backdrop-blur-sm"}`}>
         {msg.messageType === "template" && <TemplateBubble msg={msg} />}
+        {msg.messageType === "flow" && <FlowCompletedChip msg={msg} />}
         {msg.messageType === "note" && (
           <p className="text-[10px] font-medium text-yellow-600 dark:text-yellow-300 mb-1 flex items-center gap-1"><StickyNote className="h-3 w-3" /> Nota privada</p>
         )}
@@ -97,15 +100,15 @@ export const MessageBubble = memo(function MessageBubble({
             </div>
           </div>
         )}
-        <MediaContent msg={msg} />
-        {msg.content && msg.messageType !== "template" && (
+        {msg.messageType !== "flow" && <MediaContent msg={msg} />}
+        {msg.content && msg.messageType !== "template" && msg.messageType !== "flow" && (
           <p className="whitespace-pre-wrap">
             {searchTerm && searchTerm.length >= 2 && msg.content.toLowerCase().includes(searchTerm.toLowerCase())
               ? highlightMatches(msg.content, searchTerm, isActiveMatch)
               : formatWhatsAppText(msg.content)}
           </p>
         )}
-        {!msg.content && !msg.mediaUrl && msg.messageType !== "template" && <p className="whitespace-pre-wrap text-muted-foreground italic">[{msg.messageType}]</p>}
+        {!msg.content && !msg.mediaUrl && msg.messageType !== "template" && msg.messageType !== "flow" && <p className="whitespace-pre-wrap text-muted-foreground italic">[{msg.messageType}]</p>}
         <MessageTimestamp msg={msg} />
       </div>
     </div>
@@ -213,6 +216,86 @@ function TemplateBubble({ msg }: { msg: Message }) {
           {buttons.buttons.map((btn: any, i: number) => (
             <div key={i} className="text-center text-xs text-blue-500 dark:text-blue-300 font-medium py-0.5">{btn.text}</div>
           ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * Chip clickeable para un mensaje de "Flow completado". Muestra el nombre del
+ * flow/encuesta (guardado en msg.content) e indica que se pueden ver las
+ * respuestas. Al hacer clic, carga la submission por id (referencia guardada en
+ * msg.mediaUrl como JSON) y abre el modal reutilizable con las respuestas.
+ */
+function FlowCompletedChip({ msg }: { msg: Message }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [submission, setSubmission] = useState<FlowSubmissionRecord | null>(null);
+  const [error, setError] = useState("");
+
+  // Referencia a la submission guardada en mediaUrl (patrón de plantillas).
+  let ref: { submissionId?: string | null; flowName?: string } = {};
+  try {
+    if (msg.mediaUrl && msg.mediaUrl.startsWith("{")) ref = JSON.parse(msg.mediaUrl);
+  } catch {}
+
+  const flowName = msg.content || ref.flowName || "Formulario";
+
+  const handleOpen = async () => {
+    if (!ref.submissionId) {
+      setError("No se encontró la referencia de la respuesta.");
+      setOpen(true);
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const data = await getFlowSubmissionById(ref.submissionId);
+      setSubmission(data);
+      setOpen(true);
+    } catch {
+      setError("No se pudieron cargar las respuestas.");
+      setOpen(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={handleOpen}
+        disabled={loading}
+        className="flex items-center gap-2 w-full text-left group"
+        title="Ver respuestas del formulario"
+      >
+        <span className="h-7 w-7 rounded-lg bg-green-50 dark:bg-green-500/15 flex items-center justify-center shrink-0">
+          {loading ? (
+            <Loader2 className="h-3.5 w-3.5 text-green-600 animate-spin" />
+          ) : (
+            <ClipboardList className="h-3.5 w-3.5 text-green-600" />
+          )}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[13px] font-medium text-foreground truncate group-hover:underline">
+            {flowName}
+          </span>
+          <span className="block text-[11px] text-green-600 dark:text-green-300">
+            Formulario completado · Ver respuestas
+          </span>
+        </span>
+      </button>
+
+      {open && submission && (
+        <FlowSubmissionModal submission={submission} onClose={() => setOpen(false)} />
+      )}
+      {open && !submission && error && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setOpen(false)}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative bg-card text-card-foreground rounded-xl shadow-xl px-5 py-4 mx-4 max-w-sm">
+            <p className="text-sm text-foreground">{error}</p>
+          </div>
         </div>
       )}
     </>
