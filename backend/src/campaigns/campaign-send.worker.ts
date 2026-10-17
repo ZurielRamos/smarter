@@ -1161,9 +1161,17 @@ export class CampaignSendWorker extends WorkerHost {
 
   /**
    * Replace {{fieldName}} variables in a message template with actual client data.
+   *
+   * The special {{unsubscribe_url}} token (and its typo alias) is intentionally
+   * left untouched here: it is not a client field and is resolved later into a
+   * clickable link by interpolateEmailHtml. Replacing it here would blank it out
+   * (getClientField returns '' for unknown fields).
    */
   private interpolateMessage(template: string, client: ClientRecord): string {
-    return template.replace(/\{\{(\w+)\}\}/g, (_, field) => {
+    return template.replace(/\{\{(\w+)\}\}/g, (match, field) => {
+      if (field === 'unsubscribe_url' || field === 'unsuscribe_url') {
+        return match; // preserve for later link resolution
+      }
       return this.getClientField(client, field);
     });
   }
