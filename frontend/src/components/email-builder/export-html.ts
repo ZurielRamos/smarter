@@ -27,8 +27,14 @@ function renderBlock(block: ContentBlock): string {
     case "image": {
       const { src, alt, width, align, link, maxHeight } = block.props;
       if (!src) return "";
-      const maxHeightStyle = maxHeight ? `max-height:${maxHeight}px;` : "";
-      const img = `<img src="${src}" alt="${alt}" style="max-width:${width};${maxHeightStyle}height:auto;display:block;${align === "center" ? "margin:0 auto;" : ""}" />`;
+      // `maxHeight === "auto"` (or missing/non-numeric) means no height cap.
+      const maxHeightStyle =
+        typeof maxHeight === "number" && maxHeight > 0 ? `max-height:${maxHeight}px;` : "";
+      // Percentage widths stretch the image to fill the block; "auto" keeps the
+      // natural size, capped so it never overflows the block.
+      const isPercentWidth = typeof width === "string" && width.endsWith("%");
+      const widthStyle = isPercentWidth ? `width:${width};max-width:100%;` : `width:auto;max-width:100%;`;
+      const img = `<img src="${src}" alt="${alt}" style="${widthStyle}${maxHeightStyle}height:auto;display:${align === "center" ? "block" : "inline-block"};${align === "center" ? "margin:0 auto;" : ""}" />`;
       if (link) return `<a href="${link}" target="_blank" style="text-decoration:none;">${img}</a>`;
       return img;
     }

@@ -22,16 +22,33 @@ export function BlockRenderer({ block, selected, onClick }: Props) {
       }
       case "text":
         return <div style={{ margin: 0, paddingTop: `${p.paddingTop || 0}px`, paddingRight: `${p.paddingRight || 0}px`, paddingBottom: `${p.paddingBottom || 0}px`, paddingLeft: `${p.paddingLeft || 0}px`, textAlign: p.align, color: p.color, fontSize: p.fontSize, fontFamily: p.fontFamily || "Arial, sans-serif", lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: p.text || "Texto" }} />;
-      case "image":
+      case "image": {
+        // Percentage widths stretch the image to fill the block; "auto" (or
+        // unset) keeps the natural size, capped at the block width.
+        const isPercentWidth = typeof p.width === "string" && p.width.endsWith("%");
+        const widthStyle = isPercentWidth
+          ? { width: p.width, maxWidth: "100%" }
+          : { width: "auto", maxWidth: "100%" };
         return p.src ? (
           <div style={{ textAlign: p.align }}>
-            <img src={p.src} alt={p.alt} style={{ maxWidth: p.width, maxHeight: `${p.maxHeight || 300}px`, height: "auto", width: "auto", display: "inline-block", objectFit: "contain" }} />
+            <img
+              src={p.src}
+              alt={p.alt}
+              style={{
+                ...widthStyle,
+                ...(p.maxHeight === "auto" ? {} : { maxHeight: `${p.maxHeight || 300}px` }),
+                height: "auto",
+                display: "inline-block",
+                objectFit: "contain",
+              }}
+            />
           </div>
         ) : (
           <div className="flex items-center justify-center py-6 bg-gray-50 rounded border border-dashed border-gray-300">
             <span className="text-xs text-gray-400">Ingresa una URL de imagen</span>
           </div>
         );
+      }
       case "button":
         return (
           <div style={{

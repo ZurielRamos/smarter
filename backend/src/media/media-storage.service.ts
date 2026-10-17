@@ -233,6 +233,13 @@ export class MediaStorageService implements OnModuleInit {
       messageId: string;
       mimeType: string;
       filename?: string;
+      /**
+       * Image optimization profile:
+       *  - 'chat'  (default): lightweight for inbox attachments (max 600px, WebP 80).
+       *  - 'email': higher fidelity for email-builder images, which are shown
+       *    full-width and on retina screens (max 1600px, WebP 90).
+       */
+      imageProfile?: 'chat' | 'email';
     },
   ): Promise<StoredMedia | null> {
     if (!this.s3Client) {
@@ -247,10 +254,12 @@ export class MediaStorageService implements OnModuleInit {
       // Optimize images
       const isImage = contentType.startsWith('image/') && !contentType.includes('svg');
       if (isImage) {
+        const maxDim = options.imageProfile === 'email' ? 1600 : 600;
+        const quality = options.imageProfile === 'email' ? 90 : 80;
         try {
           const optimized = await sharp(finalBuffer)
-            .resize(600, 600, { fit: 'inside', withoutEnlargement: true })
-            .webp({ quality: 80 })
+            .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
+            .webp({ quality })
             .toBuffer();
           finalBuffer = optimized as Buffer<ArrayBuffer>;
           contentType = 'image/webp';

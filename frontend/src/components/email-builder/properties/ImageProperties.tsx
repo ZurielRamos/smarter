@@ -34,8 +34,11 @@ export function ImageProperties({ props: p, onChange }: Props) {
     );
   }
 
-  // Image set — show config
-  const maxHeight = p.maxHeight || 300;
+  // Image set — show config.
+  // `maxHeight === "auto"` (or missing when no numeric value) means no height
+  // cap: the image keeps its natural height, adapting to the width.
+  const isAutoHeight = p.maxHeight === "auto";
+  const maxHeight = isAutoHeight ? 300 : (p.maxHeight || 300);
 
   return (
     <div className="space-y-4">
@@ -45,7 +48,7 @@ export function ImageProperties({ props: p, onChange }: Props) {
           src={p.src}
           alt={p.alt || "Preview"}
           className="w-full object-contain"
-          style={{ maxHeight: `${maxHeight}px` }}
+          style={isAutoHeight ? undefined : { maxHeight: `${maxHeight}px` }}
         />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
           <button
@@ -81,10 +84,22 @@ export function ImageProperties({ props: p, onChange }: Props) {
         <div className="py-3">
           <label className={labelCls}>Alto maximo</label>
           <div className="flex items-center gap-2">
-            <Stepper value={maxHeight} onChange={(v) => update("maxHeight", v)} min={50} />
-            <span className="text-[9px] text-muted-foreground">px</span>
+            {!isAutoHeight && (
+              <>
+                <Stepper value={maxHeight} onChange={(v) => update("maxHeight", v)} min={50} />
+                <span className="text-[9px] text-muted-foreground">px</span>
+              </>
+            )}
+            <button
+              onClick={() => update("maxHeight", isAutoHeight ? 300 : "auto")}
+              className={`py-1.5 px-3 rounded-md text-[10px] font-medium border transition-colors ${isAutoHeight ? "bg-brand-50 border-brand-300 text-brand-700" : "border-border text-muted-foreground hover:bg-muted"}`}
+            >
+              auto
+            </button>
           </div>
-          <p className="text-[9px] text-muted-foreground mt-1">La imagen mantiene su proporcion</p>
+          <p className="text-[9px] text-muted-foreground mt-1">
+            {isAutoHeight ? "La imagen usa su alto natural (sin límite)" : "La imagen mantiene su proporcion"}
+          </p>
         </div>
 
         {/* Width */}

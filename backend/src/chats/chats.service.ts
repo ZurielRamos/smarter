@@ -3987,6 +3987,8 @@ export class ChatsService {
       messageId: `upload-${Date.now()}`,
       mimeType: file.mimetype,
       filename: file.originalname,
+      // Email-builder images are shown full-width / on retina; keep high fidelity.
+      imageProfile: 'email',
     });
     return { url: stored?.url || '' };
   }
