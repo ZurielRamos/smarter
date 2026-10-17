@@ -25,9 +25,10 @@ function renderBlock(block: ContentBlock): string {
       return `<div style="margin:0;padding:8px 0;text-align:${align};color:${color};font-size:${fontSize};font-family:${font};line-height:1.5;">${processedText}</div>`;
     }
     case "image": {
-      const { src, alt, width, align, link } = block.props;
+      const { src, alt, width, align, link, maxHeight } = block.props;
       if (!src) return "";
-      const img = `<img src="${src}" alt="${alt}" style="max-width:${width};height:auto;display:block;${align === "center" ? "margin:0 auto;" : ""}" />`;
+      const maxHeightStyle = maxHeight ? `max-height:${maxHeight}px;` : "";
+      const img = `<img src="${src}" alt="${alt}" style="max-width:${width};${maxHeightStyle}height:auto;display:block;${align === "center" ? "margin:0 auto;" : ""}" />`;
       if (link) return `<a href="${link}" target="_blank" style="text-decoration:none;">${img}</a>`;
       return img;
     }

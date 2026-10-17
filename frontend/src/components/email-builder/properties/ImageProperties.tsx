@@ -7,7 +7,7 @@ interface Props {
   onChange: (props: Record<string, any>) => void;
 }
 
-function Stepper({ value, onChange, min = 0, max = 1000, suffix = "px" }: { value: number; onChange: (v: number) => void; min?: number; max?: number; suffix?: string }) {
+function Stepper({ value, onChange, min = 0, max = Infinity, suffix = "px" }: { value: number; onChange: (v: number) => void; min?: number; max?: number; suffix?: string }) {
   return (
     <div className="inline-flex items-center border border-border rounded-full overflow-hidden">
       <button onClick={() => onChange(Math.max(min, value - 10))} className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:bg-muted text-xs">&minus;</button>
@@ -81,7 +81,7 @@ export function ImageProperties({ props: p, onChange }: Props) {
         <div className="py-3">
           <label className={labelCls}>Alto maximo</label>
           <div className="flex items-center gap-2">
-            <Stepper value={maxHeight} onChange={(v) => update("maxHeight", v)} min={50} max={1000} />
+            <Stepper value={maxHeight} onChange={(v) => update("maxHeight", v)} min={50} />
             <span className="text-[9px] text-muted-foreground">px</span>
           </div>
           <p className="text-[9px] text-muted-foreground mt-1">La imagen mantiene su proporcion</p>
