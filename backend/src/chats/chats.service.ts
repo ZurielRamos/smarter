@@ -135,6 +135,61 @@ export class ChatsService {
     return this.inboxRepo.find({ where: { tenantId }, order: { createdAt: 'ASC' } });
   }
 
+  /** Canales que pueden usarse como origen de una campaña. */
+  private static readonly CAMPAIGN_CHANNELS = new Set([
+    'sms',
+    'whatsapp',
+    'llamada',
+    'email',
+    'email_transaccional',
+  ]);
+
+  /**
+   * Inboxes elegibles para crear campañas, con la elegibilidad ya resuelta.
+   *
+   * Un inbox de `email_transaccional` (Mailgun) no marca su estado en
+   * `Inbox.status`; su verificación vive en `EmailDomainConfig.domainStatus`.
+   * Por eso aquí resolvemos `connected` combinando ambas fuentes:
+   *   - email_transaccional → conectado si su dominio está verificado.
+   *   - resto de canales     → conectado si `Inbox.status === 'connected'`.
+   *
+   * El frontend ya no necesita conocer esta regla: recibe `connected` listo.
+   */
+  async getCampaignInboxes(
+    tenantId: string,
+  ): Promise<Array<{ id: string; name: string; channel: string; channelName: string | null; connected: boolean }>> {
+    const inboxes = await this.inboxRepo.find({ where: { tenantId }, order: { createdAt: 'ASC' } });
+
+    const campaignInboxes = inboxes.filter((i) => ChatsService.CAMPAIGN_CHANNELS.has(i.channel));
+    if (campaignInboxes.length === 0) return [];
+
+    // Resolver verificación de dominio solo para los inboxes de email transaccional.
+    const emailTxInboxIds = campaignInboxes
+      .filter((i) => i.channel === 'email_transaccional')
+      .map((i) => i.id);
+
+    const verifiedInboxIds = new Set<string>();
+    if (emailTxInboxIds.length > 0) {
+      const configs = await this.emailDomainService.findByTenant(tenantId);
+      for (const cfg of configs) {
+        if (cfg.domainStatus === 'verified' && emailTxInboxIds.includes(cfg.inboxId)) {
+          verifiedInboxIds.add(cfg.inboxId);
+        }
+      }
+    }
+
+    return campaignInboxes.map((i) => ({
+      id: i.id,
+      name: i.name,
+      channel: i.channel,
+      channelName: i.channelName,
+      connected:
+        i.channel === 'email_transaccional'
+          ? verifiedInboxIds.has(i.id)
+          : i.status === 'connected',
+    }));
+  }
+
   /**
    * Bootstrap de la vista de conversaciones: consolida en una sola respuesta
    * los datos que el frontend necesita al abrir el chat (inboxes, primera
@@ -672,10 +727,15 @@ export class ChatsService {
 
     // Resolve the unsubscribe token so the test email shows the real link.
     // Canonical {{unsubscribe_url}} plus the {{unsuscribe_url}} typo alias.
+    // In the HTML body it becomes a clickable link (collapsing any wrapping
+    // <u>…</u>); in the subject, where HTML is not allowed, it becomes the raw URL.
     const unsubscribeUrl = this.emailUnsubscribeService.getUnsubscribeUrl(inbox.tenantId, options.to);
-    const unsubRegex = /\{\{\s*(unsubscribe_url|unsuscribe_url)\s*\}\}/gi;
+    const unsubRegex = /\{\{\s*(?:unsubscribe_url|unsuscribe_url)\s*\}\}/gi;
+    const unsubscribeLink = `<a href="${unsubscribeUrl}" style="color:inherit;text-decoration:underline;">Cancelar suscripción</a>`;
     subject = subject.replace(unsubRegex, unsubscribeUrl);
-    html = html.replace(unsubRegex, unsubscribeUrl);
+    html = html
+      .replace(/<u>\s*\{\{\s*(?:unsubscribe_url|unsuscribe_url)\s*\}\}\s*<\/u>/gi, unsubscribeLink)
+      .replace(unsubRegex, unsubscribeLink);
 
     try {
       const nodemailer = await import('nodemailer');

@@ -6,6 +6,7 @@ import { MessageEditor } from "@/components/campaigns/MessageEditor";
 import { WhatsAppTemplateSelector } from "@/components/campaigns/WhatsAppTemplateSelector";
 import { CallEditor } from "@/components/campaigns/CallEditor";
 import { EmailEditor } from "@/components/campaigns/EmailEditor";
+import { EmailCampaignEditor } from "@/components/campaigns/EmailCampaignEditor";
 import { SegmentBuilder } from "@/components/campaigns/SegmentBuilder";
 import type { SegmentGroup } from "@/components/campaigns/SegmentBuilder";
 import { TimePicker } from "@/components/ui/time-picker";
@@ -235,6 +236,7 @@ export function CampanaDetail() {
       const { data } = await api.put<Campaign>(`/campaigns/${campaign.id}`, {
         messageTemplate: campaign.messageTemplate,
         emailSubject: campaign.emailSubject,
+        emailTemplateId: campaign.emailTemplateId,
       });
       setCampaign(data);
     } catch {
@@ -626,6 +628,7 @@ export function CampanaDetail() {
             )}
 
             {/* Email Editor - only for email */}
+            {/* Email SMTP (legacy): editor inline simple */}
             {campaign.channel === "email" && (
               <EmailEditor
                 subject={campaign.emailSubject || ""}
@@ -636,6 +639,23 @@ export function CampanaDetail() {
                 saving={savingEmail}
                 variables={availableFields}
                 inboxId={campaign.inboxId}
+              />
+            )}
+
+            {/* Email transaccional (Mailgun): plantilla + asunto + remitente + cumplimiento */}
+            {campaign.channel === "email_transaccional" && (
+              <EmailCampaignEditor
+                tenantId={campaign.tenantId}
+                inboxId={campaign.inboxId}
+                emailTemplateId={campaign.emailTemplateId}
+                emailSubject={campaign.emailSubject || ""}
+                segments={campaign.segments}
+                usingList={!!campaign.listId}
+                onTemplateChange={(templateId) => setCampaign({ ...campaign, emailTemplateId: templateId })}
+                onSubjectChange={(val) => setCampaign({ ...campaign, emailSubject: val })}
+                onSave={handleSaveEmail}
+                saving={savingEmail}
+                variables={availableFields}
               />
             )}
           </div>
@@ -953,7 +973,7 @@ export function CampanaDetail() {
                 const isManual = !campaign.isRecurring && !campaign.sendDate;
                 const isScheduled = !campaign.isRecurring && !!campaign.sendDate;
                 const isRecurring = campaign.isRecurring;
-                const canSend = campaign.channel === "sms" ? (!!campaign.messageTemplate || !!campaign.emailTemplateId) : campaign.channel === "whatsapp" ? !!campaign.whatsappTemplateName : campaign.channel === "llamada" ? (!!campaign.messageTemplate || !!campaign.callAudioCode || !!campaign.emailTemplateId) : campaign.channel === "email" ? !!campaign.messageTemplate : false;
+                const canSend = campaign.channel === "sms" ? (!!campaign.messageTemplate || !!campaign.emailTemplateId) : campaign.channel === "whatsapp" ? !!campaign.whatsappTemplateName : campaign.channel === "llamada" ? (!!campaign.messageTemplate || !!campaign.callAudioCode || !!campaign.emailTemplateId) : campaign.channel === "email" ? !!campaign.messageTemplate : campaign.channel === "email_transaccional" ? (!!campaign.emailTemplateId || (!!campaign.messageTemplate && !!campaign.emailSubject)) : false;
 
                 if (isManual) {
                   return (

@@ -29,16 +29,16 @@ interface InboxOption {
   id: string;
   name: string;
   channel: string;
-  status: string;
+  /** Elegibilidad ya resuelta por el backend (p. ej. dominio verificado). */
+  connected: boolean;
   channelName: string | null;
 }
-
-const CAMPAIGN_CHANNELS = ["sms", "whatsapp", "llamada", "email"];
 
 const channelMeta: Record<string, { label: string; icon: React.ComponentType<{ className?: string }>; color: string; activeColor: string }> = {
   sms: { label: "SMS", icon: MessageSquare, color: "border-blue-200 bg-blue-50 text-blue-700", activeColor: "border-blue-500 bg-blue-50 ring-2 ring-blue-200" },
   whatsapp: { label: "WhatsApp", icon: WhatsAppIcon, color: "border-green-200 bg-green-50 text-green-700", activeColor: "border-green-500 bg-green-50 ring-2 ring-green-200" },
   email: { label: "Email", icon: Mail, color: "border-purple-200 bg-purple-50 text-purple-700", activeColor: "border-purple-500 bg-purple-50 ring-2 ring-purple-200" },
+  email_transaccional: { label: "Email", icon: Mail, color: "border-purple-200 bg-purple-50 text-purple-700", activeColor: "border-purple-500 bg-purple-50 ring-2 ring-purple-200" },
   llamada: { label: "Llamada", icon: Phone, color: "border-orange-200 bg-orange-50 text-orange-700", activeColor: "border-orange-500 bg-orange-50 ring-2 ring-orange-200" },
 };
 
@@ -91,7 +91,7 @@ export function Campanas() {
     if (!tenantId) return;
     setLoadingInboxes(true);
     try {
-      const { data } = await api.get<InboxOption[]>("/chats/inboxes", { params: { tenantId } });
+      const { data } = await api.get<InboxOption[]>("/chats/campaign-inboxes", { params: { tenantId } });
       setInboxes(data);
     } catch {} finally { setLoadingInboxes(false); }
   };
@@ -146,6 +146,7 @@ export function Campanas() {
       case "sms": return <MessageSquare className="h-4 w-4 text-blue-500" />;
       case "whatsapp": return <WhatsAppIcon className="h-4 w-4 text-green-500" />;
       case "email": return <Mail className="h-4 w-4 text-purple-500" />;
+      case "email_transaccional": return <Mail className="h-4 w-4 text-purple-500" />;
       case "llamada": return <Phone className="h-4 w-4 text-orange-500" />;
       default: return <Megaphone className="h-4 w-4 text-muted-foreground" />;
     }
@@ -257,13 +258,13 @@ export function Campanas() {
                       <div className="flex items-center justify-center py-6">
                         <div className="h-5 w-5 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
                       </div>
-                    ) : inboxes.filter((i) => CAMPAIGN_CHANNELS.includes(i.channel) && i.status === "connected").length === 0 ? (
+                    ) : inboxes.filter((i) => i.connected).length === 0 ? (
                       <div className="text-center py-4 text-sm text-muted-foreground border border-dashed border-border rounded-lg">
                         No hay bandejas conectadas para campañas
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
-                        {inboxes.filter((i) => CAMPAIGN_CHANNELS.includes(i.channel) && i.status === "connected").map((inbox) => {
+                        {inboxes.filter((i) => i.connected).map((inbox) => {
                           const meta = channelMeta[inbox.channel];
                           if (!meta) return null;
                           const Icon = meta.icon;

@@ -463,8 +463,8 @@ export class CampaignSendWorker extends WorkerHost {
                 from: `"${emailConfig.fromName}" <${emailConfig.fromEmail}>`,
                 to: emailAddress,
                 subject: emailSubject,
-                html: emailHtml.replace(/\n/g, '<br>'),
-                text: emailHtml.replace(/<[^>]+>/g, ''),
+                html: emailHtml,
+                text: emailHtml.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim(),
                 variables: { campaignId, sendId, recordId: client.id },
                 tags: ['campaign', `campaign:${campaignId}`],
                 tracking: true,
@@ -1176,13 +1176,21 @@ export class CampaignSendWorker extends WorkerHost {
   private static readonly UNSUBSCRIBE_TOKEN_RE = /\{\{\s*(unsubscribe_url|unsuscribe_url)\s*\}\}/gi;
 
   /**
-   * Interpolate the HTML body of a transactional-email campaign.
+   * Interpolate the HTML body of a transactional-email campaign and return a
+   * body that is safe to send as-is (no further newline-to-<br> processing).
    *
-   * On top of the normal {{clientField}} interpolation it resolves the
-   * {{unsubscribe_url}} token (and the {{unsuscribe_url}} typo alias) to the
-   * tenant-scoped unsubscribe link. If the template does NOT reference the
-   * token at all, an unsubscribe footer is appended automatically so every
-   * marketing email keeps a visible opt-out link (CAN-SPAM / GDPR).
+   * Responsibilities:
+   *  - Resolve {{clientField}} tokens.
+   *  - Resolve {{unsubscribe_url}} (and the {{unsuscribe_url}} typo alias) to a
+   *    clickable <a> link — never a raw URL — so a template that uses the token
+   *    as visible text renders a proper link. Any wrapping <u>…</u> around the
+   *    token is collapsed into the link to avoid a dangling underline tag.
+   *  - If the template never references the token, append an opt-out footer so
+   *    every marketing email keeps a visible unsubscribe link (CAN-SPAM / GDPR).
+   *  - Preserve already-formatted HTML. Builder templates are full HTML
+   *    documents whose layout tables are separated by newlines; converting
+   *    those newlines to <br> shatters the layout. We only apply the
+   *    newline→<br> fallback to plain-text/inline content.
    */
   private interpolateEmailHtml(
     html: string,
@@ -1191,16 +1199,31 @@ export class CampaignSendWorker extends WorkerHost {
     email: string,
   ): string {
     const unsubscribeUrl = this.emailUnsubscribeService.getUnsubscribeUrl(tenantId, email);
+    const unsubscribeLink = `<a href="${unsubscribeUrl}" style="color:inherit;text-decoration:underline;">Cancelar suscripción</a>`;
 
     const hasToken = CampaignSendWorker.UNSUBSCRIBE_TOKEN_RE.test(html);
     // `.test()` on a /g regex advances lastIndex; reset before using it again.
     CampaignSendWorker.UNSUBSCRIBE_TOKEN_RE.lastIndex = 0;
 
-    // Resolve client fields first, then the special unsubscribe token.
-    let rendered = this.interpolateMessage(html, client).replace(
-      CampaignSendWorker.UNSUBSCRIBE_TOKEN_RE,
-      unsubscribeUrl,
-    );
+    // Resolve client fields first.
+    let rendered = this.interpolateMessage(html, client);
+
+    // Replace the token wrapped in <u>…</u> first (common when authored as
+    // visible underlined text) so we don't leave an empty <u></u> behind, then
+    // any bare occurrences.
+    rendered = rendered
+      .replace(
+        /<u>\s*\{\{\s*(?:unsubscribe_url|unsuscribe_url)\s*\}\}\s*<\/u>/gi,
+        unsubscribeLink,
+      )
+      .replace(CampaignSendWorker.UNSUBSCRIBE_TOKEN_RE, unsubscribeLink);
+
+    // Only convert newlines to <br> for plain/inline content. Full HTML
+    // documents or table-based layouts must be left untouched.
+    const isFormattedHtml = /<!doctype html|<html|<table|<div|<p[\s>]/i.test(rendered);
+    if (!isFormattedHtml) {
+      rendered = rendered.replace(/\n/g, '<br>');
+    }
 
     if (!hasToken) {
       rendered += this.buildUnsubscribeFooter(unsubscribeUrl);
@@ -1237,7 +1260,12 @@ export class CampaignSendWorker extends WorkerHost {
           campaign.emailTemplateId,
           client.language || 'es',
         );
-        return { subject: translation.subject || '', html: translation.html || '' };
+        // Subject precedence: the template's own subject wins, but when the
+        // template has no subject fall back to the campaign's emailSubject
+        // (and finally a safe default) so the email never ships with an empty
+        // subject line.
+        const subject = translation.subject || campaign.emailSubject || 'Mensaje';
+        return { subject, html: translation.html || campaign.messageTemplate || '' };
       } catch {
         // If template resolution fails, fall back to inline content
         this.logger.warn(`[Worker] Failed to resolve email template ${campaign.emailTemplateId}, using inline content`);

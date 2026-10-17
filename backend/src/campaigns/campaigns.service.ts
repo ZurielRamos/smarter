@@ -16,6 +16,7 @@ import { CallService } from './call.service';
 import type { CampaignSendJobData } from './campaign-send.worker';
 import { BillingService } from '../billing/billing.service';
 import { CampaignsGateway } from './campaigns.gateway';
+import { EmailDomainService } from '../providers/email-domain.service';
 
 @Injectable()
 export class CampaignsService {
@@ -41,6 +42,7 @@ export class CampaignsService {
     private readonly callService: CallService,
     private readonly billingService: BillingService,
     private readonly gateway: CampaignsGateway,
+    private readonly emailDomainService: EmailDomainService,
   ) {}
 
   async findAll(tenantId?: string): Promise<Campaign[]> {
@@ -515,6 +517,27 @@ export class CampaignsService {
         }
       } else {
         throw new BadRequestException('La campaña de email necesita una bandeja de email asignada');
+      }
+    } else if (campaign.channel === 'email_transaccional') {
+      // Contenido: plantilla multi-idioma o contenido inline (html + asunto).
+      if (!campaign.emailTemplateId) {
+        if (!campaign.messageTemplate) {
+          throw new BadRequestException('La campaña necesita una plantilla asignada o contenido HTML configurado');
+        }
+        if (!campaign.emailSubject) {
+          throw new BadRequestException('La campaña necesita una plantilla asignada o un asunto configurado');
+        }
+      }
+      // La bandeja debe tener un dominio de email verificado (Mailgun), no SMTP.
+      if (!campaign.inboxId) {
+        throw new BadRequestException('La campaña de email necesita una bandeja de email asignada');
+      }
+      const emailConfig = await this.emailDomainService.findByInbox(campaign.inboxId);
+      if (!emailConfig) {
+        throw new BadRequestException('La bandeja no tiene configuración de email. Configúrala en Canales > Email.');
+      }
+      if (emailConfig.domainStatus !== 'verified') {
+        throw new BadRequestException('El dominio de email de la bandeja no está verificado. Verifícalo en Canales > Email.');
       }
     } else {
       throw new BadRequestException('Canal no soportado para envío');

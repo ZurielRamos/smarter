@@ -49,6 +49,15 @@ export class ChatsController {
     return this.chatsService.getInboxes(tenantId);
   }
 
+  /**
+   * Inboxes elegibles para campañas, con el flag `connected` ya resuelto
+   * (para email_transaccional se resuelve contra la verificación del dominio).
+   */
+  @Get('campaign-inboxes')
+  getCampaignInboxes(@Query('tenantId') tenantId: string) {
+    return this.chatsService.getCampaignInboxes(tenantId);
+  }
+
   @Get('inboxes/:id')
   getInbox(@Param('id') id: string) {
     return this.chatsService.findInboxById(id);

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { MessageEditor } from "@/components/campaigns/MessageEditor";
 import { WhatsAppTemplateSelector } from "@/components/campaigns/WhatsAppTemplateSelector";
 import { CallEditor } from "@/components/campaigns/CallEditor";
+import { EmailCampaignEditor } from "@/components/campaigns/EmailCampaignEditor";
 import { SegmentBuilder } from "@/components/campaigns/SegmentBuilder";
 import type { SegmentGroup } from "@/components/campaigns/SegmentBuilder";
 import { TimePicker } from "@/components/ui/time-picker";
@@ -38,6 +39,9 @@ interface Campaign {
   callRetries: string | null;
   callLeaveVoicemail: boolean | null;
   callAudioCode: string | null;
+  emailSubject: string | null;
+  emailTemplateId: string | null;
+  inboxId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -99,6 +103,7 @@ export function CampaignDetail() {
   const [savingMessage, setSavingMessage] = useState(false);
   const [savingWhatsApp, setSavingWhatsApp] = useState(false);
   const [savingCall, setSavingCall] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
   const [sends, setSends] = useState<CampaignSendRecord[]>([]);
   const [sending, setSending] = useState(false);
   const [activeSend, setActiveSend] = useState<CampaignSendRecord | null>(null);
@@ -217,6 +222,22 @@ export function CampaignDetail() {
       // error
     } finally {
       setSavingCall(false);
+    }
+  };
+
+  const handleSaveEmailConfig = async () => {
+    if (!campaign) return;
+    setSavingEmail(true);
+    try {
+      const { data } = await api.put<Campaign>(`/campaigns/${campaign.id}`, {
+        emailTemplateId: campaign.emailTemplateId,
+        emailSubject: campaign.emailSubject,
+      });
+      setCampaign(data);
+    } catch {
+      // error
+    } finally {
+      setSavingEmail(false);
     }
   };
 
@@ -650,13 +671,30 @@ export function CampaignDetail() {
               />
             )}
 
+            {/* Email Editor - only for email / email_transaccional */}
+            {(campaign.channel === "email" || campaign.channel === "email_transaccional") && (
+              <EmailCampaignEditor
+                tenantId={campaign.tenantId}
+                inboxId={campaign.inboxId}
+                emailTemplateId={campaign.emailTemplateId}
+                emailSubject={campaign.emailSubject || ""}
+                segments={campaign.segments}
+                usingList={!!campaign.listId}
+                onTemplateChange={(templateId) => setCampaign({ ...campaign, emailTemplateId: templateId })}
+                onSubjectChange={(val) => setCampaign({ ...campaign, emailSubject: val })}
+                onSave={handleSaveEmailConfig}
+                saving={savingEmail}
+                variables={availableFields}
+              />
+            )}
+
             {/* Send History */}
             <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-semibold text-foreground">Historial de Envíos</h2>
                 <button
                   onClick={handleSendCampaign}
-                  disabled={sending || (campaign.channel === "sms" ? !campaign.messageTemplate : campaign.channel === "whatsapp" ? !campaign.whatsappTemplateName : campaign.channel === "llamada" ? (!campaign.messageTemplate && !campaign.callAudioCode) : true)}
+                  disabled={sending || (campaign.channel === "sms" ? !campaign.messageTemplate : campaign.channel === "whatsapp" ? !campaign.whatsappTemplateName : campaign.channel === "llamada" ? (!campaign.messageTemplate && !campaign.callAudioCode) : (campaign.channel === "email" || campaign.channel === "email_transaccional") ? (!campaign.emailTemplateId && (!campaign.messageTemplate || !campaign.emailSubject)) : true)}
                   className="px-3 py-1.5 rounded-md text-xs font-medium bg-accent-500 text-white hover:bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
                 >
                   <Send className="h-3.5 w-3.5" />
