@@ -29,6 +29,14 @@ export function useContactVariables(): Variable[] {
           label: f.fieldLabel,
           group: f.isSystem ? "Campos del contacto" : (f.fieldGroup || "Campos personalizados"),
         }));
+      // Variable especial resuelta por el backend al enviar: el link de baja
+      // por tenant+contacto. Si la plantilla no la incluye, el worker añade un
+      // footer de baja automáticamente.
+      vars.push({
+        field: "unsubscribe_url",
+        label: "Cancelar suscripción (URL)",
+        group: "Sistema",
+      });
       setVariables(vars);
     }).catch(() => {});
   }, [tenantId]);

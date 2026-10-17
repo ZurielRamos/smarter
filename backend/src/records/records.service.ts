@@ -4,6 +4,7 @@ import { Repository, Not, IsNull, DataSource } from 'typeorm';
 import { ClientRecord } from './record.entity';
 import { Note } from './note.entity';
 import { Activity } from './activity.entity';
+import { EmailUnsubscribe } from '../providers/email-unsubscribe.entity';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ConversionsService } from '../conversions/conversions.service';
@@ -25,6 +26,8 @@ export class RecordsService {
     private readonly noteRepository: Repository<Note>,
     @InjectRepository(Activity)
     private readonly activityRepository: Repository<Activity>,
+    @InjectRepository(EmailUnsubscribe)
+    private readonly emailUnsubscribeRepository: Repository<EmailUnsubscribe>,
     private readonly webhooksService: WebhooksService,
     private readonly notificationsService: NotificationsService,
     private readonly conversionsService: ConversionsService,
@@ -124,8 +127,43 @@ export class RecordsService {
       if (data.assignedTeamId !== undefined && before && before.assignedTeamId !== data.assignedTeamId) {
         this.logActivity({ tenantId: updated.tenantId, recordId: id, type: 'assigned', description: data.assignedTeamId ? 'Equipo asignado' : 'Equipo removido', metadata: { assignedTeamId: data.assignedTeamId }, actorId: actor?.actorId, actorName: actor?.actorName }).catch(() => {});
       }
+      // Keep the email suppression list in sync with manual opt-in changes.
+      if (data.optInEmail !== undefined && before && before.optInEmail !== updated.optInEmail) {
+        this.syncEmailSuppression(updated.tenantId, updated.email, updated.optInEmail).catch(() => {});
+      }
     }
     return updated;
+  }
+
+  /**
+   * Mirror a contact's email opt-in flag into the email suppression list.
+   * When opt-in goes to false, the email is added to `email_unsubscribes`
+   * (idempotent); when it goes back to true, the suppression record is removed.
+   * Keyed by tenant + email (case-insensitive) to match the unsubscribe flow.
+   */
+  private async syncEmailSuppression(tenantId: string, email: string | null, optIn: boolean): Promise<void> {
+    const normalized = (email || '').toLowerCase().trim();
+    if (!normalized) return; // No email → nothing to suppress.
+
+    try {
+      if (!optIn) {
+        // Insert suppression if absent (ON CONFLICT DO NOTHING on the unique
+        // (tenant_id, email) constraint).
+        await this.emailUnsubscribeRepository
+          .createQueryBuilder()
+          .insert()
+          .into(EmailUnsubscribe)
+          .values({ tenantId, email: normalized, reason: 'manual', source: 'opt_in_toggle' })
+          .orIgnore()
+          .execute();
+        this.logger.log(`Email suppressed via opt-in toggle: ${normalized} (tenant: ${tenantId})`);
+      } else {
+        await this.emailUnsubscribeRepository.delete({ tenantId, email: normalized });
+        this.logger.log(`Email suppression removed via opt-in toggle: ${normalized} (tenant: ${tenantId})`);
+      }
+    } catch (err) {
+      this.logger.error(`Failed to sync email suppression for ${normalized} (tenant: ${tenantId})`, err as any);
+    }
   }
 
   async deleteRecord(id: string): Promise<void> {

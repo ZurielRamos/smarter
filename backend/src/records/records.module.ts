@@ -6,6 +6,7 @@ import { RecordList } from './record-list.entity';
 import { Note } from './note.entity';
 import { Activity } from './activity.entity';
 import { Tenant } from '../tenants/tenant.entity';
+import { EmailUnsubscribe } from '../providers/email-unsubscribe.entity';
 import { RecordsService } from './records.service';
 import { RecordsController } from './records.controller';
 import { ApiRecordsController } from './api-records.controller';
@@ -19,7 +20,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { ConversionsModule } from '../conversions/conversions.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ClientRecord, CustomField, RecordList, Note, Activity, Tenant]), WebhooksModule, UsersModule, NotificationsModule, ConversionsModule],
+  imports: [TypeOrmModule.forFeature([ClientRecord, CustomField, RecordList, Note, Activity, Tenant, EmailUnsubscribe]), WebhooksModule, UsersModule, NotificationsModule, ConversionsModule],
   providers: [RecordsService, CustomFieldsService, RecordListsService],
   controllers: [RecordsController, ApiRecordsController, CustomFieldsController, RecordListsController],
   exports: [RecordsService, CustomFieldsService, RecordListsService],

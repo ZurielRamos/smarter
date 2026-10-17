@@ -42,8 +42,10 @@ export function TestEmailModal({ open, onClose, subject, html }: Props) {
     }
   };
 
-  // Get variables used in the template
+  // Get variables used in the template. `unsubscribe_url` is resolved by the
+  // backend at send time, so we don't ask for a manual test value.
   const usedVariables = variables.filter((v) => {
+    if (v.field === "unsubscribe_url") return false;
     const pattern = `{{${v.field}}}`;
     return subject.includes(pattern) || html.includes(pattern);
   });

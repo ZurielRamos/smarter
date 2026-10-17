@@ -670,6 +670,13 @@ export class ChatsService {
       }
     }
 
+    // Resolve the unsubscribe token so the test email shows the real link.
+    // Canonical {{unsubscribe_url}} plus the {{unsuscribe_url}} typo alias.
+    const unsubscribeUrl = this.emailUnsubscribeService.getUnsubscribeUrl(inbox.tenantId, options.to);
+    const unsubRegex = /\{\{\s*(unsubscribe_url|unsuscribe_url)\s*\}\}/gi;
+    subject = subject.replace(unsubRegex, unsubscribeUrl);
+    html = html.replace(unsubRegex, unsubscribeUrl);
+
     try {
       const nodemailer = await import('nodemailer');
       const transporter = nodemailer.createTransport({
@@ -1541,10 +1548,24 @@ export class ChatsService {
         await this.createSystemNote(conversation.id, `${ruleName}: Opt-in WhatsApp ${action.value ? 'activado' : 'desactivado'}.`).catch(() => {});
         break;
 
-      case 'set_opt_in_email':
-        await this.clientRecordRepo.update(recordId, { optInEmail: !!action.value });
-        await this.createSystemNote(conversation.id, `${ruleName}: Opt-in Email ${action.value ? 'activado' : 'desactivado'}.`).catch(() => {});
+      case 'set_opt_in_email': {
+        const optIn = !!action.value;
+        const client = await this.clientRecordRepo.findOne({ where: { id: recordId } });
+        // Delegate to the unsubscribe service so the suppression list and the
+        // optInEmail flag stay in sync regardless of which path toggled it.
+        if (client?.email) {
+          if (optIn) {
+            await this.emailUnsubscribeService.resubscribe(inbox.tenantId, client.email);
+          } else {
+            await this.emailUnsubscribeService.unsubscribe(inbox.tenantId, client.email, 'manual', `automation:${ruleName}`);
+          }
+        } else {
+          // No email on the contact: just set the flag directly.
+          await this.clientRecordRepo.update(recordId, { optInEmail: optIn });
+        }
+        await this.createSystemNote(conversation.id, `${ruleName}: Opt-in Email ${optIn ? 'activado' : 'desactivado'}.`).catch(() => {});
         break;
+      }
 
       case 'add_tag':
       case 'remove_tag': {

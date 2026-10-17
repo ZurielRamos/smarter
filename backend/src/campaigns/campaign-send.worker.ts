@@ -444,7 +444,18 @@ export class CampaignSendWorker extends WorkerHost {
 
             const emailContent = await this.resolveEmailContent(campaign, client);
             const emailSubject = this.interpolateMessage(emailContent.subject, client);
-            const emailHtml = this.interpolateMessage(emailContent.html, client);
+            // Resolves {{clientField}}, the {{unsubscribe_url}} token (and its
+            // typo alias) and appends an opt-out footer when the token is absent.
+            const emailHtml = this.interpolateEmailHtml(
+              emailContent.html,
+              client,
+              campaign.tenantId,
+              emailAddress,
+            );
+            const unsubscribeUrl = this.emailUnsubscribeService.getUnsubscribeUrl(
+              campaign.tenantId,
+              emailAddress,
+            );
 
             try {
               const mgResult = await this.mailgunService.sendEmail({
@@ -457,7 +468,7 @@ export class CampaignSendWorker extends WorkerHost {
                 variables: { campaignId, sendId, recordId: client.id },
                 tags: ['campaign', `campaign:${campaignId}`],
                 tracking: true,
-                unsubscribeUrl: this.emailUnsubscribeService.getUnsubscribeUrl(campaign.tenantId, emailAddress),
+                unsubscribeUrl,
               });
 
               logs.push({
@@ -1155,6 +1166,60 @@ export class CampaignSendWorker extends WorkerHost {
     return template.replace(/\{\{(\w+)\}\}/g, (_, field) => {
       return this.getClientField(client, field);
     });
+  }
+
+  /**
+   * Token(s) that, in an email body, resolve to the per-tenant unsubscribe URL.
+   * `unsubscribe_url` is the canonical token; `unsuscribe_url` is accepted as a
+   * backwards-compatible alias for templates that were authored with the typo.
+   */
+  private static readonly UNSUBSCRIBE_TOKEN_RE = /\{\{\s*(unsubscribe_url|unsuscribe_url)\s*\}\}/gi;
+
+  /**
+   * Interpolate the HTML body of a transactional-email campaign.
+   *
+   * On top of the normal {{clientField}} interpolation it resolves the
+   * {{unsubscribe_url}} token (and the {{unsuscribe_url}} typo alias) to the
+   * tenant-scoped unsubscribe link. If the template does NOT reference the
+   * token at all, an unsubscribe footer is appended automatically so every
+   * marketing email keeps a visible opt-out link (CAN-SPAM / GDPR).
+   */
+  private interpolateEmailHtml(
+    html: string,
+    client: ClientRecord,
+    tenantId: string,
+    email: string,
+  ): string {
+    const unsubscribeUrl = this.emailUnsubscribeService.getUnsubscribeUrl(tenantId, email);
+
+    const hasToken = CampaignSendWorker.UNSUBSCRIBE_TOKEN_RE.test(html);
+    // `.test()` on a /g regex advances lastIndex; reset before using it again.
+    CampaignSendWorker.UNSUBSCRIBE_TOKEN_RE.lastIndex = 0;
+
+    // Resolve client fields first, then the special unsubscribe token.
+    let rendered = this.interpolateMessage(html, client).replace(
+      CampaignSendWorker.UNSUBSCRIBE_TOKEN_RE,
+      unsubscribeUrl,
+    );
+
+    if (!hasToken) {
+      rendered += this.buildUnsubscribeFooter(unsubscribeUrl);
+    }
+
+    return rendered;
+  }
+
+  /**
+   * Default opt-out footer appended when a template omits {{unsubscribe_url}}.
+   */
+  private buildUnsubscribeFooter(unsubscribeUrl: string): string {
+    return (
+      `<div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;` +
+      `font-size:12px;color:#9ca3af;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">` +
+      `¿No deseas recibir más correos? ` +
+      `<a href="${unsubscribeUrl}" style="color:#6b7280;text-decoration:underline;">Cancelar suscripción</a>` +
+      `</div>`
+    );
   }
 
   /**

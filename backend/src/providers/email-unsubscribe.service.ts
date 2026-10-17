@@ -4,6 +4,7 @@ import { Repository, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { EmailUnsubscribe } from './email-unsubscribe.entity';
+import { ClientRecord } from '../records/record.entity';
 
 /**
  * Token payload: tenantId:email
@@ -18,6 +19,8 @@ export class EmailUnsubscribeService {
   constructor(
     @InjectRepository(EmailUnsubscribe)
     private readonly repo: Repository<EmailUnsubscribe>,
+    @InjectRepository(ClientRecord)
+    private readonly clientRepo: Repository<ClientRecord>,
     private readonly configService: ConfigService,
   ) {
     // Derive a 32-byte key from JWT_SECRET for token encryption
@@ -82,6 +85,11 @@ export class EmailUnsubscribeService {
   async unsubscribe(tenantId: string, email: string, reason = 'unsubscribe_link', source?: string): Promise<EmailUnsubscribe> {
     const normalized = email.toLowerCase().trim();
 
+    // Always sync the contact's email opt-in to negative. We do this even when a
+    // suppression record already exists, to repair cases where the flag drifted
+    // out of sync with the suppression list.
+    await this.setContactOptInEmail(tenantId, normalized, false);
+
     // Check if already unsubscribed
     const existing = await this.repo.findOne({ where: { tenantId, email: normalized } });
     if (existing) return existing;
@@ -98,11 +106,39 @@ export class EmailUnsubscribeService {
   }
 
   /**
-   * Re-subscribe an email (remove from opt-out list).
+   * Re-subscribe an email (remove from opt-out list) and restore the contact's
+   * email opt-in so it can receive emails again.
    */
   async resubscribe(tenantId: string, email: string): Promise<void> {
     const normalized = email.toLowerCase().trim();
     await this.repo.delete({ tenantId, email: normalized });
+    await this.setContactOptInEmail(tenantId, normalized, true);
+  }
+
+  /**
+   * Update the `optInEmail` flag on every contact that matches this
+   * tenant + email. A single email may map to more than one contact record, so
+   * this updates all of them. Email match is case-insensitive.
+   */
+  private async setContactOptInEmail(tenantId: string, email: string, optIn: boolean): Promise<void> {
+    try {
+      const result = await this.clientRepo
+        .createQueryBuilder()
+        .update(ClientRecord)
+        .set({ optInEmail: optIn })
+        .where('tenant_id = :tenantId', { tenantId })
+        .andWhere('LOWER(email) = :email', { email })
+        .execute();
+
+      if (result.affected) {
+        this.logger.log(
+          `optInEmail set to ${optIn} for ${result.affected} contact(s): ${email} (tenant: ${tenantId})`,
+        );
+      }
+    } catch (err) {
+      // Never let opt-in sync break the unsubscribe flow itself.
+      this.logger.error(`Failed to sync optInEmail for ${email} (tenant: ${tenantId})`, err as any);
+    }
   }
 
   /**
