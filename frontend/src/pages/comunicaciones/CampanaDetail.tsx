@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { useParams, useNavigate } from "react-router-dom";
-import { Users, Send, Calendar, Clock, RefreshCw, Pencil, List, Settings2, Filter, Play, Pause, CheckCircle } from "lucide-react";
+import { Users, Send, Calendar, Clock, RefreshCw, Pencil, List, Settings2, Filter, Play, Pause, CheckCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MessageEditor } from "@/components/campaigns/MessageEditor";
 import { WhatsAppTemplateSelector } from "@/components/campaigns/WhatsAppTemplateSelector";
@@ -55,6 +56,7 @@ interface CampaignSendRecord {
   totalSent: number;
   totalDelivered: number;
   totalFailed: number;
+  totalUndelivered: number;
   errorMessage: string | null;
   startedAt: string | null;
   completedAt: string | null;
@@ -67,6 +69,28 @@ interface SendFailure {
   contactName: string;
   errorCode: string | null;
   createdAt: string;
+}
+
+interface UndeliveredItem {
+  recordId: string;
+  phone: string;
+  contactName: string;
+  errorCode: string | null;
+  errorTitle: string | null;
+  errorDetail: string | null;
+  failedAt: string | null;
+}
+
+interface UndeliveredBreakdown {
+  errorCode: string | null;
+  errorTitle: string | null;
+  count: number;
+}
+
+interface UndeliveredResponse {
+  total: number;
+  breakdown: UndeliveredBreakdown[];
+  items: UndeliveredItem[];
 }
 
 const statusColors: Record<string, { bg: string; text: string }> = {
@@ -119,6 +143,15 @@ export function CampanaDetail() {
   const [expandedFailures, setExpandedFailures] = useState<string | null>(null);
   const [failuresBySend, setFailuresBySend] = useState<Record<string, SendFailure[]>>({});
   const [loadingFailures, setLoadingFailures] = useState<string | null>(null);
+  // No entregados por ejecución (sendId -> respuesta con breakdown e items).
+  const [expandedUndelivered, setExpandedUndelivered] = useState<string | null>(null);
+  const [undeliveredBySend, setUndeliveredBySend] = useState<Record<string, UndeliveredResponse>>({});
+  const [loadingUndelivered, setLoadingUndelivered] = useState<string | null>(null);
+  // Filtro de código de error activo por ejecución (null = todos).
+  const [undeliveredFilter, setUndeliveredFilter] = useState<Record<string, string | null>>({});
+  // Estado del modal de confirmación de reintento.
+  const [retryTarget, setRetryTarget] = useState<{ sendId: string; errorCode: string | null; count: number } | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const [recordLists, setRecordLists] = useState<RecordListItem[]>([]);
@@ -289,6 +322,64 @@ export function CampanaDetail() {
       connectSendWs(sendId);
     } catch (err: any) {
       setSendError(err.response?.data?.message || "No se pudo reanudar el envío");
+    }
+  };
+
+  // Carga (o recarga) los no entregados de una ejecución, con filtro opcional
+  // por código de error. El breakdown siempre refleja todos los no entregados.
+  const loadUndelivered = async (sendId: string, errorCode: string | null) => {
+    setLoadingUndelivered(sendId);
+    try {
+      const { data } = await api.get<UndeliveredResponse>(
+        `/campaigns/sends/${sendId}/undelivered`,
+        { params: errorCode ? { errorCode } : {} },
+      );
+      setUndeliveredBySend((prev) => ({ ...prev, [sendId]: data }));
+    } catch {
+      setUndeliveredBySend((prev) => ({ ...prev, [sendId]: { total: 0, breakdown: [], items: [] } }));
+    } finally {
+      setLoadingUndelivered(null);
+    }
+  };
+
+  // Expande/colapsa el detalle de no entregados y los carga on-demand.
+  const toggleUndelivered = async (sendId: string) => {
+    if (expandedUndelivered === sendId) {
+      setExpandedUndelivered(null);
+      return;
+    }
+    setExpandedUndelivered(sendId);
+    if (!undeliveredBySend[sendId]) {
+      await loadUndelivered(sendId, undeliveredFilter[sendId] ?? null);
+    }
+  };
+
+  // Aplica un filtro por código de error dentro del detalle de no entregados.
+  const applyUndeliveredFilter = async (sendId: string, errorCode: string | null) => {
+    setUndeliveredFilter((prev) => ({ ...prev, [sendId]: errorCode }));
+    await loadUndelivered(sendId, errorCode);
+  };
+
+  // Confirma el reintento: crea una nueva ejecución con los no entregados y
+  // recarga el historial. El modal lo dispara el botón "Reintentar".
+  const handleConfirmRetry = async () => {
+    if (!retryTarget) return;
+    setRetrying(true);
+    try {
+      const { errorCode } = retryTarget;
+      await api.post<CampaignSendRecord>(
+        `/campaigns/sends/${retryTarget.sendId}/retry-undelivered`,
+        null,
+        { params: errorCode ? { errorCode } : {} },
+      );
+      setRetryTarget(null);
+      // Recargar el historial para mostrar la nueva ejecución encolada.
+      await loadSends();
+    } catch (err: any) {
+      setSendError(err.response?.data?.message || "No se pudo reintentar el envío");
+      setRetryTarget(null);
+    } finally {
+      setRetrying(false);
     }
   };
 
@@ -1139,6 +1230,12 @@ export function CampanaDetail() {
                             <span className="text-muted-foreground">Fallidos:</span>
                             <span className="font-semibold text-red-600">{s.totalFailed.toLocaleString()}</span>
                           </div>
+                          {s.totalUndelivered > 0 && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-muted-foreground">No entregados:</span>
+                              <span className="font-semibold text-orange-600">{s.totalUndelivered.toLocaleString()}</span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Timestamps */}
@@ -1191,6 +1288,94 @@ export function CampanaDetail() {
                             )}
                           </div>
                         )}
+
+                        {/* Detalle de NO ENTREGADOS por destinatario (status asíncrono del proveedor) */}
+                        {s.totalUndelivered > 0 && (
+                          <div className="mt-2">
+                            <button
+                              onClick={() => toggleUndelivered(s.id)}
+                              className="text-[11px] font-medium text-orange-600 hover:text-orange-700 hover:underline"
+                            >
+                              {expandedUndelivered === s.id ? "Ocultar no entregados" : `Ver no entregados (${s.totalUndelivered})`}
+                            </button>
+                            {expandedUndelivered === s.id && (
+                              <div className="mt-2 rounded-md border border-orange-100 dark:border-orange-500/25 bg-orange-50/40 dark:bg-orange-500/10">
+                                {/* Filtros por código de error + acción de reintento */}
+                                {(undeliveredBySend[s.id]?.breakdown.length ?? 0) > 0 && (
+                                  <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-orange-100 dark:border-orange-500/20">
+                                    <button
+                                      onClick={() => applyUndeliveredFilter(s.id, null)}
+                                      className={cn(
+                                        "text-[10px] font-medium rounded-full px-2 py-0.5 border transition-colors",
+                                        (undeliveredFilter[s.id] ?? null) === null
+                                          ? "bg-orange-600 text-white border-orange-600"
+                                          : "border-orange-200 dark:border-orange-500/30 text-orange-700 dark:text-orange-300 hover:bg-orange-100/50 dark:hover:bg-orange-500/15",
+                                      )}
+                                    >
+                                      Todos ({undeliveredBySend[s.id].total})
+                                    </button>
+                                    {undeliveredBySend[s.id].breakdown.map((b) => (
+                                      <button
+                                        key={b.errorCode ?? "unknown"}
+                                        onClick={() => applyUndeliveredFilter(s.id, b.errorCode)}
+                                        title={b.errorTitle || undefined}
+                                        className={cn(
+                                          "text-[10px] font-medium rounded-full px-2 py-0.5 border transition-colors",
+                                          undeliveredFilter[s.id] === b.errorCode
+                                            ? "bg-orange-600 text-white border-orange-600"
+                                            : "border-orange-200 dark:border-orange-500/30 text-orange-700 dark:text-orange-300 hover:bg-orange-100/50 dark:hover:bg-orange-500/15",
+                                        )}
+                                      >
+                                        {b.errorCode || "desconocido"} ({b.count})
+                                      </button>
+                                    ))}
+                                    <button
+                                      onClick={() =>
+                                        setRetryTarget({
+                                          sendId: s.id,
+                                          errorCode: undeliveredFilter[s.id] ?? null,
+                                          count:
+                                            (undeliveredFilter[s.id] ?? null) === null
+                                              ? undeliveredBySend[s.id].total
+                                              : undeliveredBySend[s.id].breakdown.find(
+                                                  (b) => b.errorCode === undeliveredFilter[s.id],
+                                                )?.count ?? 0,
+                                        })
+                                      }
+                                      className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md px-2 py-1 transition-colors"
+                                    >
+                                      <RotateCcw className="h-3 w-3" />
+                                      Reintentar {(undeliveredFilter[s.id] ?? null) === null ? "todos" : "filtrados"}
+                                    </button>
+                                  </div>
+                                )}
+                                {/* Lista de destinatarios no entregados */}
+                                <div className="divide-y divide-orange-100 dark:divide-orange-500/20">
+                                  {loadingUndelivered === s.id ? (
+                                    <p className="text-[11px] text-muted-foreground px-3 py-2">Cargando...</p>
+                                  ) : (undeliveredBySend[s.id]?.items.length ?? 0) === 0 ? (
+                                    <p className="text-[11px] text-muted-foreground px-3 py-2">Sin detalle disponible.</p>
+                                  ) : (
+                                    undeliveredBySend[s.id].items.map((u, i) => (
+                                      <div key={i} className="flex items-start justify-between gap-3 px-3 py-1.5">
+                                        <div className="min-w-0">
+                                          <p className="text-[11px] font-medium text-foreground truncate">{u.contactName || u.phone}</p>
+                                          {u.errorDetail && (
+                                            <p className="text-[10px] text-muted-foreground truncate" title={u.errorDetail}>{u.errorDetail}</p>
+                                          )}
+                                        </div>
+                                        <span className="text-[11px] text-orange-600 text-right shrink-0 max-w-[45%] break-words">
+                                          {u.errorTitle || u.errorCode || "No entregado"}
+                                          {u.errorCode && u.errorTitle ? ` (${u.errorCode})` : ""}
+                                        </span>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1200,6 +1385,26 @@ export function CampanaDetail() {
           </div>
         </div>
       )}
+
+      {/* Confirmación de reintento de no entregados */}
+      <ConfirmModal
+        open={!!retryTarget}
+        onClose={() => setRetryTarget(null)}
+        onConfirm={handleConfirmRetry}
+        title="Reintentar envío a no entregados"
+        description={
+          retryTarget
+            ? `Se creará una nueva ejecución reenviando a ${retryTarget.count.toLocaleString()} ${
+                retryTarget.count === 1 ? "destinatario" : "destinatarios"
+              }${
+                retryTarget.errorCode ? ` con el código de error ${retryTarget.errorCode}` : ""
+              }. Esto consume créditos. Ten en cuenta que algunos errores (p. ej. contactos sin teléfono válido) volverán a fallar.`
+            : ""
+        }
+        confirmLabel="Reintentar"
+        variant="warning"
+        loading={retrying}
+      />
 
       {/* Segment Editor Modal */}
       {showSegmentEditor && (

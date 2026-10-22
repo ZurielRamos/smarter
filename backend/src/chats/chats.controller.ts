@@ -84,6 +84,13 @@ export class ChatsController {
     return this.chatsService.updateAutomations(id, body.rules);
   }
 
+  // Re-suscribir la WABA al webhook (campo 'messages') y diagnosticar.
+  // Útil para números ya conectados que no reciben mensajes entrantes.
+  @Post('inboxes/:id/resubscribe-webhook')
+  resubscribeWebhook(@Param('id') id: string) {
+    return this.chatsService.resubscribeInboxWebhook(id);
+  }
+
   // Configure the first-message welcome template for a WhatsApp channel
   @Put('inboxes/:id/first-message-template')
   updateFirstMessageTemplate(

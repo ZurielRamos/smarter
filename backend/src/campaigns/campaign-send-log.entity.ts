@@ -29,6 +29,9 @@ import {
 @Index(['campaignId', 'createdAt'])
 @Index(['tenantId', 'createdAt'])
 @Index(['phone', 'createdAt'])
+// Índice para reintentos selectivos: "dame los no entregados de este envío con
+// tal código de error" (p. ej. 131026). Mantiene barato el filtrado por código.
+@Index(['sendId', 'errorCode'])
 export class CampaignSendLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -59,15 +62,35 @@ export class CampaignSendLog {
 
   /** Estado del envío */
   @Column({ type: 'varchar', length: 20, default: 'pending' })
-  status: string; // pending, sent, delivered, failed, rejected
+  status: string; // pending, sent, delivered, failed, undelivered, rejected
 
   /** ID de mensaje del proveedor (para tracking de delivery) */
   @Column({ name: 'provider_message_id', type: 'varchar', length: 100, nullable: true })
   providerMessageId: string | null;
 
-  /** Error corto si falló */
+  /**
+   * Código de error corto y accionable para reintentos.
+   * - WhatsApp: el código numérico de Meta como string (p. ej. "131026").
+   * - Email (Mailgun): "bounce", "complained", "failed", etc.
+   * - Envío síncrono: el error de rechazo de la API en el momento del envío.
+   * Es la clave para reintentos selectivos por tipo de fallo.
+   */
   @Column({ name: 'error_code', type: 'varchar', length: 50, nullable: true })
   errorCode: string | null;
+
+  /**
+   * Título/categoría del error reportado por el proveedor (p. ej. el `title` de
+   * Meta "Message Undeliverable"). Legible y estable para agrupar fallos.
+   */
+  @Column({ name: 'error_title', type: 'varchar', length: 255, nullable: true })
+  errorTitle: string | null;
+
+  /**
+   * Detalle completo del error (mensaje + error_data.details de Meta, o la razón
+   * de Mailgun). Texto libre para diagnóstico; no se usa para filtrar.
+   */
+  @Column({ name: 'error_detail', type: 'text', nullable: true })
+  errorDetail: string | null;
 
   /** Timestamp de cuando se envió al proveedor */
   @Column({ name: 'sent_at', type: 'timestamptz', nullable: true })
@@ -76,6 +99,10 @@ export class CampaignSendLog {
   /** Timestamp de confirmación de entrega */
   @Column({ name: 'delivered_at', type: 'timestamptz', nullable: true })
   deliveredAt: Date | null;
+
+  /** Timestamp del fallo de entrega (p. ej. cuando llega el estado failed/131026) */
+  @Column({ name: 'failed_at', type: 'timestamptz', nullable: true })
+  failedAt: Date | null;
 
   /** Timestamp de primera apertura (email) */
   @Column({ name: 'opened_at', type: 'timestamptz', nullable: true })

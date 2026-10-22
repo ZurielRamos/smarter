@@ -32,11 +32,25 @@ export class CampaignSend {
   @Column({ name: 'total_sent', type: 'integer', default: 0 })
   totalSent: number;
 
+  /**
+   * Entregas confirmadas por el proveedor (webhook de estado). Distinto de
+   * `totalSent`, que solo cuenta lo aceptado por la API en el momento del envío.
+   */
   @Column({ name: 'total_delivered', type: 'integer', default: 0 })
   totalDelivered: number;
 
+  /** Fallos en el momento del envío (la API del proveedor rechazó el mensaje). */
   @Column({ name: 'total_failed', type: 'integer', default: 0 })
   totalFailed: number;
+
+  /**
+   * No entregados de forma asíncrona: la API aceptó el mensaje pero el proveedor
+   * luego reportó que no pudo entregarlo (p. ej. WhatsApp 131026). Se actualiza
+   * desde el webhook de estado, separado de `totalFailed` para poder reintentar
+   * por tipo de fallo.
+   */
+  @Column({ name: 'total_undelivered', type: 'integer', default: 0 })
+  totalUndelivered: number;
 
   /** Snapshot of recipient record IDs at execution time */
   @Column({ name: 'recipient_ids', type: 'jsonb', nullable: true })

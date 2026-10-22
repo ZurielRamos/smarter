@@ -9,6 +9,7 @@ import { Label } from './label.entity';
 import { Tenant } from '../tenants/tenant.entity';
 import { Activity } from '../records/activity.entity';
 import { CampaignSendLog } from '../campaigns/campaign-send-log.entity';
+import { CampaignSend } from '../campaigns/campaign-send.entity';
 import { UserTenant } from '../users/user-tenant.entity';
 import { ChatsService } from './chats.service';
 import { ChatsController, WebhookController } from './chats.controller';
@@ -35,7 +36,7 @@ import { WhatsAppFlowsModule } from '../whatsapp-flows/whatsapp-flows.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Inbox, Conversation, Message, InboxCollaborator, ClientRecord, Label, Tenant, Activity, CampaignSendLog, UserTenant]),
+    TypeOrmModule.forFeature([Inbox, Conversation, Message, InboxCollaborator, ClientRecord, Label, Tenant, Activity, CampaignSendLog, CampaignSend, UserTenant]),
     BillingModule,
     WebhooksModule,
     UsersModule,

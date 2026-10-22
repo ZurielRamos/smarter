@@ -152,6 +152,26 @@ export class CampaignsController {
     return this.campaignsService.getSendFailures(sendId);
   }
 
+  // No entregados de una ejecución (status='undelivered', p. ej. WhatsApp 131026),
+  // con resumen agrupado por código de error. ?errorCode filtra el detalle.
+  @Get('sends/:sendId/undelivered')
+  getUndelivered(
+    @Param('sendId') sendId: string,
+    @Query('errorCode') errorCode?: string,
+  ) {
+    return this.campaignsService.getUndelivered(sendId, errorCode);
+  }
+
+  // Reintenta los no entregados de una ejecución creando una nueva ejecución con
+  // ese subconjunto. ?errorCode limita el reintento a un código específico.
+  @Post('sends/:sendId/retry-undelivered')
+  retryUndelivered(
+    @Param('sendId') sendId: string,
+    @Query('errorCode') errorCode?: string,
+  ) {
+    return this.campaignsService.retryUndelivered(sendId, errorCode);
+  }
+
   @Post(':id/send')
   sendCampaign(@Param('id') id: string) {
     return this.campaignsService.sendCampaign(id);

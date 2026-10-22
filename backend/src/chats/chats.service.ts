@@ -21,6 +21,8 @@ import { ConversionsService } from '../conversions/conversions.service';
 import { BotsService } from '../bots/bots.service';
 import { SequentialFlowEngine } from '../bots/sequential-flow.engine';
 import { Activity } from '../records/activity.entity';
+import { CampaignSendLog } from '../campaigns/campaign-send-log.entity';
+import { CampaignSend } from '../campaigns/campaign-send.entity';
 import { EvolutionService } from '../evolution/evolution.service';
 import { SendPulseService } from '../sendpulse/sendpulse.service';
 import { isBridgeActive, getBridgeConfig } from '../sendpulse/sendpulse-bridge.types';
@@ -117,6 +119,10 @@ export class ChatsService {
     private readonly sequentialFlowEngine: SequentialFlowEngine,
     @InjectRepository(Activity)
     private readonly activityRepo: Repository<Activity>,
+    @InjectRepository(CampaignSendLog)
+    private readonly campaignSendLogRepo: Repository<CampaignSendLog>,
+    @InjectRepository(CampaignSend)
+    private readonly campaignSendRepo: Repository<CampaignSend>,
     @InjectRepository(UserTenant)
     private readonly userTenantRepo: Repository<UserTenant>,
     @Inject(forwardRef(() => EvolutionService))
@@ -662,16 +668,7 @@ export class ChatsService {
 
       // Subscribe WABA to webhook if we have wabaId
       if (data.wabaId) {
-        try {
-          await fetch(`https://graph.facebook.com/v21.0/${data.wabaId}/subscribed_apps`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ access_token: data.accessToken }),
-          });
-          console.log(`[Manual Connect] Subscribed WABA ${data.wabaId} to webhook`);
-        } catch (err) {
-          console.error('[Manual Connect] Failed to subscribe WABA:', err);
-        }
+        await this.subscribeWabaToWebhook(data.wabaId, data.accessToken, 'Manual Connect');
       }
     }
 
@@ -840,19 +837,73 @@ export class ChatsService {
 
     // Subscribe WABA to webhook
     if (wabaId) {
-      try {
-        await fetch(`https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ access_token: accessToken }),
-        });
-        console.log(`[WhatsApp Embedded] Subscribed WABA ${wabaId} to webhook`);
-      } catch (err) {
-        console.error('[WhatsApp Embedded] Failed to subscribe:', err);
-      }
+      await this.subscribeWabaToWebhook(wabaId, accessToken, 'WhatsApp Embedded');
     }
 
     return this.inboxRepo.save(inbox);
+  }
+
+  /**
+   * Suscribe la app a los webhooks de una WABA, pidiendo EXPLÍCITAMENTE el campo
+   * `messages` (mensajes entrantes + estados). Sin `subscribed_fields`, Meta
+   * puede no entregar los mensajes entrantes, con lo que la bandeja nunca los
+   * recibe. Verifica además qué campos quedaron suscritos para dejar rastro.
+   */
+  private async subscribeWabaToWebhook(wabaId: string, accessToken: string, tag: string): Promise<void> {
+    try {
+      const res = await fetch(`https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_token: accessToken,
+          subscribed_fields: ['messages'],
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.success === false) {
+        console.error(`[${tag}] subscribed_apps falló para WABA ${wabaId}:`, JSON.stringify(data).slice(0, 300));
+      } else {
+        console.log(`[${tag}] Suscrito WABA ${wabaId} al campo 'messages'`);
+      }
+
+      // Verificar qué campos quedaron suscritos (diagnóstico).
+      try {
+        const check = await fetch(`https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps?access_token=${accessToken}`);
+        const checkData = await check.json().catch(() => ({}));
+        console.log(`[${tag}] subscribed_apps actuales de WABA ${wabaId}:`, JSON.stringify(checkData).slice(0, 400));
+      } catch { /* no-op */ }
+    } catch (err) {
+      console.error(`[${tag}] Error al suscribir WABA ${wabaId}:`, err);
+    }
+  }
+
+  /**
+   * Re-suscribe la WABA de un inbox de WhatsApp ya conectado al campo `messages`
+   * y devuelve el estado actual de suscripción que reporta Meta. Pensado para
+   * reparar números que están conectados pero no reciben mensajes entrantes.
+   */
+  async resubscribeInboxWebhook(inboxId: string): Promise<{ ok: boolean; reason?: string; subscribed?: any }> {
+    const inbox = await this.findInboxById(inboxId);
+
+    if (inbox.channel !== 'whatsapp') {
+      return { ok: false, reason: 'El canal no es de WhatsApp' };
+    }
+    if (!inbox.wabaId || !inbox.accessToken) {
+      return { ok: false, reason: 'Falta wabaId o accessToken en el canal. Reconecta el número.' };
+    }
+
+    await this.subscribeWabaToWebhook(inbox.wabaId, inbox.accessToken, 'Resubscribe');
+
+    // Devolver los campos suscritos actuales para diagnóstico desde el frontend.
+    try {
+      const check = await fetch(
+        `https://graph.facebook.com/v21.0/${inbox.wabaId}/subscribed_apps?access_token=${inbox.accessToken}`,
+      );
+      const subscribed = await check.json().catch(() => ({}));
+      return { ok: true, subscribed };
+    } catch (err: any) {
+      return { ok: true, reason: `Suscrito, pero no se pudo verificar: ${err?.message || err}` };
+    }
   }
 
   // === WEBHOOK ===
@@ -2044,44 +2095,143 @@ export class ChatsService {
 
   private async handleWhatsAppStatuses(statuses: any[]): Promise<void> {
     for (const status of statuses) {
-      if (status.id) {
-        const message = await this.messageRepo.findOne({
-          where: { externalId: status.id },
-          relations: { conversation: { inbox: true } },
-        });
-        if (message) {
-          message.status = status.status; // sent, delivered, read, failed
-          await this.messageRepo.save(message);
+      if (!status.id) continue;
 
-          // If failed, create a system note with the error details
-          if (status.status === 'failed') {
-            const errObj = status.errors?.[0];
-            const errorCodeNum = errObj?.code;
-            const rawDetail = errObj?.message || errObj?.title || 'Error desconocido de WhatsApp';
-            // Meta incluye el motivo específico en error_data.details (p. ej. por qué
-            // no pudo cargar el multimedia). Es lo más útil para diagnosticar.
-            const metaDetails = errObj?.error_data?.details || null;
-            const errorCode = errorCodeNum ? ` (código: ${errorCodeNum})` : '';
-            console.error('[Webhook] WhatsApp message failed:', JSON.stringify({ externalId: status.id, errors: status.errors }));
-            const tenantId = message.conversation?.inbox?.tenantId;
-            const friendlyDetail = this.explainWhatsAppDeliveryError(
-              errorCodeNum,
-              rawDetail,
-              message.conversation?.contactId,
-            );
-            const detailSuffix = metaDetails ? ` — Detalle: ${metaDetails}` : '';
-            await this.createSystemNote(
-              message.conversationId,
-              `⚠️ Mensaje no entregado: ${friendlyDetail}${detailSuffix}${errorCode}`,
-              tenantId,
-            );
-          }
+      const message = await this.messageRepo.findOne({
+        where: { externalId: status.id },
+        relations: { conversation: { inbox: true } },
+      });
 
-          // Emit status update to frontend
-          this.chatsGateway.emitMessageStatus(message.conversationId, message.id, status.status);
+      // Datos de error normalizados (si el estado es failed). Se calculan una
+      // sola vez para reutilizarlos en la nota de sistema y en el log de campaña.
+      const errObj = status.status === 'failed' ? status.errors?.[0] : undefined;
+      const errorCodeNum: number | undefined = errObj?.code;
+      const errorTitle: string | null = errObj?.title || null;
+      const rawDetail: string = errObj?.message || errObj?.title || 'Error desconocido de WhatsApp';
+      // Meta incluye el motivo específico en error_data.details (p. ej. por qué
+      // no pudo cargar el multimedia). Es lo más útil para diagnosticar.
+      const metaDetails: string | null = errObj?.error_data?.details || null;
+
+      if (message) {
+        message.status = status.status; // sent, delivered, read, failed
+        await this.messageRepo.save(message);
+
+        // If failed, create a system note with the error details
+        if (status.status === 'failed') {
+          const errorCode = errorCodeNum ? ` (código: ${errorCodeNum})` : '';
+          console.error('[Webhook] WhatsApp message failed:', JSON.stringify({ externalId: status.id, errors: status.errors }));
+          const tenantId = message.conversation?.inbox?.tenantId;
+          const friendlyDetail = this.explainWhatsAppDeliveryError(
+            errorCodeNum,
+            rawDetail,
+            message.conversation?.contactId,
+          );
+          const detailSuffix = metaDetails ? ` — Detalle: ${metaDetails}` : '';
+          await this.createSystemNote(
+            message.conversationId,
+            `⚠️ Mensaje no entregado: ${friendlyDetail}${detailSuffix}${errorCode}`,
+            tenantId,
+          );
         }
+
+        // Emit status update to frontend
+        this.chatsGateway.emitMessageStatus(message.conversationId, message.id, status.status);
       }
+
+      // Write-back al log de campaña (si este wamid provino de un envío de
+      // campaña). El `providerMessageId` del log es el mismo wamid que
+      // `message.externalId`, así que sirve de clave de correlación aunque no
+      // haya mensaje en el chat. Esto alimenta los contadores de la ejecución y
+      // deja el detalle del error para reintentos selectivos.
+      await this.updateCampaignLogFromWhatsAppStatus(status.id, status.status, {
+        errorCodeNum,
+        errorTitle,
+        rawDetail,
+        metaDetails,
+      });
     }
+  }
+
+  /**
+   * Refleja el estado de entrega de WhatsApp en `campaign_send_logs` y recalcula
+   * los contadores agregados de la ejecución (`campaign_sends`).
+   *
+   * - delivered/read → status='delivered' + delivered_at (no se degrada).
+   * - failed         → status='undelivered' + código/título/detalle + failed_at.
+   *
+   * Se distingue 'undelivered' (la API aceptó el mensaje pero luego no se pudo
+   * entregar, p. ej. 131026) de 'failed' por rechazo síncrono en el envío, para
+   * poder reintentar por tipo de fallo.
+   */
+  private async updateCampaignLogFromWhatsAppStatus(
+    wamid: string,
+    waStatus: string,
+    err: {
+      errorCodeNum?: number;
+      errorTitle: string | null;
+      rawDetail: string;
+      metaDetails: string | null;
+    },
+  ): Promise<void> {
+    try {
+      const log = await this.campaignSendLogRepo.findOne({
+        where: { providerMessageId: wamid },
+      });
+      if (!log) return; // No proviene de una campaña
+
+      if (waStatus === 'delivered' || waStatus === 'read') {
+        // No degradar: si ya está entregado, no reescribir.
+        if (log.status !== 'delivered') {
+          log.status = 'delivered';
+          log.deliveredAt = log.deliveredAt || new Date();
+          await this.campaignSendLogRepo.save(log);
+          await this.recalcCampaignSendCounters(log.sendId);
+        }
+        return;
+      }
+
+      if (waStatus === 'failed') {
+        log.status = 'undelivered';
+        // Código numérico de Meta como string (clave para reintentos selectivos).
+        if (err.errorCodeNum != null) {
+          log.errorCode = String(err.errorCodeNum).substring(0, 50);
+        }
+        log.errorTitle = (err.errorTitle || 'Message Undeliverable').substring(0, 255);
+        const detail = err.metaDetails ? `${err.rawDetail} — ${err.metaDetails}` : err.rawDetail;
+        log.errorDetail = detail;
+        log.failedAt = new Date();
+        await this.campaignSendLogRepo.save(log);
+        await this.recalcCampaignSendCounters(log.sendId);
+      }
+    } catch (e) {
+      // No romper el procesamiento del webhook por un fallo de write-back.
+      console.error('[Webhook] Error actualizando campaign_send_log desde estado WA:', e);
+    }
+  }
+
+  /**
+   * Recalcula los contadores agregados de una ejecución a partir de sus logs.
+   * Hacerlo por agregación (en vez de incrementos) evita condiciones de carrera
+   * entre webhooks concurrentes del mismo envío.
+   */
+  private async recalcCampaignSendCounters(sendId: string): Promise<void> {
+    const row = await this.campaignSendLogRepo
+      .createQueryBuilder('l')
+      .select(
+        `COUNT(*) FILTER (WHERE l.status = 'delivered')`,
+        'delivered',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (WHERE l.status = 'undelivered')`,
+        'undelivered',
+      )
+      .where('l.send_id = :sendId', { sendId })
+      .getRawOne<{ delivered: string; undelivered: string }>();
+
+    await this.campaignSendRepo.update(sendId, {
+      totalDelivered: parseInt(row?.delivered ?? '0', 10),
+      totalUndelivered: parseInt(row?.undelivered ?? '0', 10),
+    });
   }
 
   private async handleMessengerMessage(pageId: string, event: any): Promise<void> {

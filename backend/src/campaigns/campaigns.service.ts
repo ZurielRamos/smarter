@@ -482,6 +482,151 @@ export class CampaignsService {
     }));
   }
 
+  /**
+   * Lista los destinatarios NO ENTREGADOS de una ejecución (status='undelivered':
+   * el proveedor aceptó el mensaje pero luego reportó que no pudo entregarlo, p.
+   * ej. WhatsApp 131026), opcionalmente filtrados por código de error.
+   *
+   * Devuelve además un `breakdown` agrupado por código/título de error para
+   * poder decidir qué subconjunto reintentar.
+   */
+  async getUndelivered(
+    sendId: string,
+    errorCode?: string,
+  ): Promise<{
+    total: number;
+    breakdown: Array<{ errorCode: string | null; errorTitle: string | null; count: number }>;
+    items: Array<{
+      recordId: string;
+      phone: string;
+      contactName: string;
+      errorCode: string | null;
+      errorTitle: string | null;
+      errorDetail: string | null;
+      failedAt: Date | null;
+    }>;
+  }> {
+    const where: Record<string, unknown> = { sendId, status: 'undelivered' };
+    if (errorCode) where.errorCode = errorCode;
+
+    const logs = await this.sendLogRepository.find({
+      where,
+      order: { failedAt: 'DESC' },
+      take: 1000,
+    });
+
+    // Resumen por código de error sobre TODOS los no entregados del envío
+    // (independiente del filtro), para que la UI muestre las opciones de filtro.
+    const breakdownRows = await this.sendLogRepository
+      .createQueryBuilder('l')
+      .select('l.error_code', 'errorCode')
+      .addSelect('MIN(l.error_title)', 'errorTitle')
+      .addSelect('COUNT(*)::int', 'count')
+      .where('l.send_id = :sendId AND l.status = :status', { sendId, status: 'undelivered' })
+      .groupBy('l.error_code')
+      .orderBy('count', 'DESC')
+      .getRawMany<{ errorCode: string | null; errorTitle: string | null; count: number }>();
+
+    const total = breakdownRows.reduce((sum, r) => sum + Number(r.count), 0);
+
+    if (logs.length === 0) {
+      return { total, breakdown: breakdownRows, items: [] };
+    }
+
+    // Resolver nombres de contacto en un solo query.
+    const recordIds = Array.from(new Set(logs.map((l) => l.recordId).filter(Boolean)));
+    const records = recordIds.length
+      ? await this.clientRepository.find({ where: { id: In(recordIds) } })
+      : [];
+    const nameById = new Map(
+      records.map((r) => [
+        r.id,
+        r.fullName || [r.firstName, r.lastName].filter(Boolean).join(' ') || r.phone || '',
+      ]),
+    );
+
+    return {
+      total,
+      breakdown: breakdownRows,
+      items: logs.map((l) => ({
+        recordId: l.recordId,
+        phone: l.phone,
+        contactName: nameById.get(l.recordId) || l.phone || '',
+        errorCode: l.errorCode,
+        errorTitle: l.errorTitle,
+        errorDetail: l.errorDetail,
+        failedAt: l.failedAt,
+      })),
+    };
+  }
+
+  /**
+   * Reintenta el envío a los destinatarios NO ENTREGADOS de una ejecución.
+   *
+   * Crea una NUEVA ejecución (`CampaignSend`) cuyo snapshot `recipientIds` es el
+   * subconjunto de no entregados (opcionalmente filtrado por código de error),
+   * reserva créditos para ese subconjunto y la encola. El worker la procesa igual
+   * que cualquier otro envío. No muta la ejecución original.
+   */
+  async retryUndelivered(sendId: string, errorCode?: string): Promise<CampaignSend> {
+    const originalSend = await this.sendRepository.findOneByOrFail({ id: sendId });
+    const campaign = await this.findOne(originalSend.campaignId);
+
+    const where: Record<string, unknown> = { sendId, status: 'undelivered' };
+    if (errorCode) where.errorCode = errorCode;
+
+    const logs = await this.sendLogRepository.find({
+      where,
+      select: { recordId: true },
+    });
+
+    // Dedupe de recordIds (un contacto no entregado se reintenta una sola vez).
+    const recipientIds = Array.from(
+      new Set(logs.map((l) => l.recordId).filter(Boolean)),
+    );
+
+    if (recipientIds.length === 0) {
+      throw new BadRequestException(
+        errorCode
+          ? `No hay mensajes no entregados con el código ${errorCode} en esta ejecución`
+          : 'No hay mensajes no entregados para reintentar en esta ejecución',
+      );
+    }
+
+    // Nueva ejecución con el subconjunto como snapshot.
+    const retrySend = this.sendRepository.create({
+      campaignId: campaign.id,
+      status: 'queued',
+      totalRecipients: recipientIds.length,
+      recipientIds,
+    });
+    const savedSend = await this.sendRepository.save(retrySend);
+
+    // Reservar créditos para el subconjunto (mismo patrón que sendCampaign).
+    if (campaign.tenantId) {
+      const costAction = this.getCostActionForChannel(campaign.channel, campaign.whatsappTemplateCategory);
+      const unitCost = await this.billingService.getEffectiveActionCost(campaign.tenantId, costAction);
+      if (unitCost !== null) {
+        const totalToReserve = recipientIds.length * unitCost;
+        await this.billingService.reserve(campaign.tenantId, totalToReserve, savedSend.id);
+      }
+    }
+
+    // Encolar el job (idéntico payload que un envío normal).
+    await this.sendQueue.add(
+      'send-campaign',
+      { sendId: savedSend.id, campaignId: campaign.id },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      },
+    );
+
+    return savedSend;
+  }
+
   async sendCampaign(campaignId: string): Promise<CampaignSend> {
     const campaign = await this.findOne(campaignId);
 
