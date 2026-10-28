@@ -41,6 +41,7 @@ export class RecordsService {
     'city', 'region', 'status', 'channelSource', 'source', 'score',
     'optInWhatsapp', 'optInEmail', 'assignedTo',
     'lastContactAt', 'lastActivityAt', 'tags',
+    'createdAt', 'updatedAt',
   ]);
 
   async createRecord(data: { tenantId: string; firstName?: string; lastName?: string; phone?: string; email?: string; status?: string; channelSource?: string; tags?: string[]; customData?: Record<string, any> }): Promise<ClientRecord> {
