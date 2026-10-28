@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { api } from "@/services/api";
-import logoCompleto from "@/assets/logo-completo.png";
+import { Logo } from "@/components/Logo";
 
 export function ForgotPassword() {
   const navigate = useNavigate();
@@ -28,7 +28,7 @@ export function ForgotPassword() {
         <div className="bg-card rounded-2xl shadow-sm border border-border p-8">
           {/* Logo */}
           <div className="text-center mb-6">
-            <img src={logoCompleto} alt="Smarter" className="h-10 mx-auto mb-4" />
+            <Logo className="h-10 mx-auto mb-4" />
           </div>
 
           {sent ? (

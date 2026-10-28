@@ -1,5 +1,5 @@
 import { ArrowLeft, Undo2, Redo2, Eye, Monitor, Smartphone, Save, SendHorizontal } from "lucide-react";
-import logoIcon from "@/assets/icon.svg";
+import { Logo } from "@/components/Logo";
 
 interface BuilderToolbarProps {
   templateName: string;
@@ -20,7 +20,7 @@ export function BuilderToolbar({ templateName, onNameChange, previewMode, setPre
   return (
     <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-card shrink-0">
       <div className="flex items-center gap-4">
-        <img src={logoIcon} alt="Logo" className="h-7 w-7" />
+        <Logo variant="icon" className="h-7 w-7" />
         <button onClick={onClose} className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-brand-700 transition-colors">
           <ArrowLeft className="h-5 w-5" />
         </button>

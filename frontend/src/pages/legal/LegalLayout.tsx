@@ -1,8 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
-import logo from "@/assets/logo.svg";
+import { useBranding } from "@/context/BrandingContext";
+import { Logo } from "@/components/Logo";
 
 export function LegalLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const branding = useBranding();
 
   const navLinks = [
     { to: "/privacy", label: "Política de Privacidad" },
@@ -17,7 +19,7 @@ export function LegalLayout({ children }: { children: React.ReactNode }) {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2">
-              <img src={logo} alt="Smarter" className="h-7" />
+              <Logo className="h-7" />
             </Link>
             <nav className="hidden sm:flex items-center gap-6">
               {navLinks.map((link) => (
@@ -46,7 +48,7 @@ export function LegalLayout({ children }: { children: React.ReactNode }) {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <img src={logo} alt="Smarter" className="h-5 opacity-60" />
+              <Logo className="h-5 opacity-60" />
               <span className="text-xs text-muted-foreground">© {new Date().getFullYear()} Todos los derechos reservados.</span>
             </div>
             <div className="flex items-center gap-4">
@@ -63,7 +65,7 @@ export function LegalLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="mt-4 pt-4 border-t border-border text-center">
             <p className="text-[11px] text-muted-foreground">
-              Smarter es una plataforma de comunicaciones empresariales desarrollada por Strategee.
+              {branding.name} es una plataforma de comunicaciones empresariales desarrollada por Strategee.
               Para consultas: notificaciones@strategee.us
             </p>
           </div>

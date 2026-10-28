@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CheckCircle, Loader2 } from "lucide-react";
 import axios from "axios";
+import { useBranding } from "@/context/BrandingContext";
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
 
@@ -31,6 +32,7 @@ interface FormData {
 }
 
 export function PublicForm() {
+  const branding = useBranding();
   const { formSlug } = useParams();
   const [form, setForm] = useState<FormData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -201,7 +203,7 @@ export function PublicForm() {
             </button>
           </form>
         </div>
-        <p className="text-center text-[10px] text-muted-foreground mt-4">Powered by Smarter</p>
+        <p className="text-center text-[10px] text-muted-foreground mt-4">Powered by {branding.name}</p>
       </div>
     </div>
   );

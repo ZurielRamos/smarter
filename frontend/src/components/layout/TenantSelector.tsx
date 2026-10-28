@@ -3,11 +3,13 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Check } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import iconSvg from "@/assets/icon.svg";
+import { useBranding } from "@/context/BrandingContext";
 
 export function TenantSelector() {
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
+  const branding = useBranding();
+  const iconSvg = branding.iconUrl;
   const { slug } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -45,7 +47,7 @@ export function TenantSelector() {
   }
 
   // Determine what to show as the current selection
-  const currentLabel = isOnAdmin ? "Smarter Admin" : currentTenant?.tenant.name ?? "Smarter";
+  const currentLabel = isOnAdmin ? `${branding.name} Admin` : currentTenant?.tenant.name ?? branding.name;
   const currentIcon = isOnAdmin
     ? null
     : currentTenant?.tenant.iconPath
@@ -61,7 +63,7 @@ export function TenantSelector() {
         {currentIcon ? (
           <img src={currentIcon} alt={currentLabel} className="h-8 w-8 rounded-lg object-cover" />
         ) : (
-          <img src={iconSvg} alt="Smarter" className="h-8 w-8 object-contain invert brightness-0" style={{ filter: 'invert(1)' }} />
+          <img src={iconSvg} alt={branding.name} className="h-8 w-8 object-contain invert brightness-0" style={{ filter: 'invert(1)' }} />
         )}
         <span className="text-sm font-medium text-white">{currentLabel}</span>
       </div>
@@ -75,11 +77,11 @@ export function TenantSelector() {
         className="flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer"
       >
         {isOnAdmin ? (
-          <img src={iconSvg} alt="Smarter" className="h-8 w-8 object-contain" style={{ filter: 'invert(1)' }} />
+          <img src={iconSvg} alt={branding.name} className="h-8 w-8 object-contain" style={{ filter: 'invert(1)' }} />
         ) : currentIcon ? (
           <img src={currentIcon} alt={currentLabel} className="h-8 w-8 rounded-lg object-cover" />
         ) : (
-          <img src={iconSvg} alt="Smarter" className="h-8 w-8 object-contain" style={{ filter: 'invert(1)' }} />
+          <img src={iconSvg} alt={branding.name} className="h-8 w-8 object-contain" style={{ filter: 'invert(1)' }} />
         )}
         <span className="text-sm font-medium text-white">{currentLabel}</span>
         <ChevronDown
@@ -108,9 +110,9 @@ export function TenantSelector() {
                   onClick={handleSelectAdmin}
                   className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted transition-colors"
                 >
-                  <img src={iconSvg} alt="Smarter Admin" className="h-8 w-8 object-contain" />
+                  <img src={iconSvg} alt={`${branding.name} Admin`} className="h-8 w-8 object-contain" />
                   <div className="flex-1 text-left">
-                    <p className="text-sm font-medium text-foreground">Smarter Admin</p>
+                    <p className="text-sm font-medium text-foreground">{branding.name} Admin</p>
                     <p className="text-xs text-muted-foreground">Panel de administración</p>
                   </div>
                   {isOnAdmin && <Check className="h-4 w-4 text-accent-500" />}

@@ -1,12 +1,15 @@
 import { useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { AdminHeader } from "./AdminHeader";
+import { useBranding } from "@/context/BrandingContext";
 import whiteBg from "@/assets/white-background.jpg";
 
 export function AdminLayout() {
+  const branding = useBranding();
+
   useEffect(() => {
-    document.title = "Smarter | Reach further, connect smarter";
-  }, []);
+    document.title = `${branding.name} Admin`;
+  }, [branding.name]);
 
   return (
     <div

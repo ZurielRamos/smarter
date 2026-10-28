@@ -16,7 +16,7 @@ import {
   Clock,
   HeadphonesIcon,
 } from "lucide-react";
-import logo from "@/assets/logo.svg";
+import { Logo } from "@/components/Logo";
 
 const FEATURES = [
   {
@@ -116,7 +116,7 @@ export function Landing() {
       <nav className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="Smarter" className="h-6" />
+            <Logo className="h-6" />
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm text-gray-600">
             <a href="#features" className="hover:text-gray-900 transition-colors">Funcionalidades</a>
@@ -472,7 +472,7 @@ export function Landing() {
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div>
-              <img src={logo} alt="Smarter" className="h-5 mb-4" />
+              <Logo className="h-5 mb-4" />
               <p className="text-xs text-gray-500 leading-relaxed">
                 Plataforma de comunicación empresarial para equipos que necesitan escalar.
               </p>

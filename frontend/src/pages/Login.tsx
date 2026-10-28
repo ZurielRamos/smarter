@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
-import logoCompleto from '../assets/icon.svg';
+import { useBranding } from '../context/BrandingContext';
+import { Logo } from '../components/Logo';
 import heroBg from '../assets/hero.png';
 import loginBg from '../assets/login-background.jpg';
 
@@ -20,6 +21,7 @@ export function Login() {
   const [ripples, setRipples] = useState<{ x: number; y: number; id: number }[]>([]);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const { login, loginWithGoogle } = useAuth();
+  const branding = useBranding();
   const navigate = useNavigate();
 
   const googleLogin = useGoogleLogin({
@@ -115,13 +117,12 @@ export function Login() {
         >
           {/* Logo */}
           <div className="mb-8">
-            <img
-              src={logoCompleto}
-              alt="Smarter"
+            <Logo
+              variant="icon"
               className="h-14 mb-4 brightness-0 invert"
             />
             <h1 className="text-2xl font-bold text-white">
-              Bienvenido a Smarter
+              Bienvenido a {branding.name}
             </h1>
           </div>
 
@@ -320,7 +321,7 @@ export function Login() {
 
           {/* Footer */}
           <p className="mt-8 text-center text-xs text-white/50">
-            © 2026 Smarter · Reach further, connect smarter
+            © {new Date().getFullYear()} {branding.name}
           </p>
         </motion.div>
       </div>

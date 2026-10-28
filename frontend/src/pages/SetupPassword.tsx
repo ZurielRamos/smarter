@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Lock, CheckCircle2, AlertCircle } from "lucide-react";
 import { api } from "@/services/api";
-import logoCompleto from "@/assets/logo-completo.png";
+import { useBranding } from "@/context/BrandingContext";
+import { Logo } from "@/components/Logo";
 
 export function SetupPassword() {
+  const branding = useBranding();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get("token") || "";
@@ -20,7 +22,7 @@ export function SetupPassword() {
   const title = isReset ? "Cambiar contraseña" : "Establece tu contraseña";
   const subtitle = isReset
     ? "Ingresa tu nueva contraseña"
-    : "Completa tu registro configurando una contraseña segura para acceder a Smarter";
+    : `Completa tu registro configurando una contraseña segura para acceder a ${branding.name}`;
   const buttonText = isReset ? "Cambiar contraseña" : "Crear mi cuenta";
 
   const passwordsMatch = password === confirmPassword && password.length > 0;
@@ -67,7 +69,7 @@ export function SetupPassword() {
         <div className="bg-card rounded-2xl shadow-sm border border-border p-8">
           {/* Logo */}
           <div className="text-center mb-6">
-            <img src={logoCompleto} alt="Smarter" className="h-10 mx-auto mb-4" />
+            <Logo className="h-10 mx-auto mb-4" />
             <h1 className="text-xl font-bold text-foreground">{title}</h1>
             <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
           </div>

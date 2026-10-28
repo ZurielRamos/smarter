@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronRight, ChevronDown, Copy, CheckCircle2, Play, X, Loader2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import logo from "@/assets/logo.svg";
+import { Logo } from "@/components/Logo";
 
 interface EndpointDef {
   id: string;
@@ -1119,7 +1119,7 @@ export function ApiReference() {
       <aside className="w-64 border-r border-border flex flex-col shrink-0 bg-muted/50">
         <div className="px-4 py-3.5 border-b border-border">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="Smarter" className="h-5" />
+            <Logo className="h-5" />
             <span className="text-xs font-bold text-foreground">API Reference</span>
           </div>
         </div>

@@ -8,6 +8,7 @@ import {
   validateFields,
   type SurveyScreen,
 } from "./SurveyFormFields";
+import { useBranding } from "@/context/BrandingContext";
 
 // Cliente sin interceptores de auth: la encuesta pública no requiere token.
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
@@ -24,6 +25,7 @@ interface PublicSurveyData {
 }
 
 export function PublicSurvey() {
+  const branding = useBranding();
   const { surveySlug } = useParams();
   const [searchParams] = useSearchParams();
   const agentToken = searchParams.get("a"); // enlace por agente: /s/:slug?a=token
@@ -271,7 +273,7 @@ export function PublicSurvey() {
             </form>
           )}
         </div>
-        <p className="text-center text-[10px] text-muted-foreground mt-4">Powered by Smarter</p>
+        <p className="text-center text-[10px] text-muted-foreground mt-4">Powered by {branding.name}</p>
       </div>
     </div>
   );
