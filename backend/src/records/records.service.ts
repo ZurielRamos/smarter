@@ -591,6 +591,14 @@ export class RecordsService {
       const col = isCustom ? `client.custom_data ->> '${f.field}'` : `client.${this.toSnakeCase(f.field)}`;
       const isTimestamp = this.TIMESTAMP_FIELDS.has(f.field);
 
+      // For date comparisons we need a timestamp-typed expression. A real
+      // column is already a timestamp, but a JSONB value (`->>`) is text and
+      // must be cast. The cast is guarded so rows holding non-date text don't
+      // blow up the whole query.
+      const tsCol = isCustom
+        ? `CASE WHEN (${col}) ~ '^\\d{4}-\\d{2}-\\d{2}' THEN (${col})::timestamp ELSE NULL END`
+        : col;
+
       switch (f.operator) {
         case 'equals':
           if (!f.value || f.value.trim() === '') {
@@ -599,7 +607,7 @@ export class RecordsService {
             // The value is a plain date (YYYY-MM-DD) but the column is a
             // timestamp, so an exact `=` would only match rows created at
             // 00:00:00. Match the whole calendar day instead.
-            qb.andWhere(`${col} >= :${paramKey} AND ${col} < (:${paramKey}::date + INTERVAL '1 day')`, { [paramKey]: f.value });
+            qb.andWhere(`${tsCol} >= :${paramKey}::date AND ${tsCol} < (:${paramKey}::date + INTERVAL '1 day')`, { [paramKey]: f.value });
           } else {
             qb.andWhere(`${col} = :${paramKey}`, { [paramKey]: f.value });
           }
@@ -608,7 +616,7 @@ export class RecordsService {
           if (!f.value || f.value.trim() === '') {
             qb.andWhere(`${col} IS NOT NULL`);
           } else if (isTimestamp && this.isDateOnly(f.value)) {
-            qb.andWhere(`(${col} < :${paramKey} OR ${col} >= (:${paramKey}::date + INTERVAL '1 day'))`, { [paramKey]: f.value });
+            qb.andWhere(`(${tsCol} < :${paramKey}::date OR ${tsCol} >= (:${paramKey}::date + INTERVAL '1 day'))`, { [paramKey]: f.value });
           } else {
             qb.andWhere(`${col} != :${paramKey}`, { [paramKey]: f.value });
           }
@@ -623,19 +631,21 @@ export class RecordsService {
           if (!f.value || f.value.trim() === '') break;
           if (isTimestamp && this.isDateOnly(f.value)) {
             // "mayor que <día>" means strictly after that calendar day.
-            qb.andWhere(`${col} >= (:${paramKey}::date + INTERVAL '1 day')`, { [paramKey]: f.value });
+            qb.andWhere(`${tsCol} >= (:${paramKey}::date + INTERVAL '1 day')`, { [paramKey]: f.value });
           } else if (isTimestamp) {
-            qb.andWhere(`${col} > :${paramKey}`, { [paramKey]: f.value });
+            qb.andWhere(`${tsCol} > :${paramKey}::timestamp`, { [paramKey]: f.value });
           } else {
             qb.andWhere(`${col}::numeric > :${paramKey}`, { [paramKey]: Number(f.value) });
           }
           break;
         case 'less_than':
           if (!f.value || f.value.trim() === '') break;
-          if (isTimestamp) {
-            // For a date-only value this is already the start of the day, so
-            // "menor que <día>" correctly excludes the whole target day.
-            qb.andWhere(`${col} < :${paramKey}`, { [paramKey]: f.value });
+          if (isTimestamp && this.isDateOnly(f.value)) {
+            // Date-only value is the start of the day, so "menor que <día>"
+            // correctly excludes the whole target day.
+            qb.andWhere(`${tsCol} < :${paramKey}::date`, { [paramKey]: f.value });
+          } else if (isTimestamp) {
+            qb.andWhere(`${tsCol} < :${paramKey}::timestamp`, { [paramKey]: f.value });
           } else {
             qb.andWhere(`${col}::numeric < :${paramKey}`, { [paramKey]: Number(f.value) });
           }
