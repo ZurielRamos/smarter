@@ -1,9 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import * as express from 'express';
 import { AppModule } from './app.module';
+import { CursosPortalService } from './cursos/cursos-portal.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -61,8 +62,60 @@ async function bootstrap() {
     exclude: ['uploads/(.*)', 'webhooks/(.*)'],
   });
 
-  // SPA fallback: rutas del frontend devuelven index.html
   const expressApp = app.getHttpAdapter().getInstance();
+
+  // Open Graph / Twitter Card para el portal de academy: los scrapers de redes
+  // (WhatsApp, Facebook, LinkedIn, X) NO ejecutan JS, así que servimos el
+  // index.html con las etiquetas meta inyectadas en el servidor para que el
+  // enlace compartido se vea con título, descripción e imagen.
+  const portalMeta = app.get(CursosPortalService, { strict: false });
+  const escapeHtml = (s: string) =>
+    s
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+  expressApp.get(/^\/academy\/([^/?#]+)/, async (req, res, next) => {
+    try {
+      const slug = decodeURIComponent((req.params as any)[0] || '');
+      const indexPath = join(frontendPath, 'index.html');
+      if (!slug || !existsSync(indexPath)) return next();
+
+      const meta = await portalMeta.getPortalMeta(slug);
+      if (!meta) return next();
+
+      const url = `${req.protocol}://${req.get('host')}${req.originalUrl.split('?')[0]}`;
+      const img = meta.image ? escapeHtml(meta.image) : '';
+      const tags = [
+        `<title>${escapeHtml(meta.title)}</title>`,
+        `<meta name="description" content="${escapeHtml(meta.description)}" />`,
+        `<meta property="og:type" content="website" />`,
+        `<meta property="og:site_name" content="${escapeHtml(meta.tenantName)}" />`,
+        `<meta property="og:title" content="${escapeHtml(meta.title)}" />`,
+        `<meta property="og:description" content="${escapeHtml(meta.description)}" />`,
+        `<meta property="og:url" content="${escapeHtml(url)}" />`,
+        img ? `<meta property="og:image" content="${img}" />` : '',
+        `<meta name="twitter:card" content="${img ? 'summary_large_image' : 'summary'}" />`,
+        `<meta name="twitter:title" content="${escapeHtml(meta.title)}" />`,
+        `<meta name="twitter:description" content="${escapeHtml(meta.description)}" />`,
+        img ? `<meta name="twitter:image" content="${img}" />` : '',
+      ]
+        .filter(Boolean)
+        .join('\n    ');
+
+      let html = readFileSync(indexPath, 'utf8');
+      // Quita el <title> por defecto del build e inserta las etiquetas antes de </head>.
+      html = html.replace(/<title>.*?<\/title>/i, '');
+      html = html.replace('</head>', `    ${tags}\n  </head>`);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(html);
+    } catch {
+      return next();
+    }
+  });
+
+  // SPA fallback: rutas del frontend devuelven index.html
   expressApp.use((req, res, next) => {
     // Solo el pathname, sin querystring, para no confundir un token
     // (p.ej. JWT que termina en ".xxxx") con una extensión de archivo.

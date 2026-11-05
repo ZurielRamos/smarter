@@ -8,7 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tenant } from '../tenants/tenant.entity';
-import { REQUIRES_FEATURE_KEY } from './requires-feature.decorator';
+import { REQUIRES_FEATURE_KEY, TenantFeature } from './requires-feature.decorator';
 
 /**
  * Guard que bloquea el acceso a módulos opcionales del CRM cuando el feature flag
@@ -29,7 +29,7 @@ export class ModuleFeatureGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const feature = this.reflector.getAllAndOverride<'companies' | 'projects'>(
+    const feature = this.reflector.getAllAndOverride<TenantFeature>(
       REQUIRES_FEATURE_KEY,
       [context.getHandler(), context.getClass()],
     );

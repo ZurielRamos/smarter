@@ -99,6 +99,7 @@ export class AuthService {
             name: tr.tenant.name,
             slug: tr.tenant.slug,
             iconPath: tr.tenant.iconPath,
+            features: tr.tenant.features ?? null,
           },
         })),
         pendingInvites: pendingInvites.map((tr) => ({
@@ -198,6 +199,7 @@ export class AuthService {
             name: tr.tenant.name,
             slug: tr.tenant.slug,
             iconPath: tr.tenant.iconPath,
+            features: tr.tenant.features ?? null,
           },
         })),
         pendingInvites: pendingInvites.map((tr) => ({
@@ -251,6 +253,7 @@ export class AuthService {
           name: tr.tenant.name,
           slug: tr.tenant.slug,
           iconPath: tr.tenant.iconPath,
+          features: tr.tenant.features ?? null,
         },
       })),
       pendingInvites: pendingInvites.map((tr) => ({

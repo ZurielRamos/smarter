@@ -25,6 +25,11 @@ const Integraciones = lazy(() => import("./pages/Integraciones").then((m) => ({ 
 const Webhooks = lazy(() => import("./pages/Webhooks").then((m) => ({ default: m.Webhooks })));
 const WooCommerceIntegration = lazy(() => import("./pages/WooCommerceIntegration").then((m) => ({ default: m.WooCommerceIntegration })));
 const ApiReference = lazy(() => import("./pages/ApiReference").then((m) => ({ default: m.ApiReference })));
+const Cursos = lazy(() => import("./pages/cursos/Cursos").then((m) => ({ default: m.Cursos })));
+const PortalConfig = lazy(() => import("./pages/cursos/PortalConfig").then((m) => ({ default: m.PortalConfig })));
+const CursoDetail = lazy(() => import("./pages/cursos/CursoDetail").then((m) => ({ default: m.CursoDetail })));
+const PublicCourse = lazy(() => import("./pages/cursos/PublicCourse").then((m) => ({ default: m.PublicCourse })));
+const AcademyPortal = lazy(() => import("./pages/cursos/AcademyPortal").then((m) => ({ default: m.AcademyPortal })));
 const Encuestas = lazy(() => import("./pages/encuestas/Encuestas").then((m) => ({ default: m.Encuestas })));
 const EncuestaDetail = lazy(() => import("./pages/encuestas/EncuestaDetail").then((m) => ({ default: m.EncuestaDetail })));
 const PublicSurvey = lazy(() => import("./pages/encuestas/PublicSurvey").then((m) => ({ default: m.PublicSurvey })));
@@ -114,6 +119,8 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/f/:formSlug" element={<PublicForm />} />
             <Route path="/s/:surveySlug" element={<PublicSurvey />} />
+            <Route path="/c/:slug" element={<PublicCourse />} />
+            <Route path="/academy/:tenantSlug/*" element={<AcademyPortal />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/data-deletion" element={<DataDeletion />} />
@@ -148,6 +155,9 @@ function App() {
               <Route path="/:slug/encuestas" element={<Encuestas />}>
                 <Route path=":surveyId" element={<EncuestaDetail />} />
               </Route>
+              <Route path="/:slug/cursos" element={<Cursos />} />
+              <Route path="/:slug/cursos/portal-config" element={<PortalConfig />} />
+              <Route path="/:slug/cursos/:courseId" element={<CursoDetail />} />
               <Route path="/:slug/comunicaciones" element={<ComunicacionesLayout />}>
                 <Route index element={<Navigate to="conversaciones" replace />} />
                 <Route path="conversaciones" element={<Conversaciones />} />

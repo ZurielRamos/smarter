@@ -21,8 +21,11 @@ import {
   ArrowDownCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import { api } from "@/services/api";
 import { ModelSelector } from "@/components/ModelSelector";
+import { MANAGEABLE_MODULES, isModuleEnabled } from "@/config/modules";
+import { LayoutGrid, Loader2 as Spinner, Check } from "lucide-react";
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -41,6 +44,13 @@ const ACTIONS = [
   { action: "ai_output_tokens", label: "1M Tokens Salida", icon: Bot, color: "text-emerald-600", bg: "bg-emerald-50" },
 ];
 
+interface TenantFeatures {
+  companies?: boolean;
+  projects?: boolean;
+  cursos?: boolean;
+  [key: string]: unknown;
+}
+
 interface TenantDetail {
   id: string;
   name: string;
@@ -49,6 +59,7 @@ interface TenantDetail {
   isActive: boolean;
   isDev: boolean;
   maxAgents: number;
+  features: TenantFeatures | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -109,6 +120,9 @@ export function AdminAccountDetail() {
   // Config modal
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [configForm, setConfigForm] = useState({ name: "", maxAgents: 5, isDev: false, monthlyCredits: 0, rollover: false });
+
+  // Módulos (feature flags) — se guardan al instante desde la tarjeta Módulos.
+  const [savingModule, setSavingModule] = useState<string | null>(null);
   const [configLoading, setConfigLoading] = useState(false);
 
   // Transactions (infinite scroll)
@@ -208,7 +222,7 @@ export function AdminAccountDetail() {
         maxAgents: configForm.maxAgents,
         isDev: configForm.isDev,
       });
-      setTenant(data);
+      setTenant((prev) => ({ ...data, features: prev?.features ?? data.features }));
       // Update billing plan
       await api.patch(`/tenants/${tenantId}/billing/plan`, {
         type: "monthly",
@@ -219,6 +233,27 @@ export function AdminAccountDetail() {
       setShowConfigModal(false);
     } catch {}
     setConfigLoading(false);
+  };
+
+  /** Activa/desactiva un módulo (feature flag) del tenant al instante. */
+  const toggleModule = async (key: string, enabled: boolean) => {
+    if (!tenantId) return;
+    setSavingModule(key);
+    // Optimista: refleja el cambio de inmediato.
+    setTenant((prev) => (prev ? { ...prev, features: { ...(prev.features || {}), [key]: enabled } } : prev));
+    try {
+      const { data } = await api.patch<{ features: TenantFeatures }>(`/tenants/${tenantId}/features`, {
+        [key]: enabled,
+      });
+      setTenant((prev) => (prev ? { ...prev, features: data.features } : prev));
+      toast.success(enabled ? "Módulo activado" : "Módulo desactivado");
+    } catch {
+      // Revertir en error.
+      setTenant((prev) => (prev ? { ...prev, features: { ...(prev.features || {}), [key]: !enabled } } : prev));
+      toast.error("No se pudo actualizar el módulo");
+    } finally {
+      setSavingModule(null);
+    }
   };
 
   const openCostModal = async () => {
@@ -449,6 +484,63 @@ export function AdminAccountDetail() {
             {plan && plan.type === "monthly" && (
               <p className="text-xs text-muted-foreground mt-1">{plan.monthlyCredits.toLocaleString()} créditos/mes</p>
             )}
+          </div>
+        </div>
+
+        {/* Módulos */}
+        <div className="bg-card rounded-xl border border-border p-5 mb-6">
+          <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+            <LayoutGrid className="h-4 w-4 text-muted-foreground" />
+            Módulos
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Activa o desactiva los módulos disponibles para esta cuenta. Contactos está siempre activo.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Contactos: siempre activo, no desactivable */}
+            <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/50">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">Contactos</p>
+                <p className="text-xs text-muted-foreground mt-0.5">CRM de contactos (siempre activo)</p>
+              </div>
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 shrink-0">
+                <Check className="h-3.5 w-3.5" /> Activo
+              </span>
+            </div>
+
+            {MANAGEABLE_MODULES.map((mod) => {
+              const enabled = isModuleEnabled(mod, tenant.features);
+              const saving = savingModule === mod.key;
+              return (
+                <div
+                  key={mod.key}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/50"
+                >
+                  <div className="min-w-0 pr-2">
+                    <p className="text-sm font-medium text-foreground">{mod.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{mod.description}</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => toggleModule(mod.key as string, !enabled)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 disabled:opacity-60 ${
+                      enabled ? "bg-brand-600" : "bg-gray-300 dark:bg-gray-600"
+                    }`}
+                  >
+                    {saving ? (
+                      <Spinner className="h-3.5 w-3.5 animate-spin text-white mx-auto" />
+                    ) : (
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-card transition-transform shadow-sm ${
+                          enabled ? "translate-x-6" : "translate-x-1"
+                        }`}
+                      />
+                    )}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
 

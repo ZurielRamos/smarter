@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, Tag, MessageSquare, Camera, MoreHorizontal, StickyNote, Plus, Trash2, User, ArrowRightLeft, UserPlus, Send, Pencil, Clock, ShoppingCart, CalendarCheck, Presentation, Star, FileText, Zap, Workflow, CheckCircle2, X } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, Calendar, Tag, MessageSquare, Camera, MoreHorizontal, StickyNote, Plus, Trash2, User, ArrowRightLeft, UserPlus, Send, Pencil, Clock, ShoppingCart, CalendarCheck, Presentation, Star, FileText, Zap, Workflow, CheckCircle2, X, GraduationCap, Trophy, Loader2 } from "lucide-react";
+import { getRecordCourses, type RecordCoursesResult } from "@/services/cursos";
 import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/components/ChannelIcons";
 import { getClient, getConversationsByRecord, getNotes, deleteNote, getActivities, getContactEvents, createContactEvent, deleteContactEvent, getCustomFields, getFlowSubmissionsByRecord } from "@/services/api";
 import type { ClientRecord, ConversationRecord, NoteRecord, ActivityRecord, ContactEventRecord, CustomField, FlowSubmissionRecord } from "@/services/api";
@@ -199,7 +200,9 @@ export function ClientDetail() {
   const { slug, id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const tenantId = user?.tenantRoles.find((tr) => tr.tenant.slug === slug)?.tenantId || "";
+  const currentRole = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
+  const tenantId = currentRole?.tenantId || "";
+  const cursosEnabled = !!currentRole?.tenant?.features?.cursos;
   const [client, setClient] = useState<ClientRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [conversations, setConversations] = useState<ConversationRecord[]>([]);
@@ -224,6 +227,17 @@ export function ClientDetail() {
   const [contactEventsLoading, setContactEventsLoading] = useState(false);
   const [showEventForm, setShowEventForm] = useState(false);
   const [eventForm, setEventForm] = useState({ type: 'purchase', name: '', value: '', currency: 'COP' });
+  const [recordCourses, setRecordCourses] = useState<RecordCoursesResult | null>(null);
+  const [recordCoursesLoading, setRecordCoursesLoading] = useState(false);
+
+  useEffect(() => {
+    if (!id || !tenantId || !cursosEnabled) return;
+    setRecordCoursesLoading(true);
+    getRecordCourses(tenantId, id)
+      .then(setRecordCourses)
+      .catch(() => setRecordCourses(null))
+      .finally(() => setRecordCoursesLoading(false));
+  }, [id, tenantId, cursosEnabled]);
 
   useEffect(() => {
     if (!id) return;
@@ -515,6 +529,86 @@ export function ClientDetail() {
                   </div>
                 )}
               </div>
+
+              {/* Cursos (solo si el tenant tiene el módulo activo) */}
+              {cursosEnabled && (
+                <div className="bg-card rounded-xl border border-border p-5">
+                  <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <GraduationCap className="h-4 w-4 text-brand-600" />
+                    Cursos
+                  </h3>
+                  {recordCoursesLoading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : !recordCourses || recordCourses.courses.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center">
+                      Sin cursos inscritos
+                    </p>
+                  ) : (
+                    <>
+                      {/* Resumen */}
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        <div className="rounded-lg bg-muted/50 p-2 text-center">
+                          <p className="text-base font-bold text-foreground">{recordCourses.summary.completed}</p>
+                          <p className="text-[10px] text-muted-foreground">Completados</p>
+                        </div>
+                        <div className="rounded-lg bg-muted/50 p-2 text-center">
+                          <p className="text-base font-bold text-foreground">{recordCourses.summary.inProgress}</p>
+                          <p className="text-[10px] text-muted-foreground">En progreso</p>
+                        </div>
+                        <div className="rounded-lg bg-muted/50 p-2 text-center">
+                          <p className="text-base font-bold text-foreground">
+                            {recordCourses.summary.avgScore.toFixed(1)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">Promedio</p>
+                        </div>
+                      </div>
+                      {/* Lista de cursos */}
+                      <div className="space-y-2">
+                        {recordCourses.courses.map((c) => {
+                          const finished = c.status === "passed" || c.status === "completed";
+                          const statusMap: Record<string, { label: string; cls: string }> = {
+                            passed: { label: "Aprobado", cls: "bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-300" },
+                            completed: { label: "Completado", cls: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" },
+                            in_progress: { label: "En progreso", cls: "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300" },
+                            invited: { label: "Invitado", cls: "bg-muted text-muted-foreground" },
+                            failed: { label: "Reprobado", cls: "bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300" },
+                          };
+                          const st = statusMap[c.status] || { label: c.status, cls: "bg-muted text-muted-foreground" };
+                          return (
+                            <div
+                              key={c.courseId}
+                              className="flex items-start gap-3 p-3 rounded-lg border border-border"
+                            >
+                              <div className="h-8 w-8 rounded-lg bg-brand-50 dark:bg-brand-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                                <GraduationCap className="h-4 w-4 text-brand-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-medium text-foreground truncate">{c.courseName}</span>
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium shrink-0 ${st.cls}`}>
+                                    {st.label}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground">
+                                  {finished && <span>Calificación: {c.weightedScore.toFixed(1)}</span>}
+                                  {c.rank != null && (
+                                    <span className="inline-flex items-center gap-1">
+                                      <Trophy className="h-3 w-3 text-yellow-500" /> Puesto #{c.rank}
+                                    </span>
+                                  )}
+                                  {!finished && <span>{c.completedLessons} clases completadas</span>}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Notes */}
               <div className="bg-card rounded-xl border border-border p-5">

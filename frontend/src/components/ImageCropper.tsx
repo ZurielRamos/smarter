@@ -34,9 +34,12 @@ export function ImageCropper({ imageSrc, fileName, aspect, title, onCropComplete
 
   const isPng = fileName.toLowerCase().endsWith(".png");
   const isSquare = aspect === 1;
+  // Recorte con proporción fija distinta de 1:1 (p. ej. 16:9 para portadas).
+  const hasFixedAspect = typeof aspect === "number" && aspect > 0;
 
-  // Pre-process: pad image to square (only for square mode)
-  // For free mode, just load and get the natural aspect ratio
+  // Pre-process: pad image to square (only for square mode).
+  // For a fixed non-square aspect we load the image as-is and crop at that ratio.
+  // For free mode, just load and get the natural aspect ratio.
   useEffect(() => {
     const img = new window.Image();
     img.crossOrigin = "anonymous";
@@ -69,6 +72,9 @@ export function ImageCropper({ imageSrc, fileName, aspect, title, onCropComplete
     img.src = imageSrc;
   }, [imageSrc, isPng, isSquare]);
 
+  // Proporción efectiva del recuadro de recorte.
+  const cropAspect = isSquare ? 1 : hasFixedAspect ? (aspect as number) : originalAspect;
+
   const onCropDone = useCallback((_: Area, pixels: Area) => {
     setCroppedAreaPixels(pixels);
   }, []);
@@ -92,12 +98,15 @@ export function ImageCropper({ imageSrc, fileName, aspect, title, onCropComplete
     >
       <h3 className="text-lg font-semibold text-foreground mb-4">{title || "Recortar imagen"}</h3>
 
-      <div className="relative w-full max-w-sm aspect-square rounded-xl overflow-hidden border border-border">
+      <div
+        className="relative w-full max-w-md rounded-xl overflow-hidden border border-border"
+        style={{ aspectRatio: String(cropAspect) }}
+      >
         <Cropper
           image={squareSrc}
           crop={crop}
           zoom={zoom}
-          aspect={isSquare ? 1 : originalAspect}
+          aspect={cropAspect}
           onCropChange={setCrop}
           onZoomChange={setZoom}
           onCropComplete={onCropDone}
@@ -137,7 +146,8 @@ export function ImageCropper({ imageSrc, fileName, aspect, title, onCropComplete
       </div>
 
       <p className="text-xs text-muted-foreground mt-2">
-        Arrastra para ajustar. El resultado será cuadrado{isPng ? " con fondo transparente" : " con fondo blanco"}.
+        Arrastra para ajustar. {isSquare ? "El resultado será cuadrado" : "Se mantendrá la proporción indicada"}
+        {isPng ? " con fondo transparente" : " con fondo blanco"}.
       </p>
 
       {/* Actions */}
@@ -198,7 +208,7 @@ async function cropImage(
       (blob) => {
         if (!blob) { resolve(null); return; }
         const baseName = originalName.replace(/\.[^.]+$/, "");
-        const file = new File([blob], `${baseName}-icon${extension}`, { type: mimeType });
+        const file = new File([blob], `${baseName}-cropped${extension}`, { type: mimeType });
         resolve(file);
       },
       mimeType,

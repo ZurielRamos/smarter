@@ -25,6 +25,26 @@ export class MailService {
     return `"${name}" <${email}>`;
   }
 
+  /**
+   * Envío transaccional genérico (texto plano y/o HTML) a cualquier dirección,
+   * usando el SMTP global. Pensado para correos simples como el OTP del curso.
+   */
+  async sendRaw(params: {
+    to: string;
+    subject: string;
+    text?: string;
+    html?: string;
+  }): Promise<void> {
+    await this.transporter.sendMail({
+      from: this.from,
+      to: params.to,
+      subject: params.subject,
+      text: params.text,
+      html: params.html,
+    });
+    this.logger.log(`Transactional email sent to ${params.to}`);
+  }
+
   async sendInvitation(params: {
     to: string;
     name: string;

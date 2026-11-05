@@ -1,6 +1,17 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import axios from 'axios';
 
+export interface TenantFeatures {
+  dashboard?: boolean;
+  contactos?: boolean;
+  companies?: boolean;
+  projects?: boolean;
+  comunicaciones?: boolean;
+  encuestas?: boolean;
+  cursos?: boolean;
+  [key: string]: unknown;
+}
+
 interface TenantRole {
   tenantId: string;
   role: string;
@@ -9,6 +20,7 @@ interface TenantRole {
     name: string;
     slug: string;
     iconPath: string | null;
+    features?: TenantFeatures | null;
   };
 }
 
@@ -88,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             name: tr.tenant.name,
             slug: tr.tenant.slug,
             iconPath: tr.tenant.iconPath,
+            features: tr.tenant.features ?? null,
           },
         })) ?? [],
         pendingInvites: data.pendingInvites?.map((tr: any) => ({

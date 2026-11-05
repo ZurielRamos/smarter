@@ -19,6 +19,14 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Endpoints públicos del portal/cursos: no son del CRM. No redirigir a
+    // /login ni mostrar toasts genéricos; cada vista maneja su propio error.
+    const url: string = error.config?.url || '';
+    const isPublicCourse = url.includes('/cursos/public/') || url.includes('/cursos/portal/');
+    if (isPublicCourse) {
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/login';

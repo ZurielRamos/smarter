@@ -35,7 +35,7 @@
     "@nestjs/websockets": "^11.1.28",
     "@types/nodemailer": "^8.0.1",
     "bcrypt": "^6.0.0",
-    "bullmq": "^6.0.5",
+    "bullmq": "^5.81.5",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "csv-parse": "^7.0.1",

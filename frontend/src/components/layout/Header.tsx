@@ -6,18 +6,21 @@ import { UserMenu } from "./UserMenu";
 import { TenantSelector } from "./TenantSelector";
 import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "@/context/AuthContext";
+import { TENANT_MODULES, isModuleEnabled } from "@/config/modules";
 
 export function Header() {
   const location = useLocation();
   const { slug } = useParams();
   const { user } = useAuth();
 
-  const navItems = [
-    { to: `/${slug}`, label: "Dashboard" },
-    { to: `/${slug}/comunicaciones`, label: "Comunicaciones" },
-    { to: `/${slug}/clients`, label: "Contactos" },
-    { to: `/${slug}/encuestas`, label: "Encuestas" },
-  ];
+  // Features del tenant actual gobiernan qué módulos se muestran en la nav.
+  const currentTenant = user?.tenantRoles.find((tr) => tr.tenant.slug === slug)?.tenant;
+  const features = currentTenant?.features ?? null;
+
+  const navItems = TENANT_MODULES.filter((m) => isModuleEnabled(m, features)).map((m) => ({
+    to: m.path ? `/${slug}/${m.path}` : `/${slug}`,
+    label: m.label,
+  }));
 
   return (
     <header className="px-8 py-4 flex items-center justify-between">
