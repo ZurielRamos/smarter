@@ -63,7 +63,7 @@ export function NewInbox() {
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [waConfig, setWaConfig] = useState<{ appId: string; configId: string } | null>(null);
+  const [waConfig, setWaConfig] = useState<{ appId: string; configId: string; featureType?: string | null } | null>(null);
 
   // Pre-load WhatsApp config so FB.login can be called synchronously on click
   const preloadWaConfig = async () => {
@@ -147,9 +147,11 @@ export function NewInbox() {
           config_id: waConfig.configId,
           response_type: "code",
           override_default_response_type: true,
+          // Mismos extras que el enlace de onboarding de Meta; featureType solo si
+          // el servidor lo define (META_WA_FEATURE_TYPE).
           extras: {
             setup: {},
-            featureType: "whatsapp_business_app_onboarding",
+            ...(waConfig.featureType ? { featureType: waConfig.featureType } : {}),
             sessionInfoVersion: "3",
             version: "v4",
           },

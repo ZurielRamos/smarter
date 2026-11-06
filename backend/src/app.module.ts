@@ -30,6 +30,7 @@ import { WhatsAppFlowsModule } from './whatsapp-flows/whatsapp-flows.module';
 import { SurveysModule } from './surveys/surveys.module';
 import { BrandingModule } from './branding/branding.module';
 import { CursosModule } from './cursos/cursos.module';
+import { LegalModule } from './legal/legal.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { CursosModule } from './cursos/cursos.module';
     SurveysModule,
     BrandingModule,
     CursosModule,
+    LegalModule,
   ],
   providers: [
     {

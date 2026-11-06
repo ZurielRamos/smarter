@@ -199,6 +199,10 @@ export class ChatsController {
     return {
       appId: this.configService.get<string>('META_APP_ID'),
       configId: this.configService.get<string>('META_WA_CONFIG_ID'),
+      // Opcional. Solo para flujos especiales (p. ej. coexistencia con
+      // "whatsapp_business_app_onboarding"). Si la configuración (config_id) de
+      // Meta no lo habilita, enviarlo provoca "Función no disponible".
+      featureType: this.configService.get<string>('META_WA_FEATURE_TYPE') || null,
     };
   }
 

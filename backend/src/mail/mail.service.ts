@@ -34,6 +34,7 @@ export class MailService {
     subject: string;
     text?: string;
     html?: string;
+    replyTo?: string;
   }): Promise<void> {
     await this.transporter.sendMail({
       from: this.from,
@@ -41,6 +42,7 @@ export class MailService {
       subject: params.subject,
       text: params.text,
       html: params.html,
+      replyTo: params.replyTo,
     });
     this.logger.log(`Transactional email sent to ${params.to}`);
   }

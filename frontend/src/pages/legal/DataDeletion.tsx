@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { api } from "@/services/api";
 import { LegalLayout } from "./LegalLayout";
 
 export function DataDeletion() {
@@ -6,6 +7,30 @@ export function DataDeletion() {
   const [name, setName] = useState("");
   const [reason, setReason] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (!email.trim() || !name.trim() || sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      await api.post("/data-deletion-requests", {
+        name: name.trim(),
+        email: email.trim(),
+        reason: reason.trim() || undefined,
+      });
+      setSubmitted(true);
+    } catch (err: any) {
+      setError(
+        err?.response?.status === 429
+          ? "Has enviado demasiadas solicitudes. Intenta de nuevo en un minuto."
+          : err?.response?.data?.message || "No pudimos registrar tu solicitud. Escríbenos a notificaciones@strategee.us.",
+      );
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <LegalLayout>
@@ -94,12 +119,15 @@ export function DataDeletion() {
                     />
                   </div>
                   <div className="pt-2">
+                    {error && (
+                      <p role="alert" className="mb-3 text-sm text-red-600">{error}</p>
+                    )}
                     <button
-                      onClick={() => { if (email.trim() && name.trim()) setSubmitted(true); }}
-                      disabled={!email.trim() || !name.trim()}
+                      onClick={submit}
+                      disabled={!email.trim() || !name.trim() || sending}
                       className="px-5 py-2.5 text-sm font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 transition-colors"
                     >
-                      Solicitar eliminación de mis datos
+                      {sending ? "Enviando…" : "Solicitar eliminación de mis datos"}
                     </button>
                     <p className="text-xs text-muted-foreground mt-2">Al enviar, confirmas que eres el titular de los datos o estás autorizado para realizar esta solicitud.</p>
                   </div>
@@ -117,7 +145,7 @@ export function DataDeletion() {
                       Hemos registrado tu solicitud de eliminación de datos para <strong>{email}</strong>.
                     </p>
                     <ul className="text-sm text-green-700 mt-3 space-y-1 list-disc pl-4">
-                      <li>Recibirás una confirmación por correo electrónico</li>
+                      <li>Nuestro equipo te escribirá a ese correo para verificar tu identidad y confirmar la recepción</li>
                       <li>Tu solicitud será procesada en un máximo de 30 días</li>
                       <li>Te notificaremos cuando la eliminación se complete</li>
                     </ul>
