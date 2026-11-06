@@ -739,6 +739,46 @@ const note = await response.json();`,
   "createdAt": "2026-08-04T15:05:00.000Z"
 }`,
           },
+          {
+            id: "send-auth-template",
+            method: "POST",
+            label: "Enviar plantilla de autenticación",
+            path: "/api/v1/{cuenta}/whatsapp/auth-template",
+            description: "Envía una plantilla de autenticación (OTP) de WhatsApp aprobada en Meta. El código se incluye en el cuerpo y en el botón de la plantilla. Solo administradores.",
+            body: `{
+  "inboxId": "i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
+  "to": "+573001234567",
+  "templateName": "codigo_verificacion",
+  "languageCode": "es",
+  "code": "123456"
+}`,
+            bodyDescription: "inboxId: bandeja de WhatsApp desde la que se envía. to: teléfono del destinatario con código de país. templateName: nombre de la plantilla en Meta. languageCode es opcional (default: 'es') y debe coincidir con el idioma de la plantilla. code: alfanumérico, máximo 15 caracteres.",
+            curl: `const response = await fetch(
+  "https://smarter.strategee.us/api/v1/supergiros/whatsapp/auth-template",
+  {
+    method: "POST",
+    headers: {
+      "x-api-token": "tu_token_de_api",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      inboxId: "i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
+      to: "+573001234567",
+      templateName: "codigo_verificacion",
+      languageCode: "es",
+      code: "123456"
+    })
+  }
+);
+
+const result = await response.json();`,
+            response: `{
+  "success": true,
+  "messageId": "wamid.HBgLNTczMDAxMjM0NTY3FQIAERgS",
+  "to": "573001234567",
+  "templateName": "codigo_verificacion"
+}`,
+          },
         ],
       },
       {

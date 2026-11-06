@@ -19,6 +19,7 @@ import { ApiInboxesController } from './api-inboxes.controller';
 import { ChatWidgetController } from './chat-widget.controller';
 import { MailgunWebhookController } from './mailgun-webhook.controller';
 import { ApiEmailController } from './api-email.controller';
+import { ApiWhatsappAuthController } from './api-whatsapp-auth.controller';
 import { ChatsGateway } from './chats.gateway';
 import { ChatWidgetGateway } from './chat-widget.gateway';
 import { WebhookForwarderService } from './webhook-forwarder.service';
@@ -50,7 +51,7 @@ import { WhatsAppFlowsModule } from '../whatsapp-flows/whatsapp-flows.module';
     WhatsAppFlowsModule,
   ],
   providers: [ChatsService, ChatsGateway, ChatWidgetGateway, WebhookForwarderService],
-  controllers: [ChatsController, ApiConversationsController, ApiMessagesController, ApiInboxesController, ChatWidgetController, WebhookController, MailgunWebhookController, ApiEmailController],
+  controllers: [ChatsController, ApiConversationsController, ApiMessagesController, ApiInboxesController, ChatWidgetController, WebhookController, MailgunWebhookController, ApiEmailController, ApiWhatsappAuthController],
   exports: [ChatsService, ChatsGateway, ChatWidgetGateway],
 })
 export class ChatsModule {}
