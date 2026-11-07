@@ -104,6 +104,8 @@ export class FormsService {
     // Otras columnas del contacto que el editor permite mapear (company, jobTitle, city...).
     const extraData: Partial<Record<(typeof FormsService.DIRECT_FIELDS)[number], string>> = {};
     let message = '';
+    // Resumen de todos los campos enviados (mapeados o no) para el mensaje del chat.
+    const summaryLines: string[] = [];
     const customData: Record<string, string> = {};
 
     for (const field of form.fields) {
@@ -112,6 +114,7 @@ export class FormsService {
       if (!value) continue;
 
       const mapTo = field.mapTo || '';
+      if (mapTo !== 'message') summaryLines.push(`${field.label}: ${value}`);
       if (mapTo === 'firstName' || mapTo === 'lastName' || mapTo === 'email' || mapTo === 'phone') {
         contactData[mapTo] = mapTo === 'email' ? value.toLowerCase() : value;
       } else if (mapTo === 'message') {
@@ -122,11 +125,12 @@ export class FormsService {
         customData[mapTo.slice('custom:'.length)] = value;
       } else if (mapTo === 'custom') {
         customData[field.label] = value;
-      } else {
-        // Build message from all unmapped fields
-        message += `${field.label}: ${value}\n`;
       }
     }
+
+    // Mensaje del chat: todos los campos + el texto libre (campo mapeado a "message").
+    const msgContent = [summaryLines.join('\n'), message].filter(Boolean).join('\n\n');
+    const preview = (message || summaryLines.join(' · ')).substring(0, 100) || 'Nuevo envío de formulario';
 
     // Create or find contact
     const contactId = contactData.email || contactData.phone || `form-${Date.now()}`;
@@ -180,32 +184,23 @@ export class FormsService {
           contactName: [contactData.firstName, contactData.lastName].filter(Boolean).join(' ') || contactId,
           recordId: record.id,
           status: 'open',
-          lastMessage: message.trim().substring(0, 100) || 'Nuevo envío de formulario',
+          lastMessage: preview,
           lastMessageAt: new Date(),
           unreadCount: 1,
         });
         conversation = await this.conversationRepo.save(conversation);
       } else {
-        conversation.lastMessage = message.trim().substring(0, 100) || 'Nuevo envío de formulario';
+        conversation.lastMessage = preview;
         conversation.lastMessageAt = new Date();
         conversation.unreadCount = (conversation.unreadCount || 0) + 1;
         await this.conversationRepo.save(conversation);
       }
 
-      // Create the message
-      const msgContent = message.trim() || Object.entries(values)
-        .map(([fieldId, val]) => {
-          const field = form.fields.find((f) => f.id === fieldId);
-          return field ? `${field.label}: ${val}` : null;
-        })
-        .filter(Boolean)
-        .join('\n');
-
       const msg = this.messageRepo.create({
         conversationId: conversation.id,
         direction: 'inbound',
         messageType: 'text',
-        content: msgContent,
+        content: msgContent || 'Nuevo envío de formulario',
         status: 'delivered',
       });
       await this.messageRepo.save(msg);
