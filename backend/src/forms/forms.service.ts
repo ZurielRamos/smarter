@@ -8,6 +8,12 @@ import { Message } from '../chats/message.entity';
 
 @Injectable()
 export class FormsService {
+  /** Columnas del contacto mapeables desde el editor de formularios (además de nombre, email y teléfono). */
+  static readonly DIRECT_FIELDS = [
+    'company', 'jobTitle', 'documentType', 'documentNumber', 'website', 'gender',
+    'birthDate', 'city', 'region', 'address', 'notes', 'source',
+  ] as const;
+
   constructor(
     @InjectRepository(Form)
     private readonly formRepo: Repository<Form>,
@@ -95,23 +101,30 @@ export class FormsService {
 
     // Extract mapped values
     const contactData: Partial<{ firstName: string; lastName: string; email: string; phone: string }> = {};
+    // Otras columnas del contacto que el editor permite mapear (company, jobTitle, city...).
+    const extraData: Partial<Record<(typeof FormsService.DIRECT_FIELDS)[number], string>> = {};
     let message = '';
     const customData: Record<string, string> = {};
 
     for (const field of form.fields) {
-      const value = values[field.id];
+      const raw = values[field.id];
+      const value = typeof raw === 'string' ? raw.trim() : raw != null ? String(raw) : '';
       if (!value) continue;
 
-      switch (field.mapTo) {
-        case 'firstName': contactData.firstName = value; break;
-        case 'lastName': contactData.lastName = value; break;
-        case 'email': contactData.email = value; break;
-        case 'phone': contactData.phone = value; break;
-        case 'message': message = value; break;
-        case 'custom': customData[field.label] = value; break;
-        default:
-          // Build message from all unmapped fields
-          message += `${field.label}: ${value}\n`;
+      const mapTo = field.mapTo || '';
+      if (mapTo === 'firstName' || mapTo === 'lastName' || mapTo === 'email' || mapTo === 'phone') {
+        contactData[mapTo] = mapTo === 'email' ? value.toLowerCase() : value;
+      } else if (mapTo === 'message') {
+        message = value;
+      } else if ((FormsService.DIRECT_FIELDS as readonly string[]).includes(mapTo)) {
+        extraData[mapTo as (typeof FormsService.DIRECT_FIELDS)[number]] = value;
+      } else if (mapTo.startsWith('custom:')) {
+        customData[mapTo.slice('custom:'.length)] = value;
+      } else if (mapTo === 'custom') {
+        customData[field.label] = value;
+      } else {
+        // Build message from all unmapped fields
+        message += `${field.label}: ${value}\n`;
       }
     }
 
@@ -134,6 +147,7 @@ export class FormsService {
         email: contactData.email || null,
         phone: contactData.phone || null,
         status: 'active',
+        ...extraData,
         channelSource: form.inboxId || 'form',
         lastContactAt: new Date(),
         customData: Object.keys(customData).length > 0 ? customData : null,
@@ -143,6 +157,9 @@ export class FormsService {
       // Update existing record
       if (contactData.firstName) record.firstName = contactData.firstName;
       if (contactData.lastName) record.lastName = contactData.lastName;
+      if (contactData.email && !record.email) record.email = contactData.email;
+      if (contactData.phone && !record.phone) record.phone = contactData.phone;
+      Object.assign(record, extraData);
       record.lastContactAt = new Date();
       if (Object.keys(customData).length > 0) {
         record.customData = { ...(record.customData || {}), ...customData };
