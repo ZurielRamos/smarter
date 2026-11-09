@@ -31,6 +31,7 @@ import { EmailDomainService } from '../providers/email-domain.service';
 import { EmailUnsubscribeService } from '../providers/email-unsubscribe.service';
 import { UserTenant } from '../users/user-tenant.entity';
 import sharp from 'sharp';
+import { convertAudioToOggOpus, compressVideoForWhatsApp, WA_VIDEO_LIMIT } from '../media/whatsapp-transcode.util';
 
 export type AssignmentFilter = 'all' | 'unassigned' | 'mine';
 
@@ -3945,12 +3946,45 @@ export class ChatsService {
     } else if (inbox.accessToken && inbox.channel === 'whatsapp' && inbox.phoneNumberId) {
       try {
         // WhatsApp accepts: audio/aac, audio/mp4, audio/mpeg, audio/amr, audio/ogg (opus)
-        // Browsers often record as audio/webm;codecs=opus which is opus in a webm container
-        // Force mime to audio/ogg for WhatsApp compatibility (opus codec is the same)
-        const whatsappMime = file.mimetype.includes('webm') ? 'audio/ogg' : file.mimetype;
-        const whatsappFilename = file.mimetype.includes('webm')
-          ? file.originalname.replace('.webm', '.ogg')
-          : file.originalname;
+        // Los navegadores graban audio/webm (contenedor WebM) o un OGG no estándar.
+        // Solo cambiar la etiqueta MIME NO basta: Meta inspecciona el contenido real y
+        // responde 131053 (application/octet-stream). Se re-empaqueta a OGG/Opus real.
+        let whatsappBuffer: Buffer = file.buffer as Buffer;
+        let whatsappMime = file.mimetype.split(';')[0].trim();
+        let whatsappFilename = file.originalname;
+        if (messageType === 'audio' && (whatsappMime === 'audio/webm' || whatsappMime === 'audio/ogg' || whatsappMime === 'video/webm')) {
+          try {
+            whatsappBuffer = await convertAudioToOggOpus(file.buffer as Buffer);
+            whatsappMime = 'audio/ogg';
+            whatsappFilename = file.originalname.replace(/\.[^.]+$/, '') + '.ogg';
+          } catch (convErr: any) {
+            console.error('[Chat] Audio conversion to ogg/opus failed:', convErr?.message || convErr);
+            throw new Error(`No se pudo convertir el audio a OGG/Opus (¿ffmpeg instalado?): ${convErr?.message || convErr}`);
+          }
+        }
+
+        // Video: WhatsApp solo acepta MP4 (H.264 + AAC) de hasta 16MB y Android
+        // falla con perfiles High/Main o dimensiones no múltiplo de 16. Se
+        // re-codifica siempre a un perfil compatible, igual que en campañas.
+        if (messageType === 'video') {
+          console.log(`[Chat] Re-codificando video (${whatsappBuffer.length} bytes) para WhatsApp...`);
+          try {
+            whatsappBuffer = await compressVideoForWhatsApp(whatsappBuffer, WA_VIDEO_LIMIT, (msg) =>
+              console.warn(`[Chat] ${msg}`),
+            );
+          } catch (convErr: any) {
+            console.error('[Chat] Video transcode failed:', convErr?.message || convErr);
+            throw new Error(`No se pudo convertir el video para WhatsApp: ${convErr?.message || convErr}`);
+          }
+          console.log(`[Chat] Video re-codificado a ${whatsappBuffer.length} bytes.`);
+          if (whatsappBuffer.length > WA_VIDEO_LIMIT) {
+            throw new Error(
+              `El video no se pudo comprimir por debajo de 16MB (quedó en ${(whatsappBuffer.length / 1048576).toFixed(1)}MB). Envía un video más corto.`,
+            );
+          }
+          whatsappMime = 'video/mp4';
+          whatsappFilename = file.originalname.replace(/\.[^.]+$/, '') + '.mp4';
+        }
 
         // Upload media to WhatsApp using raw multipart
         const boundary = `----FormBoundary${Date.now()}`;
@@ -3959,7 +3993,7 @@ export class ChatsService {
         parts.push(Buffer.from(
           `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${whatsappFilename}"\r\nContent-Type: ${whatsappMime}\r\n\r\n`,
         ));
-        parts.push(file.buffer as Buffer<ArrayBuffer>);
+        parts.push(whatsappBuffer);
         parts.push(Buffer.from('\r\n'));
         parts.push(Buffer.from(
           `--${boundary}\r\nContent-Disposition: form-data; name="messaging_product"\r\n\r\nwhatsapp\r\n`,
@@ -3979,12 +4013,20 @@ export class ChatsService {
           },
           body: uploadBody,
         });
-        const uploadData = await uploadRes.json();
+        // Meta puede responder con cuerpo vacío o no-JSON (p. ej. 413 por tamaño),
+        // así que se lee como texto y se parsea de forma segura.
+        const uploadText = await uploadRes.text();
+        let uploadData: any = {};
+        try {
+          uploadData = uploadText ? JSON.parse(uploadText) : {};
+        } catch {
+          uploadData = {};
+        }
         const mediaId = uploadData.id;
 
         if (!mediaId) {
-          console.error('[Chat] WhatsApp media upload failed:', JSON.stringify(uploadData));
-          sendError = `Error al subir archivo a WhatsApp: ${uploadData.error?.message || 'Error desconocido'}`;
+          console.error(`[Chat] WhatsApp media upload failed (HTTP ${uploadRes.status}):`, uploadText.slice(0, 500));
+          sendError = `Error al subir archivo a WhatsApp: ${uploadData.error?.message || `HTTP ${uploadRes.status} ${uploadRes.statusText}`.trim()}`;
         }
 
         if (mediaId) {
@@ -4013,10 +4055,16 @@ export class ChatsService {
             },
             body: JSON.stringify(messageBody),
           });
-          const sendData = await sendRes.json();
+          const sendText = await sendRes.text();
+          let sendData: any = {};
+          try {
+            sendData = sendText ? JSON.parse(sendText) : {};
+          } catch {
+            sendData = {};
+          }
           externalId = sendData.messages?.[0]?.id || null;
           if (!externalId) {
-            const errDetail = sendData.error?.message || 'Error desconocido';
+            const errDetail = sendData.error?.message || `HTTP ${sendRes.status} ${sendRes.statusText}`.trim();
             sendError = `WhatsApp API error: ${errDetail}`;
           }
         }

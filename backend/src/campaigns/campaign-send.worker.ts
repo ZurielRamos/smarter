@@ -4,10 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Job } from 'bullmq';
 import sharp from 'sharp';
-import ffmpeg from 'fluent-ffmpeg';
-import { promises as fsp } from 'fs';
-import * as os from 'os';
-import * as path from 'path';
+import { compressVideoForWhatsApp, WA_VIDEO_LIMIT } from '../media/whatsapp-transcode.util';
 import { CampaignSend } from './campaign-send.entity';
 import { CampaignSendLog } from './campaign-send-log.entity';
 import { Campaign } from './campaign.entity';
@@ -906,13 +903,14 @@ export class CampaignSendWorker extends WorkerHost {
     // venir en perfil High / resolución no alineada, que iOS reproduce pero
     // Android no ("algo falló con el archivo de video"). WhatsApp además rechaza
     // videos >16MB, así que la re-codificación también garantiza que quepa.
-    const WA_VIDEO_LIMIT = 16 * 1024 * 1024; // 16 MiB
     let filename = `header.${fmt === 'video' ? 'mp4' : 'bin'}`;
     if (fmt === 'video') {
       this.logger.log(
         `[Worker] Re-codificando video de header (${buffer.length} bytes) a perfil compatible con Android...`,
       );
-      buffer = await this.compressVideoUnder16MB(buffer, WA_VIDEO_LIMIT);
+      buffer = await compressVideoForWhatsApp(buffer, WA_VIDEO_LIMIT, (msg) =>
+        this.logger.warn(`[Worker] ${msg}`),
+      );
       contentType = 'video/mp4';
       filename = 'header.mp4';
       this.logger.log(`[Worker] Video re-codificado a ${buffer.length} bytes.`);
@@ -936,122 +934,6 @@ export class CampaignSendWorker extends WorkerHost {
       throw new Error('No se pudo almacenar el archivo del encabezado en el storage público');
     }
     return stored.url;
-  }
-
-  /**
-   * Comprime un video para que quepa bajo `targetBytes` (límite de WhatsApp de
-   * 16MB) usando ffmpeg. Estrategia:
-   *   - Calcula un bitrate total objetivo a partir de la duración real del video
-   *     para acercarse al tamaño deseado (con margen de seguridad del 90%).
-   *   - Re-escala a máximo 720p de altura y usa H.264 + AAC (compatibles con WA).
-   *   - Si tras el primer intento sigue excediendo, reintenta con bitrate y
-   *     resolución más agresivos.
-   * Trabaja sobre archivos temporales porque ffmpeg opera con rutas de disco.
-   */
-  private async compressVideoUnder16MB(input: Buffer, targetBytes: number): Promise<Buffer> {
-    const tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'wa-video-'));
-    const inPath = path.join(tmpDir, 'in.mp4');
-    const outPath = path.join(tmpDir, 'out.mp4');
-    try {
-      await fsp.writeFile(inPath, input);
-      const durationSec = await this.probeVideoDuration(inPath);
-
-      // Presupuesto de bits objetivo (90% del límite para dejar margen al muxing
-      // y al audio). bits = bytes * 8. bitrate(kbps) = bits / duración / 1000.
-      const safeBytes = targetBytes * 0.9;
-      const attempts = [
-        { maxHeight: 720, audioKbps: 128 },
-        { maxHeight: 540, audioKbps: 96 },
-        { maxHeight: 480, audioKbps: 64 },
-        { maxHeight: 360, audioKbps: 48 },
-      ];
-
-      let lastBuffer: Buffer | null = null;
-      for (const attempt of attempts) {
-        const totalKbps = Math.max(
-          200,
-          Math.floor((safeBytes * 8) / Math.max(1, durationSec) / 1000),
-        );
-        const videoKbps = Math.max(150, totalKbps - attempt.audioKbps);
-
-        await this.runFfmpeg(inPath, outPath, {
-          videoKbps,
-          audioKbps: attempt.audioKbps,
-          maxHeight: attempt.maxHeight,
-        });
-
-        const out = await fsp.readFile(outPath);
-        lastBuffer = out;
-        if (out.length <= targetBytes) {
-          return out;
-        }
-        this.logger.warn(
-          `[Worker] Compresión a ${attempt.maxHeight}p quedó en ${out.length} bytes; reintentando más agresivo...`,
-        );
-      }
-      // Devolver el mejor (más pequeño) intento aunque exceda; el llamador valida.
-      return lastBuffer as Buffer;
-    } finally {
-      await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
-    }
-  }
-
-  /** Obtiene la duración (segundos) de un video usando ffprobe. */
-  private probeVideoDuration(filePath: string): Promise<number> {
-    return new Promise((resolve) => {
-      ffmpeg.ffprobe(filePath, (err, data) => {
-        if (err) {
-          resolve(0);
-          return;
-        }
-        const dur = data?.format?.duration;
-        resolve(typeof dur === 'number' && dur > 0 ? dur : 0);
-      });
-    });
-  }
-
-  /** Ejecuta una pasada de compresión H.264/AAC con ffmpeg. */
-  private runFfmpeg(
-    inPath: string,
-    outPath: string,
-    opts: { videoKbps: number; audioKbps: number; maxHeight: number },
-  ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      ffmpeg(inPath)
-        .videoCodec('libx264')
-        .audioCodec('aac')
-        .outputOptions([
-          `-b:v ${opts.videoKbps}k`,
-          `-maxrate ${Math.floor(opts.videoKbps * 1.2)}k`,
-          `-bufsize ${opts.videoKbps * 2}k`,
-          `-b:a ${opts.audioKbps}k`,
-          '-ar 44100',
-          '-ac 2',
-          '-preset veryfast',
-          // Constrained Baseline + level 3.0: el perfil que el decodificador de
-          // hardware de Android acepta sin problemas (High/Main fallan en Android
-          // aunque iOS los reproduzca).
-          '-profile:v baseline',
-          '-level 3.0',
-          '-pix_fmt yuv420p',
-          // GOP corto con keyframe cada ~2s: Android necesita keyframes tempranos y
-          // frecuentes para generar el thumbnail y arrancar la reproducción.
-          '-g 48',
-          '-keyint_min 48',
-          '-sc_threshold 0',
-          // faststart mueve el moov atom al inicio (requerido para streaming).
-          '-movflags +faststart',
-          // Escala a la altura máxima manteniendo aspecto. force_divisible_by=16:
-          // el decodificador de hardware de Android exige ancho y alto múltiplos de
-          // 16; una dimensión como 406 hace que Android no pueda decodificar
-          // ("algo falló con el archivo de video") aunque iOS sí lo reproduzca.
-          `-vf scale=-2:'min(${opts.maxHeight},ih)':force_original_aspect_ratio=decrease:force_divisible_by=16,format=yuv420p`,
-        ])
-        .format('mp4')
-        .on('end', () => resolve())
-        .on('error', (err) => reject(new Error(`ffmpeg falló: ${err.message}`)))
-        .save(outPath);
-    });
   }
 
   /**
