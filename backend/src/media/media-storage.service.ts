@@ -322,7 +322,11 @@ export class MediaStorageService implements OnModuleInit {
 
     try {
       const jpegBuffer = (await sharp(buffer)
+        // Respeta la orientación EXIF (fotos de móvil) antes de redimensionar.
+        .rotate()
         .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+        // JPEG no tiene transparencia: sin esto los PNG transparentes salen con fondo negro.
+        .flatten({ background: '#ffffff' })
         .jpeg({ quality: 85 })
         .toBuffer()) as Buffer;
 
