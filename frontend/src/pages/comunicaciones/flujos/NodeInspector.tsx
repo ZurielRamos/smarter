@@ -424,7 +424,7 @@ function ActionFields({
           {(a.type === "handoff" || a.type === "resolve") && (
             <p className="text-[11px] text-muted-foreground">
               {a.type === "handoff"
-                ? "Pausa el bot y los flujos en la conversación para que la atienda un agente."
+                ? "Pausa el bot para que la atienda un agente. Las palabras clave de los flujos siguen funcionando."
                 : "Cierra la conversación."}{" "}
               El flujo termina después de esta acción.
             </p>

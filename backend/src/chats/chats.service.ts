@@ -2535,8 +2535,11 @@ export class ChatsService {
     await this.withInboundLock(`flow:${conversationRef.id}`, async () => {
       const conversation = await this.conversationRepo.findOne({ where: { id: conversationRef.id } });
       if (!conversation) return;
-      // Si un agente tomó la conversación, los flujos no intervienen (igual que el bot).
-      if (conversation.botStatus === 'handed_off') return;
+      // Conversación tomada por un agente: las palabras clave y los botones de
+      // flujo siguen funcionando (son una acción explícita del contacto), pero
+      // no se inician flujos automáticos. Si el agente escribe a mano, el flujo
+      // en curso se cancela en sendMessage.
+      const handedOff = conversation.botStatus === 'handed_off';
 
       const loader = (flowId: string) => this.conversationFlowsService.loadForTenant(inbox.tenantId, flowId);
       const context = { contactName: conversation.contactName };
@@ -2555,7 +2558,7 @@ export class ChatsService {
       if (!result?.handled && conversation.flowState) {
         result = await this.conversationFlowEngine.resume(conversation.flowState, variables, { text: content, payload: null }, loader, context);
       }
-      if (!result?.handled) {
+      if (!result?.handled && !handedOff) {
         const inboundCount = await this.messageRepo.count({ where: { conversationId: conversation.id, direction: 'inbound' } });
         if (inboundCount <= 1) {
           const newConvFlow = await this.conversationFlowsService.findTriggeredFlow(inbox.tenantId, inbox.id, null, true);
@@ -3986,6 +3989,10 @@ export class ChatsService {
     // Auto-pause bot when a human agent sends a message
     if (senderId && senderId !== 'bot' && conversation.botStatus === 'active') {
       conversation.botStatus = 'handed_off';
+    }
+    // Un agente escribiendo a mano cancela el flujo en curso (no se pisan).
+    if (senderId && senderId !== 'bot' && conversation.flowState) {
+      conversation.flowState = null;
     }
 
     await this.conversationRepo.save(conversation);
