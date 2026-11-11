@@ -109,7 +109,17 @@ export const MessageBubble = memo(function MessageBubble({
               : formatWhatsAppText(msg.content)}
           </p>
         )}
-        {!msg.content && !msg.mediaUrl && msg.messageType !== "template" && msg.messageType !== "flow" && <p className="whitespace-pre-wrap text-muted-foreground italic">[{msg.messageType}]</p>}
+        {!msg.content && !msg.mediaUrl && !msg.interactive?.buttons?.length && msg.messageType !== "template" && msg.messageType !== "flow" && <p className="whitespace-pre-wrap text-muted-foreground italic">[{msg.messageType}]</p>}
+        {msg.interactive?.buttons && msg.interactive.buttons.length > 0 && (
+          // Botones enviados por un flujo (en WhatsApp se ven como botones o lista).
+          <div className={`mt-2 pt-2 border-t space-y-1 ${msg.direction === "outbound" ? "border-white/20" : "border-border"}`} aria-label="Botones del mensaje">
+            {msg.interactive.buttons.map((btn) => (
+              <div key={btn.id} className={`text-center text-xs font-medium py-1 rounded-md ${msg.direction === "outbound" ? "bg-white/10 text-white" : "bg-muted text-foreground"}`}>
+                {btn.title}
+              </div>
+            ))}
+          </div>
+        )}
         <MessageTimestamp msg={msg} />
       </div>
     </div>

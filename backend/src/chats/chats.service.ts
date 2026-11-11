@@ -32,6 +32,20 @@ import { EmailUnsubscribeService } from '../providers/email-unsubscribe.service'
 import { UserTenant } from '../users/user-tenant.entity';
 import sharp from 'sharp';
 import { convertAudioToOggOpus, compressVideoForWhatsApp, WA_VIDEO_LIMIT } from '../media/whatsapp-transcode.util';
+import { ConversationFlowsService } from '../conversation-flows/conversation-flows.service';
+import { ConversationFlowEngine, FlowRunResult, parseButtonPayload } from '../conversation-flows/conversation-flow.engine';
+
+/** Botón interactivo a enviar con un mensaje (id = payload que devuelve el canal). */
+export interface OutgoingButton {
+  id: string;
+  title: string;
+}
+
+/** Recorta un texto a `max` caracteres (límites de títulos de botones de Meta). */
+function truncateText(text: string, max: number): string {
+  const t = (text || '').trim();
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+}
 
 export type AssignmentFilter = 'all' | 'unassigned' | 'mine';
 
@@ -134,6 +148,8 @@ export class ChatsService {
     private readonly emailDomainService: EmailDomainService,
     private readonly emailUnsubscribeService: EmailUnsubscribeService,
     private readonly flowSubmissionsService: FlowSubmissionsService,
+    private readonly conversationFlowsService: ConversationFlowsService,
+    private readonly conversationFlowEngine: ConversationFlowEngine,
   ) {}
 
   // === INBOXES ===
@@ -1210,6 +1226,8 @@ export class ChatsService {
       let content: string | null = null;
       let mediaUrl: string | null = null;
       let mediaMimeType: string | null = null;
+      // id del botón/fila pulsado (lo usan los flujos para seguir la rama correcta)
+      let interactivePayload: string | null = null;
 
       // Log non-text messages for debugging
       if (messageType !== 'text') {
@@ -1224,14 +1242,17 @@ export class ChatsService {
           // User tapped a quick reply button from a template
           // Meta sends: msg.button.text or msg.button.payload
           content = msg.button?.text || msg.button?.payload || msg.text?.body || '[button]';
+          interactivePayload = msg.button?.payload || null;
           messageType = 'text';
           break;
         case 'interactive':
           // User tapped an interactive button or list item
           if (msg.interactive?.type === 'button_reply') {
             content = msg.interactive.button_reply?.title || '[interactive]';
+            interactivePayload = msg.interactive.button_reply?.id || null;
           } else if (msg.interactive?.type === 'list_reply') {
             content = msg.interactive.list_reply?.title || '[interactive]';
+            interactivePayload = msg.interactive.list_reply?.id || null;
           } else if (msg.interactive?.type === 'nfm_reply') {
             // El usuario COMPLETÓ un WhatsApp Flow (acción "complete"). Meta no
             // envía el "complete" al endpoint data_exchange, sino aquí como
@@ -1495,7 +1516,7 @@ export class ChatsService {
       // Trigger bot auto-reply if a bot is assigned (salvo que ya se haya
       // enviado la plantilla de bienvenida en este primer turno).
       if (!welcomeSent) {
-        this.scheduleBotReply(inbox, conversation, content, { messageType, mediaUrl, mediaMimeType }).catch((err) => {
+        this.scheduleBotReply(inbox, conversation, content, { messageType, mediaUrl, mediaMimeType, interactivePayload }).catch((err) => {
           console.error('[Bot Auto-Reply] Failed:', err?.message || err);
         });
       }
@@ -2355,8 +2376,12 @@ export class ChatsService {
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
-    // Trigger bot auto-reply if a bot is assigned
-    this.scheduleBotReply(inbox, conversation, content, { messageType, mediaUrl }).catch(() => {});
+    // Trigger bot auto-reply if a bot is assigned (quick_reply.payload = botón de un flujo)
+    this.scheduleBotReply(inbox, conversation, content, {
+      messageType,
+      mediaUrl,
+      interactivePayload: event.message.quick_reply?.payload || null,
+    }).catch(() => {});
   }
 
   private async handleInstagramMessage(igAccountId: string, value: any): Promise<void> {
@@ -2475,13 +2500,165 @@ export class ChatsService {
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
-    // Trigger bot auto-reply if a bot is assigned
-    this.scheduleBotReply(inbox, conversation, content, { messageType, mediaUrl }).catch(() => {});
+    // Trigger bot auto-reply if a bot is assigned (quick_reply.payload = botón de un flujo)
+    this.scheduleBotReply(inbox, conversation, content, {
+      messageType,
+      mediaUrl,
+      interactivePayload: msg.quick_reply?.payload || null,
+    }).catch(() => {});
+  }
+
+  // === CONVERSATION FLOWS ===
+
+  /** Canales donde se ejecutan flujos (mensajería en ventana de conversación). */
+  private static readonly FLOW_CHANNELS = new Set(['whatsapp', 'messenger', 'instagram', 'chat', 'evolution']);
+
+  /**
+   * Ejecuta los flujos conversacionales para un mensaje entrante. Orden:
+   *   1) Pulsación de un botón de flujo (aunque el flujo ya hubiera terminado).
+   *   2) Palabra clave de un flujo activo (reinicia aunque haya otro en curso).
+   *   3) Continuación del flujo en curso (respuesta a botón o entrada de texto).
+   *   4) Flujo configurado para conversaciones nuevas.
+   * Devuelve true si un flujo atendió el mensaje.
+   */
+  private async runConversationFlows(
+    inbox: Inbox,
+    conversationRef: any,
+    content: string | null,
+    payload: string | null,
+  ): Promise<boolean> {
+    if (!ChatsService.FLOW_CHANNELS.has(inbox.channel)) return false;
+    if (!content && !payload) return false;
+
+    let handled = false;
+    // Serializa por conversación: dos mensajes seguidos no deben avanzar el flujo en paralelo.
+    await this.withInboundLock(`flow:${conversationRef.id}`, async () => {
+      const conversation = await this.conversationRepo.findOne({ where: { id: conversationRef.id } });
+      if (!conversation) return;
+      // Si un agente tomó la conversación, los flujos no intervienen (igual que el bot).
+      if (conversation.botStatus === 'handed_off') return;
+
+      const loader = (flowId: string) => this.conversationFlowsService.loadForTenant(inbox.tenantId, flowId);
+      const context = { contactName: conversation.contactName };
+      const variables = conversation.flowVariables || {};
+      const input = { text: content, payload };
+
+      let result: FlowRunResult | null = null;
+
+      if (parseButtonPayload(payload)) {
+        result = await this.conversationFlowEngine.resume(conversation.flowState, variables, input, loader, context);
+      }
+      if (!result?.handled && content) {
+        const keywordFlow = await this.conversationFlowsService.findTriggeredFlow(inbox.tenantId, inbox.id, content, false);
+        if (keywordFlow) result = await this.conversationFlowEngine.start(keywordFlow, variables, loader, context);
+      }
+      if (!result?.handled && conversation.flowState) {
+        result = await this.conversationFlowEngine.resume(conversation.flowState, variables, { text: content, payload: null }, loader, context);
+      }
+      if (!result?.handled) {
+        const inboundCount = await this.messageRepo.count({ where: { conversationId: conversation.id, direction: 'inbound' } });
+        if (inboundCount <= 1) {
+          const newConvFlow = await this.conversationFlowsService.findTriggeredFlow(inbox.tenantId, inbox.id, null, true);
+          if (newConvFlow) result = await this.conversationFlowEngine.start(newConvFlow, variables, loader, context);
+        }
+      }
+
+      if (!result?.handled) {
+        // El flujo soltó la conversación (o no había ninguno): limpiar estado si quedó colgado.
+        if (conversation.flowState && result && result.state === null) {
+          conversation.flowState = null;
+          await this.conversationRepo.save(conversation);
+          conversationRef.flowState = null;
+        }
+        return;
+      }
+
+      handled = true;
+      await this.applyFlowResult(inbox, conversation, conversationRef, result);
+    });
+    return handled;
+  }
+
+  /** Persiste el estado del flujo, aplica sus efectos y envía sus mensajes. */
+  private async applyFlowResult(inbox: Inbox, conversation: Conversation, conversationRef: any, result: FlowRunResult): Promise<void> {
+    const { effects } = result;
+    conversation.flowState = result.state;
+    conversation.flowVariables = result.variables;
+
+    if (effects.addLabelIds.length || effects.removeLabelIds.length) {
+      const validLabels = await this.labelRepo.find({ where: { tenantId: inbox.tenantId } });
+      const validIds = new Set(validLabels.map((l) => l.id));
+      const labels = new Set(conversation.labelIds || []);
+      effects.addLabelIds.filter((id) => validIds.has(id)).forEach((id) => labels.add(id));
+      effects.removeLabelIds.forEach((id) => labels.delete(id));
+      conversation.labelIds = [...labels];
+    }
+    if (effects.resolve) conversation.status = 'resolved';
+    if (effects.handoff) conversation.botStatus = 'handed_off';
+
+    await this.conversationRepo.save(conversation);
+    // Sincronizar el objeto del pipeline para que un save posterior no pise el estado.
+    Object.assign(conversationRef, {
+      flowState: conversation.flowState,
+      flowVariables: conversation.flowVariables,
+      labelIds: conversation.labelIds,
+      status: conversation.status,
+      botStatus: conversation.botStatus,
+    });
+
+    for (const msg of result.messages) {
+      try {
+        await this.sendMessage(conversation.id, msg.text || '', 'text', undefined, undefined, { buttons: msg.buttons });
+      } catch (err: any) {
+        console.warn('[ConversationFlow] Send failed:', err?.message || err);
+        await this.createSystemNote(conversation.id, `⚠️ Flujo: no se pudo enviar un mensaje (${err?.message || 'error'})`, inbox.tenantId);
+        break;
+      }
+    }
+
+    if (effects.handoff) {
+      await this.createSystemNote(conversation.id, '🔀 Flujo: conversación transferida a un agente.', inbox.tenantId);
+    }
+    if (effects.resolve) {
+      await this.createSystemNote(conversation.id, '✅ Flujo: conversación marcada como resuelta.', inbox.tenantId);
+    }
+    if (effects.handoff || effects.resolve || effects.addLabelIds.length || effects.removeLabelIds.length) {
+      const convForEmit = await this.conversationRepo.findOne({ where: { id: conversation.id }, relations: { inbox: true, record: true } });
+      if (convForEmit) this.chatsGateway.emitConversationUpdate(inbox.tenantId, convForEmit);
+    }
+    if (result.startedFlowIds.length) {
+      this.conversationFlowsService.incrementRunCount(result.startedFlowIds).catch(() => {});
+    }
   }
 
   // === BOT AUTO-REPLY ===
 
-  private async scheduleBotReply(inbox: Inbox, conversation: any, content: string | null, mediaInfo?: { messageType?: string; mediaUrl?: string | null; mediaMimeType?: string | null }): Promise<void> {
+  private async scheduleBotReply(
+    inbox: Inbox,
+    conversation: any,
+    content: string | null,
+    mediaInfo?: { messageType?: string; mediaUrl?: string | null; mediaMimeType?: string | null; interactivePayload?: string | null },
+  ): Promise<void> {
+    // Los flujos conversacionales tienen prioridad sobre el bot: si un flujo
+    // atiende el mensaje, el bot no responde en este turno.
+    const flowHandled = await this.runConversationFlows(
+      inbox,
+      conversation,
+      content,
+      mediaInfo?.interactivePayload ?? null,
+    ).catch((err) => {
+      console.error('[ConversationFlow] Failed:', err?.message || err);
+      return false;
+    });
+    if (flowHandled) {
+      const pending = this.botReplyTimers.get(conversation.id);
+      if (pending) {
+        clearTimeout(pending);
+        this.botReplyTimers.delete(conversation.id);
+      }
+      return;
+    }
+
     if (!inbox.botId) return;
 
     // Allow through if there's text content OR if there's media
@@ -3513,7 +3690,14 @@ export class ChatsService {
 
   // === SEND MESSAGE ===
 
-  async sendMessage(conversationId: string, content: string, messageType = 'text', senderId?: string, replyToExternalId?: string): Promise<Message> {
+  async sendMessage(
+    conversationId: string,
+    content: string,
+    messageType = 'text',
+    senderId?: string,
+    replyToExternalId?: string,
+    opts?: { buttons?: OutgoingButton[] },
+  ): Promise<Message> {
     const conversation = await this.conversationRepo.findOne({
       where: { id: conversationId },
       relations: { inbox: true },
@@ -3521,6 +3705,15 @@ export class ChatsService {
     if (!conversation) throw new NotFoundException('Conversation not found');
 
     const inbox = conversation.inbox;
+
+    // Botones interactivos (flujos). WhatsApp Cloud, Messenger e Instagram los
+    // envían de forma nativa; el resto de canales recibe las opciones numeradas
+    // en el texto y el flujo acepta el número como respuesta.
+    const buttons = opts?.buttons?.length ? opts.buttons.slice(0, 10) : null;
+    const textWithOptions = buttons
+      ? `${content ? `${content}\n\n` : ''}${buttons.map((b, i) => `${i + 1}. ${b.title}`).join('\n')}`
+      : content;
+    const interactiveBody = truncateText(content || 'Elige una opción:', 1024);
 
     // Check 24h messaging window for social channels
     if (['whatsapp', 'messenger', 'instagram'].includes(inbox.channel)) {
@@ -3552,7 +3745,7 @@ export class ChatsService {
         const result = await this.sendPulseService.sendText(
           inbox.accessToken,
           conversation.contactId,
-          content,
+          textWithOptions,
         );
         externalId = result.messageId;
       } catch (err: any) {
@@ -3648,6 +3841,30 @@ export class ChatsService {
         type: 'text',
         text: { body: content },
       };
+      if (buttons && buttons.length <= 3) {
+        // Botones de respuesta: máx. 3, título ≤ 20 caracteres.
+        delete messageBody.text;
+        messageBody.type = 'interactive';
+        messageBody.interactive = {
+          type: 'button',
+          body: { text: interactiveBody },
+          action: {
+            buttons: buttons.map((b) => ({ type: 'reply', reply: { id: b.id, title: truncateText(b.title, 20) } })),
+          },
+        };
+      } else if (buttons) {
+        // Lista: 4 a 10 opciones, título de fila ≤ 24 caracteres.
+        delete messageBody.text;
+        messageBody.type = 'interactive';
+        messageBody.interactive = {
+          type: 'list',
+          body: { text: interactiveBody },
+          action: {
+            button: 'Ver opciones',
+            sections: [{ title: 'Opciones', rows: buttons.map((b) => ({ id: b.id, title: truncateText(b.title, 24) })) }],
+          },
+        };
+      }
       if (replyToExternalId) {
         messageBody.context = { message_id: replyToExternalId };
       }
@@ -3678,6 +3895,13 @@ export class ChatsService {
         recipient: { id: conversation.contactId },
         message: { text: content },
       };
+      if (buttons) {
+        // Quick replies: máx. 13, título ≤ 20 caracteres. El payload vuelve en message.quick_reply.
+        messengerPayload.message = {
+          text: interactiveBody,
+          quick_replies: buttons.map((b) => ({ content_type: 'text', title: truncateText(b.title, 20), payload: b.id })),
+        };
+      }
       if (replyToExternalId) {
         messengerPayload.reply_to = { mid: replyToExternalId };
       }
@@ -3725,7 +3949,7 @@ export class ChatsService {
         const result = await this.evolutionService.sendText(
           instanceName,
           conversation.contactId,
-          content,
+          textWithOptions,
           inbox.accessToken || undefined,
           quoted,
         );
@@ -3746,6 +3970,7 @@ export class ChatsService {
       senderId: senderId || null,
       replyToExternalId: replyToExternalId || null,
       status: externalId ? 'sent' : 'failed',
+      interactive: buttons ? { buttons } : null,
     });
     const saved = await this.messageRepo.save(message);
 
@@ -3797,7 +4022,7 @@ export class ChatsService {
     if (inbox.channel === 'chat') {
       this.chatWidgetGateway.sendToVisitor(conversationId, {
         type: 'message',
-        content,
+        content: textWithOptions,
         direction: 'out',
         messageId: saved.id,
       });

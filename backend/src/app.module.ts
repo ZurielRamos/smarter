@@ -27,6 +27,7 @@ import { AuditModule } from './audit/audit.module';
 import { EvolutionModule } from './evolution/evolution.module';
 import { SendPulseModule } from './sendpulse/sendpulse.module';
 import { WhatsAppFlowsModule } from './whatsapp-flows/whatsapp-flows.module';
+import { ConversationFlowsModule } from './conversation-flows/conversation-flows.module';
 import { SurveysModule } from './surveys/surveys.module';
 import { BrandingModule } from './branding/branding.module';
 import { CursosModule } from './cursos/cursos.module';
@@ -90,6 +91,7 @@ import { LegalModule } from './legal/legal.module';
     EvolutionModule,
     SendPulseModule,
     WhatsAppFlowsModule,
+    ConversationFlowsModule,
     SurveysModule,
     BrandingModule,
     CursosModule,

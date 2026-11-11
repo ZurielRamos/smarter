@@ -1,5 +1,5 @@
 import { Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
-import { MessageSquare, Settings2, Inbox, Megaphone, Radio, FileText, Bot } from "lucide-react";
+import { MessageSquare, Settings2, Inbox, Megaphone, Radio, FileText, Bot, Workflow } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import headerBg from "@/assets/header-background.jpg";
 
@@ -17,6 +17,7 @@ export function ComunicacionesLayout() {
     if (path.includes("/canales")) return "canales";
     if (path.includes("/plantillas")) return "plantillas";
     if (path.includes("/bots")) return "bots";
+    if (path.includes("/flujos")) return "flujos";
     return "conversaciones";
   })();
 
@@ -46,12 +47,13 @@ export function ComunicacionesLayout() {
     { key: "campanas", path: "campanas", icon: <Megaphone className="h-4.5 w-4.5" />, label: "Campañas" },
     { key: "plantillas", path: "plantillas", icon: <FileText className="h-4.5 w-4.5" />, label: "Plantillas" },
     { key: "bots", path: "bots", icon: <Bot className="h-4.5 w-4.5" />, label: "Bots" },
+    { key: "flujos", path: "flujos", icon: <Workflow className="h-4.5 w-4.5" />, label: "Flujos" },
   ];
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Hero */}
-      <div className="px-8 pt-16 pb-3 shrink-0 rounded-b-2xl" style={{ backgroundImage: `url(${headerBg})`, backgroundSize: "cover", backgroundPosition: "center" }}>
+      <div className="px-5 pt-3 pb-3 shrink-0 rounded-b-2xl" style={{ backgroundImage: `url(${headerBg})`, backgroundSize: "cover", backgroundPosition: "center" }}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-white">Comunicaciones</h1>

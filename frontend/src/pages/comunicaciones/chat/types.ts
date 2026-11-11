@@ -48,6 +48,8 @@ export interface Message {
   createdAt: string;
   externalId?: string | null;
   replyToExternalId?: string | null;
+  /** Botones enviados por un flujo conversacional */
+  interactive?: { buttons: { id: string; title: string }[] } | null;
   sender?: {
     id: string;
     name: string;

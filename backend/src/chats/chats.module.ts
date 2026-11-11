@@ -34,6 +34,7 @@ import { SendPulseModule } from '../sendpulse/sendpulse.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { TemplatesModule } from '../templates/templates.module';
 import { WhatsAppFlowsModule } from '../whatsapp-flows/whatsapp-flows.module';
+import { ConversationFlowsModule } from '../conversation-flows/conversation-flows.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { WhatsAppFlowsModule } from '../whatsapp-flows/whatsapp-flows.module';
     ProvidersModule,
     TemplatesModule,
     WhatsAppFlowsModule,
+    ConversationFlowsModule,
   ],
   providers: [ChatsService, ChatsGateway, ChatWidgetGateway, WebhookForwarderService],
   controllers: [ChatsController, ApiConversationsController, ApiMessagesController, ApiInboxesController, ChatWidgetController, WebhookController, MailgunWebhookController, ApiEmailController, ApiWhatsappAuthController],

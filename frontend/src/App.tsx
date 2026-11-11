@@ -49,6 +49,9 @@ const Bots = lazy(() => import("./pages/comunicaciones/Bots").then((m) => ({ def
 const BotEmpty = lazy(() => import("./pages/comunicaciones/BotEmpty").then((m) => ({ default: m.BotEmpty })));
 const BotDetail = lazy(() => import("./pages/comunicaciones/BotDetail").then((m) => ({ default: m.BotDetail })));
 const BotConfig = lazy(() => import("./pages/comunicaciones/BotConfig").then((m) => ({ default: m.BotConfig })));
+const Flujos = lazy(() => import("./pages/comunicaciones/Flujos").then((m) => ({ default: m.Flujos })));
+const FlujoEmpty = lazy(() => import("./pages/comunicaciones/FlujoEmpty").then((m) => ({ default: m.FlujoEmpty })));
+const FlujoEditor = lazy(() => import("./pages/comunicaciones/flujos/FlujoEditor").then((m) => ({ default: m.FlujoEditor })));
 const NewInbox = lazy(() => import("./pages/NewInbox").then((m) => ({ default: m.NewInbox })));
 const Inboxes = lazy(() => import("./pages/Inboxes").then((m) => ({ default: m.Inboxes })));
 const InboxSettings = lazy(() => import("./pages/InboxSettings").then((m) => ({ default: m.InboxSettings })));
@@ -179,6 +182,10 @@ function App() {
                   <Route index element={<BotEmpty />} />
                   <Route path=":botId" element={<BotDetail />} />
                   <Route path=":botId/config" element={<BotConfig />} />
+                </Route>
+                <Route path="flujos" element={<Flujos />}>
+                  <Route index element={<FlujoEmpty />} />
+                  <Route path=":flowId" element={<FlujoEditor />} />
                 </Route>
               </Route>
               <Route path="/:slug/inboxes" element={<Inboxes />} />

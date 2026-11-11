@@ -11,6 +11,7 @@ import {
 import { Inbox } from './inbox.entity';
 import { ClientRecord } from '../records/record.entity';
 import { BotFlowState } from '../bots/bot.entity';
+import type { ConversationFlowState } from '../conversation-flows/conversation-flow.entity';
 
 @Entity('conversations')
 @Index(['inboxId'])
@@ -85,6 +86,14 @@ export class Conversation {
   // Whether user has given consent for this conversation
   @Column({ name: 'bot_consent_given', type: 'boolean', default: false })
   botConsentGiven: boolean;
+
+  // Flujo conversacional en curso (nodo que espera respuesta). null = ninguno.
+  @Column({ name: 'flow_state', type: 'jsonb', nullable: true })
+  flowState: ConversationFlowState | null;
+
+  // Variables recogidas por los flujos en esta conversación (persisten entre flujos).
+  @Column({ name: 'flow_variables', type: 'jsonb', nullable: true })
+  flowVariables: Record<string, string> | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
