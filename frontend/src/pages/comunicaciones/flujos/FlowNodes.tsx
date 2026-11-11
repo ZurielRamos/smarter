@@ -1,6 +1,6 @@
 import { useContext, type ReactNode } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { Play, MessageSquare, TextCursorInput, Zap, GitFork, Workflow, AlertCircle } from "lucide-react";
+import { Play, MessageSquare, TextCursorInput, Zap, GitFork, Workflow, AlertCircle, FileText, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ACTION_LABELS, OPERATOR_LABELS, VALIDATION_LABELS, type FlowNodeData } from "./types";
 import { FlowEditorContext } from "./editorContext";
@@ -99,10 +99,32 @@ export function MessageNode({ data, selected }: NodeProps<FlowNode>) {
       header="Mensaje"
       headerClass="bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
       icon={<MessageSquare className="h-3.5 w-3.5" />}
-      warning={!data.text?.trim() && buttons.length === 0 ? "Mensaje vacío" : null}
+      warning={
+        data.headerType && data.headerType !== "text" && !data.headerMediaUrl
+          ? "Falta el archivo del encabezado"
+          : !data.text?.trim() && buttons.length === 0 && !data.headerMediaUrl
+            ? "Mensaje vacío"
+            : null
+      }
     >
-      {data.text?.trim() ? (
-        <p className="whitespace-pre-wrap break-words line-clamp-6 rounded-lg bg-muted/60 px-2.5 py-2">{data.text}</p>
+      {data.headerType && data.headerType !== "text" && data.headerMediaUrl && (
+        <div className="overflow-hidden rounded-lg border border-border">
+          {data.headerType === "image" ? (
+            <img src={data.headerMediaUrl} alt="" className="h-24 w-full object-cover" />
+          ) : (
+            <div className="flex items-center gap-1.5 px-2.5 py-2 text-[11px] text-muted-foreground">
+              {data.headerType === "video" ? <Video className="h-3.5 w-3.5 shrink-0" /> : <FileText className="h-3.5 w-3.5 shrink-0" />}
+              <span className="truncate">{data.headerMediaName || (data.headerType === "video" ? "Video" : "Documento")}</span>
+            </div>
+          )}
+        </div>
+      )}
+      {data.text?.trim() || data.header || data.footer ? (
+        <div className="rounded-lg bg-muted/60 px-2.5 py-2 space-y-1">
+          {data.header && <p className="font-semibold break-words">{data.header}</p>}
+          {data.text?.trim() && <p className="whitespace-pre-wrap break-words line-clamp-6">{data.text}</p>}
+          {data.footer && <p className="text-[10px] text-muted-foreground break-words">{data.footer}</p>}
+        </div>
       ) : (
         <Placeholder>Escribe el mensaje…</Placeholder>
       )}

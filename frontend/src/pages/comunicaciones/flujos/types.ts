@@ -16,6 +16,21 @@ export interface FlowButton {
 
 export type FlowNodeType = "start" | "message" | "user_input" | "action" | "condition" | "start_flow";
 export type FlowInputValidation = "any" | "number" | "email" | "phone";
+export type FlowHeaderType = "text" | "image" | "video" | "document";
+
+export const HEADER_TYPE_LABELS: Record<FlowHeaderType, string> = {
+  text: "Texto",
+  image: "Imagen",
+  video: "Video",
+  document: "Documento",
+};
+
+/** Tipos de archivo aceptados por el selector según el encabezado. */
+export const HEADER_ACCEPT: Record<Exclude<FlowHeaderType, "text">, string> = {
+  image: "image/jpeg,image/png,image/webp",
+  video: "video/mp4,video/quicktime,video/webm,video/3gpp",
+  document: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt",
+};
 export type FlowActionType = "set_variable" | "add_label" | "remove_label" | "handoff" | "resolve";
 export type FlowConditionOperator =
   | "equals"
@@ -35,6 +50,14 @@ export interface FlowAction {
 
 export interface FlowNodeData {
   text?: string;
+  /** Encabezado del mensaje (≤ 60) */
+  header?: string;
+  /** Pie del mensaje (≤ 60) */
+  footer?: string;
+  /** Tipo de encabezado: texto (header) o archivo (headerMediaUrl) */
+  headerType?: FlowHeaderType;
+  headerMediaUrl?: string;
+  headerMediaName?: string;
   buttons?: FlowButton[];
   variable?: string;
   validation?: FlowInputValidation;
@@ -105,6 +128,8 @@ export const MAX_BUTTONS = 10;
 /** WhatsApp: botones de respuesta ≤ 20 caracteres (3 botones); filas de lista ≤ 24. */
 export const MAX_BUTTON_TITLE = 24;
 export const WA_REPLY_BUTTON_TITLE = 20;
+/** WhatsApp: encabezado y pie de mensajes interactivos ≤ 60 caracteres. */
+export const MAX_HEADER_FOOTER = 60;
 
 export const statusLabels: Record<FlowStatus, string> = {
   draft: "borrador",

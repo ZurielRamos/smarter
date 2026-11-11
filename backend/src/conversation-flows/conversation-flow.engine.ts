@@ -6,11 +6,16 @@ import {
   FlowNode,
   FlowInputValidation,
   FlowNodeData,
+  FlowHeaderMedia,
 } from './conversation-flow.entity';
 
 /** Mensaje que el flujo quiere enviar al contacto. */
 export interface FlowOutgoingMessage {
   text: string;
+  header?: string;
+  /** Encabezado multimedia (excluye `header` de texto) */
+  headerMedia?: FlowHeaderMedia;
+  footer?: string;
   buttons?: FlowButton[];
 }
 
@@ -281,7 +286,7 @@ export class ConversationFlowEngine {
 
         case 'message': {
           const msg = this.renderMessage(node.data, variables, context);
-          if (msg.text || msg.buttons?.length)
+          if (msg.text || msg.buttons?.length || msg.headerMedia)
             result.messages.push(this.withPayloads(flow.id, node.id, msg));
           if (msg.buttons?.length) {
             result.state = this.waitingState(flow.id, node.id, 'button');
@@ -426,8 +431,28 @@ export class ConversationFlowEngine {
         id: b.id,
         title: this.interpolate(b.title, variables, context),
       }));
+    const mediaType =
+      data.headerType && data.headerType !== 'text' ? data.headerType : null;
+    const headerMedia: FlowHeaderMedia | undefined =
+      mediaType && data.headerMediaUrl
+        ? {
+            type: mediaType,
+            url: data.headerMediaUrl,
+            filename: data.headerMediaName,
+          }
+        : undefined;
     return {
       text: this.interpolate(data.text || '', variables, context),
+      headerMedia,
+      header:
+        !headerMedia && data.header
+          ? this.interpolate(data.header, variables, context).slice(0, 60) ||
+            undefined
+          : undefined,
+      footer: data.footer
+        ? this.interpolate(data.footer, variables, context).slice(0, 60) ||
+          undefined
+        : undefined,
       buttons: buttons.length ? buttons : undefined,
     };
   }

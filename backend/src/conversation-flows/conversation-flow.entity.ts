@@ -23,6 +23,15 @@ export type FlowNodeType =
 
 export type FlowInputValidation = 'any' | 'number' | 'email' | 'phone';
 
+export type FlowHeaderType = 'text' | 'image' | 'video' | 'document';
+
+/** Encabezado multimedia ya resuelto para enviar. */
+export interface FlowHeaderMedia {
+  type: 'image' | 'video' | 'document';
+  url: string;
+  filename?: string;
+}
+
 export type FlowActionType =
   'set_variable' | 'add_label' | 'remove_label' | 'handoff' | 'resolve';
 
@@ -48,6 +57,16 @@ export type FlowConditionOperator =
 export interface FlowNodeData {
   /** message / user_input: texto a enviar (admite {{variables}}) */
   text?: string;
+  /** message: encabezado (≤ 60 caracteres, admite {{variables}}) */
+  header?: string;
+  /** message: pie de mensaje (≤ 60 caracteres, admite {{variables}}) */
+  footer?: string;
+  /** message: tipo de encabezado. 'text' usa `header`; el resto usa `headerMediaUrl`. */
+  headerType?: FlowHeaderType;
+  /** message: URL pública del archivo del encabezado (imagen JPEG, video MP4 o documento) */
+  headerMediaUrl?: string;
+  /** message: nombre del archivo (documentos) */
+  headerMediaName?: string;
   /** message: botones (máx. 10) */
   buttons?: FlowButton[];
   /** user_input: variable donde se guarda la respuesta */

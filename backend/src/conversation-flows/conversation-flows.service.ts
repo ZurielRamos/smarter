@@ -11,8 +11,14 @@ import {
   FlowEdge,
   FlowNode,
   FlowNodeType,
+  FlowHeaderType,
   FlowTriggers,
 } from './conversation-flow.entity';
+import { MediaStorageService } from '../media/media-storage.service';
+import {
+  compressVideoForWhatsApp,
+  WA_VIDEO_LIMIT,
+} from '../media/whatsapp-transcode.util';
 import {
   CreateConversationFlowDto,
   UpdateConversationFlowDto,
@@ -43,6 +49,18 @@ const OPERATORS = new Set([
   'less_than',
 ]);
 const VALIDATIONS = new Set(['any', 'number', 'email', 'phone']);
+const HEADER_MEDIA_TYPES = new Set(['image', 'video', 'document']);
+/** Documentos que WhatsApp acepta. */
+const DOCUMENT_MIMES = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain',
+]);
 const VARIABLE_RE = /^[a-zA-Z_][\w]{0,49}$/;
 
 /** Máximo de botones por mensaje (límite de las listas de WhatsApp). */
@@ -55,6 +73,7 @@ export class ConversationFlowsService {
   constructor(
     @InjectRepository(ConversationFlow)
     private readonly flowRepo: Repository<ConversationFlow>,
+    private readonly mediaStorage: MediaStorageService,
   ) {}
 
   // ─── CRUD ─────────────────────────────────────────────────────
@@ -137,6 +156,95 @@ export class ConversationFlowsService {
   async remove(id: string, tenantId: string): Promise<void> {
     const flow = await this.findOne(id, tenantId);
     await this.flowRepo.remove(flow);
+  }
+
+  /**
+   * Sube el archivo del encabezado multimedia de un nodo Mensaje, ya en un
+   * formato que WhatsApp acepta por link:
+   *   - imagen → JPEG (WhatsApp no acepta WebP, que es lo que genera uploadBuffer)
+   *   - video  → MP4 H.264/AAC < 16 MB (perfil compatible con Android)
+   *   - documento → tal cual (PDF, Office, texto)
+   */
+  async uploadHeaderMedia(
+    tenantId: string,
+    file: Express.Multer.File | undefined,
+  ): Promise<{
+    url: string;
+    type: 'image' | 'video' | 'document';
+    filename: string;
+    mimeType: string;
+  }> {
+    if (!tenantId) throw new BadRequestException('tenantId es requerido');
+    if (!file?.buffer?.length)
+      throw new BadRequestException('Archivo requerido');
+
+    const mime = (file.mimetype || '').split(';')[0].trim().toLowerCase();
+    const filename = (file.originalname || 'archivo').slice(0, 240);
+    const base = {
+      channel: 'flows',
+      tenantId,
+      conversationId: 'header-media',
+      messageId: `hdr-${Date.now()}`,
+    };
+
+    if (mime.startsWith('image/') && !mime.includes('svg')) {
+      const stored = await this.mediaStorage.uploadImageAsJpeg(
+        file.buffer,
+        base,
+      );
+      if (!stored?.url)
+        throw new BadRequestException('No se pudo guardar la imagen');
+      return {
+        url: stored.url,
+        type: 'image',
+        filename,
+        mimeType: 'image/jpeg',
+      };
+    }
+
+    if (mime.startsWith('video/')) {
+      let video: Buffer;
+      try {
+        video = await compressVideoForWhatsApp(file.buffer, WA_VIDEO_LIMIT);
+      } catch (err: any) {
+        throw new BadRequestException(
+          `No se pudo procesar el video: ${err?.message || err}`,
+        );
+      }
+      if (video.length > WA_VIDEO_LIMIT) {
+        throw new BadRequestException(
+          'El video no cabe en 16 MB ni comprimido. Usa un video más corto.',
+        );
+      }
+      const stored = await this.mediaStorage.uploadBuffer(video, {
+        ...base,
+        mimeType: 'video/mp4',
+        filename: filename.replace(/\.[^.]+$/, '') + '.mp4',
+      });
+      if (!stored?.url)
+        throw new BadRequestException('No se pudo guardar el video');
+      return {
+        url: stored.url,
+        type: 'video',
+        filename,
+        mimeType: 'video/mp4',
+      };
+    }
+
+    if (DOCUMENT_MIMES.has(mime)) {
+      const stored = await this.mediaStorage.uploadBuffer(file.buffer, {
+        ...base,
+        mimeType: mime,
+        filename,
+      });
+      if (!stored?.url)
+        throw new BadRequestException('No se pudo guardar el documento');
+      return { url: stored.url, type: 'document', filename, mimeType: mime };
+    }
+
+    throw new BadRequestException(
+      'Formato no soportado. Usa una imagen, un video o un documento PDF/Office/texto.',
+    );
   }
 
   async incrementRunCount(flowIds: string[]): Promise<void> {
@@ -231,6 +339,31 @@ export class ConversationFlowsService {
       switch (raw.type) {
         case 'message': {
           node.data.text = String(d.text || '').slice(0, 4096);
+          // Límite de WhatsApp para header/footer de mensajes interactivos.
+          const footer = String(d.footer || '')
+            .trim()
+            .slice(0, 60);
+          if (footer) node.data.footer = footer;
+          const headerType = HEADER_MEDIA_TYPES.has(String(d.headerType))
+            ? (d.headerType as FlowHeaderType)
+            : 'text';
+          if (headerType === 'text') {
+            const header = String(d.header || '')
+              .trim()
+              .slice(0, 60);
+            if (header) node.data.header = header;
+          } else {
+            // Solo URLs https (las sube el endpoint upload-media a nuestro storage).
+            const url = String(d.headerMediaUrl || '').trim();
+            if (/^https:\/\/\S+$/i.test(url) && url.length <= 2048) {
+              node.data.headerType = headerType;
+              node.data.headerMediaUrl = url;
+              const name = String(d.headerMediaName || '')
+                .trim()
+                .slice(0, 240);
+              if (name) node.data.headerMediaName = name;
+            }
+          }
           const buttons = (Array.isArray(d.buttons) ? d.buttons : [])
             .map((b: any) => ({
               id: String(b?.id || '')

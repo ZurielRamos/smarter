@@ -2611,7 +2611,12 @@ export class ChatsService {
 
     for (const msg of result.messages) {
       try {
-        await this.sendMessage(conversation.id, msg.text || '', 'text', undefined, undefined, { buttons: msg.buttons });
+        await this.sendMessage(conversation.id, msg.text || '', 'text', undefined, undefined, {
+          buttons: msg.buttons,
+          header: msg.header,
+          footer: msg.footer,
+          headerMedia: msg.headerMedia,
+        });
       } catch (err: any) {
         console.warn('[ConversationFlow] Send failed:', err?.message || err);
         await this.createSystemNote(conversation.id, `⚠️ Flujo: no se pudo enviar un mensaje (${err?.message || 'error'})`, inbox.tenantId);
@@ -3699,7 +3704,13 @@ export class ChatsService {
     messageType = 'text',
     senderId?: string,
     replyToExternalId?: string,
-    opts?: { buttons?: OutgoingButton[] },
+    opts?: {
+      buttons?: OutgoingButton[];
+      header?: string;
+      footer?: string;
+      /** Encabezado multimedia (link público https). Excluye `header` de texto. */
+      headerMedia?: { type: 'image' | 'video' | 'document'; url: string; filename?: string };
+    },
   ): Promise<Message> {
     const conversation = await this.conversationRepo.findOne({
       where: { id: conversationId },
@@ -3713,10 +3724,35 @@ export class ChatsService {
     // envían de forma nativa; el resto de canales recibe las opciones numeradas
     // en el texto y el flujo acepta el número como respuesta.
     const buttons = opts?.buttons?.length ? opts.buttons.slice(0, 10) : null;
-    const textWithOptions = buttons
-      ? `${content ? `${content}\n\n` : ''}${buttons.map((b, i) => `${i + 1}. ${b.title}`).join('\n')}`
-      : content;
+    // Encabezado y pie: nativos en los interactivos de WhatsApp Cloud; en el
+    // resto se agregan al texto (negrita/cursiva en canales de WhatsApp).
+    const headerMedia = opts?.headerMedia && /^https:\/\//i.test(opts.headerMedia.url) ? opts.headerMedia : null;
+    const header = headerMedia ? null : truncateText(opts?.header || '', 60) || null;
+    const footer = truncateText(opts?.footer || '', 60) || null;
+    const waFormatting = inbox.channel === 'whatsapp' || inbox.channel === 'evolution' || isBridgeActive(inbox.metadata);
+    const decorate = (body: string) =>
+      [header && (waFormatting ? `*${header}*` : header), body, footer && (waFormatting ? `_${footer}_` : footer)]
+        .filter(Boolean)
+        .join('\n\n');
+    const textWithOptions = decorate(
+      buttons
+        ? `${content ? `${content}\n\n` : ''}${buttons.map((b, i) => `${i + 1}. ${b.title}`).join('\n')}`
+        : content,
+    );
     const interactiveBody = truncateText(content || 'Elige una opción:', 1024);
+    const quickReplyText = truncateText(decorate(content) || 'Elige una opción:', 2000);
+    // Canales sin envío de archivos por link en este flujo (chat web, Evolution,
+    // puente SendPulse): el archivo del encabezado va como enlace en el texto.
+    const textWithMediaLink = headerMedia ? `${headerMedia.url}\n\n${textWithOptions}`.trim() : textWithOptions;
+    /** Objeto de media de WhatsApp por link ({ link, filename?, caption? }). */
+    const waMediaObject = (caption?: string) =>
+      headerMedia
+        ? {
+            link: headerMedia.url,
+            ...(headerMedia.type === 'document' && headerMedia.filename ? { filename: headerMedia.filename } : {}),
+            ...(caption ? { caption: truncateText(caption, 1024) } : {}),
+          }
+        : null;
 
     // Check 24h messaging window for social channels
     if (['whatsapp', 'messenger', 'instagram'].includes(inbox.channel)) {
@@ -3748,7 +3784,7 @@ export class ChatsService {
         const result = await this.sendPulseService.sendText(
           inbox.accessToken,
           conversation.contactId,
-          textWithOptions,
+          textWithMediaLink,
         );
         externalId = result.messageId;
       } catch (err: any) {
@@ -3842,7 +3878,7 @@ export class ChatsService {
         messaging_product: 'whatsapp',
         ...(await this.resolveWhatsAppRecipient(conversation)),
         type: 'text',
-        text: { body: content },
+        text: { body: textWithOptions },
       };
       if (buttons && buttons.length <= 3) {
         // Botones de respuesta: máx. 3, título ≤ 20 caracteres.
@@ -3850,6 +3886,10 @@ export class ChatsService {
         messageBody.type = 'interactive';
         messageBody.interactive = {
           type: 'button',
+          ...(header ? { header: { type: 'text', text: header } } : {}),
+          // Los botones de respuesta admiten encabezado de imagen, video o documento.
+          ...(headerMedia ? { header: { type: headerMedia.type, [headerMedia.type]: waMediaObject() } } : {}),
+          ...(footer ? { footer: { text: footer } } : {}),
           body: { text: interactiveBody },
           action: {
             buttons: buttons.map((b) => ({ type: 'reply', reply: { id: b.id, title: truncateText(b.title, 20) } })),
@@ -3861,17 +3901,42 @@ export class ChatsService {
         messageBody.type = 'interactive';
         messageBody.interactive = {
           type: 'list',
+          ...(header ? { header: { type: 'text', text: header } } : {}),
+          ...(footer ? { footer: { text: footer } } : {}),
           body: { text: interactiveBody },
           action: {
             button: 'Ver opciones',
             sections: [{ title: 'Opciones', rows: buttons.map((b) => ({ id: b.id, title: truncateText(b.title, 24) })) }],
           },
         };
+      } else if (headerMedia) {
+        // Sin botones: se envía como mensaje de imagen/video/documento con el texto como pie.
+        delete messageBody.text;
+        messageBody.type = headerMedia.type;
+        messageBody[headerMedia.type] = waMediaObject(textWithOptions);
       }
       if (replyToExternalId) {
         messageBody.context = { message_id: replyToExternalId };
       }
       try {
+        // Las listas solo admiten encabezado de texto: el archivo se envía antes, aparte.
+        if (headerMedia && buttons && buttons.length > 3) {
+          const recipient = await this.resolveWhatsAppRecipient(conversation);
+          const preRes = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${inbox.accessToken}` },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              ...recipient,
+              type: headerMedia.type,
+              [headerMedia.type]: waMediaObject(),
+            }),
+          });
+          if (!preRes.ok) {
+            const preData = await preRes.json().catch(() => ({}));
+            console.error('[Chat] WhatsApp header media send failed:', JSON.stringify(preData));
+          }
+        }
         const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
           method: 'POST',
           headers: {
@@ -3896,12 +3961,12 @@ export class ChatsService {
       // Send via Page Send API
       const messengerPayload: any = {
         recipient: { id: conversation.contactId },
-        message: { text: content },
+        message: { text: textWithOptions },
       };
       if (buttons) {
         // Quick replies: máx. 13, título ≤ 20 caracteres. El payload vuelve en message.quick_reply.
         messengerPayload.message = {
-          text: interactiveBody,
+          text: quickReplyText,
           quick_replies: buttons.map((b) => ({ content_type: 'text', title: truncateText(b.title, 20), payload: b.id })),
         };
       }
@@ -3909,6 +3974,31 @@ export class ChatsService {
         messengerPayload.reply_to = { mid: replyToExternalId };
       }
       try {
+        // Messenger/Instagram no tienen encabezado: el archivo se envía antes como adjunto.
+        if (headerMedia) {
+          const attRes = await fetch(`https://graph.facebook.com/v21.0/${inbox.pageId}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${inbox.accessToken}` },
+            body: JSON.stringify({
+              recipient: { id: conversation.contactId },
+              message: {
+                attachment: {
+                  type: headerMedia.type === 'document' ? 'file' : headerMedia.type,
+                  payload: { url: headerMedia.url, is_reusable: true },
+                },
+              },
+            }),
+          });
+          const attData = await attRes.json().catch(() => ({}));
+          if (!attData.message_id) console.error(`[Chat] ${inbox.channel} header media send failed:`, JSON.stringify(attData));
+          // Mensaje solo con archivo: no hay texto que enviar después.
+          if (!buttons && !textWithOptions) {
+            externalId = attData.message_id || null;
+            if (!externalId) sendError = attData.error?.message || 'No se pudo enviar el archivo';
+          }
+        }
+        const onlyMedia = !!headerMedia && !buttons && !textWithOptions;
+        if (!onlyMedia) {
         const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.pageId}/messages`, {
           method: 'POST',
           headers: {
@@ -3923,6 +4013,7 @@ export class ChatsService {
           console.error('[Chat] Messenger send failed:', JSON.stringify(data));
           const errDetail = data.error?.message || 'Error desconocido';
           sendError = `${inbox.channel === 'instagram' ? 'Instagram' : 'Messenger'} API error: ${errDetail}`;
+        }
         }
       } catch (err: any) {
         console.error(`[Chat] ${inbox.channel} send error:`, err);
@@ -3952,7 +4043,7 @@ export class ChatsService {
         const result = await this.evolutionService.sendText(
           instanceName,
           conversation.contactId,
-          textWithOptions,
+          textWithMediaLink,
           inbox.accessToken || undefined,
           quoted,
         );
@@ -3973,7 +4064,24 @@ export class ChatsService {
       senderId: senderId || null,
       replyToExternalId: replyToExternalId || null,
       status: externalId ? 'sent' : 'failed',
-      interactive: buttons ? { buttons } : null,
+      // El encabezado multimedia se guarda como media del mensaje para verlo en el chat.
+      ...(headerMedia
+        ? {
+            mediaUrl: headerMedia.url,
+            mediaMimeType:
+              headerMedia.type === 'image'
+                ? 'image/jpeg'
+                : headerMedia.type === 'video'
+                  ? 'video/mp4'
+                  : /\.pdf$/i.test(headerMedia.filename || headerMedia.url)
+                    ? 'application/pdf'
+                    : 'application/octet-stream',
+          }
+        : {}),
+      interactive:
+        buttons || header || footer
+          ? { buttons: buttons || [], ...(header ? { header } : {}), ...(footer ? { footer } : {}) }
+          : null,
     });
     const saved = await this.messageRepo.save(message);
 
@@ -3983,7 +4091,7 @@ export class ChatsService {
     }
 
     // Update conversation
-    conversation.lastMessage = content;
+    conversation.lastMessage = content || (headerMedia ? `[${headerMedia.type}]` : content);
     conversation.lastMessageAt = new Date();
 
     // Auto-pause bot when a human agent sends a message
@@ -4029,7 +4137,7 @@ export class ChatsService {
     if (inbox.channel === 'chat') {
       this.chatWidgetGateway.sendToVisitor(conversationId, {
         type: 'message',
-        content: textWithOptions,
+        content: textWithMediaLink,
         direction: 'out',
         messageId: saved.id,
       });

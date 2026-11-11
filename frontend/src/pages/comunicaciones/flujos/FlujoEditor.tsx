@@ -532,6 +532,7 @@ function FlujoEditorInner() {
               currentFlowId={flow.id}
               labels={labels}
               variables={variables}
+              tenantId={tenantId}
               onChange={(d) => updateNodeData(selectedNode.id, d)}
               onDelete={() => deleteNode(selectedNode.id)}
               onClose={() => setSelectedId(null)}

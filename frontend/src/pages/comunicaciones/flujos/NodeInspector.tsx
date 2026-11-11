@@ -1,9 +1,16 @@
-import { Plus, Trash2, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { FileText, Loader2, Plus, Trash2, Upload, X } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   ACTION_LABELS,
+  HEADER_ACCEPT,
+  HEADER_TYPE_LABELS,
+  flowsApi,
+  type FlowHeaderType,
   MAX_BUTTONS,
   MAX_BUTTON_TITLE,
+  MAX_HEADER_FOOTER,
   NODE_LABELS,
   OPERATOR_LABELS,
   VALIDATION_LABELS,
@@ -32,6 +39,7 @@ interface NodeInspectorProps {
   currentFlowId: string;
   labels: LabelOption[];
   variables: string[];
+  tenantId?: string;
   onChange: (data: FlowNodeData) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -45,6 +53,7 @@ export function NodeInspector({
   currentFlowId,
   labels,
   variables,
+  tenantId,
   onChange,
   onDelete,
   onClose,
@@ -80,7 +89,7 @@ export function NodeInspector({
           </p>
         )}
 
-        {type === "message" && <MessageFields data={data} set={set} />}
+        {type === "message" && <MessageFields data={data} set={set} tenantId={tenantId} />}
 
         {type === "user_input" && (
           <>
@@ -253,7 +262,203 @@ function VariableHint() {
   );
 }
 
-function MessageFields({ data, set }: { data: FlowNodeData; set: (p: Partial<FlowNodeData>) => void }) {
+/** Input de una línea con contador y límite de WhatsApp (60). */
+function LimitedField({
+  id,
+  label,
+  value,
+  placeholder,
+  onChange,
+  hint,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  placeholder?: string;
+  onChange: (v: string) => void;
+  hint?: string;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <label className={labelClass.replace(" mb-1", "")} htmlFor={id}>
+          {label} <span className="text-muted-foreground font-normal">(opcional)</span>
+        </label>
+        <span className="text-[10px] text-muted-foreground">
+          {value.length}/{MAX_HEADER_FOOTER}
+        </span>
+      </div>
+      <input
+        id={id}
+        value={value}
+        maxLength={MAX_HEADER_FOOTER}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={inputClass}
+      />
+      {hint && <p className={hintClass}>{hint}</p>}
+    </div>
+  );
+}
+
+/** Encabezado del mensaje: texto o archivo (imagen, video, documento). */
+function HeaderFields({
+  data,
+  set,
+  tenantId,
+  buttonCount,
+}: {
+  data: FlowNodeData;
+  set: (p: Partial<FlowNodeData>) => void;
+  tenantId?: string;
+  buttonCount: number;
+}) {
+  const type: FlowHeaderType = data.headerType || "text";
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const changeType = (t: FlowHeaderType) => {
+    // Cambiar de tipo descarta el valor anterior para no enviar un encabezado inesperado.
+    if (t === type) return;
+    set({ headerType: t, header: undefined, headerMediaUrl: undefined, headerMediaName: undefined });
+  };
+
+  const upload = async (file: File) => {
+    if (!tenantId) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const { data: res } = await flowsApi.post<{ url: string; type: FlowHeaderType; filename: string }>(
+        "/conversation-flows/upload-media",
+        form,
+        { params: { tenantId } },
+      );
+      set({ headerType: res.type, headerMediaUrl: res.url, headerMediaName: res.filename, header: undefined });
+      toast.success("Archivo subido");
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join(", ") : msg || "No se pudo subir el archivo");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  return (
+    <div>
+      <span className={labelClass}>
+        Encabezado <span className="text-muted-foreground font-normal">(opcional)</span>
+      </span>
+      <div className="grid grid-cols-4 gap-1 rounded-lg bg-muted p-1 mb-2" role="radiogroup" aria-label="Tipo de encabezado">
+        {(Object.keys(HEADER_TYPE_LABELS) as FlowHeaderType[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            role="radio"
+            aria-checked={type === t}
+            onClick={() => changeType(t)}
+            className={cn(
+              "rounded-md px-1.5 py-1 text-[11px] font-medium transition-colors",
+              type === t ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {HEADER_TYPE_LABELS[t]}
+          </button>
+        ))}
+      </div>
+
+      {type === "text" ? (
+        <LimitedField
+          id="msg-header"
+          label="Texto del encabezado"
+          value={data.header || ""}
+          placeholder="Soporte Inkttex"
+          onChange={(v) => set({ header: v })}
+        />
+      ) : (
+        <div className="space-y-2">
+          {data.headerMediaUrl ? (
+            <div className="rounded-lg border border-border overflow-hidden">
+              {type === "image" && <img src={data.headerMediaUrl} alt="Encabezado" className="w-full max-h-40 object-cover" />}
+              {type === "video" && <video src={data.headerMediaUrl} controls className="w-full max-h-40 bg-black" />}
+              {type === "document" && (
+                <a
+                  href={data.headerMediaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 text-xs text-brand-600 dark:text-brand-200 hover:underline"
+                >
+                  <FileText className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{data.headerMediaName || "Documento"}</span>
+                </a>
+              )}
+              <div className="flex border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  className="flex-1 px-3 py-1.5 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                >
+                  Reemplazar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => set({ headerMediaUrl: undefined, headerMediaName: undefined })}
+                  className="flex-1 px-3 py-1.5 text-[11px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 border-l border-border"
+                >
+                  Quitar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading || !tenantId}
+              className="flex w-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border px-3 py-5 text-xs text-muted-foreground hover:border-brand-300 hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+              {uploading
+                ? type === "video"
+                  ? "Procesando video… puede tardar"
+                  : "Subiendo…"
+                : `Subir ${HEADER_TYPE_LABELS[type].toLowerCase()}`}
+            </button>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept={HEADER_ACCEPT[type]}
+            className="hidden"
+            aria-label={`Archivo de ${HEADER_TYPE_LABELS[type].toLowerCase()}`}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) upload(f);
+            }}
+          />
+          <p className={hintClass}>
+            {type === "image" && "Se convierte a JPEG. "}
+            {type === "video" && "Se recodifica a MP4 compatible con Android, máx. 16 MB. "}
+            {buttonCount > 3
+              ? "Con más de 3 botones WhatsApp usa lista, que no admite archivo en el encabezado: se enviará justo antes."
+              : "En Messenger/Instagram se envía como adjunto antes del mensaje; en chat web como enlace."}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MessageFields({
+  data,
+  set,
+  tenantId,
+}: {
+  data: FlowNodeData;
+  set: (p: Partial<FlowNodeData>) => void;
+  tenantId?: string;
+}) {
   const buttons = data.buttons || [];
   const titleLimit = buttons.length <= 3 ? WA_REPLY_BUTTON_TITLE : MAX_BUTTON_TITLE;
 
@@ -262,6 +467,7 @@ function MessageFields({ data, set }: { data: FlowNodeData; set: (p: Partial<Flo
 
   return (
     <>
+      <HeaderFields data={data} set={set} tenantId={tenantId} buttonCount={buttons.length} />
       <div>
         <label className={labelClass} htmlFor="msg-text">
           Texto
@@ -276,6 +482,15 @@ function MessageFields({ data, set }: { data: FlowNodeData; set: (p: Partial<Flo
         />
         <VariableHint />
       </div>
+
+      <LimitedField
+        id="msg-footer"
+        label="Pie de mensaje"
+        value={data.footer || ""}
+        placeholder="Responde con una opción"
+        onChange={(v) => set({ footer: v })}
+        hint="En WhatsApp con botones se muestran nativos; en el resto se añaden al texto."
+      />
 
       <div>
         <div className="flex items-center justify-between mb-1">

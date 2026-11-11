@@ -102,6 +102,7 @@ export const MessageBubble = memo(function MessageBubble({
           </div>
         )}
         {msg.messageType !== "flow" && <MediaContent msg={msg} />}
+        {msg.interactive?.header && <p className="font-semibold mb-1">{msg.interactive.header}</p>}
         {msg.content && msg.messageType !== "template" && msg.messageType !== "flow" && (
           <p className="whitespace-pre-wrap">
             {searchTerm && searchTerm.length >= 2 && msg.content.toLowerCase().includes(searchTerm.toLowerCase())
@@ -110,6 +111,9 @@ export const MessageBubble = memo(function MessageBubble({
           </p>
         )}
         {!msg.content && !msg.mediaUrl && !msg.interactive?.buttons?.length && msg.messageType !== "template" && msg.messageType !== "flow" && <p className="whitespace-pre-wrap text-muted-foreground italic">[{msg.messageType}]</p>}
+        {msg.interactive?.footer && (
+          <p className={`text-[11px] mt-1 ${msg.direction === "outbound" ? "text-white/60" : "text-muted-foreground"}`}>{msg.interactive.footer}</p>
+        )}
         {msg.interactive?.buttons && msg.interactive.buttons.length > 0 && (
           // Botones enviados por un flujo (en WhatsApp se ven como botones o lista).
           <div className={`mt-2 pt-2 border-t space-y-1 ${msg.direction === "outbound" ? "border-white/20" : "border-border"}`} aria-label="Botones del mensaje">
@@ -137,7 +141,7 @@ function MediaContent({ msg }: { msg: Message }) {
   if (msg.messageType === "audio" || msg.mediaMimeType?.startsWith("audio/")) {
     return <audio src={msg.mediaUrl} controls className="max-w-full mb-1" />;
   }
-  if (msg.messageType === "document") {
+  if (msg.messageType === "document" || msg.mediaMimeType?.startsWith("application/")) {
     return (
       <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-1 ${msg.direction === "outbound" ? "bg-white/10 hover:bg-white/20" : "bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"} transition-colors`}>
         <span className="text-lg">📄</span>

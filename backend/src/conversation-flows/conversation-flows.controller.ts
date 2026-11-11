@@ -8,8 +8,11 @@ import {
   Post,
   Put,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { ConversationFlowsService } from './conversation-flows.service';
@@ -44,6 +47,22 @@ export class ConversationFlowsController {
   @Post()
   create(@Body() dto: CreateConversationFlowDto) {
     return this.flows.create(dto);
+  }
+
+  /**
+   * Sube el archivo del encabezado multimedia de un nodo Mensaje.
+   * tenantId va en la query: los guards se ejecutan antes de que el
+   * interceptor procese el multipart, así que el body aún no existe.
+   */
+  @Post('upload-media')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 64 * 1024 * 1024 } }),
+  )
+  uploadMedia(
+    @Query('tenantId') tenantId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.flows.uploadHeaderMedia(tenantId, file);
   }
 
   @Put(':id')
