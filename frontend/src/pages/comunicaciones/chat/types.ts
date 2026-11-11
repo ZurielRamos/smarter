@@ -49,7 +49,13 @@ export interface Message {
   externalId?: string | null;
   replyToExternalId?: string | null;
   /** Botones enviados por un flujo conversacional */
-  interactive?: { buttons: { id: string; title: string }[]; header?: string; footer?: string } | null;
+  interactive?: {
+    buttons: { id: string; title: string }[];
+    /** Botones de enlace / llamada enviados por un flujo */
+    actions?: { type: "url" | "call"; title: string; url?: string; phone?: string }[];
+    header?: string;
+    footer?: string;
+  } | null;
   sender?: {
     id: string;
     name: string;

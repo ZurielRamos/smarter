@@ -9,9 +9,19 @@ flowsApi.interceptors.request.use((config) => {
 
 // ─── Modelo (espejo de backend/src/conversation-flows/conversation-flow.entity.ts) ───
 
+export type FlowButtonType = "reply" | "url" | "call";
+
+/** Botón de un nodo Mensaje. Sin `type` es una respuesta (flujos antiguos). */
 export interface FlowButton {
   id: string;
   title: string;
+  type?: FlowButtonType;
+  /** type 'url': enlace http(s); admite {{variables}} */
+  url?: string;
+  /** type 'url': registrar clics y habilitar la salida «Al hacer clic» (activo si no es false) */
+  track?: boolean;
+  /** type 'call': teléfono en formato internacional */
+  phone?: string;
 }
 
 export type FlowNodeType = "start" | "message" | "user_input" | "action" | "condition" | "start_flow";
@@ -59,6 +69,8 @@ export interface FlowNodeData {
   headerMediaUrl?: string;
   headerMediaName?: string;
   buttons?: FlowButton[];
+  /** Más de 3 respuestas con archivo en el encabezado: 'paginate' (predeterminado) o 'list' */
+  overflow?: "paginate" | "list";
   variable?: string;
   validation?: FlowInputValidation;
   errorMessage?: string;
@@ -130,6 +142,10 @@ export const MAX_BUTTON_TITLE = 24;
 export const WA_REPLY_BUTTON_TITLE = 20;
 /** WhatsApp: encabezado y pie de mensajes interactivos ≤ 60 caracteres. */
 export const MAX_HEADER_FOOTER = 60;
+/** Botones de enlace o llamada por mensaje (Messenger admite 3 en su plantilla). */
+export const MAX_ACTION_BUTTONS = 3;
+/** Título de botones de enlace/llamada (límite de WhatsApp cta_url y Messenger). */
+export const MAX_ACTION_TITLE = 20;
 
 export const statusLabels: Record<FlowStatus, string> = {
   draft: "borrador",

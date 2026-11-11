@@ -34,17 +34,31 @@ import sharp from 'sharp';
 import { convertAudioToOggOpus, compressVideoForWhatsApp, WA_VIDEO_LIMIT } from '../media/whatsapp-transcode.util';
 import { ConversationFlowsService } from '../conversation-flows/conversation-flows.service';
 import { ConversationFlowEngine, FlowRunResult, parseButtonPayload } from '../conversation-flows/conversation-flow.engine';
+import { FlowLinksService } from '../conversation-flows/flow-links.service';
 
-/** Botón interactivo a enviar con un mensaje (id = payload que devuelve el canal). */
-export interface OutgoingButton {
-  id: string;
-  title: string;
-}
+import {
+  buildMessengerMessages,
+  buildPlainText,
+  buildWhatsAppMessages,
+  PLAIN_FORMAT,
+  truncateText,
+  WHATSAPP_FORMAT,
+  type FlowMessageParts,
+  type OutgoingAction,
+  type OutgoingButton,
+  type OutgoingHeaderMedia,
+} from './flow-message.util';
 
-/** Recorta un texto a `max` caracteres (límites de títulos de botones de Meta). */
-function truncateText(text: string, max: number): string {
-  const t = (text || '').trim();
-  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+export type { OutgoingAction, OutgoingButton } from './flow-message.util';
+
+/** Lee el cuerpo como JSON sin fallar si Meta responde vacío o con texto (p. ej. un 5xx). */
+async function readJsonSafe(res: Response): Promise<any> {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return {};
+  }
 }
 
 export type AssignmentFilter = 'all' | 'unassigned' | 'mine';
@@ -150,6 +164,7 @@ export class ChatsService {
     private readonly flowSubmissionsService: FlowSubmissionsService,
     private readonly conversationFlowsService: ConversationFlowsService,
     private readonly conversationFlowEngine: ConversationFlowEngine,
+    private readonly flowLinksService: FlowLinksService,
   ) {}
 
   // === INBOXES ===
@@ -2542,7 +2557,11 @@ export class ChatsService {
       const handedOff = conversation.botStatus === 'handed_off';
 
       const loader = (flowId: string) => this.conversationFlowsService.loadForTenant(inbox.tenantId, flowId);
-      const context = { contactName: conversation.contactName };
+      const context = {
+        contactName: conversation.contactName,
+        // La paginación «Más opciones» solo aplica a WhatsApp Cloud nativo.
+        whatsappCloud: inbox.channel === 'whatsapp' && !isBridgeActive(inbox.metadata),
+      };
       const variables = conversation.flowVariables || {};
       const input = { text: content, payload };
 
@@ -2613,6 +2632,7 @@ export class ChatsService {
       try {
         await this.sendMessage(conversation.id, msg.text || '', 'text', undefined, undefined, {
           buttons: msg.buttons,
+          actions: await this.trackFlowLinks(inbox, conversation.id, msg),
           header: msg.header,
           footer: msg.footer,
           headerMedia: msg.headerMedia,
@@ -2637,6 +2657,126 @@ export class ChatsService {
     if (result.startedFlowIds.length) {
       this.conversationFlowsService.incrementRunCount(result.startedFlowIds).catch(() => {});
     }
+  }
+
+  // === SEGUIMIENTO DE CLICS EN ENLACES DE FLUJOS ===
+
+  /**
+   * Cambia los botones de enlace rastreados por un enlace corto propio, para
+   * poder saber cuándo el contacto los abre. El destino real queda en
+   * `displayUrl` (lo que se guarda y ve el agente, sin pasar por el rastreo).
+   * Si no se puede crear el enlace se envía el original: mejor sin seguimiento
+   * que perder el enlace.
+   */
+  private async trackFlowLinks(
+    inbox: Inbox,
+    conversationId: string,
+    msg: FlowRunResult['messages'][number],
+  ): Promise<OutgoingAction[] | undefined> {
+    if (!msg.actions?.length) return undefined;
+    const source = msg.source;
+    const canTrack = !!source && this.flowLinksService.trackingAvailable();
+
+    return Promise.all(
+      msg.actions.map(async (a): Promise<OutgoingAction> => {
+        if (a.type !== 'url' || !a.url || !a.track || !a.buttonId || !canTrack) return a;
+        try {
+          const link = await this.flowLinksService.createLink({
+            tenantId: inbox.tenantId,
+            conversationId,
+            flowId: source!.flowId,
+            nodeId: source!.nodeId,
+            buttonId: a.buttonId,
+            title: a.title,
+            url: a.url,
+          });
+          return { ...a, url: this.flowLinksService.urlFor(link.code), displayUrl: a.url };
+        } catch (err: any) {
+          console.warn('[FlowLink] No se pudo crear el enlace rastreado:', err?.message || err);
+          return a;
+        }
+      }),
+    );
+  }
+
+  /** true si se pueden enviar mensajes libres (ventana de 24 h de WhatsApp/Messenger/Instagram). */
+  private async isServiceWindowOpen(conversationId: string, channel: string): Promise<boolean> {
+    if (!['whatsapp', 'messenger', 'instagram'].includes(channel)) return true;
+    const lastInbound = await this.messageRepo.findOne({
+      where: { conversationId, direction: 'inbound' },
+      order: { createdAt: 'DESC' },
+    });
+    if (!lastInbound) return false;
+    return Date.now() - new Date(lastInbound.createdAt).getTime() <= 24 * 60 * 60 * 1000;
+  }
+
+  /**
+   * Registra un clic en un enlace rastreado (lo llama el endpoint público que
+   * redirige). Solo el primer clic deja nota en la conversación, avisa a los
+   * webhooks y continúa el flujo; los siguientes suman al contador.
+   */
+  async registerFlowLinkClick(code: string): Promise<void> {
+    const registered = await this.flowLinksService.registerClick(code);
+    if (!registered?.first) return;
+    const { link } = registered;
+
+    const conversation = await this.conversationRepo.findOne({
+      where: { id: link.conversationId },
+      relations: { inbox: true },
+    });
+    const inbox = conversation?.inbox;
+    if (!conversation || !inbox) return;
+
+    await this.createSystemNote(conversation.id, `🔗 El contacto abrió «${link.title}».`, inbox.tenantId).catch(() => {});
+    this.webhooksService
+      .dispatch(inbox.tenantId, 'link_clicked', {
+        link: { id: link.id, title: link.title, url: link.url, flowId: link.flowId, clickedAt: link.firstClickAt },
+        conversation: { id: conversation.id, contactId: conversation.contactId, contactName: conversation.contactName, recordId: conversation.recordId, inboxId: conversation.inboxId },
+        inbox: { id: inbox.id, name: inbox.name, channel: inbox.channel },
+      })
+      .catch(() => {});
+
+    await this.continueFlowAfterClick(inbox, conversation.id, link);
+  }
+
+  /**
+   * Ejecuta lo conectado a la salida «Al hacer clic». Se serializa con el resto
+   * de mensajes de la conversación para no pisar un flujo en curso.
+   */
+  private async continueFlowAfterClick(
+    inbox: Inbox,
+    conversationId: string,
+    link: { flowId: string; nodeId: string; buttonId: string; title: string },
+  ): Promise<void> {
+    await this.withInboundLock(`flow:${conversationId}`, async () => {
+      const conversation = await this.conversationRepo.findOne({ where: { id: conversationId } });
+      if (!conversation) return;
+      // Un agente atiende la conversación: se registra el clic pero no se envía nada automático.
+      if (conversation.botStatus === 'handed_off') return;
+
+      const result = await this.conversationFlowEngine.resumeFromClick(
+        link,
+        conversation.flowVariables || {},
+        (flowId) => this.conversationFlowsService.loadForTenant(inbox.tenantId, flowId),
+        {
+          contactName: conversation.contactName,
+          whatsappCloud: inbox.channel === 'whatsapp' && !isBridgeActive(inbox.metadata),
+        },
+      );
+      // Sin nada conectado a «Al hacer clic»: solo queda registrado.
+      if (!result.handled) return;
+
+      // El seguimiento es un mensaje libre: solo cabe dentro de la ventana de 24 h.
+      if (!(await this.isServiceWindowOpen(conversation.id, inbox.channel))) {
+        await this.createSystemNote(
+          conversation.id,
+          `⚠️ Flujo: no se envió el seguimiento de «${link.title}» porque la ventana de 24 horas está cerrada.`,
+          inbox.tenantId,
+        ).catch(() => {});
+        return;
+      }
+      await this.applyFlowResult(inbox, conversation, conversation, result);
+    });
   }
 
   // === BOT AUTO-REPLY ===
@@ -3705,11 +3845,14 @@ export class ChatsService {
     senderId?: string,
     replyToExternalId?: string,
     opts?: {
+      /** Botones de respuesta (id = payload que devuelve el canal) */
       buttons?: OutgoingButton[];
+      /** Botones de enlace / llamada (no generan respuesta) */
+      actions?: OutgoingAction[];
       header?: string;
       footer?: string;
       /** Encabezado multimedia (link público https). Excluye `header` de texto. */
-      headerMedia?: { type: 'image' | 'video' | 'document'; url: string; filename?: string };
+      headerMedia?: OutgoingHeaderMedia;
     },
   ): Promise<Message> {
     const conversation = await this.conversationRepo.findOne({
@@ -3720,39 +3863,27 @@ export class ChatsService {
 
     const inbox = conversation.inbox;
 
-    // Botones interactivos (flujos). WhatsApp Cloud, Messenger e Instagram los
-    // envían de forma nativa; el resto de canales recibe las opciones numeradas
-    // en el texto y el flujo acepta el número como respuesta.
+    // Botones, enlaces, encabezado y pie (flujos). Cada canal los traduce a su
+    // formato nativo (ver flow-message.util.ts); los canales sin botones reciben
+    // las opciones numeradas en el texto y el flujo acepta el número como respuesta.
     const buttons = opts?.buttons?.length ? opts.buttons.slice(0, 10) : null;
-    // Encabezado y pie: nativos en los interactivos de WhatsApp Cloud; en el
-    // resto se agregan al texto (negrita/cursiva en canales de WhatsApp).
+    const actions = (opts?.actions || []).slice(0, 3);
     const headerMedia = opts?.headerMedia && /^https:\/\//i.test(opts.headerMedia.url) ? opts.headerMedia : null;
     const header = headerMedia ? null : truncateText(opts?.header || '', 60) || null;
     const footer = truncateText(opts?.footer || '', 60) || null;
+    const parts: FlowMessageParts = { content, buttons, actions, header, footer, headerMedia };
+    // Lo que se guarda y ve el agente lleva la URL real: si abriera el enlace
+    // corto contaría como un clic del contacto y continuaría el flujo.
+    const storedActions = actions.map((a) => ({
+      type: a.type,
+      title: a.title,
+      ...(a.type === 'url' ? { url: a.displayUrl || a.url } : { phone: a.phone }),
+    }));
     const waFormatting = inbox.channel === 'whatsapp' || inbox.channel === 'evolution' || isBridgeActive(inbox.metadata);
-    const decorate = (body: string) =>
-      [header && (waFormatting ? `*${header}*` : header), body, footer && (waFormatting ? `_${footer}_` : footer)]
-        .filter(Boolean)
-        .join('\n\n');
-    const textWithOptions = decorate(
-      buttons
-        ? `${content ? `${content}\n\n` : ''}${buttons.map((b, i) => `${i + 1}. ${b.title}`).join('\n')}`
-        : content,
-    );
-    const interactiveBody = truncateText(content || 'Elige una opción:', 1024);
-    const quickReplyText = truncateText(decorate(content) || 'Elige una opción:', 2000);
-    // Canales sin envío de archivos por link en este flujo (chat web, Evolution,
-    // puente SendPulse): el archivo del encabezado va como enlace en el texto.
+    // Texto para canales sin botones nativos (chat web, Evolution, puente SendPulse).
+    const textWithOptions = buildPlainText(parts, waFormatting ? WHATSAPP_FORMAT : PLAIN_FORMAT);
+    // Estos canales no envían el archivo del encabezado por link: va como enlace en el texto.
     const textWithMediaLink = headerMedia ? `${headerMedia.url}\n\n${textWithOptions}`.trim() : textWithOptions;
-    /** Objeto de media de WhatsApp por link ({ link, filename?, caption? }). */
-    const waMediaObject = (caption?: string) =>
-      headerMedia
-        ? {
-            link: headerMedia.url,
-            ...(headerMedia.type === 'document' && headerMedia.filename ? { filename: headerMedia.filename } : {}),
-            ...(caption ? { caption: truncateText(caption, 1024) } : {}),
-          }
-        : null;
 
     // Check 24h messaging window for social channels
     if (['whatsapp', 'messenger', 'instagram'].includes(inbox.channel)) {
@@ -3873,147 +4004,67 @@ export class ChatsService {
       }
     } else if (inbox.channel === 'whatsapp') {
       if (!inbox.accessToken) throw new Error('Inbox not connected');
-      // Send via WhatsApp Cloud API
-      const messageBody: any = {
-        messaging_product: 'whatsapp',
-        ...(await this.resolveWhatsAppRecipient(conversation)),
-        type: 'text',
-        text: { body: textWithOptions },
-      };
-      if (buttons && buttons.length <= 3) {
-        // Botones de respuesta: máx. 3, título ≤ 20 caracteres.
-        delete messageBody.text;
-        messageBody.type = 'interactive';
-        messageBody.interactive = {
-          type: 'button',
-          ...(header ? { header: { type: 'text', text: header } } : {}),
-          // Los botones de respuesta admiten encabezado de imagen, video o documento.
-          ...(headerMedia ? { header: { type: headerMedia.type, [headerMedia.type]: waMediaObject() } } : {}),
-          ...(footer ? { footer: { text: footer } } : {}),
-          body: { text: interactiveBody },
-          action: {
-            buttons: buttons.map((b) => ({ type: 'reply', reply: { id: b.id, title: truncateText(b.title, 20) } })),
-          },
-        };
-      } else if (buttons) {
-        // Lista: 4 a 10 opciones, título de fila ≤ 24 caracteres.
-        delete messageBody.text;
-        messageBody.type = 'interactive';
-        messageBody.interactive = {
-          type: 'list',
-          ...(header ? { header: { type: 'text', text: header } } : {}),
-          ...(footer ? { footer: { text: footer } } : {}),
-          body: { text: interactiveBody },
-          action: {
-            button: 'Ver opciones',
-            sections: [{ title: 'Opciones', rows: buttons.map((b) => ({ id: b.id, title: truncateText(b.title, 24) })) }],
-          },
-        };
-      } else if (headerMedia) {
-        // Sin botones: se envía como mensaje de imagen/video/documento con el texto como pie.
-        delete messageBody.text;
-        messageBody.type = headerMedia.type;
-        messageBody[headerMedia.type] = waMediaObject(textWithOptions);
-      }
-      if (replyToExternalId) {
-        messageBody.context = { message_id: replyToExternalId };
-      }
+      // WhatsApp Cloud API. Un mensaje de flujo puede requerir varias llamadas
+      // (p. ej. el archivo del encabezado antes de una lista); el id del último
+      // es el que se guarda.
+      const recipient = await this.resolveWhatsAppRecipient(conversation);
+      const bodies = buildWhatsAppMessages(parts);
+      if (!bodies.length) bodies.push({ type: 'text', text: { body: content } });
       try {
-        // Las listas solo admiten encabezado de texto: el archivo se envía antes, aparte.
-        if (headerMedia && buttons && buttons.length > 3) {
-          const recipient = await this.resolveWhatsAppRecipient(conversation);
-          const preRes = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
+        for (let i = 0; i < bodies.length; i++) {
+          const isLast = i === bodies.length - 1;
+          const payload: any = { messaging_product: 'whatsapp', ...recipient, ...bodies[i] };
+          if (isLast && replyToExternalId) payload.context = { message_id: replyToExternalId };
+          const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${inbox.accessToken}` },
-            body: JSON.stringify({
-              messaging_product: 'whatsapp',
-              ...recipient,
-              type: headerMedia.type,
-              [headerMedia.type]: waMediaObject(),
-            }),
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${inbox.accessToken}`,
+            },
+            body: JSON.stringify(payload),
           });
-          if (!preRes.ok) {
-            const preData = await preRes.json().catch(() => ({}));
-            console.error('[Chat] WhatsApp header media send failed:', JSON.stringify(preData));
+          const data = await readJsonSafe(res);
+          if (!res.ok) {
+            console.error('[Chat] WhatsApp send failed:', JSON.stringify(data));
+            if (isLast) {
+              const errDetail = data.error?.message || data.error?.error_data?.details || `HTTP ${res.status}`;
+              sendError = `WhatsApp API error: ${errDetail}`;
+            }
           }
+          if (isLast) externalId = data.messages?.[0]?.id || null;
         }
-        const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${inbox.accessToken}`,
-          },
-          body: JSON.stringify(messageBody),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          console.error('[Chat] WhatsApp send failed:', JSON.stringify(data));
-          const errDetail = data.error?.message || data.error?.error_data?.details || 'Error desconocido';
-          sendError = `WhatsApp API error: ${errDetail}`;
-        }
-        externalId = data.messages?.[0]?.id || null;
       } catch (err: any) {
         console.error('[Chat] WhatsApp send error:', err);
         sendError = err.message || 'Error de conexión con WhatsApp API';
       }
     } else if (inbox.channel === 'messenger' || inbox.channel === 'instagram') {
       if (!inbox.accessToken) throw new Error('Inbox not connected');
-      // Send via Page Send API
-      const messengerPayload: any = {
-        recipient: { id: conversation.contactId },
-        message: { text: textWithOptions },
-      };
-      if (buttons) {
-        // Quick replies: máx. 13, título ≤ 20 caracteres. El payload vuelve en message.quick_reply.
-        messengerPayload.message = {
-          text: quickReplyText,
-          quick_replies: buttons.map((b) => ({ content_type: 'text', title: truncateText(b.title, 20), payload: b.id })),
-        };
-      }
-      if (replyToExternalId) {
-        messengerPayload.reply_to = { mid: replyToExternalId };
-      }
+      // Page Send API. Un mensaje de flujo puede llevar un adjunto previo (el
+      // archivo del encabezado) y luego el mensaje con botones/respuestas rápidas.
+      const outgoing = buildMessengerMessages(parts, inbox.channel);
+      if (!outgoing.length) outgoing.push({ text: textWithOptions || content });
       try {
-        // Messenger/Instagram no tienen encabezado: el archivo se envía antes como adjunto.
-        if (headerMedia) {
-          const attRes = await fetch(`https://graph.facebook.com/v21.0/${inbox.pageId}/messages`, {
+        for (let i = 0; i < outgoing.length; i++) {
+          const isLast = i === outgoing.length - 1;
+          const payload: any = { recipient: { id: conversation.contactId }, message: outgoing[i] };
+          if (isLast && replyToExternalId) payload.reply_to = { mid: replyToExternalId };
+          const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.pageId}/messages`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${inbox.accessToken}` },
-            body: JSON.stringify({
-              recipient: { id: conversation.contactId },
-              message: {
-                attachment: {
-                  type: headerMedia.type === 'document' ? 'file' : headerMedia.type,
-                  payload: { url: headerMedia.url, is_reusable: true },
-                },
-              },
-            }),
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${inbox.accessToken}`,
+            },
+            body: JSON.stringify(payload),
           });
-          const attData = await attRes.json().catch(() => ({}));
-          if (!attData.message_id) console.error(`[Chat] ${inbox.channel} header media send failed:`, JSON.stringify(attData));
-          // Mensaje solo con archivo: no hay texto que enviar después.
-          if (!buttons && !textWithOptions) {
-            externalId = attData.message_id || null;
-            if (!externalId) sendError = attData.error?.message || 'No se pudo enviar el archivo';
+          const data = await readJsonSafe(res);
+          if (!data.message_id) {
+            console.error(`[Chat] ${inbox.channel} send failed:`, JSON.stringify(data));
+            if (isLast) {
+              const errDetail = data.error?.message || `HTTP ${res.status}`;
+              sendError = `${inbox.channel === 'instagram' ? 'Instagram' : 'Messenger'} API error: ${errDetail}`;
+            }
           }
-        }
-        const onlyMedia = !!headerMedia && !buttons && !textWithOptions;
-        if (!onlyMedia) {
-        const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.pageId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${inbox.accessToken}`,
-          },
-          body: JSON.stringify(messengerPayload),
-        });
-        const data = await res.json();
-        externalId = data.message_id || null;
-        if (!externalId) {
-          console.error('[Chat] Messenger send failed:', JSON.stringify(data));
-          const errDetail = data.error?.message || 'Error desconocido';
-          sendError = `${inbox.channel === 'instagram' ? 'Instagram' : 'Messenger'} API error: ${errDetail}`;
-        }
+          if (isLast) externalId = data.message_id || null;
         }
       } catch (err: any) {
         console.error(`[Chat] ${inbox.channel} send error:`, err);
@@ -4079,8 +4130,13 @@ export class ChatsService {
           }
         : {}),
       interactive:
-        buttons || header || footer
-          ? { buttons: buttons || [], ...(header ? { header } : {}), ...(footer ? { footer } : {}) }
+        buttons || actions.length || header || footer
+          ? {
+              buttons: buttons || [],
+              ...(actions.length ? { actions: storedActions } : {}),
+              ...(header ? { header } : {}),
+              ...(footer ? { footer } : {}),
+            }
           : null,
     });
     const saved = await this.messageRepo.save(message);

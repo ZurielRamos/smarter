@@ -31,6 +31,17 @@ const AVAILABLE_EVENTS = [
   },
   "inbox": { "id", "name", "channel" }
 }` },
+  { key: "link_clicked", label: "Enlace de flujo abierto", payload: `{
+  "link": {
+    "id", "title", "url",
+    "flowId", "clickedAt"
+  },
+  "conversation": {
+    "id", "contactId", "contactName",
+    "recordId", "inboxId"
+  },
+  "inbox": { "id", "name", "channel" }
+}` },
   { key: "contact_created", label: "Contacto creado", payload: `{
   "id", "firstName", "lastName",
   "phone", "email", "documentType",

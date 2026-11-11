@@ -12,11 +12,32 @@ import { Tenant } from '../tenants/tenant.entity';
 
 // ─── Tipos del grafo ─────────────────────────────────────────────
 
-/** Botón de respuesta rápida de un nodo Mensaje. */
+/**
+ * Tipos de botón de un nodo Mensaje:
+ *  - reply: respuesta rápida; cada uno tiene su propia salida en el grafo.
+ *  - url:   abre un enlace (no genera respuesta ni rama).
+ *  - call:  muestra un teléfono para llamar (no genera respuesta ni rama).
+ */
+export type FlowButtonType = 'reply' | 'url' | 'call';
+
+/** Botón de un nodo Mensaje. Sin `type` se trata como 'reply' (flujos antiguos). */
 export interface FlowButton {
   id: string;
   title: string;
+  type?: FlowButtonType;
+  /** type 'url': enlace http(s); admite {{variables}} (se codifican en la URL) */
+  url?: string;
+  /**
+   * type 'url': registrar los clics con un enlace corto propio. Activo por
+   * defecto; con él el nodo tiene la salida «Al hacer clic» (handle `click:<id>`).
+   */
+  track?: boolean;
+  /** type 'call': teléfono en formato internacional, p. ej. +573001234567 */
+  phone?: string;
 }
+
+/** Cómo mostrar más de 3 botones de respuesta cuando el encabezado es un archivo. */
+export type FlowOverflowMode = 'paginate' | 'list';
 
 export type FlowNodeType =
   'start' | 'message' | 'user_input' | 'action' | 'condition' | 'start_flow';
@@ -67,8 +88,15 @@ export interface FlowNodeData {
   headerMediaUrl?: string;
   /** message: nombre del archivo (documentos) */
   headerMediaName?: string;
-  /** message: botones (máx. 10) */
+  /** message: botones (máx. 10 de respuesta y 3 de enlace/llamada) */
   buttons?: FlowButton[];
+  /**
+   * message: con más de 3 botones de respuesta y un archivo en el encabezado,
+   * WhatsApp no permite mostrarlos juntos. 'paginate' (predeterminado) muestra
+   * el archivo con 2 opciones y un botón «Más opciones»; 'list' envía el archivo
+   * aparte y las opciones en una lista desplegable.
+   */
+  overflow?: FlowOverflowMode;
   /** user_input: variable donde se guarda la respuesta */
   variable?: string;
   /** user_input: validación de la respuesta */

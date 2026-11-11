@@ -1,6 +1,18 @@
 import { useContext, type ReactNode } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { Play, MessageSquare, TextCursorInput, Zap, GitFork, Workflow, AlertCircle, FileText, Video } from "lucide-react";
+import {
+  Play,
+  MessageSquare,
+  TextCursorInput,
+  Zap,
+  GitFork,
+  Workflow,
+  AlertCircle,
+  FileText,
+  Video,
+  ExternalLink,
+  Phone,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ACTION_LABELS, OPERATOR_LABELS, VALIDATION_LABELS, type FlowNodeData } from "./types";
 import { FlowEditorContext } from "./editorContext";
@@ -91,8 +103,48 @@ export function StartNode({ selected }: NodeProps<FlowNode>) {
   );
 }
 
+/**
+ * Fila de un botón de enlace o llamada. Un enlace con seguimiento activo tiene
+ * salida «Al hacer clic» (`handleId`); una llamada o un enlace sin seguimiento no.
+ */
+function ActionRow({
+  type,
+  label,
+  target,
+  handleId,
+}: {
+  type: "url" | "call";
+  label: string;
+  target?: string;
+  handleId?: string;
+}) {
+  const Icon = type === "url" ? ExternalLink : Phone;
+  const incomplete = !target?.trim();
+  return (
+    <div
+      className={cn(
+        "relative flex items-center justify-center gap-1.5 rounded-lg border border-dashed px-2.5 py-1.5 text-[11px] font-medium",
+        incomplete ? "border-amber-400 text-amber-600 dark:text-amber-400" : "border-border text-brand-600 dark:text-brand-200",
+      )}
+      title={incomplete ? (type === "url" ? "Falta el enlace" : "Falta el teléfono") : target}
+    >
+      <Icon className="h-3 w-3 shrink-0" />
+      <span className="truncate">{label || "(sin título)"}</span>
+      {handleId && (
+        <>
+          <span className="shrink-0 text-[9px] font-normal text-muted-foreground">· al abrir</span>
+          <Handle type="source" position={Position.Right} id={handleId} className={cn(handleClass, "!-right-[19px]")} />
+        </>
+      )}
+    </div>
+  );
+}
+
 export function MessageNode({ data, selected }: NodeProps<FlowNode>) {
   const buttons = data.buttons || [];
+  const replies = buttons.filter((b) => (b.type ?? "reply") === "reply");
+  const actions = buttons.filter((b) => b.type === "url" || b.type === "call");
+  const hasMedia = !!data.headerType && data.headerType !== "text" && !!data.headerMediaUrl;
   return (
     <NodeShell
       selected={selected}
@@ -128,18 +180,33 @@ export function MessageNode({ data, selected }: NodeProps<FlowNode>) {
       ) : (
         <Placeholder>Escribe el mensaje…</Placeholder>
       )}
-      {buttons.length > 0 ? (
+      {buttons.length > 0 && (
         <div className="space-y-1.5">
-          {buttons.map((b) => (
+          {/* Solo las respuestas tienen salida; enlaces y llamadas no ramifican. */}
+          {replies.map((b) => (
             <OutputRow key={b.id} id={`btn:${b.id}`} label={b.title || "(sin título)"} />
           ))}
-          {buttons.length > 3 && (
-            <p className="text-[10px] text-muted-foreground text-center">WhatsApp lo mostrará como lista</p>
+          {actions.map((b) => (
+            <ActionRow
+              key={b.id}
+              type={b.type as "url" | "call"}
+              label={b.title}
+              target={b.type === "url" ? b.url : b.phone}
+              handleId={b.type === "url" && b.track !== false ? `click:${b.id}` : undefined}
+            />
+          ))}
+          {replies.length > 3 && (
+            <p className="text-[10px] text-muted-foreground text-center">
+              {hasMedia && data.overflow !== "list"
+                ? "WhatsApp lo paginará con «Más opciones»"
+                : hasMedia
+                  ? "WhatsApp enviará el archivo y luego una lista"
+                  : "WhatsApp lo mostrará como lista"}
+            </p>
           )}
         </div>
-      ) : (
-        <NextHandle />
       )}
+      {replies.length === 0 && <NextHandle />}
     </NodeShell>
   );
 }

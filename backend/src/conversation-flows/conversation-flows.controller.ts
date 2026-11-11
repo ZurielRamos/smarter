@@ -16,6 +16,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { ConversationFlowsService } from './conversation-flows.service';
+import { FlowLinksService } from './flow-links.service';
 import {
   CreateConversationFlowDto,
   UpdateConversationFlowDto,
@@ -29,11 +30,23 @@ import {
 @Controller('conversation-flows')
 @UseGuards(JwtAuthGuard, TenantAccessGuard)
 export class ConversationFlowsController {
-  constructor(private readonly flows: ConversationFlowsService) {}
+  constructor(
+    private readonly flows: ConversationFlowsService,
+    private readonly links: FlowLinksService,
+  ) {}
 
   @Get()
   findAll(@Query('tenantId') tenantId: string) {
     return this.flows.findAll(tenantId);
+  }
+
+  /**
+   * Capacidades del servidor que el editor necesita saber. Declarada antes de
+   * `:id` para que no se interprete como un id.
+   */
+  @Get('capabilities')
+  capabilities() {
+    return { linkTracking: this.links.trackingAvailable() };
   }
 
   @Get(':id')

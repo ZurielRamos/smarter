@@ -11,10 +11,13 @@ import {
   FlowEdge,
   FlowNode,
   FlowNodeType,
+  FlowButton,
+  FlowButtonType,
   FlowHeaderType,
   FlowTriggers,
 } from './conversation-flow.entity';
 import { MediaStorageService } from '../media/media-storage.service';
+import { isValidButtonUrl, normalizePhone } from './flow-buttons.util';
 import {
   compressVideoForWhatsApp,
   WA_VIDEO_LIMIT,
@@ -65,7 +68,11 @@ const VARIABLE_RE = /^[a-zA-Z_][\w]{0,49}$/;
 
 /** Máximo de botones por mensaje (límite de las listas de WhatsApp). */
 export const MAX_FLOW_BUTTONS = 10;
+/** Botones de enlace o llamada por mensaje (Messenger admite 3 en su plantilla). */
+const MAX_ACTION_BUTTONS = 3;
 const MAX_BUTTON_TITLE = 24;
+/** Título de botones de enlace/llamada: 20 en WhatsApp (cta_url) y Messenger. */
+const MAX_ACTION_TITLE = 20;
 const MAX_NODES = 300;
 
 @Injectable()
@@ -364,22 +371,10 @@ export class ConversationFlowsService {
               if (name) node.data.headerMediaName = name;
             }
           }
-          const buttons = (Array.isArray(d.buttons) ? d.buttons : [])
-            .map((b: any) => ({
-              id: String(b?.id || '')
-                .trim()
-                .replace(/:/g, ''),
-              title: String(b?.title || '')
-                .trim()
-                .slice(0, MAX_BUTTON_TITLE),
-            }))
-            .filter((b) => b.id && b.title);
-          if (buttons.length > MAX_FLOW_BUTTONS) {
-            throw new BadRequestException(
-              `Un mensaje admite máximo ${MAX_FLOW_BUTTONS} botones`,
-            );
-          }
+          const buttons = this.sanitizeButtons(d.buttons);
           if (buttons.length) node.data.buttons = buttons;
+          // Solo tiene sentido si hay archivo en el encabezado y más de 3 respuestas.
+          if (d.overflow === 'list') node.data.overflow = 'list';
           break;
         }
         case 'user_input':
@@ -477,16 +472,95 @@ export class ConversationFlowsService {
     return clean;
   }
 
+  /**
+   * Valida y normaliza los botones de un nodo Mensaje.
+   *  - reply: título ≤ 24, hasta 10, cada uno con su salida en el grafo.
+   *  - url / call: título ≤ 20 (límite de WhatsApp y Messenger), hasta 3 en total.
+   * Una URL o teléfono mal formado se rechaza con un mensaje claro; uno vacío se
+   * conserva (el usuario aún lo está editando) y se omite al enviar.
+   */
+  private sanitizeButtons(raw: unknown): FlowButton[] {
+    const out: FlowButton[] = [];
+    const seen = new Set<string>();
+    for (const item of Array.isArray(raw) ? raw : []) {
+      const b = item as Record<string, unknown>;
+      const id = String(b?.id || '')
+        .trim()
+        .replace(/:/g, '');
+      const type: FlowButtonType =
+        b?.type === 'url' || b?.type === 'call' ? b.type : 'reply';
+      const title = String(b?.title || '')
+        .trim()
+        .slice(0, type === 'reply' ? MAX_BUTTON_TITLE : MAX_ACTION_TITLE);
+      if (!id || !title || seen.has(id)) continue;
+      seen.add(id);
+
+      if (type === 'reply') {
+        out.push({ id, title });
+      } else if (type === 'url') {
+        const url = String(b.url || '').trim();
+        if (url && !isValidButtonUrl(url)) {
+          throw new BadRequestException(
+            `El botón «${title}» tiene un enlace no válido. Debe empezar por http:// o https://`,
+          );
+        }
+        out.push({
+          id,
+          title,
+          type,
+          ...(url ? { url } : {}),
+          // Activo por defecto: solo se guarda cuando se desactiva.
+          ...(b.track === false ? { track: false } : {}),
+        });
+      } else {
+        const raw = String(b.phone || '').trim();
+        const phone = normalizePhone(raw);
+        if (raw && !phone) {
+          throw new BadRequestException(
+            `El botón «${title}» tiene un teléfono no válido. Debe empezar por + y el código de país, p. ej. +573001234567`,
+          );
+        }
+        out.push({ id, title, type, ...(phone ? { phone } : {}) });
+      }
+    }
+
+    const replies = out.filter((b) => (b.type ?? 'reply') === 'reply').length;
+    if (replies > MAX_FLOW_BUTTONS) {
+      throw new BadRequestException(
+        `Un mensaje admite máximo ${MAX_FLOW_BUTTONS} botones de respuesta`,
+      );
+    }
+    if (out.length - replies > MAX_ACTION_BUTTONS) {
+      throw new BadRequestException(
+        `Un mensaje admite máximo ${MAX_ACTION_BUTTONS} botones de enlace o llamada`,
+      );
+    }
+    return out;
+  }
+
   private isValidHandle(node: FlowNode, handle: string): boolean {
     switch (node.type) {
-      case 'message':
-        if (node.data.buttons?.length) {
+      case 'message': {
+        // Las respuestas tienen su salida `btn:`; los enlaces rastreados tienen
+        // «Al hacer clic» (`click:`); las llamadas no ramifican.
+        const buttons = node.data.buttons || [];
+        if (handle.startsWith('click:')) {
+          return buttons.some(
+            (b) =>
+              b.type === 'url' &&
+              b.track !== false &&
+              `click:${b.id}` === handle,
+          );
+        }
+        const replies = buttons.filter((b) => (b.type ?? 'reply') === 'reply');
+        if (replies.length) {
           return (
             handle.startsWith('btn:') &&
-            node.data.buttons.some((b) => `btn:${b.id}` === handle)
+            replies.some((b) => `btn:${b.id}` === handle)
           );
         }
         return handle === 'next';
+      }
       case 'condition':
         return handle === 'true' || handle === 'false';
       case 'start_flow':

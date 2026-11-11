@@ -35,6 +35,7 @@ import { ProvidersModule } from '../providers/providers.module';
 import { TemplatesModule } from '../templates/templates.module';
 import { WhatsAppFlowsModule } from '../whatsapp-flows/whatsapp-flows.module';
 import { ConversationFlowsModule } from '../conversation-flows/conversation-flows.module';
+import { FlowLinkController } from './flow-link.controller';
 
 @Module({
   imports: [
@@ -53,7 +54,7 @@ import { ConversationFlowsModule } from '../conversation-flows/conversation-flow
     ConversationFlowsModule,
   ],
   providers: [ChatsService, ChatsGateway, ChatWidgetGateway, WebhookForwarderService],
-  controllers: [ChatsController, ApiConversationsController, ApiMessagesController, ApiInboxesController, ChatWidgetController, WebhookController, MailgunWebhookController, ApiEmailController, ApiWhatsappAuthController],
+  controllers: [ChatsController, ApiConversationsController, ApiMessagesController, ApiInboxesController, ChatWidgetController, WebhookController, MailgunWebhookController, ApiEmailController, ApiWhatsappAuthController, FlowLinkController],
   exports: [ChatsService, ChatsGateway, ChatWidgetGateway],
 })
 export class ChatsModule {}

@@ -75,7 +75,12 @@ export class Message {
 
   // Botones interactivos enviados con el mensaje (flujos). id = payload enviado al canal.
   @Column({ type: 'jsonb', nullable: true })
-  interactive: { buttons: { id: string; title: string }[]; header?: string; footer?: string } | null;
+  interactive: {
+    buttons: { id: string; title: string }[];
+    actions?: { type: 'url' | 'call'; title: string; url?: string; phone?: string }[];
+    header?: string;
+    footer?: string;
+  } | null;
 
   // Credits consumed by this message (unified across all message types)
   @Column({ name: 'credits_cost', type: 'decimal', precision: 10, scale: 4, default: 0 })

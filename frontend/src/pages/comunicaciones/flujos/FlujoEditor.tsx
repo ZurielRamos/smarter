@@ -107,8 +107,11 @@ function toRFEdges(edges: ConversationFlow["edges"]): Edge[] {
 function validHandles(node: RFNode): Set<string> {
   switch (node.type) {
     case "message": {
+      // Respuestas: `btn:`. Enlaces rastreados: «Al hacer clic» (`click:`). Las llamadas no ramifican.
       const buttons = node.data.buttons || [];
-      return new Set(buttons.length ? buttons.map((b) => `btn:${b.id}`) : ["next"]);
+      const replies = buttons.filter((b) => (b.type ?? "reply") === "reply");
+      const clicks = buttons.filter((b) => b.type === "url" && b.track !== false).map((b) => `click:${b.id}`);
+      return new Set([...(replies.length ? replies.map((b) => `btn:${b.id}`) : ["next"]), ...clicks]);
     }
     case "condition":
       return new Set(["true", "false"]);
@@ -162,6 +165,7 @@ function FlujoEditorInner() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [labels, setLabels] = useState<LabelOption[]>([]);
   const [inboxes, setInboxes] = useState<InboxOption[]>([]);
+  const [linkTracking, setLinkTracking] = useState<boolean | null>(null);
   const [showTriggers, setShowTriggers] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [showActivateWarning, setShowActivateWarning] = useState(false);
@@ -204,6 +208,14 @@ function FlujoEditorInner() {
       .then(({ data }) => setInboxes(data))
       .catch(() => {});
   }, [tenantId]);
+
+  // ¿El servidor puede generar enlaces cortos públicos para rastrear clics?
+  useEffect(() => {
+    flowsApi
+      .get<{ linkTracking: boolean }>("/conversation-flows/capabilities")
+      .then(({ data }) => setLinkTracking(data.linkTracking))
+      .catch(() => {});
+  }, []);
 
   // Avisar antes de cerrar la pestaña con cambios sin guardar.
   useEffect(() => {
@@ -533,6 +545,7 @@ function FlujoEditorInner() {
               labels={labels}
               variables={variables}
               tenantId={tenantId}
+              linkTracking={linkTracking}
               onChange={(d) => updateNodeData(selectedNode.id, d)}
               onDelete={() => deleteNode(selectedNode.id)}
               onClose={() => setSelectedId(null)}

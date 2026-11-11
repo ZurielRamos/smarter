@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import { createPortal } from "react-dom";
-import { StickyNote, Image, ClipboardList, Loader2 } from "lucide-react";
+import { StickyNote, Image, ClipboardList, Loader2, ExternalLink, Phone } from "lucide-react";
 import { formatWhatsAppText } from "@/utils/whatsapp-format";
 import { getFlowSubmissionById, type FlowSubmissionRecord } from "@/services/api";
 import { FlowSubmissionModal } from "@/components/flow-builder/FlowSubmissionModal";
@@ -110,18 +110,33 @@ export const MessageBubble = memo(function MessageBubble({
               : formatWhatsAppText(msg.content)}
           </p>
         )}
-        {!msg.content && !msg.mediaUrl && !msg.interactive?.buttons?.length && msg.messageType !== "template" && msg.messageType !== "flow" && <p className="whitespace-pre-wrap text-muted-foreground italic">[{msg.messageType}]</p>}
+        {!msg.content && !msg.mediaUrl && !msg.interactive?.buttons?.length && !msg.interactive?.actions?.length && msg.messageType !== "template" && msg.messageType !== "flow" && <p className="whitespace-pre-wrap text-muted-foreground italic">[{msg.messageType}]</p>}
         {msg.interactive?.footer && (
           <p className={`text-[11px] mt-1 ${msg.direction === "outbound" ? "text-white/60" : "text-muted-foreground"}`}>{msg.interactive.footer}</p>
         )}
-        {msg.interactive?.buttons && msg.interactive.buttons.length > 0 && (
+        {((msg.interactive?.buttons?.length ?? 0) > 0 || (msg.interactive?.actions?.length ?? 0) > 0) && (
           // Botones enviados por un flujo (en WhatsApp se ven como botones o lista).
           <div className={`mt-2 pt-2 border-t space-y-1 ${msg.direction === "outbound" ? "border-white/20" : "border-border"}`} aria-label="Botones del mensaje">
-            {msg.interactive.buttons.map((btn) => (
+            {msg.interactive?.buttons.map((btn) => (
               <div key={btn.id} className={`text-center text-xs font-medium py-1 rounded-md ${msg.direction === "outbound" ? "bg-white/10 text-white" : "bg-muted text-foreground"}`}>
                 {btn.title}
               </div>
             ))}
+            {msg.interactive?.actions?.map((a, i) => {
+              const href = a.type === "url" ? a.url : a.phone ? `tel:${a.phone}` : undefined;
+              return (
+                <a
+                  key={`${a.type}-${i}`}
+                  href={href}
+                  target={a.type === "url" ? "_blank" : undefined}
+                  rel="noopener noreferrer"
+                  className={`flex items-center justify-center gap-1.5 text-xs font-medium py-1 rounded-md ${msg.direction === "outbound" ? "bg-white/10 text-white hover:bg-white/20" : "bg-muted text-foreground hover:bg-muted/70"} transition-colors`}
+                >
+                  {a.type === "url" ? <ExternalLink className="h-3 w-3 shrink-0" /> : <Phone className="h-3 w-3 shrink-0" />}
+                  <span className="truncate">{a.title}</span>
+                </a>
+              );
+            })}
           </div>
         )}
         <MessageTimestamp msg={msg} />

@@ -6,6 +6,7 @@ import { addBotTypeAndFlow } from './003-add-bot-type-and-flow.migration';
 import { addBotConsentConfig } from './004-add-bot-consent-config.migration';
 import { addTenantFeatures } from './005-add-tenant-features.migration';
 import { addConversationFlows } from './006-add-conversation-flows.migration';
+import { addFlowLinks } from './007-add-flow-links.migration';
 
 dotenv.config();
 
@@ -33,6 +34,7 @@ async function run() {
     await addBotConsentConfig(dataSource);
     await addTenantFeatures(dataSource);
     await addConversationFlows(dataSource);
+    await addFlowLinks(dataSource);
   } finally {
     await dataSource.destroy();
     console.log('[Runner] Conexión cerrada');

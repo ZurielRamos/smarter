@@ -8,6 +8,19 @@ import {
   FlowNodeData,
   FlowHeaderMedia,
 } from './conversation-flow.entity';
+import { isHttpUrl, normalizePhone } from './flow-buttons.util';
+
+/** Botón de enlace o llamada ya resuelto (variables sustituidas) para enviar. */
+export interface FlowOutgoingAction {
+  type: 'url' | 'call';
+  title: string;
+  url?: string;
+  phone?: string;
+  /** Id del botón en el nodo; identifica la salida «Al hacer clic». */
+  buttonId?: string;
+  /** Registrar los clics con un enlace corto propio (solo botones de enlace). */
+  track?: boolean;
+}
 
 /** Mensaje que el flujo quiere enviar al contacto. */
 export interface FlowOutgoingMessage {
@@ -16,7 +29,12 @@ export interface FlowOutgoingMessage {
   /** Encabezado multimedia (excluye `header` de texto) */
   headerMedia?: FlowHeaderMedia;
   footer?: string;
+  /** Botones de respuesta (id = payload completo que devuelve el canal) */
   buttons?: FlowButton[];
+  /** Botones de enlace / llamada (no ramifican por sí mismos) */
+  actions?: FlowOutgoingAction[];
+  /** Nodo que generó el mensaje; necesario para asociar los clics a su salida. */
+  source?: { flowId: string; nodeId: string };
 }
 
 /** Efectos sobre la conversación que el llamador debe aplicar. */
@@ -48,7 +66,21 @@ export interface FlowInput {
 
 export interface FlowContext {
   contactName?: string | null;
+  /**
+   * true si el canal es WhatsApp Cloud API nativo (no puente SendPulse ni
+   * Evolution). Solo ahí aplica la paginación «Más opciones»: en el resto las
+   * opciones se muestran completas como texto numerado o respuestas rápidas.
+   */
+  whatsappCloud?: boolean;
 }
+
+/** WhatsApp admite hasta 3 botones de respuesta por mensaje. */
+const WA_MAX_REPLY_BUTTONS = 3;
+/** Botones de opciones por página cuando se pagina (+ «Más opciones» = 3). */
+const PAGE_SIZE = 2;
+/** Id reservado del botón «Más opciones»; lleva el número de página: __more:<n> */
+const MORE_PREFIX = '__more:';
+const MORE_TITLE = 'Más opciones';
 
 export type FlowLoader = (flowId: string) => Promise<ConversationFlow | null>;
 
@@ -138,18 +170,43 @@ export class ConversationFlowEngine {
     if (parsed) {
       const flow = await loader(parsed.flowId);
       const node = flow?.nodes.find((n) => n.id === parsed.nodeId);
-      const button = node?.data.buttons?.find((b) => b.id === parsed.buttonId);
-      if (flow && node && button) {
-        await this.followButton(
-          flow,
-          node,
-          button,
-          variables,
-          loader,
-          context,
-          result,
+      if (flow && node && node.type === 'message') {
+        // «Más opciones»: muestra la siguiente página del mismo mensaje, sin
+        // avanzar el grafo y sin reenviar el archivo del encabezado.
+        const more = parsed.buttonId.startsWith(MORE_PREFIX)
+          ? parseInt(parsed.buttonId.slice(MORE_PREFIX.length), 10)
+          : NaN;
+        if (Number.isFinite(more)) {
+          result.handled = true;
+          result.messages.push(
+            this.withPayloads(
+              flow.id,
+              node.id,
+              this.renderMessage(node.data, variables, context, {
+                page: more,
+                includeMedia: false,
+              }),
+            ),
+          );
+          result.state = this.waitingState(flow.id, node.id, 'button');
+          return result;
+        }
+
+        const button = this.replyButtons(node.data).find(
+          (b) => b.id === parsed.buttonId,
         );
-        return result;
+        if (button) {
+          await this.followButton(
+            flow,
+            node,
+            button,
+            variables,
+            loader,
+            context,
+            result,
+          );
+          return result;
+        }
       }
     }
 
@@ -172,7 +229,7 @@ export class ConversationFlowEngine {
 
     // 2) Esperando botón: se acepta título exacto o número de opción (canales en texto).
     if (state.waitingFor === 'button') {
-      const button = this.matchButton(node.data.buttons || [], text);
+      const button = this.matchButton(this.replyButtons(node.data), text);
       if (button) {
         await this.followButton(
           flow,
@@ -197,7 +254,10 @@ export class ConversationFlowEngine {
         this.withPayloads(
           flow.id,
           node.id,
-          this.renderMessage(node.data, variables, context),
+          // Al repetir las opciones no se vuelve a enviar el archivo del encabezado.
+          this.renderMessage(node.data, variables, context, {
+            includeMedia: false,
+          }),
         ),
       );
       result.state = retryState();
@@ -230,6 +290,35 @@ export class ConversationFlowEngine {
     const next = this.nextNodeId(flow, node.id, 'next');
     if (next)
       await this.runFrom(flow, next, variables, loader, context, result);
+    return result;
+  }
+
+  /**
+   * Continúa el flujo cuando el contacto abre un enlace rastreado: ejecuta lo
+   * que esté conectado a la salida «Al hacer clic» del botón.
+   *
+   * Si esa salida no tiene nada conectado devuelve handled=false y no toca el
+   * estado, para que un clic no cancele lo que el contacto estaba respondiendo.
+   * Si la tiene, el clic toma el control igual que pulsar un botón de un mensaje
+   * anterior.
+   */
+  async resumeFromClick(
+    link: { flowId: string; nodeId: string; buttonId: string; title: string },
+    currentVariables: Record<string, string>,
+    loader: FlowLoader,
+    context: FlowContext,
+  ): Promise<FlowRunResult> {
+    const result = this.emptyResult({ ...currentVariables });
+    const flow = await loader(link.flowId);
+    const node = flow?.nodes.find((n) => n.id === link.nodeId);
+    if (!flow || !node || node.type !== 'message') return result;
+
+    const next = this.nextNodeId(flow, node.id, `click:${link.buttonId}`);
+    if (!next) return result;
+
+    result.handled = true;
+    result.variables.last_link = link.title;
+    await this.runFrom(flow, next, result.variables, loader, context, result);
     return result;
   }
 
@@ -286,9 +375,16 @@ export class ConversationFlowEngine {
 
         case 'message': {
           const msg = this.renderMessage(node.data, variables, context);
-          if (msg.text || msg.buttons?.length || msg.headerMedia)
+          if (
+            msg.text ||
+            msg.buttons?.length ||
+            msg.actions?.length ||
+            msg.headerMedia
+          )
             result.messages.push(this.withPayloads(flow.id, node.id, msg));
-          if (msg.buttons?.length) {
+          // Solo los botones de respuesta esperan al contacto; enlaces y
+          // llamadas no, y el flujo sigue por «Siguiente».
+          if (this.replyButtons(node.data).length) {
             result.state = this.waitingState(flow.id, node.id, 'button');
             return;
           }
@@ -420,30 +516,92 @@ export class ConversationFlowEngine {
     return edge?.target || null;
   }
 
+  /** Botones de respuesta con título (los únicos que ramifican el flujo). */
+  private replyButtons(data: FlowNodeData): FlowButton[] {
+    return (data.buttons || []).filter(
+      (b) => (b.type ?? 'reply') === 'reply' && b.title?.trim(),
+    );
+  }
+
+  /**
+   * Divide los botones de respuesta en páginas de 2 + «Más opciones» (3 en
+   * total, el máximo de WhatsApp). La última página admite hasta 3 opciones.
+   */
+  private paginateReplies(
+    buttons: FlowButton[],
+    page: number,
+  ): { items: FlowButton[]; hasMore: boolean; page: number } {
+    const pages: FlowButton[][] = [];
+    let i = 0;
+    while (buttons.length - i > WA_MAX_REPLY_BUTTONS) {
+      pages.push(buttons.slice(i, i + PAGE_SIZE));
+      i += PAGE_SIZE;
+    }
+    pages.push(buttons.slice(i));
+    const p = Math.min(
+      Math.max(Number.isFinite(page) ? page : 0, 0),
+      pages.length - 1,
+    );
+    return { items: pages[p], hasMore: p < pages.length - 1, page: p };
+  }
+
+  /**
+   * Arma el mensaje del nodo. `page` y `includeMedia` solo cambian cuando se
+   * pagina o se repiten las opciones: las páginas siguientes no vuelven a
+   * enviar el archivo del encabezado ni los enlaces.
+   */
   private renderMessage(
     data: FlowNodeData,
     variables: Record<string, string>,
     context: FlowContext,
+    opts: { page?: number; includeMedia?: boolean } = {},
   ): FlowOutgoingMessage {
-    const buttons = (data.buttons || [])
-      .filter((b) => b.title?.trim())
-      .map((b) => ({
-        id: b.id,
-        title: this.interpolate(b.title, variables, context),
-      }));
+    const page = opts.page ?? 0;
+    const includeMedia = opts.includeMedia ?? true;
+
+    let buttons: FlowButton[] = this.replyButtons(data).map((b) => ({
+      id: b.id,
+      title: this.interpolate(b.title, variables, context),
+    }));
+
     const mediaType =
       data.headerType && data.headerType !== 'text' ? data.headerType : null;
+    const hasMediaHeader = !!(mediaType && data.headerMediaUrl);
     const headerMedia: FlowHeaderMedia | undefined =
-      mediaType && data.headerMediaUrl
+      includeMedia && hasMediaHeader && mediaType
         ? {
             type: mediaType,
-            url: data.headerMediaUrl,
+            url: data.headerMediaUrl as string,
             filename: data.headerMediaName,
           }
         : undefined;
+
+    // Más de 3 respuestas + archivo en el encabezado: WhatsApp no admite ambos
+    // en una lista, así que por defecto se pagina (a menos que se elija 'list').
+    const paginate =
+      !!context.whatsappCloud &&
+      hasMediaHeader &&
+      buttons.length > WA_MAX_REPLY_BUTTONS &&
+      data.overflow !== 'list';
+    if (paginate) {
+      const p = this.paginateReplies(buttons, page);
+      buttons = p.items;
+      if (p.hasMore) {
+        buttons = [
+          ...buttons,
+          { id: `${MORE_PREFIX}${p.page + 1}`, title: MORE_TITLE },
+        ];
+      }
+    }
+
+    // Botones de enlace / llamada. Solo en la primera página.
+    const actions: FlowOutgoingAction[] =
+      page === 0 ? this.renderActions(data, variables, context) : [];
+
     return {
       text: this.interpolate(data.text || '', variables, context),
       headerMedia,
+      actions: actions.length ? actions : undefined,
       header:
         !headerMedia && data.header
           ? this.interpolate(data.header, variables, context).slice(0, 60) ||
@@ -457,15 +615,67 @@ export class ConversationFlowEngine {
     };
   }
 
+  /**
+   * Resuelve los botones de enlace y llamada: sustituye {{variables}} (codificadas
+   * en la URL) y descarta los que quedaron sin destino válido.
+   */
+  private renderActions(
+    data: FlowNodeData,
+    variables: Record<string, string>,
+    context: FlowContext,
+  ): FlowOutgoingAction[] {
+    const out: FlowOutgoingAction[] = [];
+    for (const b of data.buttons || []) {
+      if (!b.title?.trim()) continue;
+      const title = this.interpolate(b.title, variables, context);
+      if (b.type === 'url' && b.url) {
+        const url = this.interpolateUrl(b.url, variables, context);
+        if (isHttpUrl(url))
+          out.push({
+            type: 'url',
+            title,
+            url,
+            buttonId: b.id,
+            track: b.track !== false,
+          });
+        else
+          console.warn(
+            `[ConversationFlow] Botón «${b.title}» omitido: URL no válida tras sustituir variables.`,
+          );
+      } else if (b.type === 'call' && b.phone) {
+        const phone = normalizePhone(b.phone);
+        if (phone) out.push({ type: 'call', title, phone, buttonId: b.id });
+      }
+    }
+    return out;
+  }
+
+  /** Como interpolate, pero codifica los valores para que no rompan la URL. */
+  private interpolateUrl(
+    url: string,
+    variables: Record<string, string>,
+    context: FlowContext,
+  ): string {
+    return url.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key: string) => {
+      const value =
+        key === 'contact_name' || key === 'contact.name'
+          ? context.contactName || ''
+          : (variables[key] ?? '');
+      return encodeURIComponent(value);
+    });
+  }
+
   /** Sustituye los ids de botón por el payload completo que viaja al canal. */
   private withPayloads(
     flowId: string,
     nodeId: string,
     msg: FlowOutgoingMessage,
   ): FlowOutgoingMessage {
-    if (!msg.buttons?.length) return msg;
+    const source = { flowId, nodeId };
+    if (!msg.buttons?.length) return { ...msg, source };
     return {
       ...msg,
+      source,
       buttons: msg.buttons.map((b) => ({
         id: buildButtonPayload(flowId, nodeId, b.id),
         title: b.title,
