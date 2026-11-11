@@ -1,5 +1,12 @@
 import { createContext } from "react";
 import type { ConversationFlowSummary, FlowTriggers, LabelOption } from "./types";
+import type { VariableOption } from "./variables";
+
+/**
+ * Variables que ofrece el dropdown al escribir `{` o `{{` en cualquier campo de
+ * texto del editor (del flujo, campos del CRM, personalizados y especiales).
+ */
+export const FlowVariablesContext = createContext<VariableOption[]>([]);
 
 /** Datos compartidos que los nodos necesitan para mostrar nombres (flujos, etiquetas). */
 export interface FlowEditorContextValue {

@@ -1,7 +1,9 @@
-import { useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { ExternalLink, FileText, Loader2, Phone, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { FlowVariablesContext } from "./editorContext";
+import { VariableInput, VariableTextarea } from "./VariableField";
 import {
   ACTION_LABELS,
   HEADER_ACCEPT,
@@ -67,6 +69,7 @@ export function NodeInspector({
 }: NodeInspectorProps) {
   const set = (patch: Partial<FlowNodeData>) => onChange({ ...data, ...patch });
   const variableListId = `vars-${nodeId}`;
+  const allVariables = useContext(FlowVariablesContext);
 
   return (
     <aside className="w-80 shrink-0 border-l border-border bg-card flex flex-col min-h-0" aria-label="Editar nodo">
@@ -87,6 +90,14 @@ export function NodeInspector({
           <option key={v} value={v} />
         ))}
       </datalist>
+      {/* La condición puede evaluar también cualquier campo del CRM. */}
+      <datalist id={`${nodeId}-condition-vars`}>
+        {allVariables
+          .filter((o) => o.key !== "contact_name")
+          .map((o) => (
+            <option key={o.key} value={o.key} label={o.label} />
+          ))}
+      </datalist>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {type === "start" && (
@@ -104,11 +115,11 @@ export function NodeInspector({
               <label className={labelClass} htmlFor={`${nodeId}-text`}>
                 Pregunta
               </label>
-              <textarea
+              <VariableTextarea
                 id={`${nodeId}-text`}
                 rows={4}
                 value={data.text || ""}
-                onChange={(e) => set({ text: e.target.value })}
+                onChange={(v) => set({ text: v })}
                 placeholder="¿Cuál es tu correo electrónico?"
                 className={cn(inputClass, "resize-y")}
               />
@@ -149,10 +160,10 @@ export function NodeInspector({
               <label className={labelClass} htmlFor={`${nodeId}-err`}>
                 Mensaje si la respuesta no es válida
               </label>
-              <input
+              <VariableInput
                 id={`${nodeId}-err`}
                 value={data.errorMessage || ""}
-                onChange={(e) => set({ errorMessage: e.target.value })}
+                onChange={(v) => set({ errorMessage: v })}
                 placeholder="Por favor escribe un correo válido."
                 className={inputClass}
               />
@@ -173,14 +184,16 @@ export function NodeInspector({
               </label>
               <input
                 id={`${nodeId}-cvar`}
-                list={variableListId}
+                list={`${nodeId}-condition-vars`}
                 value={data.conditionVariable || ""}
                 onChange={(e) => set({ conditionVariable: e.target.value.replace(/[^\w]/g, "") })}
                 placeholder="last_button"
                 className={cn(inputClass, "font-mono")}
               />
               <p className={hintClass}>
-                <code className="font-mono">last_button</code> guarda el título del último botón pulsado.
+                Puede ser una variable del flujo o cualquier campo del CRM (p. ej.{" "}
+                <code className="font-mono">city</code>). <code className="font-mono">last_button</code> guarda el título del
+                último botón pulsado.
               </p>
             </div>
             <div>
@@ -205,13 +218,16 @@ export function NodeInspector({
                 <label className={labelClass} htmlFor={`${nodeId}-cval`}>
                   Valor
                 </label>
-                <input
+                <VariableInput
                   id={`${nodeId}-cval`}
                   value={data.conditionValue || ""}
-                  onChange={(e) => set({ conditionValue: e.target.value })}
+                  onChange={(v) => set({ conditionValue: v })}
                   className={inputClass}
                 />
-                <p className={hintClass}>No distingue mayúsculas ni tildes.</p>
+                <p className={hintClass}>
+                  No distingue mayúsculas ni tildes. Escribe <code className="font-mono">{"{"}</code> para comparar con otra
+                  variable o campo del CRM.
+                </p>
               </div>
             )}
           </>
@@ -263,8 +279,8 @@ export function NodeInspector({
 function VariableHint() {
   return (
     <p className={hintClass}>
-      Usa <code className="font-mono">{"{{variable}}"}</code> o <code className="font-mono">{"{{contact_name}}"}</code> para
-      personalizar.
+      Escribe <code className="font-mono">{"{"}</code> para insertar una variable: campos del CRM, campos personalizados o
+      respuestas del flujo.
     </p>
   );
 }
@@ -295,11 +311,11 @@ function LimitedField({
           {value.length}/{MAX_HEADER_FOOTER}
         </span>
       </div>
-      <input
+      <VariableInput
         id={id}
         value={value}
         maxLength={MAX_HEADER_FOOTER}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
         placeholder={placeholder}
         className={inputClass}
       />
@@ -504,11 +520,11 @@ function MessageFields({
         <label className={labelClass} htmlFor="msg-text">
           Texto
         </label>
-        <textarea
+        <VariableTextarea
           id="msg-text"
           rows={5}
           value={data.text || ""}
-          onChange={(e) => set({ text: e.target.value })}
+          onChange={(v) => set({ text: v })}
           placeholder="¡Hola! ¿En qué podemos ayudarte?"
           className={cn(inputClass, "resize-y")}
         />
@@ -610,10 +626,10 @@ function ButtonsEditor({
                       </option>
                     ))}
                   </select>
-                  <input
+                  <VariableInput
                     aria-label={`Título del botón ${i + 1}`}
                     value={b.title}
-                    onChange={(e) => update(b.id, { title: e.target.value.slice(0, MAX_BUTTON_TITLE) })}
+                    onChange={(v) => update(b.id, { title: v.slice(0, MAX_BUTTON_TITLE) })}
                     placeholder={type === "reply" ? `Opción ${replies.indexOf(b) + 1}` : type === "url" ? "Ver catálogo" : "Llamar"}
                     className={cn(inputClass, "py-1.5", over && "border-amber-400")}
                   />
@@ -629,12 +645,12 @@ function ButtonsEditor({
 
                 {type === "url" && (
                   <div>
-                    <input
+                    <VariableInput
                       aria-label={`Enlace del botón ${i + 1}`}
                       type="url"
                       inputMode="url"
                       value={b.url || ""}
-                      onChange={(e) => update(b.id, { url: e.target.value })}
+                      onChange={(v) => update(b.id, { url: v })}
                       placeholder="https://tuweb.com/catalogo"
                       aria-invalid={urlBad}
                       className={cn(inputClass, "py-1.5 font-mono text-xs", urlBad && "border-red-400")}
@@ -833,10 +849,10 @@ function ActionFields({
                 placeholder="variable"
                 className={cn(inputClass, "py-1.5 font-mono")}
               />
-              <input
+              <VariableInput
                 aria-label="Valor"
                 value={a.value || ""}
-                onChange={(e) => update(i, { value: e.target.value })}
+                onChange={(v) => update(i, { value: v })}
                 placeholder="valor"
                 className={cn(inputClass, "py-1.5")}
               />

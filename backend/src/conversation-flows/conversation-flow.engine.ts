@@ -67,6 +67,12 @@ export interface FlowInput {
 export interface FlowContext {
   contactName?: string | null;
   /**
+   * Campos del CRM del contacto (sistema y personalizados) ya formateados como
+   * texto, disponibles como {{clave}}. Vacío si la conversación no tiene un
+   * contacto vinculado.
+   */
+  contact?: Record<string, string>;
+  /**
    * true si el canal es WhatsApp Cloud API nativo (no puente SendPulse ni
    * Evolution). Solo ahí aplica la paginación «Más opciones»: en el resto las
    * opciones se muestran completas como texto numerado o respuestas rápidas.
@@ -443,7 +449,7 @@ export class ConversationFlowEngine {
         }
 
         case 'condition': {
-          const passed = this.evaluateCondition(node.data, variables);
+          const passed = this.evaluateCondition(node.data, variables, context);
           nodeId = this.nextNodeId(flow, node.id, passed ? 'true' : 'false');
           break;
         }
@@ -656,13 +662,9 @@ export class ConversationFlowEngine {
     variables: Record<string, string>,
     context: FlowContext,
   ): string {
-    return url.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key: string) => {
-      const value =
-        key === 'contact_name' || key === 'contact.name'
-          ? context.contactName || ''
-          : (variables[key] ?? '');
-      return encodeURIComponent(value);
-    });
+    return url.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key: string) =>
+      encodeURIComponent(this.lookup(key, variables, context)),
+    );
   }
 
   /** Sustituye los ids de botón por el payload completo que viaja al canal. */
@@ -741,12 +743,18 @@ export class ConversationFlowEngine {
   private evaluateCondition(
     data: FlowNodeData,
     variables: Record<string, string>,
+    context: FlowContext,
   ): boolean {
-    const raw = data.conditionVariable
-      ? variables[data.conditionVariable]
-      : undefined;
-    const value = raw ?? '';
-    const expected = data.conditionValue ?? '';
+    // La variable puede ser del flujo o un campo del CRM (p. ej. `city`), y el
+    // valor a comparar admite {{variables}} (p. ej. comparar con otro campo).
+    const value = data.conditionVariable
+      ? this.lookup(data.conditionVariable, variables, context)
+      : '';
+    const expected = this.interpolate(
+      data.conditionValue ?? '',
+      variables,
+      context,
+    );
     switch (data.conditionOperator || 'equals') {
       case 'equals':
         return this.normalize(value) === this.normalize(expected);
@@ -767,16 +775,40 @@ export class ConversationFlowEngine {
     }
   }
 
-  /** Reemplaza {{variable}} y {{contact_name}} en el texto. */
+  /**
+   * Valor de una variable. Orden de búsqueda:
+   *   1. {{contact_name}}: nombre con el que aparece en el chat.
+   *   2. Variables del flujo (lo que el contacto respondió o se asignó). Tienen
+   *      prioridad sobre el CRM: si el contacto acaba de escribir su email, ese
+   *      es el que cuenta aunque el CRM tenga otro.
+   *   3. Campos del CRM del contacto (sistema y personalizados).
+   *   4. Vacío si no existe.
+   * Solo se leen claves propias: `{{constructor}}` o `{{toString}}` no deben
+   * devolver código de JavaScript.
+   */
+  private lookup(
+    key: string,
+    variables: Record<string, string>,
+    context: FlowContext,
+  ): string {
+    if (key === 'contact_name' || key === 'contact.name')
+      return context.contactName || '';
+    if (Object.prototype.hasOwnProperty.call(variables, key))
+      return variables[key] ?? '';
+    const contact = context.contact;
+    if (contact && Object.prototype.hasOwnProperty.call(contact, key))
+      return contact[key] ?? '';
+    return '';
+  }
+
+  /** Reemplaza {{variable}} en el texto con variables del flujo y campos del CRM. */
   interpolate(
     text: string,
     variables: Record<string, string>,
     context: FlowContext,
   ): string {
-    return (text || '').replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key: string) => {
-      if (key === 'contact_name' || key === 'contact.name')
-        return context.contactName || '';
-      return variables[key] ?? '';
-    });
+    return (text || '').replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key: string) =>
+      this.lookup(key, variables, context),
+    );
   }
 }

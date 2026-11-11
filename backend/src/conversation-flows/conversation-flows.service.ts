@@ -17,6 +17,12 @@ import {
   FlowTriggers,
 } from './conversation-flow.entity';
 import { MediaStorageService } from '../media/media-storage.service';
+import { CustomField } from '../records/custom-field.entity';
+import {
+  CONTACT_SYSTEM_FIELDS,
+  FLOW_SPECIAL_VARIABLES,
+  VARIABLE_KEY_RE,
+} from './contact-fields.util';
 import { isValidButtonUrl, normalizePhone } from './flow-buttons.util';
 import {
   compressVideoForWhatsApp,
@@ -81,7 +87,45 @@ export class ConversationFlowsService {
     @InjectRepository(ConversationFlow)
     private readonly flowRepo: Repository<ConversationFlow>,
     private readonly mediaStorage: MediaStorageService,
+    @InjectRepository(CustomField)
+    private readonly customFieldRepo: Repository<CustomField>,
   ) {}
+
+  /**
+   * Variables que el editor ofrece al escribir `{{`: las propias del flujo, los
+   * campos del sistema del CRM y TODOS los campos personalizados del tenant.
+   * Es la misma lista que el motor sabe resolver al enviar.
+   */
+  async getVariableCatalog(tenantId: string): Promise<{
+    special: { key: string; label: string; description: string }[];
+    crm: { key: string; label: string; group: string }[];
+    custom: { key: string; label: string; fieldType: string }[];
+  }> {
+    if (!tenantId) throw new BadRequestException('tenantId es requerido');
+    const customFields = await this.customFieldRepo.find({
+      where: { tenantId },
+      order: { sortOrder: 'ASC', createdAt: 'ASC' },
+    });
+    const systemKeys = new Set(CONTACT_SYSTEM_FIELDS.map((f) => f.key));
+    const seen = new Set<string>();
+    const custom = customFields
+      // Los del sistema ya vienen de la lista fija; una clave que el motor no
+      // pueda reconocer ({{clave}} solo admite letras, números y _) no serviría.
+      .filter((f) => !f.isSystem && !systemKeys.has(f.fieldKey))
+      .filter((f) => VARIABLE_KEY_RE.test(f.fieldKey))
+      .filter((f) => (seen.has(f.fieldKey) ? false : !!seen.add(f.fieldKey)))
+      .map((f) => ({
+        key: f.fieldKey,
+        label: f.fieldLabel,
+        fieldType: f.fieldType,
+      }));
+
+    return {
+      special: FLOW_SPECIAL_VARIABLES,
+      crm: CONTACT_SYSTEM_FIELDS,
+      custom,
+    };
+  }
 
   // ─── CRUD ─────────────────────────────────────────────────────
 

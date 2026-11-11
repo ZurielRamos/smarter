@@ -49,6 +49,12 @@ export class ConversationFlowsController {
     return { linkTracking: this.links.trackingAvailable() };
   }
 
+  /** Variables disponibles para `{{...}}` en el editor (CRM, personalizados y del flujo). */
+  @Get('variables')
+  variables(@Query('tenantId') tenantId: string) {
+    return this.flows.getVariableCatalog(tenantId);
+  }
+
   @Get(':id')
   findOne(
     @Param('id', ParseUUIDPipe) id: string,

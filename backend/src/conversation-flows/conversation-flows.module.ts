@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConversationFlow } from './conversation-flow.entity';
 import { FlowLink } from './flow-link.entity';
+import { CustomField } from '../records/custom-field.entity';
 import { ConversationFlowsService } from './conversation-flows.service';
 import { ConversationFlowsController } from './conversation-flows.controller';
 import { ConversationFlowEngine } from './conversation-flow.engine';
@@ -12,7 +13,9 @@ import { FlowLinksService } from './flow-links.service';
  * ChatsModule: el motor devuelve mensajes/efectos y ChatsService los envía.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([ConversationFlow, FlowLink])],
+  imports: [
+    TypeOrmModule.forFeature([ConversationFlow, FlowLink, CustomField]),
+  ],
   controllers: [ConversationFlowsController],
   providers: [
     ConversationFlowsService,

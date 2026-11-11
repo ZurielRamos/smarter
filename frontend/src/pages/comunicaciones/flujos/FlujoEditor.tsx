@@ -32,7 +32,8 @@ import {
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
-import { EMPTY_TRIGGERS, FlowEditorContext } from "./editorContext";
+import { EMPTY_TRIGGERS, FlowEditorContext, FlowVariablesContext } from "./editorContext";
+import { buildVariableOptions, type VariableCatalog } from "./variables";
 import { nodeTypes } from "./nodeTypes";
 import { NodeInspector } from "./NodeInspector";
 import { TriggersModal } from "./TriggersModal";
@@ -315,6 +316,19 @@ function FlujoEditorInner() {
     return [...set].sort();
   }, [nodes]);
 
+  // Catálogo para el dropdown de `{`: campos del CRM, personalizados del tenant y especiales.
+  const [variableCatalog, setVariableCatalog] = useState<VariableCatalog | null>(null);
+  useEffect(() => {
+    if (!tenantId) return;
+    flowsApi
+      .get<VariableCatalog>("/conversation-flows/variables", { params: { tenantId } })
+      .then(({ data }) => setVariableCatalog(data))
+      .catch(() => {
+        // Sin catálogo el dropdown sigue ofreciendo las variables del flujo y las especiales.
+      });
+  }, [tenantId]);
+  const variableOptions = useMemo(() => buildVariableOptions(variables, variableCatalog), [variables, variableCatalog]);
+
   // ─── Guardado ───
   const save = useCallback(
     async (extra?: { status?: FlowStatus; triggers?: FlowTriggers }): Promise<boolean> => {
@@ -432,6 +446,7 @@ function FlujoEditorInner() {
 
   return (
     <FlowEditorContext.Provider value={{ flows, labels, currentFlowId: flow.id }}>
+     <FlowVariablesContext.Provider value={variableOptions}>
       <div className="flex-1 min-w-0 flex flex-col bg-background">
         {/* Header */}
         <div className="bg-card border-b border-border px-4 py-2.5 flex items-center gap-3 flex-wrap">
@@ -581,6 +596,7 @@ function FlujoEditorInner() {
         confirmLabel="Eliminar"
         variant="danger"
       />
+     </FlowVariablesContext.Provider>
     </FlowEditorContext.Provider>
   );
 }

@@ -33,7 +33,8 @@ import { UserTenant } from '../users/user-tenant.entity';
 import sharp from 'sharp';
 import { convertAudioToOggOpus, compressVideoForWhatsApp, WA_VIDEO_LIMIT } from '../media/whatsapp-transcode.util';
 import { ConversationFlowsService } from '../conversation-flows/conversation-flows.service';
-import { ConversationFlowEngine, FlowRunResult, parseButtonPayload } from '../conversation-flows/conversation-flow.engine';
+import { ConversationFlowEngine, FlowContext, FlowRunResult, parseButtonPayload } from '../conversation-flows/conversation-flow.engine';
+import { buildContactVariables } from '../conversation-flows/contact-fields.util';
 import { FlowLinksService } from '../conversation-flows/flow-links.service';
 
 import {
@@ -2557,31 +2558,30 @@ export class ChatsService {
       const handedOff = conversation.botStatus === 'handed_off';
 
       const loader = (flowId: string) => this.conversationFlowsService.loadForTenant(inbox.tenantId, flowId);
-      const context = {
-        contactName: conversation.contactName,
-        // La paginación «Más opciones» solo aplica a WhatsApp Cloud nativo.
-        whatsappCloud: inbox.channel === 'whatsapp' && !isBridgeActive(inbox.metadata),
-      };
+      // El contacto del CRM se carga solo si un flujo va a ejecutarse (y una vez):
+      // la mayoría de mensajes entrantes no lo necesitan.
+      let contextPromise: Promise<FlowContext> | null = null;
+      const getContext = () => (contextPromise ??= this.buildFlowContext(inbox, conversation));
       const variables = conversation.flowVariables || {};
       const input = { text: content, payload };
 
       let result: FlowRunResult | null = null;
 
       if (parseButtonPayload(payload)) {
-        result = await this.conversationFlowEngine.resume(conversation.flowState, variables, input, loader, context);
+        result = await this.conversationFlowEngine.resume(conversation.flowState, variables, input, loader, await getContext());
       }
       if (!result?.handled && content) {
         const keywordFlow = await this.conversationFlowsService.findTriggeredFlow(inbox.tenantId, inbox.id, content, false);
-        if (keywordFlow) result = await this.conversationFlowEngine.start(keywordFlow, variables, loader, context);
+        if (keywordFlow) result = await this.conversationFlowEngine.start(keywordFlow, variables, loader, await getContext());
       }
       if (!result?.handled && conversation.flowState) {
-        result = await this.conversationFlowEngine.resume(conversation.flowState, variables, { text: content, payload: null }, loader, context);
+        result = await this.conversationFlowEngine.resume(conversation.flowState, variables, { text: content, payload: null }, loader, await getContext());
       }
       if (!result?.handled && !handedOff) {
         const inboundCount = await this.messageRepo.count({ where: { conversationId: conversation.id, direction: 'inbound' } });
         if (inboundCount <= 1) {
           const newConvFlow = await this.conversationFlowsService.findTriggeredFlow(inbox.tenantId, inbox.id, null, true);
-          if (newConvFlow) result = await this.conversationFlowEngine.start(newConvFlow, variables, loader, context);
+          if (newConvFlow) result = await this.conversationFlowEngine.start(newConvFlow, variables, loader, await getContext());
         }
       }
 
@@ -2599,6 +2599,22 @@ export class ChatsService {
       await this.applyFlowResult(inbox, conversation, conversationRef, result);
     });
     return handled;
+  }
+
+  /**
+   * Contexto con el que el motor resuelve las {{variables}}: nombre del chat,
+   * canal y los campos del CRM del contacto vinculado (sistema y personalizados).
+   */
+  private async buildFlowContext(inbox: Inbox, conversation: Conversation): Promise<FlowContext> {
+    const record = conversation.recordId
+      ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } })
+      : null;
+    return {
+      contactName: conversation.contactName,
+      contact: buildContactVariables(record),
+      // La paginación «Más opciones» solo aplica a WhatsApp Cloud nativo.
+      whatsappCloud: inbox.channel === 'whatsapp' && !isBridgeActive(inbox.metadata),
+    };
   }
 
   /** Persiste el estado del flujo, aplica sus efectos y envía sus mensajes. */
@@ -2758,10 +2774,7 @@ export class ChatsService {
         link,
         conversation.flowVariables || {},
         (flowId) => this.conversationFlowsService.loadForTenant(inbox.tenantId, flowId),
-        {
-          contactName: conversation.contactName,
-          whatsappCloud: inbox.channel === 'whatsapp' && !isBridgeActive(inbox.metadata),
-        },
+        await this.buildFlowContext(inbox, conversation),
       );
       // Sin nada conectado a «Al hacer clic»: solo queda registrado.
       if (!result.handled) return;
