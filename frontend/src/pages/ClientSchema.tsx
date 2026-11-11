@@ -858,7 +858,7 @@ export function ClientSchema() {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Hero */}
-      <div className="px-8 pt-16 pb-4 shrink-0 rounded-b-2xl" style={{ backgroundImage: `url(${headerBg})`, backgroundSize: "cover", backgroundPosition: "center" }}>
+      <div className="px-5 pt-3 pb-3 shrink-0 rounded-b-2xl" style={{ backgroundImage: `url(${headerBg})`, backgroundSize: "cover", backgroundPosition: "center" }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button

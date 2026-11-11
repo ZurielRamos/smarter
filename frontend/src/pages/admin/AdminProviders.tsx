@@ -60,7 +60,7 @@ export function AdminProviders() {
     <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
       <div
-        className="px-8 pt-16 pb-6 shrink-0 rounded-b-2xl"
+        className="px-5 pt-3 pb-3 shrink-0 rounded-b-2xl"
         style={{ backgroundImage: `url(${headerBg})`, backgroundSize: "cover", backgroundPosition: "center" }}
       >
         <h1 className="text-2xl font-bold text-white">Proveedores</h1>

@@ -70,7 +70,7 @@ export function UserMenu() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setOpen(!open)}
-        className="relative h-9 w-9 rounded-full bg-accent-500 flex items-center justify-center text-xs font-bold text-white hover:ring-2 hover:ring-accent-300 transition-all cursor-pointer overflow-visible"
+        className="relative h-8 w-8 rounded-full bg-accent-500 flex items-center justify-center text-xs font-bold text-white hover:ring-2 hover:ring-accent-300 transition-all cursor-pointer overflow-visible"
       >
         <span className="h-full w-full rounded-full overflow-hidden flex items-center justify-center">
           {user?.avatarPath ? (
@@ -97,7 +97,7 @@ export function UserMenu() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute right-0 top-12 w-64 bg-popover text-popover-foreground rounded-xl shadow-lg border border-border py-2 z-50 origin-top-right"
+            className="absolute left-full bottom-0 ml-2 w-64 bg-popover text-popover-foreground rounded-xl shadow-lg border border-border py-2 z-50 origin-bottom-left"
           >
             {/* User info */}
             <div className="px-4 py-3 border-b border-border">

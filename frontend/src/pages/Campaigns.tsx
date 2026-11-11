@@ -152,7 +152,7 @@ export function Campaigns() {
     <div className="h-full flex flex-col overflow-hidden">
       {/* Dark section - title */}
       <div
-        className="px-8 pt-16 pb-4 shrink-0 rounded-b-2xl"
+        className="px-5 pt-3 pb-3 shrink-0 rounded-b-2xl"
         style={{
           backgroundImage: `url(${headerBg})`,
           backgroundSize: 'cover',

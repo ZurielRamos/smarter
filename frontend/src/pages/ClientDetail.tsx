@@ -351,7 +351,7 @@ export function ClientDetail() {
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <div
-        className="relative px-8 pt-16 pb-4 rounded-b-2xl overflow-hidden shrink-0"
+        className="relative px-5 pt-3 pb-3 rounded-b-2xl overflow-hidden shrink-0"
         style={{ backgroundImage: `url(${headerBg})`, backgroundSize: "cover", backgroundPosition: "center" }}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/30" />

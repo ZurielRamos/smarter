@@ -284,7 +284,7 @@ export function NotificationBell() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -5 }}
             transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute right-0 top-full mt-2 w-[380px] max-h-[480px] rounded-2xl shadow-2xl border border-border overflow-hidden z-50 bg-popover text-popover-foreground"
+            className="absolute left-full bottom-0 ml-2 w-[380px] max-h-[480px] rounded-2xl shadow-2xl border border-border overflow-hidden z-50 bg-popover text-popover-foreground"
             style={{ backdropFilter: "blur(24px)" }}
           >
             {/* Header */}

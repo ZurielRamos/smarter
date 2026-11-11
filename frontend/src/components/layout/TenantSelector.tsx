@@ -5,7 +5,7 @@ import { ChevronDown, Check } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useBranding } from "@/context/BrandingContext";
 
-export function TenantSelector() {
+export function TenantSelector({ compact = false }: { compact?: boolean } = {}) {
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
   const branding = useBranding();
@@ -59,13 +59,13 @@ export function TenantSelector() {
   // If only one option and not super admin, just show static
   if (!hasMultipleOptions) {
     return (
-      <div className="shrink-0 flex items-center gap-3">
+      <div className="shrink-0 flex items-center gap-3" title={currentLabel}>
         {currentIcon ? (
           <img src={currentIcon} alt={currentLabel} className="h-8 w-8 rounded-lg object-cover" />
         ) : (
           <img src={iconSvg} alt={branding.name} className="h-8 w-8 object-contain invert brightness-0" style={{ filter: 'invert(1)' }} />
         )}
-        <span className="text-sm font-medium text-white">{currentLabel}</span>
+        {!compact && <span className="text-sm font-medium text-white">{currentLabel}</span>}
       </div>
     );
   }
@@ -74,6 +74,8 @@ export function TenantSelector() {
     <div className="relative shrink-0" ref={menuRef}>
       <button
         onClick={() => setOpen(!open)}
+        title={currentLabel}
+        aria-label={currentLabel}
         className="flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer"
       >
         {isOnAdmin ? (
@@ -83,10 +85,12 @@ export function TenantSelector() {
         ) : (
           <img src={iconSvg} alt={branding.name} className="h-8 w-8 object-contain" style={{ filter: 'invert(1)' }} />
         )}
-        <span className="text-sm font-medium text-white">{currentLabel}</span>
-        <ChevronDown
-          className={`h-4 w-4 text-brand-300 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-        />
+        {!compact && <span className="text-sm font-medium text-white">{currentLabel}</span>}
+        {!compact && (
+          <ChevronDown
+            className={`h-4 w-4 text-brand-300 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          />
+        )}
       </button>
 
       <AnimatePresence>
@@ -96,7 +100,7 @@ export function TenantSelector() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute left-0 top-12 w-72 bg-popover text-popover-foreground rounded-xl shadow-lg border border-border py-2 z-50 origin-top-left"
+            className="absolute left-full top-0 ml-2 w-72 bg-popover text-popover-foreground rounded-xl shadow-lg border border-border py-2 z-50 origin-top-left"
           >
             <div className="px-4 py-2 border-b border-border">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">

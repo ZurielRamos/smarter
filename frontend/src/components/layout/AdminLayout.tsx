@@ -13,18 +13,13 @@ export function AdminLayout() {
 
   return (
     <div
-      className="h-screen flex flex-col overflow-hidden p-4 bg-app-shell bg-cover bg-center"
+      className="h-screen flex flex-row overflow-hidden p-4 pl-2 bg-app-shell bg-cover bg-center"
       style={{ backgroundImage: `var(--shell-bg, url(${whiteBg}))` }}
     >
-      <div className="flex flex-col flex-1 min-h-0 rounded-2xl overflow-hidden relative">
-        {/* Header floating on top without background */}
-        <div className="absolute inset-x-0 top-0 z-20">
-          <AdminHeader />
-        </div>
-        <main className="flex-1 min-h-0 overflow-hidden">
-          <Outlet />
-        </main>
-      </div>
+      <AdminHeader />
+      <main className="flex-1 min-w-0 min-h-0 rounded-2xl overflow-hidden">
+        <Outlet />
+      </main>
     </div>
   );
 }
