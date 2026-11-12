@@ -32,6 +32,7 @@ import { SurveysModule } from './surveys/surveys.module';
 import { BrandingModule } from './branding/branding.module';
 import { CursosModule } from './cursos/cursos.module';
 import { LegalModule } from './legal/legal.module';
+import { AutomatizacionesModule } from './automatizaciones/automatizaciones.module';
 
 @Module({
   imports: [
@@ -96,6 +97,7 @@ import { LegalModule } from './legal/legal.module';
     BrandingModule,
     CursosModule,
     LegalModule,
+    AutomatizacionesModule,
   ],
   providers: [
     {

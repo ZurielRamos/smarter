@@ -9,7 +9,7 @@ export const REQUIRES_FEATURE_KEY = 'requiresFeature';
  * @example
  * @RequiresFeature('projects')
  */
-export type TenantFeature = 'companies' | 'projects' | 'cursos';
+export type TenantFeature = 'companies' | 'projects' | 'cursos' | 'automatizaciones';
 
 export const RequiresFeature = (feature: TenantFeature) =>
   SetMetadata(REQUIRES_FEATURE_KEY, feature);

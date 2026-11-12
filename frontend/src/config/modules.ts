@@ -59,6 +59,13 @@ export const TENANT_MODULES: ModuleDef[] = [
     path: "cursos",
     defaultOn: false,
   },
+  {
+    key: "automatizaciones",
+    label: "Automatizaciones",
+    description: "Canvas de flujos automatizados con disparadores e integraciones",
+    path: "automatizaciones",
+    defaultOn: false,
+  },
 ];
 
 /** Módulos administrables (se pueden encender/apagar) para el panel de admin. */

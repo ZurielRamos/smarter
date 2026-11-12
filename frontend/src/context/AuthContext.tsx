@@ -9,6 +9,7 @@ export interface TenantFeatures {
   comunicaciones?: boolean;
   encuestas?: boolean;
   cursos?: boolean;
+  automatizaciones?: boolean;
   [key: string]: unknown;
 }
 

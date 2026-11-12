@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { LayoutDashboard, MessagesSquare, Users, ClipboardList, GraduationCap, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, MessagesSquare, Users, ClipboardList, GraduationCap, Workflow, type LucideIcon } from "lucide-react";
 import { Sidebar, type SidebarItem } from "./Sidebar";
 import { useAuth } from "@/context/AuthContext";
 import { TENANT_MODULES, isModuleEnabled } from "@/config/modules";
@@ -10,6 +10,7 @@ const MODULE_ICONS: Record<string, LucideIcon> = {
   contactos: Users,
   encuestas: ClipboardList,
   cursos: GraduationCap,
+  automatizaciones: Workflow,
 };
 
 /** Navegación principal del tenant (sidebar izquierdo de iconos). */

@@ -54,6 +54,8 @@ export class Tenant {
     encuestas?: boolean;
     /** Módulo Cursos (academy / campañas con ranking) */
     cursos?: boolean;
+    /** Módulo Automatizaciones (canvas de flujos con integraciones) */
+    automatizaciones?: boolean;
   } | null;
 
   /**

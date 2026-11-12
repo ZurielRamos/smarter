@@ -11,4 +11,6 @@ export class UpdateTenantFeaturesDto {
   encuestas?: boolean;
   /** Activa/desactiva el módulo de Cursos (academy / campañas con ranking) */
   cursos?: boolean;
+  /** Activa/desactiva el módulo de Automatizaciones (canvas de flujos e integraciones) */
+  automatizaciones?: boolean;
 }

@@ -51,6 +51,11 @@ const BotDetail = lazy(() => import("./pages/comunicaciones/BotDetail").then((m)
 const BotConfig = lazy(() => import("./pages/comunicaciones/BotConfig").then((m) => ({ default: m.BotConfig })));
 const Flujos = lazy(() => import("./pages/comunicaciones/Flujos").then((m) => ({ default: m.Flujos })));
 const FlujoEmpty = lazy(() => import("./pages/comunicaciones/FlujoEmpty").then((m) => ({ default: m.FlujoEmpty })));
+const AutomatizacionesLayout = lazy(() => import("./pages/automatizaciones/AutomatizacionesLayout").then((m) => ({ default: m.AutomatizacionesLayout })));
+const Automatizaciones = lazy(() => import("./pages/automatizaciones/Automatizaciones").then((m) => ({ default: m.Automatizaciones })));
+const AutomationEditor = lazy(() => import("./pages/automatizaciones/AutomationEditor").then((m) => ({ default: m.AutomationEditor })));
+const AutomationConnections = lazy(() => import("./pages/automatizaciones/AutomationConnections").then((m) => ({ default: m.AutomationConnections })));
+const AutomationRuns = lazy(() => import("./pages/automatizaciones/AutomationRuns").then((m) => ({ default: m.AutomationRuns })));
 const FlujoEditor = lazy(() => import("./pages/comunicaciones/flujos/FlujoEditor").then((m) => ({ default: m.FlujoEditor })));
 const NewInbox = lazy(() => import("./pages/NewInbox").then((m) => ({ default: m.NewInbox })));
 const Inboxes = lazy(() => import("./pages/Inboxes").then((m) => ({ default: m.Inboxes })));
@@ -187,6 +192,12 @@ function App() {
                   <Route index element={<FlujoEmpty />} />
                   <Route path=":flowId" element={<FlujoEditor />} />
                 </Route>
+              </Route>
+              <Route path="/:slug/automatizaciones" element={<AutomatizacionesLayout />}>
+                <Route index element={<Automatizaciones />} />
+                <Route path="conexiones" element={<AutomationConnections />} />
+                <Route path="ejecuciones" element={<AutomationRuns />} />
+                <Route path=":automationId" element={<AutomationEditor />} />
               </Route>
               <Route path="/:slug/inboxes" element={<Inboxes />} />
               <Route path="/:slug/inboxes/new" element={<NewInbox />} />
