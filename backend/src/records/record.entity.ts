@@ -164,6 +164,69 @@ export class ClientRecord {
   @Column({ name: 'ad_touchpoints', type: 'integer', default: 0 })
   adTouchpoints: number;
 
+  // === ATRIBUCIÓN: FIRST TOUCH (primer contacto, nunca se sobrescribe) ===
+  /** AdEvent que originó al contacto (historial completo en ad_events) */
+  @Column({ name: 'first_ad_event_id', type: 'uuid', nullable: true })
+  firstAdEventId: string | null;
+
+  @Column({ name: 'first_touch_platform', type: 'varchar', length: 20, nullable: true })
+  firstTouchPlatform: string | null;
+
+  @Column({ name: 'first_touch_medium', type: 'varchar', nullable: true })
+  firstTouchMedium: string | null;
+
+  @Column({ name: 'first_touch_campaign', type: 'varchar', nullable: true })
+  firstTouchCampaign: string | null;
+
+  @Column({ name: 'first_touch_content', type: 'varchar', nullable: true })
+  firstTouchContent: string | null;
+
+  @Column({ name: 'first_touch_term', type: 'varchar', nullable: true })
+  firstTouchTerm: string | null;
+
+  @Column({ name: 'first_touch_click_id', type: 'varchar', nullable: true })
+  firstTouchClickId: string | null;
+
+  @Column({ name: 'first_touch_landing_page', type: 'varchar', length: 1000, nullable: true })
+  firstTouchLandingPage: string | null;
+
+  @Column({ name: 'first_touch_referrer', type: 'varchar', nullable: true })
+  firstTouchReferrer: string | null;
+
+  @Column({ name: 'first_touch_at', type: 'timestamptz', nullable: true })
+  firstTouchAt: Date | null;
+
+  // === ATRIBUCIÓN: LAST TOUCH (toque más reciente, se actualiza siempre) ===
+  @Column({ name: 'last_ad_event_id', type: 'uuid', nullable: true })
+  lastAdEventId: string | null;
+
+  @Column({ name: 'last_touch_platform', type: 'varchar', length: 20, nullable: true })
+  lastTouchPlatform: string | null;
+
+  @Column({ name: 'last_touch_medium', type: 'varchar', nullable: true })
+  lastTouchMedium: string | null;
+
+  @Column({ name: 'last_touch_campaign', type: 'varchar', nullable: true })
+  lastTouchCampaign: string | null;
+
+  @Column({ name: 'last_touch_content', type: 'varchar', nullable: true })
+  lastTouchContent: string | null;
+
+  @Column({ name: 'last_touch_term', type: 'varchar', nullable: true })
+  lastTouchTerm: string | null;
+
+  @Column({ name: 'last_touch_click_id', type: 'varchar', nullable: true })
+  lastTouchClickId: string | null;
+
+  @Column({ name: 'last_touch_landing_page', type: 'varchar', length: 1000, nullable: true })
+  lastTouchLandingPage: string | null;
+
+  @Column({ name: 'last_touch_referrer', type: 'varchar', nullable: true })
+  lastTouchReferrer: string | null;
+
+  @Column({ name: 'last_touch_at', type: 'timestamptz', nullable: true })
+  lastTouchAt: Date | null;
+
   // === AUDITORÍA ===
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

@@ -6,6 +6,48 @@ import { useBranding } from "@/context/BrandingContext";
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
 
+const ATTRIBUTION_KEYS = [
+  "fbclid", "gclid", "gbraid", "wbraid", "msclkid", "ttclid", "li_fat_id", "twclid", "ctwa_clid",
+  "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
+] as const;
+const ATTRIBUTION_STORAGE_KEY = "__sg_form_atr";
+
+/**
+ * Lee la atribución de la URL actual. Se guarda en sessionStorage para no
+ * perderla si el visitante navega antes de enviar. Si la URL trae datos
+ * nuevos, reemplazan a los guardados.
+ */
+function captureAttribution(): Record<string, string> {
+  const fromUrl: Record<string, string> = {};
+  try {
+    const search = new URLSearchParams(window.location.search);
+    ATTRIBUTION_KEYS.forEach((k) => {
+      const v = search.get(k);
+      if (v) fromUrl[k] = v;
+    });
+  } catch {
+    // URL ilegible: se ignora
+  }
+
+  if (Object.keys(fromUrl).length > 0) {
+    const captured = {
+      ...fromUrl,
+      referrer: document.referrer || "",
+      landingPage: window.location.href,
+    };
+    try { sessionStorage.setItem(ATTRIBUTION_STORAGE_KEY, JSON.stringify(captured)); } catch { /* storage no disponible */ }
+    return captured;
+  }
+
+  try {
+    const stored = sessionStorage.getItem(ATTRIBUTION_STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {
+    // storage no disponible o JSON inválido
+  }
+  return {};
+}
+
 interface FormField {
   id: string;
   type: string;
@@ -40,6 +82,8 @@ export function PublicForm() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // Se captura al montar para conservar los parámetros de la URL original.
+  const [attribution] = useState<Record<string, string>>(() => captureAttribution());
 
   useEffect(() => {
     if (!formSlug) return;
@@ -60,7 +104,10 @@ export function PublicForm() {
     if (!form) return;
     setSubmitting(true);
     try {
-      await api.post(`/forms/${form.id}/submit`, { values });
+      await api.post(`/forms/${form.id}/submit`, {
+        values,
+        attribution: Object.keys(attribution).length > 0 ? attribution : undefined,
+      });
       setSubmitted(true);
     } catch {} finally { setSubmitting(false); }
   };

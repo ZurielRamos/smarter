@@ -3,9 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Mail, Phone, MapPin, Calendar, Tag, MessageSquare, Camera, MoreHorizontal, StickyNote, Plus, Trash2, User, ArrowRightLeft, UserPlus, Send, Pencil, Clock, ShoppingCart, CalendarCheck, Presentation, Star, FileText, Zap, Workflow, CheckCircle2, X, GraduationCap, Trophy, Loader2 } from "lucide-react";
 import { getRecordCourses, type RecordCoursesResult } from "@/services/cursos";
 import { WhatsAppIcon, MessengerIcon, InstagramIcon, FormIcon } from "@/components/ChannelIcons";
-import { getClient, getConversationsByRecord, getNotes, deleteNote, getActivities, getContactEvents, createContactEvent, deleteContactEvent, getCustomFields, getFlowSubmissionsByRecord } from "@/services/api";
+import { getClient, getConversationsByRecord, getNotes, deleteNote, getActivities, getInboxes, getContactEvents, createContactEvent, deleteContactEvent, getCustomFields, getFlowSubmissionsByRecord } from "@/services/api";
 import type { ClientRecord, ConversationRecord, NoteRecord, ActivityRecord, ContactEventRecord, CustomField, FlowSubmissionRecord } from "@/services/api";
 import { FlowSubmissionModal } from "@/components/flow-builder/FlowSubmissionModal";
+import { ContactOriginCard } from "@/components/ContactOriginCard";
+import { ATTRIBUTION_FIELD_KEYS, ATTRIBUTION_GROUP, isUuid } from "@/lib/attribution-fields";
 import { useAuth } from "@/context/AuthContext";
 import { AddNoteModal } from "./AddNoteModal";
 import { EditRecordModal } from "./EditRecordModal";
@@ -127,6 +129,8 @@ function buildFieldGroups(fields: CustomField[]): FieldGroupView[] {
   const grouped: Record<string, CustomField[]> = {};
   for (const f of fields) {
     if (HIDDEN_FIELD_KEYS.has(f.fieldKey)) continue;
+    // La atribución se muestra en la tarjeta "Origen"; no se repite como filas de la ficha.
+    if (f.fieldGroup === ATTRIBUTION_GROUP || ATTRIBUTION_FIELD_KEYS.includes(f.fieldKey)) continue;
     const g = f.fieldGroup || "general";
     if (!grouped[g]) grouped[g] = [];
     grouped[g].push(f);
@@ -154,7 +158,7 @@ function buildFieldGroups(fields: CustomField[]): FieldGroupView[] {
  * Obtiene y formatea el valor de un campo para el contacto. Los campos de
  * sistema se leen desde el propio record; los personalizados desde customData.
  */
-function formatFieldValue(field: CustomField, client: ClientRecord): string | null {
+function formatFieldValue(field: CustomField, client: ClientRecord, inboxMap: Record<string, string> = {}): string | null {
   const isSystem = field.isSystem || SYSTEM_FIELD_KEYS.includes(field.fieldKey);
   let raw: any;
   if (isSystem) {
@@ -167,6 +171,9 @@ function formatFieldValue(field: CustomField, client: ClientRecord): string | nu
 
   // Formatos especiales por clave de sistema.
   switch (field.fieldKey) {
+    case "channelSource":
+      // Puede ser el UUID de un inbox: mostrar su nombre, nunca el UUID crudo.
+      return inboxMap[String(raw)] || (isUuid(String(raw)) ? "Canal eliminado" : String(raw));
     case "gender":
       return genderLabels[raw] || String(raw);
     case "phone":
@@ -229,6 +236,15 @@ export function ClientDetail() {
   const [eventForm, setEventForm] = useState({ type: 'purchase', name: '', value: '', currency: 'COP' });
   const [recordCourses, setRecordCourses] = useState<RecordCoursesResult | null>(null);
   const [recordCoursesLoading, setRecordCoursesLoading] = useState(false);
+  // id de inbox -> nombre, para resolver channelSource cuando guarda el UUID del inbox
+  const [inboxMap, setInboxMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!tenantId) return;
+    getInboxes(tenantId)
+      .then((list) => setInboxMap(Object.fromEntries(list.map((i) => [i.id, i.name]))))
+      .catch(() => setInboxMap({}));
+  }, [tenantId]);
 
   useEffect(() => {
     if (!id || !tenantId || !cursosEnabled) return;
@@ -420,6 +436,9 @@ export function ClientDetail() {
                   <ActionButton icon={MoreHorizontal} label="Más" onClick={() => {}} />
                 </div>
               </div>
+
+              {/* Origen / atribución */}
+              <ContactOriginCard client={client} tenantId={tenantId} />
 
               {/* Activity / Conversations */}
               <div className="bg-card rounded-xl border border-border p-5">
@@ -813,7 +832,7 @@ export function ClientDetail() {
                     if (field.fieldKey === "status") {
                       return <InfoRow key={field.id} label={field.fieldLabel} value={status.label} badge badgeClass={`${status.bg} ${status.text}`} />;
                     }
-                    return <InfoRow key={field.id} label={field.fieldLabel} value={formatFieldValue(field, client)} />;
+                    return <InfoRow key={field.id} label={field.fieldLabel} value={formatFieldValue(field, client, inboxMap)} />;
                   })}
                 </InfoSection>
               ))}

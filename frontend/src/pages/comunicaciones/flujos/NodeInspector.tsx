@@ -6,6 +6,8 @@ import { VariableInput, VariableTextarea } from "./VariableField";
 import { ConditionEditor } from "./ConditionEditor";
 import { InputEditor } from "./InputEditor";
 import { NoMatchEditor } from "./NoMatchEditor";
+import { TimeoutEditor } from "./TimeoutEditor";
+import { supportsTimeout } from "./timeout";
 import { CommaListInput } from "./CommaListInput";
 import { AgentEditor } from "./AgentEditor";
 import { FlowSelect } from "./FlowSelect";
@@ -125,6 +127,7 @@ export function NodeInspector({
           <AgentEditor nodeId={nodeId} data={data} set={set} options={variableOptions} tenantId={tenantId} />
         )}
         {type === "condition" && <ConditionEditor data={data} set={set} options={variableOptions} labels={labels} inboxes={inboxes} />}
+        {supportsTimeout(type, data) && <TimeoutEditor nodeType={type} data={data} set={set} />}
         {type === "start_flow" && (
           <div>
             <label className={labelClass} htmlFor={`${nodeId}-flow`}>

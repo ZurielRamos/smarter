@@ -38,6 +38,42 @@ export interface FlowButton {
   keywords?: string[];
 }
 
+export type FlowTimeUnit = 'minutes' | 'hours' | 'days';
+
+/** Plantilla aprobada de WhatsApp para cuando la ventana de 24 h está cerrada. */
+export interface FlowTimeoutTemplate {
+  name: string;
+  /** Código de idioma (predeterminado «es») */
+  language?: string;
+  /** Variables del cuerpo {{1}}, {{2}}… (admiten {{variables}} del flujo) */
+  params?: string[];
+}
+
+/** Recordatorio antes de rendirse («¿Sigues ahí?»). */
+export interface FlowTimeoutReminder {
+  /** Tiempo desde que el nodo empezó a esperar */
+  after: number;
+  unit: FlowTimeUnit;
+  message: string;
+  /** Mensaje con botones: repetir las opciones con el recordatorio. Entrada: repetir la pregunta. */
+  repeatOptions?: boolean;
+  /** Si la ventana de 24 h está cerrada se envía esta plantilla; sin ella, se omite el recordatorio */
+  template?: FlowTimeoutTemplate;
+}
+
+/**
+ * «Si no responde» de un nodo que espera al contacto (Mensaje con botones,
+ * Entrada, Conversación con IA). Al vencer sigue por la salida `timeout`.
+ * Si la ventana está cerrada, la salida se sigue igual pero sin enviar
+ * mensajes libres (etiquetas, CRM, transferir, etc. sí se aplican).
+ */
+export interface FlowTimeoutConfig {
+  enabled: boolean;
+  after: number;
+  unit: FlowTimeUnit;
+  reminders?: FlowTimeoutReminder[];
+}
+
 /**
  * Qué hacer cuando el contacto escribe algo que no es ninguna de las opciones
  * de un mensaje con botones. Salida `nomatch` («Otra respuesta»).
@@ -297,6 +333,8 @@ export interface FlowNodeData {
   overflow?: FlowOverflowMode;
   /** message: qué hacer si el contacto escribe otra cosa que no es una opción */
   noMatch?: FlowNoMatch;
+  /** message con botones / user_input / ai_agent: si no responde a tiempo (salida `timeout`) */
+  timeout?: FlowTimeoutConfig;
   /** user_input: variable donde se guarda la respuesta */
   variable?: string;
   /** user_input: validación de la respuesta */
@@ -391,6 +429,11 @@ export interface ConversationFlowState {
   /** Nodo que espera respuesta (message con botones o user_input) */
   nodeId: string;
   waitingFor: 'button' | 'input' | 'agent';
+  /**
+   * Ficha de esta espera. Cambia cada vez que el contacto responde; un
+   * temporizador solo actúa si la conversación sigue con la ficha con que se armó.
+   */
+  token?: string;
   retries: number;
   startedAt: string;
   updatedAt: string;

@@ -8,6 +8,15 @@ import { EmailUnsubscribe } from '../providers/email-unsubscribe.entity';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ConversionsService } from '../conversions/conversions.service';
+import type { AttributionInput } from '../conversions/conversions.service';
+import {
+  ATTRIBUTION_FIELD_KEYS,
+  ATTRIBUTION_COLUMN_MAP,
+  ATTRIBUTION_TIMESTAMP_KEYS,
+  ATTRIBUTION_LIST_COLUMN_MAP,
+  stripReadOnlyRecordFields,
+} from './attribution-fields';
+import { customDataText } from './sql-safe';
 import { PhoneValidator } from '../etl/validators/phone.validator';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -42,9 +51,10 @@ export class RecordsService {
     'optInWhatsapp', 'optInEmail', 'assignedTo',
     'lastContactAt', 'lastActivityAt', 'tags',
     'createdAt', 'updatedAt',
+    ...ATTRIBUTION_FIELD_KEYS,
   ]);
 
-  async createRecord(data: { tenantId: string; firstName?: string; lastName?: string; phone?: string; email?: string; status?: string; channelSource?: string; tags?: string[]; customData?: Record<string, any> }): Promise<ClientRecord> {
+  async createRecord(data: { tenantId: string; firstName?: string; lastName?: string; phone?: string; email?: string; status?: string; channelSource?: string; source?: string; attribution?: AttributionInput; tags?: string[]; customData?: Record<string, any> }): Promise<ClientRecord> {
     const record = this.recordRepository.create({
       tenantId: data.tenantId,
       firstName: data.firstName || null,
@@ -53,6 +63,7 @@ export class RecordsService {
       email: data.email || null,
       status: data.status || 'lead',
       channelSource: data.channelSource || 'manual',
+      source: data.source || null,
       tags: data.tags || null,
       customData: data.customData || null,
       optInWhatsapp: true,
@@ -81,6 +92,13 @@ export class RecordsService {
       throw err;
     }
 
+    // Atribución enviada por el cliente (API pública). No falla el alta si algo sale mal.
+    if (data.attribution) {
+      await this.conversionsService.trackAttributionForRecord(data.tenantId, saved.id, data.attribution, {
+        sessionId: `api_${saved.id}`,
+      });
+    }
+
     this.webhooksService.dispatch(data.tenantId, 'contact_created', saved).catch(() => {});
     this.logActivity({ tenantId: data.tenantId, recordId: saved.id, type: 'contact_created', description: 'Contacto creado' }).catch(() => {});
     return saved;
@@ -91,8 +109,13 @@ export class RecordsService {
   }
 
   async updateRecord(id: string, data: Partial<ClientRecord>, actor?: { actorId?: string; actorName?: string }): Promise<ClientRecord> {
+    // Los campos de atribución son de solo lectura: se descartan si llegan en la edición.
+    data = stripReadOnlyRecordFields(data);
     const before = await this.recordRepository.findOne({ where: { id } });
-    await this.recordRepository.update(id, data as any);
+    // TypeORM lanza error si el UPDATE queda sin columnas.
+    if (Object.keys(data).length > 0) {
+      await this.recordRepository.update(id, data as any);
+    }
     const updated = await this.recordRepository.findOne({ where: { id } }) as ClientRecord;
     if (updated?.tenantId) {
       this.webhooksService.dispatch(updated.tenantId, 'contact_updated', updated).catch(() => {});
@@ -187,6 +210,8 @@ export class RecordsService {
         const customData: Record<string, unknown> = {};
 
         for (const [key, value] of Object.entries(record)) {
+          // La atribución es de solo lectura: una importación no puede escribirla.
+          if (ATTRIBUTION_COLUMN_MAP[key]) continue;
           if (this.SYSTEM_COLUMNS.has(key)) {
             (systemData as any)[key] = value;
           } else {
@@ -286,9 +311,14 @@ export class RecordsService {
       lastContactAt: 'last_contact_at', id: 'id', createdAt: 'created_at',
       score: 'score',
     };
-    if (sortBy && sortOrder) {
-      const dbField = fieldMap[sortBy] || this.toSnakeCase(sortBy);
-      qb.orderBy(`client.${dbField}`, sortOrder);
+    // sortBy llega del query string: solo se ordena por columnas conocidas.
+    // Cualquier otro valor (p. ej. campos personalizados) cae al orden por defecto.
+    const sortKey = sortBy && (Object.prototype.hasOwnProperty.call(fieldMap, sortBy) || this.SYSTEM_COLUMNS.has(sortBy) || ['company', 'jobTitle', 'website', 'address', 'language', 'notes'].includes(sortBy))
+      ? sortBy
+      : null;
+    if (sortKey && sortOrder) {
+      const dbField = (Object.prototype.hasOwnProperty.call(fieldMap, sortKey) ? fieldMap[sortKey] : null) || this.toSnakeCase(sortKey);
+      qb.orderBy(`client.${dbField}`, sortOrder === 'DESC' ? 'DESC' : 'ASC');
     } else {
       qb.orderBy('client.created_at', 'DESC');
     }
@@ -565,7 +595,7 @@ export class RecordsService {
       lastContactAt: 'last_contact_at', lastActivityAt: 'last_activity_at',
       createdAt: 'created_at', updatedAt: 'updated_at', avatarUrl: 'avatar_url',
     };
-    return map[field] || field;
+    return map[field] || ATTRIBUTION_COLUMN_MAP[field] || field;
   }
 
   /**
@@ -578,7 +608,7 @@ export class RecordsService {
     return field.startsWith('custom_') ? field.slice('custom_'.length) : field;
   }
 
-  private readonly TIMESTAMP_FIELDS = new Set(['lastContactAt', 'lastActivityAt', 'birthDate', 'createdAt', 'updatedAt']);
+  private readonly TIMESTAMP_FIELDS = new Set(['lastContactAt', 'lastActivityAt', 'birthDate', 'createdAt', 'updatedAt', ...ATTRIBUTION_TIMESTAMP_KEYS]);
 
   /** True when the value is a bare calendar date (YYYY-MM-DD) with no time part. */
   private isDateOnly(value: string): boolean {
@@ -589,7 +619,7 @@ export class RecordsService {
     filters.forEach((f, idx) => {
       const paramKey = `fv_${idx}`;
       const isCustom = !this.SYSTEM_COLUMNS.has(f.field);
-      const col = isCustom ? `client.custom_data ->> '${f.field}'` : `client.${this.toSnakeCase(f.field)}`;
+      const col = isCustom ? customDataText('client', f.field) : `client.${this.toSnakeCase(f.field)}`;
       const isTimestamp = this.TIMESTAMP_FIELDS.has(f.field);
 
       // For date comparisons we need a timestamp-typed expression. A real
@@ -1002,6 +1032,10 @@ export class RecordsService {
     return this.bulkUpdate(idList, updates, actorId, actorName);
   }
 
+  getTouchpoints(tenantId: string, recordId: string, limit = 50) {
+    return this.conversionsService.getTouchpointsForRecord(tenantId, recordId, limit);
+  }
+
   async getActivities(recordId: string, page = 1, limit = 30): Promise<{ data: Activity[]; total: number }> {
     const [data, total] = await this.activityRepository.findAndCount({
       where: { recordId },
@@ -1029,6 +1063,8 @@ export class RecordsService {
       source: 'source',
       countryCode: 'country_code',
       language: 'language',
+      // Atribución: solo los campos con pocos valores distintos
+      ...ATTRIBUTION_LIST_COLUMN_MAP,
     };
 
     const col = columnMap[field];
@@ -1049,10 +1085,11 @@ export class RecordsService {
     }
 
     // Custom field: query from custom_data JSONB
+    const jsonCol = customDataText('client', field);
     const qb = this.recordRepository
       .createQueryBuilder('client')
-      .select(`DISTINCT client.custom_data->>'${field}'`, 'value')
-      .where(`client.custom_data->>'${field}' IS NOT NULL AND client.custom_data->>'${field}' != ''`);
+      .select(`DISTINCT ${jsonCol}`, 'value')
+      .where(`${jsonCol} IS NOT NULL AND ${jsonCol} != ''`);
 
     if (tenantId) {
       qb.andWhere('client.tenant_id = :tenantId', { tenantId });

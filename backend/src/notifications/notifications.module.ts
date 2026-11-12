@@ -6,11 +6,14 @@ import { NotificationsController } from './notifications.controller';
 import { NotificationsGateway } from './notifications.gateway';
 import { PresenceService } from './presence.service';
 import { User } from '../users/user.entity';
+import { DeviceToken } from './device-token.entity';
+import { PushService } from './push.service';
+import { DevicesController } from './devices.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification, User])],
-  providers: [NotificationsService, NotificationsGateway, PresenceService],
-  controllers: [NotificationsController],
+  imports: [TypeOrmModule.forFeature([Notification, User, DeviceToken])],
+  providers: [NotificationsService, NotificationsGateway, PresenceService, PushService],
+  controllers: [NotificationsController, DevicesController],
   exports: [NotificationsService, PresenceService],
 })
 export class NotificationsModule {}

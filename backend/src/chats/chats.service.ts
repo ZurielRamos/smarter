@@ -13,6 +13,7 @@ import { FlowSubmissionsService } from '../whatsapp-flows/flow-submissions.servi
 import { Inbox } from './inbox.entity';
 import { Conversation } from './conversation.entity';
 import { Message } from './message.entity';
+import { SyncTombstone } from './sync-tombstone.entity';
 import { InboxCollaborator } from './inbox-collaborator.entity';
 import { ClientRecord } from '../records/record.entity';
 import { Label } from './label.entity';
@@ -23,7 +24,11 @@ import { BillingService } from '../billing/billing.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { isAdminRole } from '../users/enums/tenant-role.enum';
 import { NotificationsService } from '../notifications/notifications.service';
-import { ConversionsService } from '../conversions/conversions.service';
+import {
+  ConversionsService,
+  hasAttributionData,
+} from '../conversions/conversions.service';
+import { customDataText } from '../records/sql-safe';
 import { BotsService } from '../bots/bots.service';
 import { SequentialFlowEngine } from '../bots/sequential-flow.engine';
 import { Activity } from '../records/activity.entity';
@@ -60,6 +65,8 @@ import {
 import { parseDay } from '../conversation-flows/flow-conditions.util';
 import type { FlowInputMedia } from '../conversation-flows/flow-input.util';
 import { FlowLinksService } from '../conversation-flows/flow-links.service';
+import { FlowTimersService } from '../conversation-flows/flow-timers.service';
+import type { FlowTimer } from '../conversation-flows/flow-timer.entity';
 
 import {
   buildMessengerMessages,
@@ -111,6 +118,19 @@ export interface ConvListOpts {
    */
   recordFilters?: Array<{ field: string; operator: string; value: string }>;
 }
+
+export type SendMessageOptions = {
+  /** Id generado por el cliente para hacer el envío idempotente. */
+  clientMessageId?: string;
+  /** Botones de respuesta (id = payload que devuelve el canal) */
+  buttons?: OutgoingButton[];
+  /** Botones de enlace / llamada (no generan respuesta) */
+  actions?: OutgoingAction[];
+  header?: string;
+  footer?: string;
+  /** Encabezado multimedia (link público https). Excluye `header` de texto. */
+  headerMedia?: OutgoingHeaderMedia;
+};
 
 @Injectable()
 export class ChatsService {
@@ -195,6 +215,9 @@ export class ChatsService {
     private readonly conversationFlowsService: ConversationFlowsService,
     private readonly conversationFlowEngine: ConversationFlowEngine,
     private readonly flowLinksService: FlowLinksService,
+    @InjectRepository(SyncTombstone)
+    private readonly tombstoneRepo: Repository<SyncTombstone>,
+    private readonly flowTimersService: FlowTimersService,
   ) {}
 
   // === INBOXES ===
@@ -1747,24 +1770,11 @@ export class ChatsService {
       );
     }
 
-    // Mark ad tracking if from Meta ad
+    // Mark ad tracking if from Meta ad. El contacto se actualiza (first/last
+    // touch y contadores) dentro de conversionsService.trackEvent más abajo.
     if (msg.referral) {
       conversation.hasAdTracking = true;
       conversation.adPlatform = 'meta';
-      // Also mark the client record
-      if (conversation.recordId) {
-        this.clientRecordRepo
-          .query(
-            `UPDATE clients SET
-              has_ad_tracking = true,
-              ad_first_platform = COALESCE(ad_first_platform, 'meta'),
-              ad_last_platform = 'meta',
-              ad_touchpoints = COALESCE(ad_touchpoints, 0) + 1
-            WHERE id = $1`,
-            [conversation.recordId],
-          )
-          .catch(() => {});
-      }
     }
 
     // Check if message contains a tracking code (from pixel/link tracker)
@@ -1812,7 +1822,10 @@ export class ChatsService {
           },
         })
         .catch((err) =>
-          console.warn('[Webhook] Failed to track ad event:', err),
+          console.error(
+            `[Webhook] Failed to track ad event (conversation ${conversation.id}, ctwa_clid ${referral.ctwa_clid ?? 'n/a'}):`,
+            err?.message || err,
+          ),
         );
     }
 
@@ -3258,6 +3271,9 @@ export class ChatsService {
           conversation.flowState = null;
           await this.conversationRepo.save(conversation);
           conversationRef.flowState = null;
+          await this.flowTimersService
+            .cancelForConversation(conversation.id)
+            .catch(() => {});
         }
         return;
       }
@@ -3311,8 +3327,10 @@ export class ChatsService {
     conversation: Conversation,
     conversationRef: any,
     result: FlowRunResult,
+    opts: { suppressMessages?: boolean } = {},
   ): Promise<void> {
     const { effects } = result;
+    const previousToken = conversation.flowState?.token;
     conversation.flowState = result.state;
     conversation.flowVariables = result.variables;
 
@@ -3332,6 +3350,18 @@ export class ChatsService {
     if (effects.handoff) conversation.botStatus = 'handed_off';
 
     await this.conversationRepo.save(conversation);
+    // La espera cambió: se cancelan los temporizadores anteriores y se arman los
+    // del nodo en el que quedó esperando («Si no responde»).
+    if (result.state?.token !== previousToken) {
+      await this.flowTimersService
+        .replace(inbox.tenantId, conversation.id, result.timers || [])
+        .catch((err) =>
+          console.warn(
+            '[ConversationFlow] No se pudieron guardar los temporizadores:',
+            err?.message || err,
+          ),
+        );
+    }
     if (Object.keys(result.contactUpdates || {}).length) {
       await this.applyFlowContactUpdates(
         inbox,
@@ -3353,7 +3383,14 @@ export class ChatsService {
       botStatus: conversation.botStatus,
     });
 
-    for (const msg of result.messages) {
+    if (opts.suppressMessages && result.messages.length) {
+      await this.createSystemNote(
+        conversation.id,
+        `⚠️ Flujo: no se enviaron ${result.messages.length === 1 ? '1 mensaje' : `${result.messages.length} mensajes`} porque la ventana de 24 horas está cerrada.`,
+        inbox.tenantId,
+      );
+    }
+    for (const msg of opts.suppressMessages ? [] : result.messages) {
       try {
         await this.sendMessage(
           conversation.id,
@@ -3537,6 +3574,126 @@ export class ChatsService {
     }
   }
 
+  // === TEMPORIZADORES DE FLUJOS («Si no responde») ===
+
+  /**
+   * Ejecuta un temporizador vencido. Devuelve 'done' si hizo algo o
+   * 'cancelled' si ya no aplicaba. Solo actúa si:
+   *   - la conversación sigue esperando en ese nodo con la misma ficha;
+   *   - el contacto no escribió desde que se armó;
+   *   - no la tomó un agente ni está resuelta.
+   * Con la ventana de 24 h cerrada, un recordatorio usa su plantilla (o se
+   * omite) y «Sin respuesta» aplica sus efectos sin enviar mensajes libres.
+   */
+  async fireFlowTimer(timer: FlowTimer): Promise<'done' | 'cancelled'> {
+    const found = await this.conversationRepo.findOne({
+      where: { id: timer.conversationId },
+      relations: { inbox: true },
+    });
+    const inbox = found?.inbox;
+    if (!found || !inbox || !ChatsService.FLOW_CHANNELS.has(inbox.channel))
+      return 'cancelled';
+
+    let outcome: 'done' | 'cancelled' = 'cancelled';
+    await this.withInboundLock(`flow:${timer.conversationId}`, async () => {
+      const conversation = await this.conversationRepo.findOne({
+        where: { id: timer.conversationId },
+      });
+      if (!conversation) return;
+      if (
+        conversation.botStatus === 'handed_off' ||
+        conversation.status === 'resolved' ||
+        conversation.flowState?.token !== timer.token
+      )
+        return;
+      // Respaldo de la ficha: si el contacto escribió después de armarse, no aplica.
+      const repliedSince = await this.messageRepo.count({
+        where: {
+          conversationId: conversation.id,
+          direction: 'inbound',
+          createdAt: MoreThan(timer.createdAt),
+        },
+      });
+      if (repliedSince > 0) return;
+
+      const result = await this.conversationFlowEngine.resumeFromTimer(
+        timer,
+        conversation.flowState,
+        conversation.flowVariables || {},
+        (flowId) =>
+          this.conversationFlowsService.loadForTenant(inbox.tenantId, flowId),
+        await this.buildFlowContext(inbox, conversation),
+      );
+      if (!result.handled) return;
+
+      // Reserva atómica: si otro servidor avanzó la conversación en este
+      // instante (cambió la ficha), este temporizador se descarta.
+      const claimed: unknown = await this.conversationRepo.query(
+        `UPDATE conversations SET updated_at = now()
+          WHERE id = $1 AND flow_state->>'token' = $2`,
+        [conversation.id, timer.token],
+      );
+      const affected = Array.isArray(claimed) ? Number(claimed[1]) : 0;
+      if (!affected) return;
+
+      outcome = 'done';
+      const windowOpen = await this.isServiceWindowOpen(
+        conversation.id,
+        inbox.channel,
+      );
+
+      if (timer.kind === 'reminder') {
+        if (windowOpen) {
+          await this.applyFlowResult(inbox, conversation, conversation, result);
+          return;
+        }
+        const tpl = result.templateFallback;
+        if (!tpl || inbox.channel !== 'whatsapp') {
+          await this.createSystemNote(
+            conversation.id,
+            '⏰ Flujo: no se envió el recordatorio porque la ventana de 24 horas está cerrada.',
+            inbox.tenantId,
+          );
+          return;
+        }
+        try {
+          await this.sendTemplateMessage(
+            conversation.id,
+            tpl.name,
+            tpl.language,
+            tpl.params.length
+              ? [
+                  {
+                    type: 'body',
+                    parameters: tpl.params.map((text) => ({ type: 'text', text })),
+                  },
+                ]
+              : undefined,
+            undefined,
+            tpl.text,
+          );
+        } catch (err: any) {
+          await this.createSystemNote(
+            conversation.id,
+            `⚠️ Flujo: no se pudo enviar la plantilla «${tpl.name}» del recordatorio (${err?.message || 'error'}).`,
+            inbox.tenantId,
+          );
+        }
+        return;
+      }
+
+      await this.createSystemNote(
+        conversation.id,
+        '⏰ Flujo: el contacto no respondió a tiempo; sigue por «Sin respuesta».',
+        inbox.tenantId,
+      );
+      await this.applyFlowResult(inbox, conversation, conversation, result, {
+        suppressMessages: !windowOpen,
+      });
+    });
+    return outcome;
+  }
+
   // === SEGUIMIENTO DE CLICS EN ENLACES DE FLUJOS ===
 
   /**
@@ -3670,6 +3827,7 @@ export class ChatsService {
         (flowId) =>
           this.conversationFlowsService.loadForTenant(inbox.tenantId, flowId),
         await this.buildFlowContext(inbox, conversation),
+        conversation.flowState?.token,
       );
       // Sin nada conectado a «Al hacer clic»: solo queda registrado.
       if (!result.handled) return;
@@ -4808,7 +4966,7 @@ export class ChatsService {
       const paramKey = `rf_${idx}`;
       const isCustom = !this.RECORD_SYSTEM_COLUMNS.has(f.field);
       const col = isCustom
-        ? `record.custom_data ->> '${f.field.replace(/'/g, "''")}'`
+        ? customDataText('record', f.field)
         : `record.${this.recordFieldToSnake(f.field)}`;
       const isTimestamp = this.RECORD_TIMESTAMP_FIELDS.has(f.field);
       const value = f.value ?? '';
@@ -5143,12 +5301,31 @@ export class ChatsService {
     return { status };
   }
 
+  /** Deja constancia del borrado para que los clientes offline lo reciban al sincronizar. */
+  private async recordTombstone(
+    conversationId: string,
+    kind: SyncTombstone['kind'],
+  ): Promise<void> {
+    const conversation = await this.conversationRepo.findOne({
+      where: { id: conversationId },
+      relations: { inbox: true },
+      select: { id: true, inbox: { id: true, tenantId: true } },
+    });
+    const tenantId = conversation?.inbox?.tenantId;
+    if (!tenantId) return;
+    await this.tombstoneRepo.save(
+      this.tombstoneRepo.create({ tenantId, kind, entityId: conversationId }),
+    );
+  }
+
   async deleteConversation(conversationId: string): Promise<void> {
+    await this.recordTombstone(conversationId, 'conversation');
     await this.messageRepo.delete({ conversationId });
     await this.conversationRepo.delete(conversationId);
   }
 
   async clearMessages(conversationId: string): Promise<void> {
+    await this.recordTombstone(conversationId, 'messages_cleared');
     await this.messageRepo.delete({ conversationId });
     // Update conversation to clear last message and reset bot flow state
     await this.conversationRepo.update(conversationId, {
@@ -5161,22 +5338,64 @@ export class ChatsService {
 
   // === SEND MESSAGE ===
 
+  // Envíos en curso por clientMessageId (evita duplicados si el cliente reintenta
+  // mientras la primera petición aún está hablando con el canal).
+  private inflightSends = new Map<string, Promise<Message>>();
+
+  /**
+   * Envía un mensaje. Si se indica `opts.clientMessageId` la operación es
+   * idempotente: repetir la misma petición (p. ej. reintento de la app móvil
+   * tras perder la respuesta) devuelve el mensaje ya creado en lugar de enviar
+   * otro al contacto.
+   */
   async sendMessage(
     conversationId: string,
     content: string,
     messageType = 'text',
     senderId?: string,
     replyToExternalId?: string,
-    opts?: {
-      /** Botones de respuesta (id = payload que devuelve el canal) */
-      buttons?: OutgoingButton[];
-      /** Botones de enlace / llamada (no generan respuesta) */
-      actions?: OutgoingAction[];
-      header?: string;
-      footer?: string;
-      /** Encabezado multimedia (link público https). Excluye `header` de texto. */
-      headerMedia?: OutgoingHeaderMedia;
-    },
+    opts?: SendMessageOptions,
+  ): Promise<Message> {
+    const clientMessageId = opts?.clientMessageId;
+    if (!clientMessageId) {
+      return this.sendMessageUnchecked(
+        conversationId,
+        content,
+        messageType,
+        senderId,
+        replyToExternalId,
+        opts,
+      );
+    }
+
+    const key = `${conversationId}:${clientMessageId}`;
+    const inflight = this.inflightSends.get(key);
+    if (inflight) return inflight;
+
+    const existing = await this.messageRepo.findOne({
+      where: { conversationId, clientMessageId },
+    });
+    if (existing) return existing;
+
+    const promise = this.sendMessageUnchecked(
+      conversationId,
+      content,
+      messageType,
+      senderId,
+      replyToExternalId,
+      opts,
+    ).finally(() => this.inflightSends.delete(key));
+    this.inflightSends.set(key, promise);
+    return promise;
+  }
+
+  private async sendMessageUnchecked(
+    conversationId: string,
+    content: string,
+    messageType = 'text',
+    senderId?: string,
+    replyToExternalId?: string,
+    opts?: SendMessageOptions,
   ): Promise<Message> {
     const conversation = await this.conversationRepo.findOne({
       where: { id: conversationId },
@@ -5507,6 +5726,7 @@ export class ChatsService {
       externalId,
       senderId: senderId || null,
       replyToExternalId: replyToExternalId || null,
+      clientMessageId: opts?.clientMessageId || null,
       status: externalId ? 'sent' : 'failed',
       // El encabezado multimedia se guarda como media del mensaje para verlo en el chat.
       ...(headerMedia
@@ -5553,11 +5773,18 @@ export class ChatsService {
       conversation.botStatus = 'handed_off';
     }
     // Un agente escribiendo a mano cancela el flujo en curso (no se pisan).
+    let flowCancelled = false;
     if (senderId && senderId !== 'bot' && conversation.flowState) {
       conversation.flowState = null;
+      flowCancelled = true;
     }
 
     await this.conversationRepo.save(conversation);
+    if (flowCancelled) {
+      await this.flowTimersService
+        .cancelForConversation(conversation.id)
+        .catch(() => {});
+    }
 
     // Auto-assign agent to record if not already assigned
     if (senderId && senderId !== 'bot' && conversation.recordId) {
@@ -5689,11 +5916,44 @@ export class ChatsService {
     }
   }
 
+  /** Igual que `sendMessage`: con `clientMessageId` repetir la petición no reenvía el archivo. */
   async sendMediaMessage(
     conversationId: string,
     file: Express.Multer.File,
     senderId?: string,
     caption?: string,
+    clientMessageId?: string,
+  ): Promise<Message> {
+    if (!clientMessageId) {
+      return this.sendMediaMessageUnchecked(conversationId, file, senderId, caption);
+    }
+
+    const key = `${conversationId}:${clientMessageId}`;
+    const inflight = this.inflightSends.get(key);
+    if (inflight) return inflight;
+
+    const existing = await this.messageRepo.findOne({
+      where: { conversationId, clientMessageId },
+    });
+    if (existing) return existing;
+
+    const promise = this.sendMediaMessageUnchecked(
+      conversationId,
+      file,
+      senderId,
+      caption,
+      clientMessageId,
+    ).finally(() => this.inflightSends.delete(key));
+    this.inflightSends.set(key, promise);
+    return promise;
+  }
+
+  private async sendMediaMessageUnchecked(
+    conversationId: string,
+    file: Express.Multer.File,
+    senderId?: string,
+    caption?: string,
+    clientMessageId?: string,
   ): Promise<Message> {
     const conversation = await this.conversationRepo.findOne({
       where: { id: conversationId },
@@ -6078,6 +6338,7 @@ export class ChatsService {
       mediaMimeType: file.mimetype,
       externalId,
       senderId: senderId || null,
+      clientMessageId: clientMessageId || null,
       status: externalId ? 'sent' : 'failed',
     });
     const saved = await this.messageRepo.save(message);
@@ -7243,14 +7504,7 @@ export class ChatsService {
 
       // Track ad attribution from URL params
       if (attribution && conversation.recordId) {
-        const hasAttribution =
-          attribution.fbclid ||
-          attribution.gclid ||
-          attribution.ttclid ||
-          attribution.li_fat_id ||
-          attribution.twclid ||
-          attribution.utm_source;
-        if (hasAttribution) {
+        if (hasAttributionData(attribution)) {
           this.conversionsService
             .trackFromUrlParams(inbox.tenantId, attribution, {
               recordId: conversation.recordId,
@@ -7264,21 +7518,8 @@ export class ChatsService {
                 conversation!.hasAdTracking = true;
                 conversation!.adPlatform = adEvent.platform;
                 this.conversationRepo.save(conversation!).catch(() => {});
-
-                // Also mark the client record
-                if (conversation!.recordId) {
-                  this.clientRecordRepo
-                    .query(
-                      `UPDATE clients SET
-                    has_ad_tracking = true,
-                    ad_first_platform = COALESCE(ad_first_platform, $2),
-                    ad_last_platform = $2,
-                    ad_touchpoints = COALESCE(ad_touchpoints, 0) + 1
-                  WHERE id = $1`,
-                      [conversation!.recordId, adEvent.platform],
-                    )
-                    .catch(() => {});
-                }
+                // El contacto ya se actualiza dentro de trackFromUrlParams -> trackEvent
+                // (se pasa recordId), así que no se repite el UPDATE aquí.
               }
             })
             .catch((err) => {

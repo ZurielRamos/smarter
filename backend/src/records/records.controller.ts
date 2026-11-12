@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Res, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Res, Req, BadRequestException } from '@nestjs/common';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
@@ -168,6 +168,19 @@ export class RecordsController {
   @Delete('bulk/permanent')
   permanentDelete(@Body() body: { ids: string[] }) {
     return this.recordsService.permanentDelete(body.ids);
+  }
+
+  /** Historial de touchpoints (origen/atribución) de un contacto. tenantId es obligatorio. */
+  @Get('touchpoints')
+  getTouchpoints(
+    @Query('tenantId') tenantId: string,
+    @Query('recordId') recordId: string,
+    @Query('limit') limit = '50',
+  ) {
+    if (!tenantId || !recordId) {
+      throw new BadRequestException('tenantId y recordId son obligatorios');
+    }
+    return this.recordsService.getTouchpoints(tenantId, recordId, +limit || 50);
   }
 
   @Get('activities')

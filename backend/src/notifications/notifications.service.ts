@@ -5,6 +5,7 @@ import { Notification } from './notification.entity';
 import { NotificationsGateway } from './notifications.gateway';
 import { User } from '../users/user.entity';
 import { ADMIN_ROLES } from '../users/enums/tenant-role.enum';
+import { PushService } from './push.service';
 
 export interface NotifyParams {
   tenantId: string;
@@ -24,7 +25,21 @@ export class NotificationsService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly gateway: NotificationsGateway,
+    private readonly pushService: PushService,
   ) {}
+
+  private push(notification: Notification): void {
+    void this.pushService.sendToUser(notification.userId, {
+      title: notification.title,
+      body: notification.body ?? undefined,
+      data: {
+        type: notification.type,
+        notificationId: notification.id,
+        tenantId: notification.tenantId,
+        ...(notification.metadata ?? {}),
+      },
+    });
+  }
 
   /**
    * Create a notification, persist it, and emit via WebSocket.
@@ -60,6 +75,7 @@ export class NotificationsService {
 
     // Emit via WebSocket
     this.gateway.emitNotification(params.userId, saved);
+    this.push(saved);
 
     return saved;
   }
@@ -136,6 +152,7 @@ export class NotificationsService {
     const updated = await this.notificationRepo.findOneBy({ id });
     if (updated) {
       this.gateway.emitNotification(updated.userId, updated);
+      this.push(updated);
     }
   }
 

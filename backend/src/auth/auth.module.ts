@@ -8,6 +8,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { SuperAdminGuard } from './super-admin.guard';
 import { TenantAccessGuard } from './tenant-access.guard';
+import { FirebaseAuthService } from './firebase-auth.service';
 import { UsersModule } from '../users/users.module';
 import { MailModule } from '../mail/mail.module';
 
@@ -26,7 +27,7 @@ import { MailModule } from '../mail/mail.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, SuperAdminGuard, TenantAccessGuard],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, SuperAdminGuard, TenantAccessGuard, FirebaseAuthService],
   exports: [AuthService, JwtAuthGuard, SuperAdminGuard, TenantAccessGuard],
 })
 export class AuthModule {}

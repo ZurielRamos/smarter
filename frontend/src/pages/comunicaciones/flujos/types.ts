@@ -26,6 +26,30 @@ export interface FlowButton {
   keywords?: string[];
 }
 
+export type FlowTimeUnit = "minutes" | "hours" | "days";
+/** Plantilla aprobada de WhatsApp para cuando la ventana de 24 h está cerrada. */
+export interface FlowTimeoutTemplate {
+  name: string;
+  language?: string;
+  /** Variables del cuerpo {{1}}, {{2}}… (admiten {{variables}} del flujo) */
+  params?: string[];
+}
+export interface FlowTimeoutReminder {
+  /** Tiempo desde que el nodo empezó a esperar */
+  after: number;
+  unit: FlowTimeUnit;
+  message: string;
+  repeatOptions?: boolean;
+  template?: FlowTimeoutTemplate;
+}
+/** «Si no responde»: al vencer sigue por la salida `timeout`. */
+export interface FlowTimeoutConfig {
+  enabled: boolean;
+  after: number;
+  unit: FlowTimeUnit;
+  reminders?: FlowTimeoutReminder[];
+}
+
 /** Mensaje con botones: qué hacer si el contacto escribe otra cosa (salida `nomatch`). */
 export interface FlowNoMatch {
   /** 'retry' (sin definir): avisa y repite; 'branch': sigue por «Otra respuesta» de inmediato */
@@ -207,6 +231,8 @@ export interface FlowNodeData {
   overflow?: "paginate" | "list";
   /** message con botones: si escribe otra cosa */
   noMatch?: FlowNoMatch;
+  /** message con botones / user_input / ai_agent: si no responde a tiempo */
+  timeout?: FlowTimeoutConfig;
   variable?: string;
   validation?: FlowInputValidation;
   errorMessage?: string;

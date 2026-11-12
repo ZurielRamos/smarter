@@ -8,6 +8,7 @@ import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { Public } from '../auth/public.decorator';
 import { ChatsService, AssignmentFilter } from './chats.service';
 import { WebhookForwarderService } from './webhook-forwarder.service';
+import { ConversationAccessGuard, ConversationAccessService } from './conversation-access';
 
 /** Normaliza el query param de asignación a un valor válido. */
 function normalizeAssignment(value?: string): AssignmentFilter {
@@ -35,11 +36,12 @@ function parseRecordFilters(
 }
 
 @Controller('chats')
-@UseGuards(JwtAuthGuard, TenantAccessGuard)
+@UseGuards(JwtAuthGuard, TenantAccessGuard, ConversationAccessGuard)
 export class ChatsController {
   constructor(
     private readonly chatsService: ChatsService,
     private readonly configService: ConfigService,
+    private readonly conversationAccess: ConversationAccessService,
   ) {}
 
   // === INBOXES ===
@@ -414,8 +416,17 @@ export class ChatsController {
   }
 
   @Post('conversations/:id/send')
-  sendMessage(@Param('id') id: string, @Body() body: { content: string; messageType?: string; senderId?: string; replyToExternalId?: string }) {
-    return this.chatsService.sendMessage(id, body.content, body.messageType || 'text', body.senderId, body.replyToExternalId);
+  sendMessage(
+    @Param('id') id: string,
+    @Body() body: { content: string; messageType?: string; senderId?: string; replyToExternalId?: string; clientMessageId?: string },
+  ) {
+    const clientMessageId =
+      typeof body.clientMessageId === 'string' && body.clientMessageId.length > 0
+        ? body.clientMessageId.slice(0, 64)
+        : undefined;
+    return this.chatsService.sendMessage(id, body.content, body.messageType || 'text', body.senderId, body.replyToExternalId, {
+      clientMessageId,
+    });
   }
 
   @Post('conversations/:id/note')
@@ -426,18 +437,26 @@ export class ChatsController {
   @Post('conversations/upload')
   @UseInterceptors(FileInterceptor('file'))
   async uploadMedia(
+    @Req() req: any,
     @UploadedFile() file: Express.Multer.File,
-    @Body() body: { conversationId: string; senderId?: string; caption?: string },
+    @Body() body: { conversationId: string; senderId?: string; caption?: string; clientMessageId?: string },
   ) {
-    return this.chatsService.sendMediaMessage(body.conversationId, file, body.senderId, body.caption);
+    await this.conversationAccess.assertAccess(req.user, body.conversationId);
+    const clientMessageId =
+      typeof body.clientMessageId === 'string' && body.clientMessageId.length > 0
+        ? body.clientMessageId.slice(0, 64)
+        : undefined;
+    return this.chatsService.sendMediaMessage(body.conversationId, file, body.senderId, body.caption, clientMessageId);
   }
 
   @Post('media/upload')
   @UseInterceptors(FileInterceptor('file'))
   async uploadMediaOnly(
+    @Req() req: any,
     @UploadedFile() file: Express.Multer.File,
     @Body() body: { conversationId?: string; senderId?: string },
   ) {
+    if (body.conversationId) await this.conversationAccess.assertAccess(req.user, body.conversationId);
     return this.chatsService.uploadMediaOnly(file, body.conversationId);
   }
 

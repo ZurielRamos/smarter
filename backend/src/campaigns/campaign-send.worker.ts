@@ -9,6 +9,7 @@ import { CampaignSend } from './campaign-send.entity';
 import { CampaignSendLog } from './campaign-send-log.entity';
 import { Campaign } from './campaign.entity';
 import { ClientRecord } from '../records/record.entity';
+import { getAttributionValue, publicChannelSource } from '../records/attribution-fields';
 import { Activity } from '../records/activity.entity';
 import { Inbox } from '../chats/inbox.entity';
 import { Conversation } from '../chats/conversation.entity';
@@ -1028,13 +1029,18 @@ export class CampaignSendWorker extends WorkerHost {
       city: () => client.city || '',
       region: () => client.region || '',
       status: () => (client as any).status || '',
-      channelSource: () => (client as any).channelSource || '',
+      // channelSource puede ser el UUID de un inbox: no se expone a clientes finales.
+      channelSource: () => publicChannelSource((client as any).channelSource),
       source: () => (client as any).source || '',
       score: () => String((client as any).score || 0),
       countryCode: () => client.countryCode || '',
     };
 
     if (systemFields[field]) return systemFields[field]();
+
+    // Atribución (first/last touch)
+    const attr = getAttributionValue(client, field);
+    if (attr !== undefined) return attr;
 
     // Custom fields from JSONB
     const custom = (client as any).customData || {};

@@ -3,6 +3,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Inbox } from './inbox.entity';
 import { Conversation } from './conversation.entity';
 import { Message } from './message.entity';
+import { SyncTombstone } from './sync-tombstone.entity';
+import { ChatsSyncService } from './chats-sync.service';
+import { ChatsSyncController } from './chats-sync.controller';
+import { ConversationAccessGuard, ConversationAccessService } from './conversation-access';
 import { InboxCollaborator } from './inbox-collaborator.entity';
 import { ClientRecord } from '../records/record.entity';
 import { Label } from './label.entity';
@@ -26,6 +30,7 @@ import { WebhookForwarderService } from './webhook-forwarder.service';
 import { BillingModule } from '../billing/billing.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { UsersModule } from '../users/users.module';
+import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ConversionsModule } from '../conversions/conversions.module';
 import { BotsModule } from '../bots/bots.module';
@@ -36,12 +41,14 @@ import { TemplatesModule } from '../templates/templates.module';
 import { WhatsAppFlowsModule } from '../whatsapp-flows/whatsapp-flows.module';
 import { ConversationFlowsModule } from '../conversation-flows/conversation-flows.module';
 import { FlowLinkController } from './flow-link.controller';
+import { FlowTimersWorker } from './flow-timers.worker';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Inbox, Conversation, Message, InboxCollaborator, ClientRecord, Label, Tenant, Activity, CampaignSendLog, CampaignSend, UserTenant]),
+    TypeOrmModule.forFeature([Inbox, Conversation, Message, SyncTombstone, InboxCollaborator, ClientRecord, Label, Tenant, Activity, CampaignSendLog, CampaignSend, UserTenant]),
     BillingModule,
     WebhooksModule,
+    AuthModule,
     UsersModule,
     NotificationsModule,
     ConversionsModule,
@@ -53,8 +60,8 @@ import { FlowLinkController } from './flow-link.controller';
     WhatsAppFlowsModule,
     ConversationFlowsModule,
   ],
-  providers: [ChatsService, ChatsGateway, ChatWidgetGateway, WebhookForwarderService],
-  controllers: [ChatsController, ApiConversationsController, ApiMessagesController, ApiInboxesController, ChatWidgetController, WebhookController, MailgunWebhookController, ApiEmailController, ApiWhatsappAuthController, FlowLinkController],
+  providers: [ChatsService, FlowTimersWorker, ChatsGateway, ChatWidgetGateway, WebhookForwarderService, ChatsSyncService, ConversationAccessService, ConversationAccessGuard],
+  controllers: [ChatsController, ChatsSyncController, ApiConversationsController, ApiMessagesController, ApiInboxesController, ChatWidgetController, WebhookController, MailgunWebhookController, ApiEmailController, ApiWhatsappAuthController, FlowLinkController],
   exports: [ChatsService, ChatsGateway, ChatWidgetGateway],
 })
 export class ChatsModule {}

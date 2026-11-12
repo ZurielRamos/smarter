@@ -5,6 +5,8 @@ import { Form, FormField, FormStyle } from './form.entity';
 import { ClientRecord } from '../records/record.entity';
 import { Conversation } from '../chats/conversation.entity';
 import { Message } from '../chats/message.entity';
+import { ConversionsService } from '../conversions/conversions.service';
+import type { AttributionInput } from '../conversions/conversions.service';
 
 @Injectable()
 export class FormsService {
@@ -23,6 +25,7 @@ export class FormsService {
     private readonly conversationRepo: Repository<Conversation>,
     @InjectRepository(Message)
     private readonly messageRepo: Repository<Message>,
+    private readonly conversionsService: ConversionsService,
   ) {}
 
   async findAll(tenantId: string): Promise<Form[]> {
@@ -95,7 +98,12 @@ export class FormsService {
     return `${base}-${suffix}`;
   }
 
-  async handleSubmission(formId: string, values: Record<string, string>): Promise<{ success: boolean }> {
+  async handleSubmission(
+    formId: string,
+    values: Record<string, string>,
+    attribution?: AttributionInput,
+    requestContext: { ipAddress?: string; userAgent?: string } = {},
+  ): Promise<{ success: boolean }> {
     const form = await this.formRepo.findOne({ where: { id: formId }, relations: { inbox: true } });
     if (!form) throw new NotFoundException('Form not found');
 
@@ -151,6 +159,8 @@ export class FormsService {
         email: contactData.email || null,
         phone: contactData.phone || null,
         status: 'active',
+        // Fuente legible por defecto; si el formulario mapea un campo a "source", prevalece.
+        source: `form:${form.name}`,
         ...extraData,
         channelSource: form.inboxId || 'form',
         lastContactAt: new Date(),
@@ -170,6 +180,12 @@ export class FormsService {
       }
       await this.clientRecordRepo.save(record);
     }
+
+    // Atribución (UTMs, click IDs, referrer, landing). No bloquea ni rompe el envío.
+    await this.conversionsService.trackAttributionForRecord(form.tenantId, record.id, attribution, {
+      ...requestContext,
+      sessionId: `form_${form.id}_${record.id}`,
+    });
 
     // Create conversation in the linked inbox
     if (form.inboxId) {

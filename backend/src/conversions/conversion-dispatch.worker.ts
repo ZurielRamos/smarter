@@ -73,7 +73,8 @@ export class ConversionDispatchWorker extends WorkerHost {
         eventTime: Math.floor(Date.now() / 1000),
         fbc: adEvent.fbc || undefined,
         fbp: adEvent.fbp || undefined,
-        clickId: adEvent.clickId || undefined,
+        // Solo un fbclid real sirve para construir fbc; ctwa_clid u otros tipos no.
+        clickId: adEvent.clickIdType === 'fbclid' ? adEvent.clickId || undefined : undefined,
         email,
         phone,
         ipAddress: adEvent.ipAddress || undefined,
@@ -93,7 +94,8 @@ export class ConversionDispatchWorker extends WorkerHost {
         customerId: platformConfig.credentials.customerId,
         eventName: convEvent.googleConversionAction || 'purchase',
         eventTime: Math.floor(Date.now() / 1000),
-        gclid: adEvent.clickId || undefined,
+        // gbraid/wbraid no son gclid: enviarlos como gclid generaría una conversión inválida.
+        gclid: adEvent.clickIdType === 'gclid' ? adEvent.clickId || undefined : undefined,
         email,
         phone,
         value: convValue,

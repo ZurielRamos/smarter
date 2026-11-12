@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
@@ -12,6 +13,13 @@ import { User } from '../users/user.entity';
 
 @Entity('messages')
 @Index(['conversationId', 'createdAt'])
+// Sincronización incremental de la app móvil (mensajes nuevos y cambios de estado).
+@Index(['updatedAt'])
+// Idempotencia de envíos: un mismo clientMessageId no puede crear dos mensajes.
+@Index(['conversationId', 'clientMessageId'], {
+  unique: true,
+  where: '"client_message_id" IS NOT NULL',
+})
 export class Message {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -86,6 +94,14 @@ export class Message {
   @Column({ name: 'credits_cost', type: 'decimal', precision: 10, scale: 4, default: 0 })
   creditsCost: number;
 
+  // Id generado por el cliente al enviar (idempotencia ante reintentos offline).
+  @Column({ name: 'client_message_id', type: 'varchar', length: 64, nullable: true })
+  clientMessageId: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
+
+  // Cambia con cada actualización (p. ej. estado de entrega); base del sync incremental.
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  updatedAt: Date;
 }

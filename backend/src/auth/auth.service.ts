@@ -121,7 +121,6 @@ export class AuthService {
   async loginWithGoogle(credential: string) {
     // The credential can be either an ID token or an access token
     let email: string;
-    let name: string;
     let picture: string | undefined;
 
     // Try to fetch user info from Google using it as an access token
@@ -132,7 +131,6 @@ export class AuthService {
       if (!response.ok) throw new Error('Invalid token');
       const googleUser = await response.json();
       email = googleUser.email;
-      name = googleUser.name;
       picture = googleUser.picture;
       if (!googleUser.email_verified) {
         throw new UnauthorizedException('El email de Google no está verificado');
@@ -142,11 +140,20 @@ export class AuthService {
       throw new UnauthorizedException('Token de Google inválido');
     }
 
-    // Find or create user
-    let user = await this.userRepo.findOne({
-      where: { email },
-      relations: { tenantRoles: { tenant: true } },
-    });
+    return this.loginExistingUser(email, picture);
+  }
+
+  /**
+   * Inicio de sesión con proveedor externo (Google web, Firebase): solo usuarios que ya
+   * existen y están activos. Emite el mismo JWT y respuesta que el login con contraseña.
+   */
+  async loginExistingUser(email: string, picture?: string) {
+    const user = await this.userRepo
+      .createQueryBuilder('u')
+      .leftJoinAndSelect('u.tenantRoles', 'tr')
+      .leftJoinAndSelect('tr.tenant', 'tenant')
+      .where('LOWER(u.email) = LOWER(:email)', { email })
+      .getOne();
 
     if (!user) {
       // User doesn't exist — reject (only existing users can login with Google)
@@ -215,6 +222,19 @@ export class AuthService {
       },
       redirectTo,
     };
+  }
+
+  /**
+   * Verifica un JWT fuera del ciclo HTTP (p. ej. handshake de WebSocket) y
+   * devuelve el mismo usuario que `JwtStrategy`, o `null` si no es válido.
+   */
+  async authenticateToken(token: string) {
+    try {
+      const payload = this.jwtService.verify(token);
+      return await this.validateToken(payload);
+    } catch {
+      return null;
+    }
   }
 
   async validateToken(payload: any) {

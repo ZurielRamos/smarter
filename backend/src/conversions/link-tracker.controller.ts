@@ -84,7 +84,7 @@ export class LinkTrackerController {
   if (!fbc && params.fbclid) fbc = "fb.1." + Date.now() + "." + params.fbclid;
 
   // Check if there's any attribution data worth tracking
-  var hasAttribution = params.fbclid || params.gclid || params.ttclid || params.li_fat_id || params.twclid || params.utm_source;
+  var hasAttribution = params.fbclid || params.gclid || params.gbraid || params.wbraid || params.msclkid || params.ttclid || params.li_fat_id || params.twclid || params.ctwa_clid || params.utm_source;
   if (!hasAttribution) {
     // Still ping but don't track
     var pingXhr = new XMLHttpRequest();
@@ -109,7 +109,7 @@ export class LinkTrackerController {
   var cachedClickId = sessionStorage.getItem("__sg_cid") || "";
 
   // Determine current click ID
-  var currentClickId = params.gclid || params.fbclid || params.ttclid || params.li_fat_id || params.twclid || params.utm_campaign || "";
+  var currentClickId = params.gclid || params.gbraid || params.wbraid || params.msclkid || params.fbclid || params.ctwa_clid || params.ttclid || params.li_fat_id || params.twclid || params.utm_campaign || "";
 
   // If click ID changed, reset and create new event
   if (currentClickId && cachedClickId !== currentClickId) {

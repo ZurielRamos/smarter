@@ -18,6 +18,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tenant } from '../tenants/tenant.entity';
 import { TenantRole, isAdminRole } from '../users/enums/tenant-role.enum';
+import type { AttributionInput } from '../conversions/conversions.service';
 
 /**
  * API pública de contactos.
@@ -127,6 +128,8 @@ export class ApiRecordsController {
       optInEmail?: boolean;
       tags?: string[];
       customData?: Record<string, any>;
+      /** Origen del contacto: utm_*, gclid, fbclid, ctwa_clid, referrer, landingPage, etc. */
+      attribution?: AttributionInput;
     },
   ) {
     const { tenantId, role } = await this.resolveTenant(req.user, slug);
@@ -139,6 +142,8 @@ export class ApiRecordsController {
       email: body.email,
       status: body.status,
       channelSource: body.channelSource || 'api',
+      source: body.source,
+      attribution: body.attribution,
       tags: body.tags,
       customData: body.customData,
     });

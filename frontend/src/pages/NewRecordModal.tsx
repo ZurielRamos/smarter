@@ -3,6 +3,7 @@ import { X, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { createClient, getCustomFields } from "@/services/api";
 import type { CustomField } from "@/services/api";
+import { ATTRIBUTION_FIELD_KEYS } from "@/lib/attribution-fields";
 
 interface Props {
   tenantId: string;
@@ -33,7 +34,7 @@ const SYSTEM_PAYLOAD_KEYS: Record<string, string> = {
 };
 
 // Fields to skip in the form (auto-managed)
-const SKIP_FIELDS = new Set(["fullName", "lastContactAt", "lastActivityAt", "optInWhatsapp", "optInEmail", "assignedTo"]);
+const SKIP_FIELDS = new Set(["fullName", "lastContactAt", "lastActivityAt", "optInWhatsapp", "optInEmail", "assignedTo", ...ATTRIBUTION_FIELD_KEYS]);
 
 export function NewRecordModal({ tenantId, onClose, onCreated }: Props) {
   const [allFields, setAllFields] = useState<CustomField[]>([]);

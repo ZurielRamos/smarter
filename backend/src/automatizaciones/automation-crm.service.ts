@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { ClientRecord } from '../records/record.entity';
 import { RecordsService } from '../records/records.service';
 import { ChatsService } from '../chats/chats.service';
+import { ATTRIBUTION_FIELD_KEYS } from '../records/attribution-fields';
 import { Inbox } from '../chats/inbox.entity';
 import { renderText, TemplateContext } from './utils/template.util';
 
@@ -19,6 +20,8 @@ export interface ContactSummary {
   status: string | null;
   tags: string[];
   customData: Record<string, unknown>;
+  /** Atribución (firstTouch* / lastTouch*): disponible como {{trigger.contact.firstTouchCampaign}}. */
+  [attributionKey: string]: unknown;
 }
 
 const digits = (v: string) => v.replace(/\D/g, '');
@@ -50,6 +53,9 @@ export class AutomationCrmService {
       status: r.status ?? null,
       tags: Array.isArray(r.tags) ? r.tags : [],
       customData: (r.customData as Record<string, unknown>) ?? {},
+      ...Object.fromEntries(
+        ATTRIBUTION_FIELD_KEYS.map((k) => [k, (r as unknown as Record<string, unknown>)[k] ?? null]),
+      ),
     };
   }
 

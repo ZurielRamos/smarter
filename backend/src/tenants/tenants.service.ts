@@ -7,6 +7,7 @@ import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { UserTenant } from '../users/user-tenant.entity';
 import { CustomField } from '../records/custom-field.entity';
 import { ConversionEvent } from '../conversions/conversion-event.entity';
+import { ATTRIBUTION_FIELDS, ATTRIBUTION_GROUP } from '../records/attribution-fields';
 
 const SYSTEM_FIELDS = [
   // Identificación
@@ -47,6 +48,13 @@ const SYSTEM_FIELDS = [
   { fieldKey: 'tags', fieldLabel: 'Etiquetas', fieldType: 'array', fieldGroup: 'segmentacion' },
   // General
   { fieldKey: 'notes', fieldLabel: 'Notas rápidas', fieldType: 'text', fieldGroup: 'general' },
+  // Atribución (first/last touch, solo lectura)
+  ...ATTRIBUTION_FIELDS.map((f) => ({
+    fieldKey: f.key,
+    fieldLabel: f.label,
+    fieldType: f.type,
+    fieldGroup: ATTRIBUTION_GROUP,
+  })),
 ];
 
 @Injectable()

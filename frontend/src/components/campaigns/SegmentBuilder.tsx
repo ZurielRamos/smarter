@@ -16,6 +16,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { api } from "@/services/api";
 import { cn } from "@/lib/utils";
+import { ATTRIBUTION_LIST_KEYS } from "@/lib/attribution-fields";
 
 export interface SegmentCondition {
   id: string;
@@ -70,7 +71,7 @@ const OPERATORS_BY_TYPE: Record<string, { value: string; label: string }[]> = {
 };
 
 // System fields that should be treated as "list" (selectable) in segmentation
-const SYSTEM_LIST_FIELDS = new Set(["status", "documentType", "gender", "channelSource", "countryCode", "language"]);
+const SYSTEM_LIST_FIELDS = new Set(["status", "documentType", "gender", "channelSource", "countryCode", "language", ...ATTRIBUTION_LIST_KEYS]);
 
 function fieldTypeToSegmentType(fieldType: string, fieldKey?: string): string {
   if (fieldKey && SYSTEM_LIST_FIELDS.has(fieldKey)) return "list";

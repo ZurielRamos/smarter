@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RecordList } from './record-list.entity';
 import { ClientRecord } from './record.entity';
+import { ATTRIBUTION_COLUMN_MAP, ATTRIBUTION_TIMESTAMP_KEYS } from './attribution-fields';
+import { customDataText } from './sql-safe';
 
 @Injectable()
 export class RecordListsService {
@@ -176,12 +178,14 @@ export class RecordListsService {
       lastActivityAt: 'r.last_activity_at',
       createdAt: 'r.created_at',
       updatedAt: 'r.updated_at',
+      // Atribución (first/last touch)
+      ...Object.fromEntries(Object.entries(ATTRIBUTION_COLUMN_MAP).map(([k, c]) => [k, `r.${c}`])),
     };
 
-    const TIMESTAMP_FIELDS = new Set(['lastContactAt', 'lastActivityAt', 'birthDate', 'createdAt', 'updatedAt']);
+    const TIMESTAMP_FIELDS = new Set(['lastContactAt', 'lastActivityAt', 'birthDate', 'createdAt', 'updatedAt', ...ATTRIBUTION_TIMESTAMP_KEYS]);
 
     const isSystem = field in SYSTEM_MAP;
-    const col = isSystem ? SYSTEM_MAP[field] : `r.custom_data ->> '${field}'`;
+    const col = isSystem ? SYSTEM_MAP[field] : customDataText('r', field);
     const isTimestamp = TIMESTAMP_FIELDS.has(field);
 
     switch (operator) {

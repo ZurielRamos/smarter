@@ -283,6 +283,27 @@ export interface ClientRecord {
   adFirstPlatform?: string | null;
   adLastPlatform?: string | null;
   adTouchpoints?: number;
+  // Atribución: primer y último toque (ver backend ClientRecord)
+  firstAdEventId?: string | null;
+  firstTouchPlatform?: string | null;
+  firstTouchMedium?: string | null;
+  firstTouchCampaign?: string | null;
+  firstTouchContent?: string | null;
+  firstTouchTerm?: string | null;
+  firstTouchClickId?: string | null;
+  firstTouchLandingPage?: string | null;
+  firstTouchReferrer?: string | null;
+  firstTouchAt?: string | null;
+  lastAdEventId?: string | null;
+  lastTouchPlatform?: string | null;
+  lastTouchMedium?: string | null;
+  lastTouchCampaign?: string | null;
+  lastTouchContent?: string | null;
+  lastTouchTerm?: string | null;
+  lastTouchClickId?: string | null;
+  lastTouchLandingPage?: string | null;
+  lastTouchReferrer?: string | null;
+  lastTouchAt?: string | null;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -826,5 +847,30 @@ export async function getFlowSubmissionsByRecord(recordId: string): Promise<Flow
 /** Una respuesta de Flow por id (incluye la definición del Flow). */
 export async function getFlowSubmissionById(id: string): Promise<FlowSubmissionRecord> {
   const { data } = await api.get<FlowSubmissionRecord>(`/whatsapp-flows/submissions/${id}`);
+  return data;
+}
+
+// === Touchpoints (origen / atribución) ===
+
+export interface TouchpointRecord {
+  id: string;
+  platform: string;
+  clickId: string | null;
+  clickIdType: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmContent: string | null;
+  utmTerm: string | null;
+  referrer: string | null;
+  landingPage: string | null;
+  adHeadline: string | null;
+  adSourceId: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export async function getTouchpoints(tenantId: string, recordId: string, limit = 50): Promise<TouchpointRecord[]> {
+  const { data } = await api.get<TouchpointRecord[]>('/records/touchpoints', { params: { tenantId, recordId, limit } });
   return data;
 }

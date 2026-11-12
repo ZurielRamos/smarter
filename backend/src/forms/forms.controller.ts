@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
+import type { AttributionInput } from '../conversions/conversions.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { Public } from '../auth/public.decorator';
@@ -58,7 +60,14 @@ export class FormsController {
 
   @Public()
   @Post(':id/submit')
-  submit(@Param('id') id: string, @Body() body: { values: Record<string, string> }) {
-    return this.service.handleSubmission(id, body.values);
+  submit(
+    @Param('id') id: string,
+    @Body() body: { values: Record<string, string>; attribution?: AttributionInput },
+    @Req() req: Request,
+  ) {
+    return this.service.handleSubmission(id, body.values, body.attribution, {
+      ipAddress: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || undefined,
+      userAgent: req.headers['user-agent'],
+    });
   }
 }

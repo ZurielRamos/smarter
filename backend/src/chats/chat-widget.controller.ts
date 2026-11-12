@@ -360,7 +360,7 @@ export class ChatWidgetController {
         var kv = p.split("=");
         if (kv[0]) urlParams[kv[0]] = decodeURIComponent(kv[1] || "");
       });
-      var attrKeys = ["fbclid", "gclid", "ttclid", "li_fat_id", "twclid", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
+      var attrKeys = ["fbclid", "gclid", "gbraid", "wbraid", "msclkid", "ttclid", "li_fat_id", "twclid", "ctwa_clid", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
       attrKeys.forEach(function(k) { if (urlParams[k]) attribution[k] = urlParams[k]; });
       attribution.referrer = document.referrer || "";
       attribution.landingPage = window.location.href;

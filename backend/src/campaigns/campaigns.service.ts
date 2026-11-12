@@ -8,6 +8,13 @@ import { Campaign, SegmentGroup } from './campaign.entity';
 import { CampaignSend } from './campaign-send.entity';
 import { CampaignSendLog } from './campaign-send-log.entity';
 import { ClientRecord } from '../records/record.entity';
+import {
+  ATTRIBUTION_COLUMN_MAP,
+  ATTRIBUTION_TIMESTAMP_KEYS,
+  getAttributionValue,
+  publicChannelSource,
+} from '../records/attribution-fields';
+import { customDataText } from '../records/sql-safe';
 import { ChannelConfig } from '../tenants/channel-config.entity';
 import { RecordList } from '../records/record-list.entity';
 import { Inbox } from '../chats/inbox.entity';
@@ -310,7 +317,7 @@ export class CampaignsService {
   }
 
   private buildConditionSql(col: string, operator: string, paramKey: string, field?: string): string | null {
-    const TIMESTAMP_FIELDS = new Set(['lastContactAt', 'lastActivityAt', 'birthDate', 'createdAt', 'updatedAt', 'fechaRegistro', 'fechaUltimaSesion']);
+    const TIMESTAMP_FIELDS = new Set(['lastContactAt', 'lastActivityAt', 'birthDate', 'createdAt', 'updatedAt', 'fechaRegistro', 'fechaUltimaSesion', ...ATTRIBUTION_TIMESTAMP_KEYS]);
     const isTimestamp = field ? TIMESTAMP_FIELDS.has(field) : false;
 
     switch (operator) {
@@ -377,6 +384,8 @@ export class CampaignsService {
       lastActivityAt: 'client.last_activity_at',
       createdAt: 'client.created_at',
       updatedAt: 'client.updated_at',
+      // Atribución (first/last touch)
+      ...Object.fromEntries(Object.entries(ATTRIBUTION_COLUMN_MAP).map(([k, c]) => [k, `client.${c}`])),
       // Legacy field names (SuperGiros)
       idCliente: 'client.id',
       nombreCompleto: "client.first_name || ' ' || client.last_name",
@@ -386,7 +395,7 @@ export class CampaignsService {
       fechaUltimaSesion: 'client.last_contact_at',
     };
     // If not in map, assume it's a custom field in jsonb
-    return map[field] || `client.custom_data->>'${field}'`;
+    return map[field] || customDataText('client', field);
   }
 
   // === Campaign Sends ===
@@ -1097,7 +1106,9 @@ export class CampaignsService {
       phone: () => client.phone || '',
       email: () => client.email || '',
       status: () => client.status || '',
-      channelSource: () => client.channelSource || '',
+      // channelSource puede ser el UUID de un inbox: no se expone a clientes finales.
+      channelSource: () => publicChannelSource(client.channelSource),
+      source: () => client.source || '',
       // Legacy field names for backward compatibility
       nombreCompleto: () => [client.firstName, client.lastName].filter(Boolean).join(' ') || '',
       idCliente: () => client.id || '',
@@ -1106,6 +1117,10 @@ export class CampaignsService {
     };
 
     if (systemMap[field]) return systemMap[field]();
+
+    // Atribución (first/last touch)
+    const attr = getAttributionValue(client, field);
+    if (attr !== undefined) return attr;
 
     // Custom data fields
     if (client.customData && field in client.customData) {

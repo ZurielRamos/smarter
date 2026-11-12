@@ -19,6 +19,7 @@ export const ATTRIBUTION_WINDOWS: Record<string, number> = {
   tiktok: 28,
   linkedin: 90,
   twitter: 30,
+  microsoft: 30,
   organic: 30,
   direct: 7,
 };
@@ -46,7 +47,7 @@ export class AdEvent {
   @Column({ name: 'session_id', type: 'varchar', nullable: true })
   sessionId: string | null;
 
-  /** Ad platform: meta | google | tiktok | linkedin | twitter | organic | direct */
+  /** Ad platform: meta | google | microsoft | tiktok | linkedin | twitter | organic | direct */
   @Column({ type: 'varchar', length: 20 })
   platform: string;
 
@@ -54,7 +55,7 @@ export class AdEvent {
   @Column({ name: 'click_id', type: 'varchar', nullable: true })
   clickId: string | null;
 
-  /** Type of click ID: fbclid | gclid | ttclid | li_fat_id | twclid */
+  /** Type of click ID: fbclid | ctwa_clid | gclid | gbraid | wbraid | msclkid | ttclid | li_fat_id | twclid */
   @Column({ name: 'click_id_type', type: 'varchar', length: 20, nullable: true })
   clickIdType: string | null;
 

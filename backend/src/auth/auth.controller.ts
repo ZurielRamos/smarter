@@ -1,4 +1,5 @@
-import { Controller, Post, Body, Get, Patch, UseGuards, Req, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Post, Body, Get, Patch, UseGuards, Req, UseInterceptors, UploadedFile, UnauthorizedException } from '@nestjs/common';
+import { FirebaseAuthService } from './firebase-auth.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -20,6 +21,7 @@ export class AuthController {
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
     private readonly mediaStorageService: MediaStorageService,
+    private readonly firebaseAuth: FirebaseAuthService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserTenant)
@@ -36,6 +38,27 @@ export class AuthController {
   @Post('google')
   loginWithGoogle(@Body() body: { credential: string }) {
     return this.authService.loginWithGoogle(body.credential);
+  }
+
+  /**
+   * App móvil: Google o Apple vía Firebase Authentication. Recibe el ID token de Firebase,
+   * lo verifica y emite la misma sesión que el login con contraseña (solo usuarios existentes).
+   */
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
+  @Post('firebase')
+  async loginWithFirebase(@Body() body: { idToken?: string }) {
+    const identity = await this.firebaseAuth.verify(body?.idToken ?? '');
+    try {
+      return await this.authService.loginExistingUser(identity.email, identity.picture);
+    } catch (error) {
+      // "Ocultar mi correo" de Apple entrega una dirección de relay que no coincide con ninguna cuenta.
+      if (identity.email.toLowerCase().endsWith('@privaterelay.appleid.com')) {
+        throw new UnauthorizedException(
+          'Iniciaste sesión con "Ocultar mi correo". Vuelve a intentarlo compartiendo el correo de tu cuenta.',
+        );
+      }
+      throw error;
+    }
   }
 
   @UseGuards(JwtAuthGuard)

@@ -141,11 +141,16 @@ function validHandles(node: RFNode): Set<string> {
       const replies = buttons.filter((b) => (b.type ?? "reply") === "reply");
       const clicks = buttons.filter((b) => b.type === "url" && b.track !== false).map((b) => `click:${b.id}`);
       // Con respuestas, además «Otra respuesta» (escribió algo que no es ninguna opción).
-      return new Set([...(replies.length ? [...replies.map((b) => `btn:${b.id}`), "nomatch"] : ["next"]), ...clicks]);
+      const timeout = replies.length && node.data.timeout?.enabled ? ["timeout"] : [];
+      return new Set([
+        ...(replies.length ? [...replies.map((b) => `btn:${b.id}`), "nomatch"] : ["next"]),
+        ...clicks,
+        ...timeout,
+      ]);
     }
     case "user_input":
       // «Sin respuesta válida» se usa al agotarse los intentos.
-      return new Set(["next", "invalid"]);
+      return new Set(["next", "invalid", ...(node.data.timeout?.enabled ? ["timeout"] : [])]);
     case "ai_agent": {
       const agent = node.data.agent;
       return new Set([
@@ -153,6 +158,7 @@ function validHandles(node: RFNode): Set<string> {
         ...(agent?.allowHandoff === false ? [] : ["handoff"]),
         "limit",
         "error",
+        ...(node.data.timeout?.enabled ? ["timeout"] : []),
       ]);
     }
     case "condition": {

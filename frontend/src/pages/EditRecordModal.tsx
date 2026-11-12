@@ -3,6 +3,7 @@ import { X, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { updateClient, getCustomFields } from "@/services/api";
 import type { CustomField, ClientRecord } from "@/services/api";
+import { ATTRIBUTION_FIELD_KEYS } from "@/lib/attribution-fields";
 
 interface Props {
   tenantId: string;
@@ -38,7 +39,7 @@ const SYSTEM_PAYLOAD_KEYS: Record<string, string> = {
 };
 
 // Fields to skip in the form (auto-managed)
-const SKIP_FIELDS = new Set(["fullName", "lastContactAt", "lastActivityAt", "optInWhatsapp", "optInEmail", "assignedTo"]);
+const SKIP_FIELDS = new Set(["fullName", "lastContactAt", "lastActivityAt", "optInWhatsapp", "optInEmail", "assignedTo", ...ATTRIBUTION_FIELD_KEYS]);
 
 // Builds the initial form string values from the existing record.
 function initialValue(field: CustomField, client: ClientRecord): string {

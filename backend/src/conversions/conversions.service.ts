@@ -13,6 +13,27 @@ import { GoogleDispatcher } from './dispatchers/google.dispatcher';
 import { TikTokDispatcher } from './dispatchers/tiktok.dispatcher';
 import type { ConversionDispatchJobData } from './conversion-dispatch.worker';
 
+/**
+ * Parámetros de URL que se consideran atribución. Se usan para filtrar el
+ * objeto `attribution` que llega desde formularios, API pública y widgets.
+ */
+export const ATTRIBUTION_PARAM_KEYS = [
+  'fbclid', 'gclid', 'gbraid', 'wbraid', 'ttclid', 'li_fat_id', 'twclid', 'msclkid', 'ctwa_clid',
+  'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+  'fbc', 'fbp', '_fbc', '_fbp',
+] as const;
+
+/** Objeto de atribución que el cliente (formulario, API, widget) envía junto a un alta. */
+export type AttributionInput = Partial<Record<(typeof ATTRIBUTION_PARAM_KEYS)[number] | 'referrer' | 'landingPage', string>>;
+
+/** Indica si el objeto trae al menos un dato de atribución utilizable. */
+export function hasAttributionData(attribution?: Record<string, any> | null): boolean {
+  if (!attribution || typeof attribution !== 'object') return false;
+  return ATTRIBUTION_PARAM_KEYS.some(
+    (k) => !['fbc', 'fbp', '_fbc', '_fbp'].includes(k) && typeof attribution[k] === 'string' && attribution[k].trim() !== '',
+  );
+}
+
 export interface TrackEventParams {
   tenantId: string;
   recordId?: string;
@@ -82,7 +103,8 @@ export class ConversionsService {
       utmContent: params.utmContent || null,
       utmTerm: params.utmTerm || null,
       referrer: params.referrer || null,
-      landingPage: params.landingPage || null,
+      // La columna es varchar(1000): truncar evita que un URL largo rompa el INSERT.
+      landingPage: params.landingPage ? params.landingPage.slice(0, 1000) : null,
       ipAddress: params.ipAddress || null,
       userAgent: params.userAgent || null,
       metadata: params.metadata || null,
@@ -90,7 +112,101 @@ export class ConversionsService {
       expiresAt,
     });
 
-    return this.adEventRepo.save(adEvent);
+    const saved = await this.adEventRepo.save(adEvent);
+
+    // Si el evento ya viene ligado a un contacto, reflejar el touch en el contacto.
+    if (saved.recordId) {
+      await this.applyTouchToRecord(saved, saved.recordId);
+    }
+    return saved;
+  }
+
+  /**
+   * Refleja un touchpoint en el contacto:
+   * - first touch: solo se escribe si el contacto aún no tiene (first_touch_at IS NULL).
+   * - last touch: se sobrescribe siempre.
+   * - mantiene el resumen existente (has_ad_tracking, ad_first/last_platform, ad_touchpoints).
+   */
+  async applyTouchToRecord(adEvent: AdEvent, recordId: string): Promise<void> {
+    const touchedAt = adEvent.createdAt || new Date();
+    await this.adEventRepo.manager.query(
+      `UPDATE clients SET
+        has_ad_tracking = true,
+        ad_first_platform = COALESCE(ad_first_platform, $2::varchar),
+        ad_last_platform = $2::varchar,
+        ad_touchpoints = COALESCE(ad_touchpoints, 0) + 1,
+
+        first_ad_event_id = CASE WHEN first_touch_at IS NULL THEN $3::uuid ELSE first_ad_event_id END,
+        first_touch_platform = CASE WHEN first_touch_at IS NULL THEN $2::varchar ELSE first_touch_platform END,
+        first_touch_medium = CASE WHEN first_touch_at IS NULL THEN $4::varchar ELSE first_touch_medium END,
+        first_touch_campaign = CASE WHEN first_touch_at IS NULL THEN $5::varchar ELSE first_touch_campaign END,
+        first_touch_content = CASE WHEN first_touch_at IS NULL THEN $6::varchar ELSE first_touch_content END,
+        first_touch_term = CASE WHEN first_touch_at IS NULL THEN $7::varchar ELSE first_touch_term END,
+        first_touch_click_id = CASE WHEN first_touch_at IS NULL THEN $8::varchar ELSE first_touch_click_id END,
+        first_touch_landing_page = CASE WHEN first_touch_at IS NULL THEN $9::varchar ELSE first_touch_landing_page END,
+        first_touch_referrer = CASE WHEN first_touch_at IS NULL THEN $10::varchar ELSE first_touch_referrer END,
+        first_touch_at = CASE WHEN first_touch_at IS NULL THEN $11::timestamptz ELSE first_touch_at END,
+
+        last_ad_event_id = $3::uuid,
+        last_touch_platform = $2::varchar,
+        last_touch_medium = $4::varchar,
+        last_touch_campaign = $5::varchar,
+        last_touch_content = $6::varchar,
+        last_touch_term = $7::varchar,
+        last_touch_click_id = $8::varchar,
+        last_touch_landing_page = $9::varchar,
+        last_touch_referrer = $10::varchar,
+        last_touch_at = $11::timestamptz
+      WHERE id = $1`,
+      [
+        recordId,
+        adEvent.platform,
+        adEvent.id,
+        adEvent.utmMedium,
+        adEvent.utmCampaign,
+        adEvent.utmContent,
+        adEvent.utmTerm,
+        adEvent.clickId,
+        adEvent.landingPage,
+        adEvent.referrer,
+        touchedAt,
+      ],
+    );
+  }
+
+  /**
+   * Registra atribución enviada por el cliente (formulario, API pública, etc.)
+   * y la liga al contacto. Nunca lanza: la atribución no debe romper el alta.
+   */
+  async trackAttributionForRecord(
+    tenantId: string,
+    recordId: string,
+    attribution: AttributionInput | null | undefined,
+    context: { ipAddress?: string; userAgent?: string; sessionId?: string } = {},
+  ): Promise<AdEvent | null> {
+    if (!hasAttributionData(attribution)) return null;
+    try {
+      // Solo claves conocidas, solo strings, con tope de longitud.
+      const params: Record<string, string> = {};
+      for (const key of ATTRIBUTION_PARAM_KEYS) {
+        const v = (attribution as Record<string, any>)[key];
+        if (typeof v === 'string' && v.trim()) params[key] = v.trim().slice(0, 500);
+      }
+      const referrer = typeof attribution!.referrer === 'string' ? attribution!.referrer.slice(0, 500) : undefined;
+      const landingPage = typeof attribution!.landingPage === 'string' ? attribution!.landingPage.slice(0, 1000) : undefined;
+
+      return await this.trackFromUrlParams(tenantId, params, {
+        recordId,
+        referrer,
+        landingPage,
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent,
+        sessionId: context.sessionId,
+      });
+    } catch (err: any) {
+      this.logger.error(`No se pudo registrar atribución para el contacto ${recordId}: ${err?.message || err}`);
+      return null;
+    }
   }
 
   /**
@@ -105,10 +221,26 @@ export class ConversionsService {
       platform = 'meta';
       clickId = params.fbclid;
       clickIdType = 'fbclid';
+    } else if (params.ctwa_clid) {
+      platform = 'meta';
+      clickId = params.ctwa_clid;
+      clickIdType = 'ctwa_clid';
     } else if (params.gclid) {
       platform = 'google';
       clickId = params.gclid;
       clickIdType = 'gclid';
+    } else if (params.gbraid) {
+      platform = 'google';
+      clickId = params.gbraid;
+      clickIdType = 'gbraid';
+    } else if (params.wbraid) {
+      platform = 'google';
+      clickId = params.wbraid;
+      clickIdType = 'wbraid';
+    } else if (params.msclkid) {
+      platform = 'microsoft';
+      clickId = params.msclkid;
+      clickIdType = 'msclkid';
     } else if (params.ttclid) {
       platform = 'tiktok';
       clickId = params.ttclid;
@@ -128,6 +260,8 @@ export class ConversionsService {
         platform = 'google';
       } else if (src === 'facebook' || src === 'fb' || src === 'instagram' || src === 'ig' || src === 'meta') {
         platform = 'meta';
+      } else if (src === 'bing' || src === 'microsoft' || src === 'microsoft_ads') {
+        platform = 'microsoft';
       } else if (src === 'tiktok' || src === 'tt') {
         platform = 'tiktok';
       } else if (src === 'linkedin' || src === 'li') {
@@ -177,6 +311,36 @@ export class ConversionsService {
 
     const result = await qb.execute();
     return result.affected || 0;
+  }
+
+  /**
+   * Historial de touchpoints de un contacto para mostrar en la UI.
+   * Filtra por tenant además de por contacto (aislamiento entre cuentas) y
+   * no expone IP ni user agent.
+   */
+  async getTouchpointsForRecord(tenantId: string, recordId: string, limit = 50) {
+    const events = await this.adEventRepo.find({
+      where: { tenantId, recordId },
+      order: { createdAt: 'DESC' },
+      take: Math.min(Math.max(limit, 1), 200),
+    });
+    return events.map((e) => ({
+      id: e.id,
+      platform: e.platform,
+      clickId: e.clickId,
+      clickIdType: e.clickIdType,
+      utmSource: e.utmSource,
+      utmMedium: e.utmMedium,
+      utmCampaign: e.utmCampaign,
+      utmContent: e.utmContent,
+      utmTerm: e.utmTerm,
+      referrer: e.referrer,
+      landingPage: e.landingPage,
+      adHeadline: e.metadata?.headline ?? null,
+      adSourceId: e.metadata?.sourceId ?? null,
+      status: e.status,
+      createdAt: e.createdAt,
+    }));
   }
 
   /**
@@ -554,16 +718,7 @@ export class ConversionsService {
     await this.adEventRepo.update(adEventId, { recordId });
     const adEvent = await this.adEventRepo.findOneBy({ id: adEventId });
     if (adEvent) {
-      // Update record: set first platform only if not set, always update last platform and increment counter
-      await this.adEventRepo.manager.query(
-        `UPDATE clients SET
-          has_ad_tracking = true,
-          ad_first_platform = COALESCE(ad_first_platform, $1),
-          ad_last_platform = $1,
-          ad_touchpoints = COALESCE(ad_touchpoints, 0) + 1
-        WHERE id = $2`,
-        [adEvent.platform, recordId],
-      );
+      await this.applyTouchToRecord(adEvent, recordId);
     }
   }
 

@@ -5,7 +5,17 @@ import {
   OnGatewayDisconnect,
   SubscribeMessage,
 } from '@nestjs/websockets';
+import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
+import { AuthService } from '../auth/auth.service';
+import { ConversationAccessService } from './conversation-access';
+
+type SocketUser = {
+  id: string;
+  isSuperAdmin?: boolean;
+  tenantRoles?: Array<{ tenantId: string }>;
+};
 
 @WebSocketGateway({
   cors: {
@@ -21,24 +31,69 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  // Track connected clients by tenant
-  private tenantRooms = new Map<string, Set<string>>();
+  private readonly logger = new Logger(ChatsGateway.name);
 
-  handleConnection(client: Socket) {
-    const tenantId = client.handshake.query.tenantId as string;
-    console.log(`[WS] Client ${client.id} connecting, tenantId: ${tenantId}, origin: ${client.handshake.headers.origin}`);
-    if (tenantId) {
-      client.join(`tenant:${tenantId}`);
-      console.log(`[WS] Client ${client.id} joined tenant:${tenantId}`);
+  constructor(
+    private readonly authService: AuthService,
+    private readonly conversationAccess: ConversationAccessService,
+    private readonly configService: ConfigService,
+  ) {}
+
+  /** Token del handshake: `auth.token` (web y móvil) o cabecera Authorization. */
+  private extractToken(client: Socket): string | null {
+    const fromAuth = client.handshake.auth?.token;
+    if (typeof fromAuth === 'string' && fromAuth) return fromAuth;
+    const header = client.handshake.headers.authorization;
+    if (typeof header === 'string' && header.startsWith('Bearer ')) return header.slice(7);
+    return null;
+  }
+
+  /**
+   * Solo se une a la sala del tenant quien presenta un JWT válido y pertenece
+   * a ese tenant. `WS_ALLOW_ANONYMOUS=true` restablece el comportamiento
+   * anterior (sin autenticar) para una migración gradual de clientes antiguos.
+   */
+  async handleConnection(client: Socket) {
+    const tenantId = client.handshake.query.tenantId as string | undefined;
+
+    if (this.configService.get<string>('WS_ALLOW_ANONYMOUS') === 'true') {
+      if (tenantId) client.join(`tenant:${tenantId}`);
+      return;
     }
+
+    const token = this.extractToken(client);
+    const user = token ? ((await this.authService.authenticateToken(token)) as SocketUser | null) : null;
+    const allowed =
+      !!user &&
+      !!tenantId &&
+      (user.isSuperAdmin || !!user.tenantRoles?.some((tr) => tr.tenantId === tenantId));
+
+    if (!user || !tenantId || !allowed) {
+      this.logger.warn(`Rejected socket ${client.id}: ${user ? 'tenant not allowed' : 'invalid token'}`);
+      client.emit('auth_error', { message: 'No autorizado' });
+      client.disconnect(true);
+      return;
+    }
+
+    client.data.user = user;
+    client.join(`tenant:${tenantId}`);
   }
 
   handleDisconnect(client: Socket) {
-    console.log(`[WS] Client ${client.id} disconnected`);
+    this.logger.debug(`Client ${client.id} disconnected`);
   }
 
   @SubscribeMessage('join_conversation')
-  handleJoinConversation(client: Socket, conversationId: string) {
+  async handleJoinConversation(client: Socket, conversationId: string) {
+    if (typeof conversationId !== 'string') return;
+    // Sin sesión validada (modo anónimo heredado) no se puede comprobar el acceso.
+    if (client.data.user) {
+      try {
+        await this.conversationAccess.assertAccess(client.data.user as SocketUser, conversationId);
+      } catch {
+        return;
+      }
+    }
     client.join(`conversation:${conversationId}`);
   }
 

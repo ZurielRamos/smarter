@@ -14,6 +14,7 @@ import {
   Phone,
   Sparkles,
   Bot,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ACTION_LABELS, VALIDATION_LABELS, type FlowNodeData } from "./types";
@@ -21,6 +22,7 @@ import { FlowEditorContext, FlowVariablesContext } from "./editorContext";
 import { conditionIssues, describeBranch } from "./conditions";
 import { AI_MODE_OPTIONS, inputIssue } from "./inputs";
 import { agentIssue } from "./agent";
+import { shortDuration, timeoutIssue } from "./timeout";
 
 type FlowNode = Node<FlowNodeData>;
 
@@ -79,6 +81,26 @@ function OutputRow({ id, label, className }: { id: string; label: ReactNode; cla
       {label}
       <Handle type="source" position={Position.Right} id={id} className={cn(handleClass, "!-right-[19px]")} />
     </div>
+  );
+}
+
+/** Salida «Sin respuesta» de los nodos que esperan, con el plazo configurado. */
+function TimeoutRow({ data }: { data: FlowNodeData }) {
+  const t = data.timeout;
+  if (!t?.enabled) return null;
+  const reminders = t.reminders?.length ?? 0;
+  return (
+    <OutputRow
+      id="timeout"
+      label={
+        <span className="inline-flex items-center gap-1">
+          <Clock className="h-2.5 w-2.5" aria-hidden />
+          Sin respuesta · {shortDuration(t.after, t.unit)}
+          {reminders > 0 && <span className="font-normal">({reminders} {reminders === 1 ? "recordatorio" : "recordatorios"})</span>}
+        </span>
+      }
+      className="border-dashed text-muted-foreground"
+    />
   );
 }
 
@@ -161,7 +183,7 @@ export function MessageNode({ data, selected }: NodeProps<FlowNode>) {
           ? "Falta el archivo del encabezado"
           : !data.text?.trim() && buttons.length === 0 && !data.headerMediaUrl
             ? "Mensaje vacío"
-            : null
+            : timeoutIssue(data.timeout)
       }
     >
       {data.headerType && data.headerType !== "text" && data.headerMediaUrl && (
@@ -203,6 +225,7 @@ export function MessageNode({ data, selected }: NodeProps<FlowNode>) {
               className="border-dashed text-muted-foreground"
             />
           )}
+          {replies.length > 0 && <TimeoutRow data={data} />}
           {actions.map((b) => (
             <ActionRow
               key={b.id}
@@ -242,7 +265,7 @@ export function UserInputNode({ data, selected }: NodeProps<FlowNode>) {
       header="Entrada de usuario"
       headerClass="bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
       icon={<TextCursorInput className="h-3.5 w-3.5" />}
-      warning={inputIssue(data)}
+      warning={inputIssue(data) ?? timeoutIssue(data.timeout)}
     >
       {data.text?.trim() ? (
         <p className="whitespace-pre-wrap break-words line-clamp-4 rounded-lg bg-muted/60 px-2.5 py-2">{data.text}</p>
@@ -275,6 +298,7 @@ export function UserInputNode({ data, selected }: NodeProps<FlowNode>) {
       <div className="space-y-1.5">
         <OutputRow id="next" label="Respuesta válida" className="text-sky-700 dark:text-sky-300" />
         <OutputRow id="invalid" label="Sin respuesta válida" className="text-muted-foreground" />
+        <TimeoutRow data={data} />
       </div>
     </NodeShell>
   );
@@ -371,7 +395,7 @@ export function AgentNode({ data, selected }: NodeProps<FlowNode>) {
       header="Conversación con IA"
       headerClass="bg-fuchsia-600 text-white"
       icon={<Bot className="h-3.5 w-3.5" />}
-      warning={agentIssue(agent)}
+      warning={agentIssue(agent) ?? timeoutIssue(data.timeout)}
     >
       <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
         <Sparkles className="h-3 w-3 shrink-0 text-fuchsia-600" aria-hidden />
@@ -397,6 +421,7 @@ export function AgentNode({ data, selected }: NodeProps<FlowNode>) {
         )}
         <OutputRow id="limit" label="Límite de mensajes" className="text-muted-foreground" />
         <OutputRow id="error" label="Si la IA falla" className="text-muted-foreground" />
+        <TimeoutRow data={data} />
       </div>
     </NodeShell>
   );

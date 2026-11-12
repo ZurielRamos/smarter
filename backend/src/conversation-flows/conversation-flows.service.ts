@@ -22,6 +22,9 @@ import {
   FlowNodeData,
   FlowAiExtra,
   FlowAgentCollect,
+  FlowTimeUnit,
+  FlowTimeoutConfig,
+  FlowTimeoutReminder,
   FlowNoMatch,
   FlowAgentConfig,
   FlowInputTransform,
@@ -31,6 +34,14 @@ import {
 import { MediaStorageService } from '../media/media-storage.service';
 import { CustomField } from '../records/custom-field.entity';
 import { Bot } from '../bots/bot.entity';
+import {
+  MAX_REMINDERS,
+  MAX_TEMPLATE_PARAMS,
+  TIMEOUT_MAX_MS,
+  TIMEOUT_MIN_MS,
+  TIME_UNITS,
+  durationMs,
+} from './flow-timeout.util';
 import {
   MAX_BUTTON_KEYWORDS,
   MAX_KEYWORD_LENGTH,
@@ -482,16 +493,22 @@ export class ConversationFlowsService {
           if (buttons.some((b) => (b.type ?? 'reply') === 'reply')) {
             const noMatch = this.sanitizeNoMatch(d.noMatch);
             if (noMatch) node.data.noMatch = noMatch;
+            // Solo los mensajes con respuestas esperan al contacto.
+            const timeout = this.sanitizeTimeout(d.timeout);
+            if (timeout) node.data.timeout = timeout;
           }
           break;
         }
-        case 'user_input':
+        case 'user_input': {
           node.data = await this.sanitizeInput(
             d,
             flow.tenantId,
             () => (customKeys ??= this.writableCustomKeys(flow.tenantId)),
           );
+          const timeout = this.sanitizeTimeout(d.timeout);
+          if (timeout) node.data.timeout = timeout;
           break;
+        }
         case 'action':
           node.data.actions = (Array.isArray(d.actions) ? d.actions : [])
             .filter((a: any) => a && ACTION_TYPES.has(a.type))
@@ -527,13 +544,16 @@ export class ConversationFlowsService {
             );
           }
           break;
-        case 'ai_agent':
+        case 'ai_agent': {
           node.data.agent = await this.sanitizeAgent(
             d.agent,
             flow.tenantId,
             () => (customKeys ??= this.writableCustomKeys(flow.tenantId)),
           );
+          const timeout = this.sanitizeTimeout(d.timeout);
+          if (timeout) node.data.timeout = timeout;
           break;
+        }
         case 'start_flow': {
           const target = String(d.targetFlowId || '');
           if (target) {
@@ -751,6 +771,8 @@ export class ConversationFlowsService {
         if (replies.length) {
           // «Otra respuesta»: escribió algo que no es ninguna opción.
           if (handle === 'nomatch') return true;
+          // «Sin respuesta»: no respondió a tiempo.
+          if (handle === 'timeout') return !!node.data.timeout?.enabled;
           return (
             handle.startsWith('btn:') &&
             replies.some((b) => `btn:${b.id}` === handle)
@@ -772,6 +794,7 @@ export class ConversationFlowsService {
       }
       case 'ai_agent': {
         const agent = node.data.agent;
+        if (handle === 'timeout') return !!node.data.timeout?.enabled;
         if (handle === 'limit' || handle === 'error') return true;
         if (handle === 'handoff') return agent?.allowHandoff !== false;
         return (
@@ -780,7 +803,9 @@ export class ConversationFlowsService {
         );
       }
       case 'user_input':
-        // «Siguiente» y «Sin respuesta válida» (se agotaron los intentos).
+        // «Siguiente», «Sin respuesta válida» (se agotaron los intentos) y
+        // «Sin respuesta» (no respondió a tiempo).
+        if (handle === 'timeout') return !!node.data.timeout?.enabled;
         return handle === 'next' || handle === 'invalid';
       case 'start_flow':
         return false; // salta a otro flujo: no tiene salida
@@ -1059,6 +1084,72 @@ export class ConversationFlowsService {
     if (a.allowHandoff === false) out.allowHandoff = false;
     if (AI_MODES.has(a.mode as string)) out.mode = a.mode;
     return out;
+  }
+
+  /**
+   * «Si no responde». Rechaza plazos fuera de rango para que el usuario sepa
+   * por qué no se guardó; los recordatorios que no caben antes del plazo se
+   * descartan con un mensaje claro.
+   */
+  private sanitizeTimeout(raw: unknown): FlowTimeoutConfig | undefined {
+    if (!raw || typeof raw !== 'object') return undefined;
+    const r = raw as Record<string, unknown>;
+    const unit = (v: unknown): FlowTimeUnit =>
+      TIME_UNITS.has(v as FlowTimeUnit) ? (v as FlowTimeUnit) : 'minutes';
+    const amount = (v: unknown) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
+    };
+    const out: FlowTimeoutConfig = {
+      enabled: r.enabled === true,
+      after: amount(r.after) || 30,
+      unit: unit(r.unit),
+    };
+    const total = durationMs(out.after, out.unit);
+    if (out.enabled && (total < TIMEOUT_MIN_MS || total > TIMEOUT_MAX_MS))
+      throw new BadRequestException(
+        '«Si no responde»: el plazo debe estar entre 1 minuto y 30 días',
+      );
+
+    const reminders: FlowTimeoutReminder[] = [];
+    for (const item of (Array.isArray(r.reminders) ? r.reminders : []).slice(
+      0,
+      MAX_REMINDERS,
+    )) {
+      const x = (item ?? {}) as Record<string, unknown>;
+      const rem: FlowTimeoutReminder = {
+        after: amount(x.after) || 10,
+        unit: unit(x.unit),
+        message: String(x.message || '').slice(0, 1000),
+      };
+      if (x.repeatOptions === true) rem.repeatOptions = true;
+      const t = (x.template ?? null) as Record<string, unknown> | null;
+      const name = String(t?.name || '').trim();
+      if (name) {
+        if (!/^[a-z0-9_]{1,512}$/.test(name))
+          throw new BadRequestException(
+            `«Si no responde»: el nombre de plantilla «${name}» no es válido (minúsculas, números y _)`,
+          );
+        const language = String(t?.language || 'es')
+          .trim()
+          .slice(0, 15);
+        rem.template = {
+          name,
+          language,
+          params: (Array.isArray(t?.params) ? t!.params : [])
+            .slice(0, MAX_TEMPLATE_PARAMS)
+            .map((p) => String(p ?? '').slice(0, 500)),
+        };
+      }
+      const ms = durationMs(rem.after, rem.unit);
+      if (out.enabled && (ms < TIMEOUT_MIN_MS || ms >= total))
+        throw new BadRequestException(
+          '«Si no responde»: cada recordatorio debe ser de al menos 1 minuto y antes del plazo final',
+        );
+      reminders.push(rem);
+    }
+    if (reminders.length) out.reminders = reminders;
+    return out.enabled || reminders.length ? out : undefined;
   }
 
   /** Qué hacer si escribe otra cosa en un mensaje con botones. Sin ajustes = undefined. */

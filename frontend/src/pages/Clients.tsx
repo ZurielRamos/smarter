@@ -7,6 +7,7 @@ import headerBg from "@/assets/header-background.jpg";
 import { Button } from "@/components/ui/button";
 import { getClients, getCustomFields, getRecordLists, getRecordListRecords } from "@/services/api";
 import type { ClientRecord, RecordListItem, CustomField } from "@/services/api";
+import { ATTRIBUTION_FIELDS, platformLabel, isUuid } from "@/lib/attribution-fields";
 import { useAuth } from "@/context/AuthContext";
 import { KanbanView } from "./KanbanView";
 import { FilterPanel } from "./FilterPanel";
@@ -70,6 +71,8 @@ const SYSTEM_COLUMNS: ColumnDef[] = [
   { key: "assignedTo", label: "Asignado a", visible: false },
   { key: "lastActivityAt", label: "Última actividad", visible: false },
   { key: "createdAt", label: "Fecha de creación", visible: false },
+  // Atribución (primer / último toque). Ocultas por defecto; se activan desde el selector de columnas.
+  ...ATTRIBUTION_FIELDS.map((f) => ({ key: f.key, label: f.label, visible: false })),
 ];
 
 
@@ -432,13 +435,25 @@ export function Clients() {
       case "status":
         return <StatusBadge status={client.status} />;
       case "channelSource":
-        return inboxMap[client.channelSource] || client.channelSource || "—";
+        // El valor puede ser el UUID de un inbox: se muestra el nombre, y si el inbox ya no existe, no el UUID crudo.
+        return inboxMap[client.channelSource ?? ""] || (isUuid(client.channelSource) ? "Canal eliminado" : client.channelSource) || "—";
       case "lastContactAt":
         return client.lastContactAt ? new Date(client.lastContactAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "—";
       case "lastActivityAt":
         return (client as any).lastActivityAt ? new Date((client as any).lastActivityAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "—";
       case "createdAt":
         return client.createdAt ? new Date(client.createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "—";
+      case "firstTouchPlatform":
+      case "lastTouchPlatform":
+        return platformLabel((client as any)[key]);
+      case "firstTouchLandingPage":
+      case "lastTouchLandingPage":
+      case "firstTouchReferrer":
+      case "lastTouchReferrer": {
+        const url = (client as any)[key] as string | null | undefined;
+        if (!url) return "—";
+        return <span title={url} className="block max-w-[260px] truncate">{url}</span>;
+      }
       case "tags":
         return client.tags && client.tags.length > 0
           ? client.tags.map((tag) => (

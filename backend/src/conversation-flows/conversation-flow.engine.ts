@@ -26,6 +26,12 @@ import {
 } from './flow-input.util';
 import { FlowAiService } from './flow-ai.service';
 import {
+  newWaitToken,
+  planTimers,
+  type PlannedTimer,
+} from './flow-timeout.util';
+import type { FlowTimerKind } from './flow-timer.entity';
+import {
   DEFAULT_NO_MATCH_RETRIES,
   MAX_NO_MATCH_RETRIES,
   matchReplyOption,
@@ -91,6 +97,19 @@ export interface FlowRunResult {
    * (clave del campo → valor). Los aplica ChatsService.
    */
   contactUpdates: Record<string, string>;
+  /**
+   * Temporizadores a armar porque el flujo quedó esperando con una ficha nueva
+   * («Si no responde»). ChatsService los guarda y cancela los anteriores.
+   */
+  timers: (PlannedTimer & { flowId: string; nodeId: string; token: string })[];
+  /** Recordatorio con la ventana de 24 h cerrada: plantilla a enviar en su lugar. */
+  templateFallback?: {
+    name: string;
+    language: string;
+    params: string[];
+    /** Texto del recordatorio (se guarda como contenido del mensaje enviado) */
+    text: string;
+  };
 }
 
 export interface FlowInput {
@@ -186,6 +205,17 @@ export class ConversationFlowEngine {
     loader: FlowLoader,
     context: FlowContext,
   ): Promise<FlowRunResult> {
+    const result = await this.startInner(flow, variables, loader, context);
+    await this.armTimers(result, loader, undefined, context);
+    return result;
+  }
+
+  private async startInner(
+    flow: ConversationFlow,
+    variables: Record<string, string>,
+    loader: FlowLoader,
+    context: FlowContext,
+  ): Promise<FlowRunResult> {
     const result = this.emptyResult({ ...variables });
     result.handled = true;
     result.startedFlowIds.push(flow.id);
@@ -212,6 +242,24 @@ export class ConversationFlowEngine {
    *   pasar al bot / agente.
    */
   async resume(
+    state: ConversationFlowState | null,
+    currentVariables: Record<string, string>,
+    input: FlowInput,
+    loader: FlowLoader,
+    context: FlowContext,
+  ): Promise<FlowRunResult> {
+    const result = await this.resumeInner(
+      state,
+      currentVariables,
+      input,
+      loader,
+      context,
+    );
+    await this.armTimers(result, loader, state?.token, context);
+    return result;
+  }
+
+  private async resumeInner(
     state: ConversationFlowState | null,
     currentVariables: Record<string, string>,
     input: FlowInput,
@@ -280,8 +328,10 @@ export class ConversationFlowEngine {
     }
 
     const text = (input.text || '').trim();
+    // El contacto respondió (aunque no sirva): ficha nueva, el plazo vuelve a empezar.
     const retryState = (): ConversationFlowState => ({
       ...state,
+      token: newWaitToken(),
       retries: state.retries + 1,
       updatedAt: new Date().toISOString(),
     });
@@ -400,6 +450,142 @@ export class ConversationFlowEngine {
    * anterior.
    */
   async resumeFromClick(
+    link: { flowId: string; nodeId: string; buttonId: string; title: string },
+    currentVariables: Record<string, string>,
+    loader: FlowLoader,
+    context: FlowContext,
+    currentToken?: string,
+  ): Promise<FlowRunResult> {
+    const result = await this.clickInner(
+      link,
+      currentVariables,
+      loader,
+      context,
+    );
+    await this.armTimers(result, loader, currentToken, context);
+    return result;
+  }
+
+  /**
+   * Un temporizador venció: envía el recordatorio o sigue por «Sin respuesta».
+   * Solo actúa si la conversación sigue esperando en ese nodo con la misma
+   * ficha; si no (respondió, cambió de flujo, se borró el nodo), devuelve
+   * handled=false y el llamador descarta el temporizador.
+   */
+  async resumeFromTimer(
+    timer: {
+      kind: FlowTimerKind;
+      step: number;
+      flowId: string;
+      nodeId: string;
+      token: string;
+    },
+    state: ConversationFlowState | null,
+    currentVariables: Record<string, string>,
+    loader: FlowLoader,
+    context: FlowContext,
+  ): Promise<FlowRunResult> {
+    const result = this.emptyResult({ ...currentVariables });
+    result.state = state;
+    if (
+      !state ||
+      state.token !== timer.token ||
+      state.flowId !== timer.flowId ||
+      state.nodeId !== timer.nodeId
+    )
+      return result;
+    const flow = await loader(timer.flowId);
+    const node = flow?.nodes.find((n) => n.id === timer.nodeId);
+    const config = node?.data.timeout;
+    if (!flow || !node || !config?.enabled) return result;
+    const variables = result.variables;
+
+    if (timer.kind === 'reminder') {
+      const reminder = config.reminders?.[timer.step];
+      if (!reminder?.message?.trim()) return result;
+      result.handled = true;
+      const text = this.interpolate(reminder.message, variables, context);
+      if (
+        reminder.repeatOptions &&
+        node.type === 'message' &&
+        this.replyButtons(node.data).length
+      ) {
+        const msg = this.renderMessage(node.data, variables, context, {
+          includeMedia: false,
+        });
+        result.messages.push(
+          this.withPayloads(flow.id, node.id, {
+            ...msg,
+            text,
+            header: undefined,
+            actions: undefined,
+          }),
+        );
+      } else if (reminder.repeatOptions && node.type === 'user_input') {
+        const question = this.interpolate(
+          node.data.text || '',
+          variables,
+          context,
+        );
+        result.messages.push({
+          text: question ? `${text}\n\n${question}` : text,
+        });
+      } else {
+        result.messages.push({ text });
+      }
+      if (reminder.template?.name) {
+        result.templateFallback = {
+          name: reminder.template.name,
+          language: reminder.template.language || 'es',
+          params: (reminder.template.params || []).map((p) =>
+            this.interpolate(p, variables, context),
+          ),
+          text,
+        };
+      }
+      // La espera sigue igual: mismos temporizadores pendientes.
+      return result;
+    }
+
+    // Venció el plazo: «Sin respuesta».
+    result.handled = true;
+    result.state = null;
+    variables.timeout_count = String(
+      (Number(variables.timeout_count) || 0) + 1,
+    );
+    const next = this.nextNodeId(flow, node.id, 'timeout');
+    if (next)
+      await this.runFrom(flow, next, variables, loader, context, result);
+    await this.armTimers(result, loader, state.token, context);
+    return result;
+  }
+
+  /**
+   * Si el resultado deja al flujo esperando con una ficha nueva, calcula los
+   * temporizadores de ese nodo. Misma ficha = la espera no cambió (p. ej. un
+   * recordatorio) y los temporizadores pendientes siguen valiendo.
+   */
+  private async armTimers(
+    result: FlowRunResult,
+    loader: FlowLoader,
+    previousToken: string | undefined,
+    context: FlowContext,
+  ): Promise<void> {
+    const state = result.state;
+    if (!state?.token || state.token === previousToken) return;
+    const flow = await loader(state.flowId);
+    const node = flow?.nodes.find((n) => n.id === state.nodeId);
+    if (!node) return;
+    const from = context.now ?? new Date();
+    result.timers = planTimers(node.data.timeout, from).map((t) => ({
+      ...t,
+      flowId: state.flowId,
+      nodeId: state.nodeId,
+      token: state.token!,
+    }));
+  }
+
+  private async clickInner(
     link: { flowId: string; nodeId: string; buttonId: string; title: string },
     currentVariables: Record<string, string>,
     loader: FlowLoader,
@@ -532,6 +718,7 @@ export class ConversationFlowEngine {
     }
     result.state = {
       ...state,
+      token: newWaitToken(),
       retries: state.retries + 1,
       updatedAt: new Date().toISOString(),
     };
@@ -739,6 +926,7 @@ export class ConversationFlowEngine {
       },
       startedFlowIds: [],
       contactUpdates: {},
+      timers: [],
     };
   }
 
@@ -752,6 +940,7 @@ export class ConversationFlowEngine {
       flowId,
       nodeId,
       waitingFor,
+      token: newWaitToken(),
       retries: 0,
       startedAt: now,
       updatedAt: now,

@@ -1,4 +1,10 @@
 import type { ClientRecord } from '../records/record.entity';
+import {
+  ATTRIBUTION_FIELDS,
+  ATTRIBUTION_GROUP,
+  ATTRIBUTION_TIMESTAMP_KEYS,
+  publicChannelSource,
+} from '../records/attribution-fields';
 
 /**
  * Campos del CRM que los flujos pueden usar como {{variable}}. Usan la misma
@@ -171,6 +177,13 @@ export const CONTACT_SYSTEM_FIELDS: ContactFieldDef[] = [
     group: 'actividad',
     type: 'date',
   },
+  // Atribución (first/last touch). Solo lectura: no están en WRITABLE_CONTACT_KEYS.
+  ...ATTRIBUTION_FIELDS.map((f): ContactFieldDef => ({
+    key: f.key,
+    label: f.label,
+    group: ATTRIBUTION_GROUP,
+    type: f.type,
+  })),
   // General
   { key: 'notes', label: 'Notas rápidas', group: 'general', type: 'text' },
 ];
@@ -231,6 +244,12 @@ export const FLOW_SPECIAL_VARIABLES: {
     description: 'Lo que escribió el contacto cuando no eligió ninguna opción',
   },
   {
+    key: 'timeout_count',
+    label: 'Veces sin respuesta',
+    description:
+      'Cuántas veces el contacto no respondió a tiempo en este flujo',
+  },
+  {
     key: 'ai_outcome',
     label: 'Resultado de la conversación con IA',
     description: 'Resultado al que llegó el último nodo Conversación con IA',
@@ -250,6 +269,7 @@ const SYSTEM_DATE_KEYS = new Set([
   'createdAt',
   'lastContactAt',
   'lastActivityAt',
+  ...ATTRIBUTION_TIMESTAMP_KEYS,
 ]);
 const TIMEZONE = 'America/Bogota';
 
@@ -300,6 +320,8 @@ export function buildContactVariables(
     if (key === 'fullName' && !raw) {
       raw = [record.firstName, record.lastName].filter(Boolean).join(' ');
     }
+    // channelSource puede ser el UUID de un inbox: no se expone en mensajes al contacto.
+    if (key === 'channelSource') raw = publicChannelSource(raw);
     out[key] = SYSTEM_DATE_KEYS.has(key)
       ? raw
         ? formatDate(raw as Date | string)

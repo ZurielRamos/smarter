@@ -3,6 +3,7 @@ import { X, Plus, Trash2, ChevronDown, Users, Layers, ClipboardList, CheckCircle
 import { motion } from "framer-motion";
 import { createRecordList, getCustomFields, matchRecords, addRecordsToList } from "@/services/api";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { ATTRIBUTION_FIELDS } from "@/lib/attribution-fields";
 import axios from "axios";
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api" });
@@ -116,6 +117,8 @@ const SYSTEM_FIELDS: FieldOption[] = [
   { value: "lastContactAt", label: "Último contacto", type: "date" },
   { value: "lastActivityAt", label: "Última actividad", type: "date" },
   { value: "createdAt", label: "Fecha de creación", type: "date" },
+  // Atribución (primer / último toque)
+  ...ATTRIBUTION_FIELDS.map((f): FieldOption => ({ value: f.key, label: f.label, type: f.type })),
 ];
 
 export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) {

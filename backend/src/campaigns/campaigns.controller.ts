@@ -8,6 +8,7 @@ import { CampaignsService } from './campaigns.service';
 import { WhatsAppService } from './whatsapp.service';
 import { SegmentGroup } from './campaign.entity';
 import { CustomField } from '../records/custom-field.entity';
+import { ATTRIBUTION_FIELDS } from '../records/attribution-fields';
 import { CampaignSendLog } from './campaign-send-log.entity';
 
 @Controller('campaigns')
@@ -59,6 +60,8 @@ export class CampaignsController {
       { field: 'channelSource', label: 'Canal' },
       { field: 'source', label: 'Fuente' },
       { field: 'score', label: 'Score' },
+      // Atribución (first/last touch)
+      ...ATTRIBUTION_FIELDS.map((f) => ({ field: f.key, label: f.label })),
     ];
 
     if (!tenantId) return systemFields;

@@ -16,6 +16,8 @@ export function useSocket(tenantId: string | undefined) {
 
     const socket = io(SOCKET_URL, {
       query: { tenantId },
+      // El gateway exige JWT; se lee en cada (re)conexión para usar el token vigente.
+      auth: (cb) => cb({ token: localStorage.getItem("token") }),
       transports: ["websocket", "polling"],
       withCredentials: true,
       reconnection: true,

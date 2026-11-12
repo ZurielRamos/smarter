@@ -43,6 +43,7 @@ const FALLBACK_SPECIAL: VariableCatalog["special"] = [
   { key: "last_button", label: "Último botón pulsado", description: "Título del último botón de respuesta que eligió" },
   { key: "last_link", label: "Último enlace abierto", description: "Título del último enlace con seguimiento que abrió" },
   { key: "last_reply", label: "Última respuesta no reconocida", description: "Lo que escribió el contacto cuando no eligió ninguna opción" },
+  { key: "timeout_count", label: "Veces sin respuesta", description: "Cuántas veces el contacto no respondió a tiempo en este flujo" },
   { key: "ai_outcome", label: "Resultado de la conversación con IA", description: "Resultado al que llegó el último nodo Conversación con IA" },
   { key: "ai_summary", label: "Resumen de la conversación con IA", description: "Resumen que escribió la IA al terminar el tramo" },
 ];
