@@ -62,14 +62,42 @@ describe('FirebaseAuthService', () => {
 
   it.each([
     ['firma de otra clave', () => sign({}, { key: otherKey })],
-    ['otro proyecto (aud)', () => sign({}, { audience: 'otro-proyecto' })],
-    ['otro emisor (iss)', () => sign({}, { issuer: 'https://evil.example.com' })],
     ['token expirado', () => sign({}, { exp: '-10m' })],
     ['proveedor no permitido', () => sign({ firebase: { sign_in_provider: 'password' } })],
     ['correo sin verificar', () => sign({ email_verified: false })],
     ['sin correo', () => sign({ email: undefined })],
   ])('rechaza: %s', async (_label, make) => {
     await expect(service.verify(await make())).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it.each([
+    ['otro proyecto (aud)', () => sign({}, { audience: 'otro-proyecto' })],
+    ['otro emisor (iss)', () => sign({}, { issuer: 'https://evil.example.com' })],
+  ])('token de otro proyecto (%s) es un error de configuración del servidor', async (_label, make) => {
+    const error = await service.verify(await make()).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ServiceUnavailableException);
+    expect((error as Error).message).toContain('no está bien configurado en el servidor');
+  });
+
+  it('explica cada motivo con un mensaje claro', async () => {
+    const msg = (p: Promise<unknown>) => p.catch((e: Error) => e.message);
+    expect(await msg(service.verify(await sign({}, { exp: '-10m' })))).toBe('Tu inicio de sesión expiró. Vuelve a intentarlo.');
+    expect(await msg(service.verify(await sign({}, { key: otherKey })))).toBe(
+      'No se pudo validar tu inicio de sesión. Vuelve a intentarlo.',
+    );
+    expect(await msg(service.verify(await sign({ email_verified: false })))).toBe(
+      'Tu cuenta no tiene un correo verificado',
+    );
+  });
+
+  it('si no se pueden descargar las claves de Google responde 503', async () => {
+    const offline = new TestFirebaseAuthService(config(PROJECT));
+    (offline as unknown as { keySet: unknown }).keySet = () => {
+      throw new TypeError('fetch failed');
+    };
+    const error = await offline.verify(await sign({})).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ServiceUnavailableException);
+    expect((error as Error).message).toContain('en este momento');
   });
 
   it('rechaza un token vacío o mal formado', async () => {

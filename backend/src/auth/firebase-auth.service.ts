@@ -1,6 +1,6 @@
 import { Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createRemoteJWKSet, jwtVerify, type JWTPayload, type JWTVerifyGetKey } from 'jose';
+import { createRemoteJWKSet, decodeJwt, errors, jwtVerify, type JWTPayload, type JWTVerifyGetKey } from 'jose';
 
 /** Claves públicas con las que Firebase Auth firma sus ID tokens (rotan; jose las cachea). */
 const FIREBASE_JWKS = createRemoteJWKSet(
@@ -57,8 +57,7 @@ export class FirebaseAuthService {
       });
       claims = payload as FirebaseClaims;
     } catch (error) {
-      this.logger.warn(`Token de Firebase rechazado: ${error instanceof Error ? error.message : error}`);
-      throw new UnauthorizedException('No se pudo verificar tu sesión. Intenta de nuevo.');
+      throw this.rejection(error, idToken, projectId);
     }
 
     if (!claims.sub) throw new UnauthorizedException('Token inválido');
@@ -75,5 +74,43 @@ export class FirebaseAuthService {
     }
 
     return { email: claims.email, provider, picture: claims.picture };
+  }
+
+  /**
+   * Traduce el motivo del rechazo a un mensaje útil para quien inicia sesión y deja en el
+   * log la causa exacta. Si el token es de otro proyecto de Firebase, el problema es de
+   * configuración del servidor (FIREBASE_PROJECT_ID) y no del usuario: se responde 503.
+   */
+  private rejection(error: unknown, idToken: string, projectId: string): Error {
+    const reason = error instanceof Error ? error.message : String(error);
+    if (error instanceof errors.JWTExpired) {
+      this.logger.warn(`Token de Firebase expirado: ${reason}`);
+      return new UnauthorizedException('Tu inicio de sesión expiró. Vuelve a intentarlo.');
+    }
+    if (error instanceof errors.JWTClaimValidationFailed && (error.claim === 'aud' || error.claim === 'iss')) {
+      let tokenProject = '(desconocido)';
+      try {
+        const aud = decodeJwt(idToken).aud;
+        tokenProject = Array.isArray(aud) ? aud.join(',') : String(aud ?? tokenProject);
+      } catch {
+        /* solo para el log */
+      }
+      this.logger.error(
+        `El token es del proyecto de Firebase «${tokenProject}» pero FIREBASE_PROJECT_ID es «${projectId}». ` +
+          'Revisa que la app y el servidor usen el mismo proyecto.',
+      );
+      return new ServiceUnavailableException(
+        'El inicio de sesión con Google o Apple no está bien configurado en el servidor. Contacta al administrador.',
+      );
+    }
+    if (error instanceof errors.JWKSTimeout || error instanceof errors.JWKSInvalid || error instanceof TypeError) {
+      // No se pudieron descargar las claves públicas de Google (red, DNS, firewall).
+      this.logger.error(`No se pudieron obtener las claves de Firebase: ${reason}`);
+      return new ServiceUnavailableException(
+        'No pudimos comprobar tu cuenta con Google en este momento. Intenta de nuevo en unos minutos.',
+      );
+    }
+    this.logger.warn(`Token de Firebase rechazado: ${reason}`);
+    return new UnauthorizedException('No se pudo validar tu inicio de sesión. Vuelve a intentarlo.');
   }
 }

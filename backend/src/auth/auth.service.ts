@@ -157,7 +157,9 @@ export class AuthService {
 
     if (!user) {
       // User doesn't exist — reject (only existing users can login with Google)
-      throw new UnauthorizedException('No existe una cuenta con este correo. Contacta al administrador.');
+      throw new UnauthorizedException(
+        `El correo ${email} no está registrado en la plataforma. Pide al administrador de tu empresa que te invite.`,
+      );
     }
 
     if (!user.isActive) {
