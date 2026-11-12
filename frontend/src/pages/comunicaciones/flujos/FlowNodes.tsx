@@ -14,8 +14,9 @@ import {
   Phone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ACTION_LABELS, OPERATOR_LABELS, VALIDATION_LABELS, type FlowNodeData } from "./types";
-import { FlowEditorContext } from "./editorContext";
+import { ACTION_LABELS, VALIDATION_LABELS, type FlowNodeData } from "./types";
+import { FlowEditorContext, FlowVariablesContext } from "./editorContext";
+import { conditionIssues, describeBranch } from "./conditions";
 
 type FlowNode = Node<FlowNodeData>;
 
@@ -286,23 +287,36 @@ export function ActionNode({ data, selected }: NodeProps<FlowNode>) {
 }
 
 export function ConditionNode({ data, selected }: NodeProps<FlowNode>) {
-  const op = data.conditionOperator || "equals";
-  const needsValue = op !== "is_set" && op !== "is_not_set";
+  const { labels, inboxes } = useContext(FlowEditorContext);
+  const options = useContext(FlowVariablesContext);
+  const branches = data.branches ?? [];
+  const issues = conditionIssues(data.branches);
+  const lookups = { options, labels, inboxes };
   return (
     <NodeShell
       selected={selected}
       header="Condición"
       headerClass="bg-amber-500 text-white"
       icon={<GitFork className="h-3.5 w-3.5" />}
-      warning={!data.conditionVariable ? "Elige una variable" : null}
+      warning={issues > 0 ? (issues === 1 ? "Hay 1 regla por completar" : `Hay ${issues} reglas por completar`) : null}
     >
-      <p className="text-center text-[11px]">
-        Si <span className="rounded bg-muted px-1 font-mono">{data.conditionVariable || "?"}</span> {OPERATOR_LABELS[op]}{" "}
-        {needsValue && <span className="rounded bg-muted px-1 font-mono">{data.conditionValue || "∅"}</span>}
-      </p>
       <div className="space-y-1.5">
-        <OutputRow id="true" label="Sí" className="text-green-700 dark:text-green-300" />
-        <OutputRow id="false" label="No" className="text-red-600 dark:text-red-300" />
+        {branches.map((b) => (
+          <OutputRow
+            key={b.id}
+            id={`cond:${b.id}`}
+            className="!text-left"
+            label={
+              <>
+                <span className="block truncate text-amber-700 dark:text-amber-300">{b.name || "Rama"}</span>
+                <span className="block truncate text-[10px] font-normal text-muted-foreground">
+                  {describeBranch(b, lookups)}
+                </span>
+              </>
+            }
+          />
+        ))}
+        <OutputRow id="else" label="Si no" className="text-muted-foreground" />
       </div>
     </NodeShell>
   );

@@ -9,6 +9,7 @@ import {
   FlowHeaderMedia,
 } from './conversation-flow.entity';
 import { isHttpUrl, normalizePhone } from './flow-buttons.util';
+import { evaluateBranch, type ConditionEnv } from './flow-conditions.util';
 
 /** Botón de enlace o llamada ya resuelto (variables sustituidas) para enviar. */
 export interface FlowOutgoingAction {
@@ -72,6 +73,21 @@ export interface FlowContext {
    * contacto vinculado.
    */
   contact?: Record<string, string>;
+  /**
+   * Datos de la conversación para las reglas del nodo Condición. Todos son
+   * opcionales: lo que falta se evalúa como vacío o cero.
+   */
+  lastMessage?: string;
+  channel?: string;
+  inboxId?: string;
+  labelIds?: string[];
+  conversationStatus?: string;
+  /** Mensajes que ha enviado el contacto en la conversación. */
+  inboundCount?: number;
+  hasContact?: boolean;
+  /** Reloj y azar inyectables para poder probar las reglas de hora y reparto. */
+  now?: Date;
+  random?: () => number;
   /**
    * true si el canal es WhatsApp Cloud API nativo (no puente SendPulse ni
    * Evolution). Solo ahí aplica la paginación «Más opciones»: en el resto las
@@ -449,8 +465,25 @@ export class ConversationFlowEngine {
         }
 
         case 'condition': {
-          const passed = this.evaluateCondition(node.data, variables, context);
-          nodeId = this.nextNodeId(flow, node.id, passed ? 'true' : 'false');
+          if (Array.isArray(node.data.branches)) {
+            // Ramas en orden: sigue la primera que se cumple; si ninguna, «Si no».
+            const env = this.conditionEnv(variables, context);
+            const hit = node.data.branches.find((b) => evaluateBranch(b, env));
+            if (hit) variables.last_branch = hit.name;
+            nodeId = this.nextNodeId(
+              flow,
+              node.id,
+              hit ? `cond:${hit.id}` : 'else',
+            );
+          } else {
+            // Nodo antiguo de una sola regla: salidas Sí / No.
+            const passed = this.evaluateCondition(
+              node.data,
+              variables,
+              context,
+            );
+            nodeId = this.nextNodeId(flow, node.id, passed ? 'true' : 'false');
+          }
           break;
         }
 
@@ -738,6 +771,26 @@ export class ConversationFlowEngine {
       default:
         return 'Por favor escribe una respuesta.';
     }
+  }
+
+  /** Datos con los que se evalúan las reglas de un nodo Condición. */
+  private conditionEnv(
+    variables: Record<string, string>,
+    context: FlowContext,
+  ): ConditionEnv {
+    return {
+      now: context.now ?? new Date(),
+      lastMessage: context.lastMessage ?? '',
+      channel: context.channel ?? '',
+      inboxId: context.inboxId ?? '',
+      labelIds: context.labelIds ?? [],
+      conversationStatus: context.conversationStatus ?? '',
+      inboundCount: context.inboundCount ?? 0,
+      hasContact: context.hasContact ?? false,
+      lookup: (key) => this.lookup(key, variables, context),
+      interpolate: (text) => this.interpolate(text, variables, context),
+      random: context.random ?? Math.random,
+    };
   }
 
   private evaluateCondition(

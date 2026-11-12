@@ -5,54 +5,172 @@ import type { ClientRecord } from '../records/record.entity';
  * clave que el CRM y las campañas (p. ej. {{firstName}}, {{city}}); los campos
  * personalizados se usan por su clave (p. ej. {{cedula}}).
  */
+export type ContactFieldType =
+  'text' | 'number' | 'date' | 'boolean' | 'select' | 'array';
+
 export interface ContactFieldDef {
   key: string;
   label: string;
   group: string;
+  /** Tipo de dato: el editor lo usa para ofrecer los operadores que tienen sentido. */
+  type: ContactFieldType;
+  /** Valores posibles de un campo de selección. */
+  options?: string[];
 }
 
 export const CONTACT_SYSTEM_FIELDS: ContactFieldDef[] = [
   // Identificación
-  { key: 'firstName', label: 'Nombre', group: 'identificacion' },
-  { key: 'lastName', label: 'Apellido', group: 'identificacion' },
-  { key: 'fullName', label: 'Nombre completo', group: 'identificacion' },
-  { key: 'documentType', label: 'Tipo de documento', group: 'identificacion' },
+  { key: 'firstName', label: 'Nombre', group: 'identificacion', type: 'text' },
+  { key: 'lastName', label: 'Apellido', group: 'identificacion', type: 'text' },
+  {
+    key: 'fullName',
+    label: 'Nombre completo',
+    group: 'identificacion',
+    type: 'text',
+  },
+  {
+    key: 'documentType',
+    label: 'Tipo de documento',
+    group: 'identificacion',
+    type: 'select',
+    options: ['CC', 'CE', 'NIT', 'TI', 'Pasaporte', 'RUT'],
+  },
   {
     key: 'documentNumber',
     label: 'Número de documento',
     group: 'identificacion',
+    type: 'text',
   },
-  { key: 'company', label: 'Empresa', group: 'identificacion' },
-  { key: 'jobTitle', label: 'Cargo', group: 'identificacion' },
+  { key: 'company', label: 'Empresa', group: 'identificacion', type: 'text' },
+  { key: 'jobTitle', label: 'Cargo', group: 'identificacion', type: 'text' },
   // Contacto
-  { key: 'phone', label: 'Teléfono', group: 'contacto' },
-  { key: 'whatsappId', label: 'WhatsApp ID (BSUID)', group: 'contacto' },
-  { key: 'countryCode', label: 'Código de país', group: 'contacto' },
-  { key: 'email', label: 'Email', group: 'contacto' },
-  { key: 'website', label: 'Sitio web', group: 'contacto' },
-  { key: 'language', label: 'Idioma preferido', group: 'contacto' },
+  { key: 'phone', label: 'Teléfono', group: 'contacto', type: 'text' },
+  {
+    key: 'whatsappId',
+    label: 'WhatsApp ID (BSUID)',
+    group: 'contacto',
+    type: 'text',
+  },
+  {
+    key: 'countryCode',
+    label: 'Código de país',
+    group: 'contacto',
+    type: 'text',
+  },
+  { key: 'email', label: 'Email', group: 'contacto', type: 'text' },
+  { key: 'website', label: 'Sitio web', group: 'contacto', type: 'text' },
+  {
+    key: 'language',
+    label: 'Idioma preferido',
+    group: 'contacto',
+    type: 'select',
+    options: ['es', 'en', 'pt', 'fr', 'de'],
+  },
   // Demografía
-  { key: 'gender', label: 'Género', group: 'demografia' },
-  { key: 'birthDate', label: 'Fecha de nacimiento', group: 'demografia' },
+  {
+    key: 'gender',
+    label: 'Género',
+    group: 'demografia',
+    type: 'select',
+    options: ['male', 'female', 'other', 'prefer_not_to_say'],
+  },
+  {
+    key: 'birthDate',
+    label: 'Fecha de nacimiento',
+    group: 'demografia',
+    type: 'date',
+  },
   // Ubicación
-  { key: 'city', label: 'Ciudad', group: 'ubicacion' },
-  { key: 'region', label: 'Departamento / Estado', group: 'ubicacion' },
-  { key: 'address', label: 'Dirección', group: 'ubicacion' },
+  { key: 'city', label: 'Ciudad', group: 'ubicacion', type: 'text' },
+  {
+    key: 'region',
+    label: 'Departamento / Estado',
+    group: 'ubicacion',
+    type: 'text',
+  },
+  { key: 'address', label: 'Dirección', group: 'ubicacion', type: 'text' },
   // Segmentación
-  { key: 'status', label: 'Estado', group: 'segmentacion' },
-  { key: 'channelSource', label: 'Canal de origen', group: 'segmentacion' },
-  { key: 'source', label: 'Fuente de adquisición', group: 'segmentacion' },
-  { key: 'score', label: 'Score', group: 'segmentacion' },
-  { key: 'tags', label: 'Etiquetas', group: 'segmentacion' },
+  {
+    key: 'status',
+    label: 'Estado',
+    group: 'segmentacion',
+    type: 'select',
+    options: [
+      'lead',
+      'contactado',
+      'interesado',
+      'oportunidad',
+      'cliente',
+      'premium',
+      'fidelizado',
+      'inactivo',
+      'perdido',
+    ],
+  },
+  {
+    key: 'channelSource',
+    label: 'Canal de origen',
+    group: 'segmentacion',
+    type: 'select',
+    options: [
+      'whatsapp',
+      'messenger',
+      'instagram',
+      'sms',
+      'llamada',
+      'email',
+      'web',
+      'formulario',
+      'landing',
+      'referido',
+      'campaña',
+      'import',
+      'manual',
+      'api',
+    ],
+  },
+  {
+    key: 'source',
+    label: 'Fuente de adquisición',
+    group: 'segmentacion',
+    type: 'text',
+  },
+  { key: 'score', label: 'Score', group: 'segmentacion', type: 'number' },
+  { key: 'tags', label: 'Etiquetas', group: 'segmentacion', type: 'array' },
   // Consentimiento
-  { key: 'optInWhatsapp', label: 'Opt-in WhatsApp', group: 'consentimiento' },
-  { key: 'optInEmail', label: 'Opt-in Email', group: 'consentimiento' },
+  {
+    key: 'optInWhatsapp',
+    label: 'Opt-in WhatsApp',
+    group: 'consentimiento',
+    type: 'boolean',
+  },
+  {
+    key: 'optInEmail',
+    label: 'Opt-in Email',
+    group: 'consentimiento',
+    type: 'boolean',
+  },
   // Actividad
-  { key: 'createdAt', label: 'Fecha de creación', group: 'actividad' },
-  { key: 'lastContactAt', label: 'Último contacto', group: 'actividad' },
-  { key: 'lastActivityAt', label: 'Última actividad', group: 'actividad' },
+  {
+    key: 'createdAt',
+    label: 'Fecha de creación',
+    group: 'actividad',
+    type: 'date',
+  },
+  {
+    key: 'lastContactAt',
+    label: 'Último contacto',
+    group: 'actividad',
+    type: 'date',
+  },
+  {
+    key: 'lastActivityAt',
+    label: 'Última actividad',
+    group: 'actividad',
+    type: 'date',
+  },
   // General
-  { key: 'notes', label: 'Notas rápidas', group: 'general' },
+  { key: 'notes', label: 'Notas rápidas', group: 'general', type: 'text' },
 ];
 
 /** Variables propias del flujo que siempre existen. */

@@ -12,13 +12,17 @@ export interface VariableOption {
   group: VariableGroup;
   /** Texto secundario (p. ej. a qué corresponde una variable especial) */
   hint?: string;
+  /** Tipo del campo (text, number, date, boolean, select, array) cuando se conoce */
+  type?: string;
+  /** Valores posibles de un campo de selección */
+  options?: string[];
 }
 
 /** Respuesta de GET /conversation-flows/variables */
 export interface VariableCatalog {
   special: { key: string; label: string; description: string }[];
-  crm: { key: string; label: string; group: string }[];
-  custom: { key: string; label: string; fieldType: string }[];
+  crm: { key: string; label: string; group: string; type?: string; options?: string[] }[];
+  custom: { key: string; label: string; fieldType: string; options?: string[] }[];
 }
 
 export const VARIABLE_GROUP_LABELS: Record<VariableGroup, string> = {
@@ -38,12 +42,26 @@ const FALLBACK_SPECIAL: VariableCatalog["special"] = [
   { key: "last_link", label: "Último enlace abierto", description: "Título del último enlace con seguimiento que abrió" },
 ];
 
+/** Tipo y valores posibles de una variable del flujo o especial, deducidos del propio flujo. */
+export interface VariableMeta {
+  type?: string;
+  options?: string[];
+}
+
+/** Tipos de campo personalizado que se comparan como texto. */
+const TEXT_LIKE_TYPES = new Set(["url", "email", "phone", "textarea", "text"]);
+const normalizeType = (t?: string) => (t && TEXT_LIKE_TYPES.has(t) ? "text" : t);
+
 /**
  * Une las variables definidas en el flujo (respuestas y asignaciones) con el
  * catálogo del servidor. Si una variable del flujo comparte clave con un campo
  * del CRM se muestra una sola vez, como del flujo, porque tiene prioridad al enviar.
  */
-export function buildVariableOptions(flowVariables: string[], catalog: VariableCatalog | null): VariableOption[] {
+export function buildVariableOptions(
+  flowVariables: string[],
+  catalog: VariableCatalog | null,
+  meta: Record<string, VariableMeta> = {},
+): VariableOption[] {
   const special = catalog?.special ?? FALLBACK_SPECIAL;
   const reserved = new Set(special.map((s) => s.key));
   const crmKeys = new Set([...(catalog?.crm ?? []), ...(catalog?.custom ?? [])].map((f) => f.key));
@@ -63,11 +81,12 @@ export function buildVariableOptions(flowVariables: string[], catalog: VariableC
       label: key,
       group: "flow",
       hint: crmKeys.has(key) ? "También es un campo del CRM; esta variable tiene prioridad" : undefined,
+      ...meta[key],
     });
   }
-  for (const f of catalog?.crm ?? []) add({ key: f.key, label: f.label, group: "crm" });
-  for (const f of catalog?.custom ?? []) add({ key: f.key, label: f.label, group: "custom" });
-  for (const s of special) add({ key: s.key, label: s.label, group: "special", hint: s.description });
+  for (const f of catalog?.crm ?? []) add({ key: f.key, label: f.label, group: "crm", type: normalizeType(f.type), options: f.options });
+  for (const f of catalog?.custom ?? []) add({ key: f.key, label: f.label, group: "custom", type: normalizeType(f.fieldType), options: f.options });
+  for (const s of special) add({ key: s.key, label: s.label, group: "special", hint: s.description, ...meta[s.key] });
   return options;
 }
 

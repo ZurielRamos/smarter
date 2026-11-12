@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import type { ConversationFlowSummary, FlowTriggers, LabelOption } from "./types";
+import type { ConversationFlowSummary, FlowTriggers, InboxOption, LabelOption } from "./types";
 import type { VariableOption } from "./variables";
 
 /**
@@ -12,10 +12,11 @@ export const FlowVariablesContext = createContext<VariableOption[]>([]);
 export interface FlowEditorContextValue {
   flows: ConversationFlowSummary[];
   labels: LabelOption[];
+  inboxes: InboxOption[];
   currentFlowId: string;
 }
 
-export const FlowEditorContext = createContext<FlowEditorContextValue>({ flows: [], labels: [], currentFlowId: "" });
+export const FlowEditorContext = createContext<FlowEditorContextValue>({ flows: [], labels: [], inboxes: [], currentFlowId: "" });
 
 /** Canales donde se ejecutan los flujos (mismo criterio que el backend). */
 export const FLOW_CHANNELS = new Set(["whatsapp", "messenger", "instagram", "chat", "evolution"]);

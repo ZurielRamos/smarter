@@ -1,9 +1,10 @@
-import { useContext, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ExternalLink, FileText, Loader2, Phone, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { FlowVariablesContext } from "./editorContext";
 import { VariableInput, VariableTextarea } from "./VariableField";
+import { ConditionEditor } from "./ConditionEditor";
+import { FlowSelect } from "./FlowSelect";
 import {
   ACTION_LABELS,
   HEADER_ACCEPT,
@@ -18,19 +19,19 @@ import {
   MAX_BUTTON_TITLE,
   MAX_HEADER_FOOTER,
   NODE_LABELS,
-  OPERATOR_LABELS,
   VALIDATION_LABELS,
   WA_REPLY_BUTTON_TITLE,
   shortId,
   type ConversationFlowSummary,
   type FlowAction,
   type FlowActionType,
-  type FlowConditionOperator,
   type FlowInputValidation,
   type FlowNodeData,
   type FlowNodeType,
+  type InboxOption,
   type LabelOption,
 } from "./types";
+import type { VariableOption } from "./variables";
 
 const inputClass =
   "w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200";
@@ -44,7 +45,10 @@ interface NodeInspectorProps {
   flows: ConversationFlowSummary[];
   currentFlowId: string;
   labels: LabelOption[];
+  inboxes: InboxOption[];
   variables: string[];
+  /** Todo lo que ofrece el selector de campos de la condición (CRM, personalizados, flujo, especiales) */
+  variableOptions: VariableOption[];
   tenantId?: string;
   /** null = aún no se sabe; false = el servidor no puede generar enlaces públicos */
   linkTracking: boolean | null;
@@ -60,7 +64,9 @@ export function NodeInspector({
   flows,
   currentFlowId,
   labels,
+  inboxes,
   variables,
+  variableOptions,
   tenantId,
   linkTracking,
   onChange,
@@ -69,7 +75,6 @@ export function NodeInspector({
 }: NodeInspectorProps) {
   const set = (patch: Partial<FlowNodeData>) => onChange({ ...data, ...patch });
   const variableListId = `vars-${nodeId}`;
-  const allVariables = useContext(FlowVariablesContext);
 
   return (
     <aside className="w-80 shrink-0 border-l border-border bg-card flex flex-col min-h-0" aria-label="Editar nodo">
@@ -90,15 +95,6 @@ export function NodeInspector({
           <option key={v} value={v} />
         ))}
       </datalist>
-      {/* La condición puede evaluar también cualquier campo del CRM. */}
-      <datalist id={`${nodeId}-condition-vars`}>
-        {allVariables
-          .filter((o) => o.key !== "contact_name")
-          .map((o) => (
-            <option key={o.key} value={o.key} label={o.label} />
-          ))}
-      </datalist>
-
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {type === "start" && (
           <p className="text-xs text-muted-foreground">
@@ -143,18 +139,12 @@ export function NodeInspector({
               <label className={labelClass} htmlFor={`${nodeId}-val`}>
                 Validación
               </label>
-              <select
+              <FlowSelect
                 id={`${nodeId}-val`}
                 value={data.validation || "any"}
-                onChange={(e) => set({ validation: e.target.value as FlowInputValidation })}
-                className={inputClass}
-              >
-                {Object.entries(VALIDATION_LABELS).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => set({ validation: v as FlowInputValidation })}
+                options={Object.entries(VALIDATION_LABELS).map(([v, l]) => ({ value: v, label: l }))}
+              />
             </div>
             <div>
               <label className={labelClass} htmlFor={`${nodeId}-err`}>
@@ -176,82 +166,20 @@ export function NodeInspector({
           <ActionFields data={data} set={set} labels={labels} variableListId={variableListId} />
         )}
 
-        {type === "condition" && (
-          <>
-            <div>
-              <label className={labelClass} htmlFor={`${nodeId}-cvar`}>
-                Variable
-              </label>
-              <input
-                id={`${nodeId}-cvar`}
-                list={`${nodeId}-condition-vars`}
-                value={data.conditionVariable || ""}
-                onChange={(e) => set({ conditionVariable: e.target.value.replace(/[^\w]/g, "") })}
-                placeholder="last_button"
-                className={cn(inputClass, "font-mono")}
-              />
-              <p className={hintClass}>
-                Puede ser una variable del flujo o cualquier campo del CRM (p. ej.{" "}
-                <code className="font-mono">city</code>). <code className="font-mono">last_button</code> guarda el título del
-                último botón pulsado.
-              </p>
-            </div>
-            <div>
-              <label className={labelClass} htmlFor={`${nodeId}-op`}>
-                Operador
-              </label>
-              <select
-                id={`${nodeId}-op`}
-                value={data.conditionOperator || "equals"}
-                onChange={(e) => set({ conditionOperator: e.target.value as FlowConditionOperator })}
-                className={inputClass}
-              >
-                {Object.entries(OPERATOR_LABELS).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {data.conditionOperator !== "is_set" && data.conditionOperator !== "is_not_set" && (
-              <div>
-                <label className={labelClass} htmlFor={`${nodeId}-cval`}>
-                  Valor
-                </label>
-                <VariableInput
-                  id={`${nodeId}-cval`}
-                  value={data.conditionValue || ""}
-                  onChange={(v) => set({ conditionValue: v })}
-                  className={inputClass}
-                />
-                <p className={hintClass}>
-                  No distingue mayúsculas ni tildes. Escribe <code className="font-mono">{"{"}</code> para comparar con otra
-                  variable o campo del CRM.
-                </p>
-              </div>
-            )}
-          </>
-        )}
-
+        {type === "condition" && <ConditionEditor data={data} set={set} options={variableOptions} labels={labels} inboxes={inboxes} />}
         {type === "start_flow" && (
           <div>
             <label className={labelClass} htmlFor={`${nodeId}-flow`}>
               Flujo a iniciar
             </label>
-            <select
+            <FlowSelect
               id={`${nodeId}-flow`}
               value={data.targetFlowId || ""}
-              onChange={(e) => set({ targetFlowId: e.target.value || undefined })}
-              className={inputClass}
-            >
-              <option value="">Selecciona un flujo…</option>
-              {flows.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                  {f.id === currentFlowId ? " (este flujo)" : ""}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => set({ targetFlowId: v || undefined })}
+              placeholder="Selecciona un flujo…"
+              searchable={flows.length > 8}
+              options={flows.map((f) => ({ value: f.id, label: f.name + (f.id === currentFlowId ? " (este flujo)" : "") }))}
+            />
             <p className={hintClass}>
               El contacto continúa en el inicio del flujo seleccionado. Las variables se conservan. El flujo destino no
               necesita estar activo.
@@ -614,18 +542,17 @@ function ButtonsEditor({
             return (
               <div key={b.id} className="rounded-lg border border-border p-2 space-y-1.5">
                 <div className="flex items-center gap-1.5">
-                  <select
+                  <FlowSelect
+                    compact
                     aria-label={`Tipo del botón ${i + 1}`}
                     value={type}
-                    onChange={(e) => changeType(b, e.target.value as FlowButtonType)}
-                    className={cn(inputClass, "w-[6.5rem] shrink-0 py-1.5 px-2 text-xs")}
-                  >
-                    {(Object.keys(BUTTON_TYPE_LABELS) as FlowButtonType[]).map((t) => (
-                      <option key={t} value={t}>
-                        {BUTTON_TYPE_LABELS[t]}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => changeType(b, v as FlowButtonType)}
+                    className="w-[6.5rem] shrink-0"
+                    options={(Object.keys(BUTTON_TYPE_LABELS) as FlowButtonType[]).map((t) => ({
+                      value: t,
+                      label: BUTTON_TYPE_LABELS[t],
+                    }))}
+                  />
                   <VariableInput
                     aria-label={`Título del botón ${i + 1}`}
                     value={b.title}
@@ -817,18 +744,13 @@ function ActionFields({
       {actions.map((a, i) => (
         <div key={i} className="rounded-lg border border-border p-2.5 space-y-2">
           <div className="flex items-center gap-1.5">
-            <select
+            <FlowSelect
+              compact
               aria-label={`Tipo de acción ${i + 1}`}
               value={a.type}
-              onChange={(e) => update(i, { type: e.target.value as FlowActionType })}
-              className={cn(inputClass, "py-1.5")}
-            >
-              {Object.entries(ACTION_LABELS).map(([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => update(i, { type: v as FlowActionType })}
+              options={Object.entries(ACTION_LABELS).map(([v, l]) => ({ value: v, label: l }))}
+            />
             <button
               type="button"
               aria-label={`Eliminar acción ${i + 1}`}
@@ -860,19 +782,15 @@ function ActionFields({
           )}
 
           {(a.type === "add_label" || a.type === "remove_label") && (
-            <select
+            <FlowSelect
+              compact
               aria-label="Etiqueta"
               value={a.labelId || ""}
-              onChange={(e) => update(i, { labelId: e.target.value })}
-              className={cn(inputClass, "py-1.5")}
-            >
-              <option value="">Selecciona una etiqueta…</option>
-              {labels.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.label}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => update(i, { labelId: v })}
+              placeholder="Selecciona una etiqueta…"
+              searchable={labels.length > 8}
+              options={labels.map((l) => ({ value: l.id, label: l.label }))}
+            />
           )}
 
           {(a.type === "handoff" || a.type === "resolve") && (

@@ -66,14 +66,93 @@ export interface FlowAction {
   labelId?: string;
 }
 
+/**
+ * Operadores de condición. Se agrupan por el tipo de dato que comparan; el
+ * evaluador (flow-conditions.util.ts) decide cómo interpretar cada valor.
+ */
 export type FlowConditionOperator =
+  // Texto (sin distinguir mayúsculas ni tildes)
   | 'equals'
   | 'not_equals'
   | 'contains'
+  | 'not_contains'
+  | 'starts_with'
+  | 'ends_with'
+  | 'in_list'
+  | 'not_in_list'
+  | 'regex'
+  // Presencia
   | 'is_set'
   | 'is_not_set'
+  // Número
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'between'
+  // Fecha
+  | 'date_before'
+  | 'date_after'
+  | 'date_on'
+  | 'date_between'
+  | 'within_last_days'
+  | 'older_than_days'
+  // Sí / No
+  | 'is_true'
+  | 'is_false'
+  // Reparto al azar
+  | 'percent'
+  // Nombres del nodo antiguo (de una sola regla); se siguen entendiendo
   | 'greater_than'
   | 'less_than';
+
+/**
+ * Qué evalúa una regla:
+ *  - variable: variable del flujo o campo del CRM (`field` = clave)
+ *  - message: último mensaje del contacto
+ *  - channel / inbox / conversation_status: datos de la conversación
+ *  - label: la conversación tiene la etiqueta `field` (id)
+ *  - new_conversation / has_contact: sí o no
+ *  - inbound_count: cuántos mensajes ha enviado el contacto
+ *  - time_of_day / weekday / date: ahora mismo (hora de Bogotá)
+ *  - random: reparto al azar (A/B)
+ */
+export type FlowConditionSource =
+  | 'variable'
+  | 'message'
+  | 'channel'
+  | 'inbox'
+  | 'label'
+  | 'new_conversation'
+  | 'has_contact'
+  | 'inbound_count'
+  | 'conversation_status'
+  | 'time_of_day'
+  | 'weekday'
+  | 'date'
+  | 'random';
+
+export interface FlowConditionRule {
+  id: string;
+  source: FlowConditionSource;
+  /** variable: clave de la variable/campo · label: id de la etiqueta */
+  field?: string;
+  operator: FlowConditionOperator;
+  /** Valor a comparar (admite {{variables}}). In_list: separados por coma. */
+  value?: string;
+  /** Segundo valor de between / date_between */
+  value2?: string;
+}
+
+/** Una rama de un nodo Condición: se cumple si todas (o cualquiera de) sus reglas se cumplen. */
+export interface FlowConditionBranch {
+  id: string;
+  name: string;
+  match: 'all' | 'any';
+  rules: FlowConditionRule[];
+}
 
 export interface FlowNodeData {
   /** message / user_input: texto a enviar (admite {{variables}}) */
@@ -105,7 +184,12 @@ export interface FlowNodeData {
   errorMessage?: string;
   /** action: acciones a ejecutar en orden */
   actions?: FlowAction[];
-  /** condition */
+  /**
+   * condition: ramas evaluadas en orden; gana la primera que se cumple y, si
+   * ninguna, sigue la salida `else`. Salidas: `cond:<id de rama>` y `else`.
+   */
+  branches?: FlowConditionBranch[];
+  /** condition (formato antiguo de una sola regla, salidas `true`/`false`) */
   conditionVariable?: string;
   conditionOperator?: FlowConditionOperator;
   conditionValue?: string;

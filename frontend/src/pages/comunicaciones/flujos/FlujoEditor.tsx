@@ -32,8 +32,9 @@ import {
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
+import { migrateLegacyConditions, newBranch } from "./conditions";
 import { EMPTY_TRIGGERS, FlowEditorContext, FlowVariablesContext } from "./editorContext";
-import { buildVariableOptions, type VariableCatalog } from "./variables";
+import { buildVariableOptions, type VariableCatalog, type VariableMeta } from "./variables";
 import { nodeTypes } from "./nodeTypes";
 import { NodeInspector } from "./NodeInspector";
 import { TriggersModal } from "./TriggersModal";
@@ -79,7 +80,7 @@ function defaultData(type: FlowNodeType): FlowNodeData {
     case "action":
       return { actions: [] };
     case "condition":
-      return { conditionVariable: "last_button", conditionOperator: "equals", conditionValue: "" };
+      return { branches: [newBranch(1)] };
     default:
       return {};
   }
@@ -114,8 +115,12 @@ function validHandles(node: RFNode): Set<string> {
       const clicks = buttons.filter((b) => b.type === "url" && b.track !== false).map((b) => `click:${b.id}`);
       return new Set([...(replies.length ? replies.map((b) => `btn:${b.id}`) : ["next"]), ...clicks]);
     }
-    case "condition":
-      return new Set(["true", "false"]);
+    case "condition": {
+      const branches = node.data.branches;
+      // Nodo antiguo sin ramas: conserva sus salidas Sí / No.
+      if (!branches) return new Set(["true", "false"]);
+      return new Set([...branches.map((b) => `cond:${b.id}`), "else"]);
+    }
     case "start_flow":
       return new Set();
     case "action":
@@ -184,8 +189,10 @@ function FlujoEditorInner() {
         setFlow(data);
         setName(data.name);
         setTriggers(data.triggers || EMPTY_TRIGGERS);
-        setNodes(toRFNodes(data.nodes));
-        setEdges(toRFEdges(data.edges));
+        // Los nodos Condición antiguos (Sí / No) se convierten al formato de ramas.
+        const migrated = migrateLegacyConditions(data.nodes, data.edges);
+        setNodes(toRFNodes(migrated.nodes));
+        setEdges(toRFEdges(migrated.edges));
         setDirty(false);
         requestAnimationFrame(() => fitView({ padding: 0.3, maxZoom: 1 }));
       })
@@ -327,7 +334,36 @@ function FlujoEditorInner() {
         // Sin catálogo el dropdown sigue ofreciendo las variables del flujo y las especiales.
       });
   }, [tenantId]);
-  const variableOptions = useMemo(() => buildVariableOptions(variables, variableCatalog), [variables, variableCatalog]);
+  // Tipo y valores de las variables propias del flujo, para que la condición ofrezca
+  // los operadores y valores adecuados (p. ej. «Último botón» → los botones del flujo).
+  const variableMeta = useMemo(() => {
+    const meta: Record<string, VariableMeta> = { contact_name: { type: "text" } };
+    const replies = new Set<string>();
+    const links = new Set<string>();
+    for (const n of nodes) {
+      for (const b of n.data.buttons || []) {
+        const title = b.title?.trim();
+        if (!title) continue;
+        if ((b.type ?? "reply") === "reply") replies.add(title);
+        else if (b.type === "url" && b.track !== false) links.add(title);
+      }
+      if (n.type === "user_input" && n.data.variable) {
+        meta[n.data.variable] = { type: n.data.validation === "number" ? "number" : "text" };
+      }
+    }
+    for (const n of nodes) {
+      for (const a of n.data.actions || []) {
+        if (a.type === "set_variable" && a.variable && !meta[a.variable]) meta[a.variable] = { type: "text" };
+      }
+    }
+    meta.last_button = replies.size ? { type: "select", options: [...replies] } : { type: "text" };
+    meta.last_link = links.size ? { type: "select", options: [...links] } : { type: "text" };
+    return meta;
+  }, [nodes]);
+  const variableOptions = useMemo(
+    () => buildVariableOptions(variables, variableCatalog, variableMeta),
+    [variables, variableCatalog, variableMeta],
+  );
 
   // ─── Guardado ───
   const save = useCallback(
@@ -445,7 +481,7 @@ function FlujoEditorInner() {
   const status = flow.status;
 
   return (
-    <FlowEditorContext.Provider value={{ flows, labels, currentFlowId: flow.id }}>
+    <FlowEditorContext.Provider value={{ flows, labels, inboxes, currentFlowId: flow.id }}>
      <FlowVariablesContext.Provider value={variableOptions}>
       <div className="flex-1 min-w-0 flex flex-col bg-background">
         {/* Header */}
@@ -558,7 +594,9 @@ function FlujoEditorInner() {
               flows={flows}
               currentFlowId={flow.id}
               labels={labels}
+              inboxes={inboxes}
               variables={variables}
+              variableOptions={variableOptions}
               tenantId={tenantId}
               linkTracking={linkTracking}
               onChange={(d) => updateNodeData(selectedNode.id, d)}

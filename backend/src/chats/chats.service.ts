@@ -1,4 +1,10 @@
-import { Injectable, Inject, forwardRef, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  forwardRef,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan, SelectQueryBuilder } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -25,15 +31,27 @@ import { CampaignSendLog } from '../campaigns/campaign-send-log.entity';
 import { CampaignSend } from '../campaigns/campaign-send.entity';
 import { EvolutionService } from '../evolution/evolution.service';
 import { SendPulseService } from '../sendpulse/sendpulse.service';
-import { isBridgeActive, getBridgeConfig } from '../sendpulse/sendpulse-bridge.types';
+import {
+  isBridgeActive,
+  getBridgeConfig,
+} from '../sendpulse/sendpulse-bridge.types';
 import { MailgunService } from '../providers/mailgun.service';
 import { EmailDomainService } from '../providers/email-domain.service';
 import { EmailUnsubscribeService } from '../providers/email-unsubscribe.service';
 import { UserTenant } from '../users/user-tenant.entity';
 import sharp from 'sharp';
-import { convertAudioToOggOpus, compressVideoForWhatsApp, WA_VIDEO_LIMIT } from '../media/whatsapp-transcode.util';
+import {
+  convertAudioToOggOpus,
+  compressVideoForWhatsApp,
+  WA_VIDEO_LIMIT,
+} from '../media/whatsapp-transcode.util';
 import { ConversationFlowsService } from '../conversation-flows/conversation-flows.service';
-import { ConversationFlowEngine, FlowContext, FlowRunResult, parseButtonPayload } from '../conversation-flows/conversation-flow.engine';
+import {
+  ConversationFlowEngine,
+  FlowContext,
+  FlowRunResult,
+  parseButtonPayload,
+} from '../conversation-flows/conversation-flow.engine';
 import { buildContactVariables } from '../conversation-flows/contact-fields.util';
 import { FlowLinksService } from '../conversation-flows/flow-links.service';
 
@@ -106,10 +124,15 @@ export class ChatsService {
    * DESPUÉS, garantizando que el segundo webhook duplicado vea el mensaje ya
    * guardado por el primero y lo salte. Libera el candado al terminar.
    */
-  private async withInboundLock(key: string, fn: () => Promise<void>): Promise<void> {
+  private async withInboundLock(
+    key: string,
+    fn: () => Promise<void>,
+  ): Promise<void> {
     const previous = this.inboundMessageLocks.get(key) || Promise.resolve();
     let release!: () => void;
-    const current = new Promise<void>((resolve) => { release = resolve; });
+    const current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     // El nuevo candado es "esperar al anterior y luego mantener el turno".
     const chained = previous.then(() => current);
     this.inboundMessageLocks.set(key, chained);
@@ -171,7 +194,10 @@ export class ChatsService {
   // === INBOXES ===
 
   async getInboxes(tenantId: string): Promise<Inbox[]> {
-    return this.inboxRepo.find({ where: { tenantId }, order: { createdAt: 'ASC' } });
+    return this.inboxRepo.find({
+      where: { tenantId },
+      order: { createdAt: 'ASC' },
+    });
   }
 
   /** Canales que pueden usarse como origen de una campaña. */
@@ -196,10 +222,23 @@ export class ChatsService {
    */
   async getCampaignInboxes(
     tenantId: string,
-  ): Promise<Array<{ id: string; name: string; channel: string; channelName: string | null; connected: boolean }>> {
-    const inboxes = await this.inboxRepo.find({ where: { tenantId }, order: { createdAt: 'ASC' } });
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      channel: string;
+      channelName: string | null;
+      connected: boolean;
+    }>
+  > {
+    const inboxes = await this.inboxRepo.find({
+      where: { tenantId },
+      order: { createdAt: 'ASC' },
+    });
 
-    const campaignInboxes = inboxes.filter((i) => ChatsService.CAMPAIGN_CHANNELS.has(i.channel));
+    const campaignInboxes = inboxes.filter((i) =>
+      ChatsService.CAMPAIGN_CHANNELS.has(i.channel),
+    );
     if (campaignInboxes.length === 0) return [];
 
     // Resolver verificación de dominio solo para los inboxes de email transaccional.
@@ -211,7 +250,10 @@ export class ChatsService {
     if (emailTxInboxIds.length > 0) {
       const configs = await this.emailDomainService.findByTenant(tenantId);
       for (const cfg of configs) {
-        if (cfg.domainStatus === 'verified' && emailTxInboxIds.includes(cfg.inboxId)) {
+        if (
+          cfg.domainStatus === 'verified' &&
+          emailTxInboxIds.includes(cfg.inboxId)
+        ) {
           verifiedInboxIds.add(cfg.inboxId);
         }
       }
@@ -237,7 +279,17 @@ export class ChatsService {
    */
   async getBootstrap(
     tenantId: string,
-    opts: { inboxIds?: string[]; labelIds?: string[]; hideCampaign?: boolean; assignment?: AssignmentFilter; userId?: string; search?: string; recordFilters?: Array<{ field: string; operator: string; value: string }>; limit: number; offset: number },
+    opts: {
+      inboxIds?: string[];
+      labelIds?: string[];
+      hideCampaign?: boolean;
+      assignment?: AssignmentFilter;
+      userId?: string;
+      search?: string;
+      recordFilters?: Array<{ field: string; operator: string; value: string }>;
+      limit: number;
+      offset: number;
+    },
   ): Promise<{
     inboxes: Inbox[];
     conversations: { data: Conversation[]; total: number };
@@ -277,7 +329,11 @@ export class ChatsService {
     return { inboxes, conversations, labels, members };
   }
 
-  async createInbox(data: { tenantId: string; name: string; channel: string }): Promise<Inbox> {
+  async createInbox(data: {
+    tenantId: string;
+    name: string;
+    channel: string;
+  }): Promise<Inbox> {
     const defaultSchedule = {
       lunes: { enabled: true, start: '08:00', end: '18:00' },
       martes: { enabled: true, start: '08:00', end: '18:00' },
@@ -289,8 +345,14 @@ export class ChatsService {
       festivos: { enabled: false, start: '09:00', end: '13:00' },
     };
     const alwaysConnected = ['sms', 'llamada', 'form', 'email', 'chat'];
-    const status = alwaysConnected.includes(data.channel) ? 'connected' : 'disconnected';
-    const inbox = this.inboxRepo.create({ ...data, status, metadata: { schedule: defaultSchedule } });
+    const status = alwaysConnected.includes(data.channel)
+      ? 'connected'
+      : 'disconnected';
+    const inbox = this.inboxRepo.create({
+      ...data,
+      status,
+      metadata: { schedule: defaultSchedule },
+    });
     return this.inboxRepo.save(inbox);
   }
 
@@ -298,15 +360,25 @@ export class ChatsService {
     const inbox = await this.inboxRepo.findOne({ where: { id } });
 
     // Si es un inbox de Evolution, eliminar la instancia en Evolution API
-    if (inbox && inbox.channel === 'evolution' && inbox.metadata?.evolutionInstanceName) {
+    if (
+      inbox &&
+      inbox.channel === 'evolution' &&
+      inbox.metadata?.evolutionInstanceName
+    ) {
       try {
-        await this.evolutionService.deleteInstance(inbox.metadata.evolutionInstanceName);
+        await this.evolutionService.deleteInstance(
+          inbox.metadata.evolutionInstanceName,
+        );
       } catch (err: any) {
-        console.warn(`[DeleteInbox] Failed to delete Evolution instance: ${err.message}`);
+        console.warn(
+          `[DeleteInbox] Failed to delete Evolution instance: ${err.message}`,
+        );
       }
     }
 
-    const conversationCount = await this.conversationRepo.count({ where: { inboxId: id } });
+    const conversationCount = await this.conversationRepo.count({
+      where: { inboxId: id },
+    });
     if (conversationCount > 0) {
       // Soft delete — inbox has conversations
       await this.inboxRepo.softDelete(id);
@@ -326,8 +398,14 @@ export class ChatsService {
     });
   }
 
-  async addCollaborator(inboxId: string, type: string, referenceId: string): Promise<InboxCollaborator> {
-    const existing = await this.collaboratorRepo.findOne({ where: { inboxId, type, referenceId } });
+  async addCollaborator(
+    inboxId: string,
+    type: string,
+    referenceId: string,
+  ): Promise<InboxCollaborator> {
+    const existing = await this.collaboratorRepo.findOne({
+      where: { inboxId, type, referenceId },
+    });
     if (existing) return existing;
     const collab = this.collaboratorRepo.create({ inboxId, type, referenceId });
     return this.collaboratorRepo.save(collab);
@@ -352,9 +430,16 @@ export class ChatsService {
     const inbox = await this.findInboxById(id);
     const VALID_MATCH = new Set(['exact', 'contains', 'startsWith']);
     const VALID_ACTIONS = new Set([
-      'set_status', 'set_opt_in_whatsapp', 'set_opt_in_email',
-      'add_tag', 'remove_tag', 'set_conversation_status',
-      'assign_agent', 'assign_team', 'reply', 'reply_template',
+      'set_status',
+      'set_opt_in_whatsapp',
+      'set_opt_in_email',
+      'add_tag',
+      'remove_tag',
+      'set_conversation_status',
+      'assign_agent',
+      'assign_team',
+      'reply',
+      'reply_template',
     ]);
 
     const clean = (Array.isArray(rules) ? rules : []).map((r, i) => {
@@ -366,16 +451,29 @@ export class ChatsService {
         .map((a: any) => ({
           type: a.type,
           ...(a.value !== undefined ? { value: a.value } : {}),
-          ...(a.message !== undefined ? { message: String(a.message || '') } : {}),
+          ...(a.message !== undefined
+            ? { message: String(a.message || '') }
+            : {}),
           // Campos de la acción "reply_template" (responder con plantilla de WhatsApp)
-          ...(a.templateName !== undefined ? { templateName: String(a.templateName || '') } : {}),
-          ...(a.templateLanguage !== undefined ? { templateLanguage: String(a.templateLanguage || 'es') } : {}),
-          ...(a.templateCategory !== undefined ? { templateCategory: String(a.templateCategory || '') } : {}),
-          ...(Array.isArray(a.templateComponents) ? { templateComponents: a.templateComponents } : {}),
+          ...(a.templateName !== undefined
+            ? { templateName: String(a.templateName || '') }
+            : {}),
+          ...(a.templateLanguage !== undefined
+            ? { templateLanguage: String(a.templateLanguage || 'es') }
+            : {}),
+          ...(a.templateCategory !== undefined
+            ? { templateCategory: String(a.templateCategory || '') }
+            : {}),
+          ...(Array.isArray(a.templateComponents)
+            ? { templateComponents: a.templateComponents }
+            : {}),
           ...(a.templateVariables && typeof a.templateVariables === 'object'
             ? {
                 templateVariables: Object.fromEntries(
-                  Object.entries(a.templateVariables).map(([k, v]) => [String(k), String(v ?? '')]),
+                  Object.entries(a.templateVariables).map(([k, v]) => [
+                    String(k),
+                    String(v ?? ''),
+                  ]),
                 ),
               }
             : {}),
@@ -435,11 +533,16 @@ export class ChatsService {
       templateName,
       templateLanguage: String(cfg?.templateLanguage || 'es').trim() || 'es',
       templateCategory: String(cfg?.templateCategory || '').trim(),
-      templateComponents: Array.isArray(cfg?.templateComponents) ? cfg!.templateComponents : [],
+      templateComponents: Array.isArray(cfg?.templateComponents)
+        ? cfg!.templateComponents
+        : [],
       templateVariables:
         cfg?.templateVariables && typeof cfg.templateVariables === 'object'
           ? Object.fromEntries(
-              Object.entries(cfg.templateVariables).map(([k, v]) => [String(k), String(v ?? '')]),
+              Object.entries(cfg.templateVariables).map(([k, v]) => [
+                String(k),
+                String(v ?? ''),
+              ]),
             )
           : {},
     };
@@ -486,7 +589,10 @@ export class ChatsService {
   }
 
   async getTenantByInboxId(inboxId: string): Promise<{ slug: string } | null> {
-    const inbox = await this.inboxRepo.findOne({ where: { id: inboxId }, relations: { tenant: true } });
+    const inbox = await this.inboxRepo.findOne({
+      where: { id: inboxId },
+      relations: { tenant: true },
+    });
     return inbox?.tenant || null;
   }
 
@@ -494,13 +600,16 @@ export class ChatsService {
 
   getOAuthUrl(inboxId: string, channel: string): string {
     const appId = this.configService.get<string>('META_APP_ID');
-    const baseUrl = this.configService.get<string>('META_BASE_URL') || 'http://localhost:3001';
+    const baseUrl =
+      this.configService.get<string>('META_BASE_URL') ||
+      'http://localhost:3001';
     const redirectUri = `${baseUrl}/api/chats/oauth/callback`;
 
     if (channel === 'instagram') {
       // Instagram uses its own OAuth flow
       const igAppId = this.configService.get<string>('INSTAGRAM_APP_ID');
-      const scopes = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments';
+      const scopes =
+        'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments';
       const state = JSON.stringify({ inboxId, channel });
       return `https://www.instagram.com/oauth/authorize?client_id=${igAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scopes}&state=${encodeURIComponent(state)}`;
     }
@@ -508,7 +617,8 @@ export class ChatsService {
     let scopes: string;
     switch (channel) {
       case 'whatsapp':
-        scopes = 'whatsapp_business_management,whatsapp_business_messaging,business_management';
+        scopes =
+          'whatsapp_business_management,whatsapp_business_messaging,business_management';
         break;
       case 'messenger':
         scopes = 'pages_messaging,pages_show_list,pages_manage_metadata';
@@ -523,26 +633,33 @@ export class ChatsService {
 
   async handleOAuthCallback(code: string, state: string): Promise<Inbox> {
     const { inboxId, channel } = JSON.parse(state);
-    const baseUrl = this.configService.get<string>('META_BASE_URL') || 'http://localhost:3001';
+    const baseUrl =
+      this.configService.get<string>('META_BASE_URL') ||
+      'http://localhost:3001';
     const redirectUri = `${baseUrl}/api/chats/oauth/callback`;
 
     if (channel === 'instagram') {
       // Instagram OAuth: exchange code using Instagram app credentials
       const igAppId = this.configService.get<string>('INSTAGRAM_APP_ID');
-      const igAppSecret = this.configService.get<string>('INSTAGRAM_APP_SECRET');
+      const igAppSecret = this.configService.get<string>(
+        'INSTAGRAM_APP_SECRET',
+      );
 
       // Exchange code for short-lived token
-      const tokenRes = await fetch('https://api.instagram.com/oauth/access_token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: igAppId!,
-          client_secret: igAppSecret!,
-          grant_type: 'authorization_code',
-          redirect_uri: redirectUri,
-          code,
-        }),
-      });
+      const tokenRes = await fetch(
+        'https://api.instagram.com/oauth/access_token',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: igAppId!,
+            client_secret: igAppSecret!,
+            grant_type: 'authorization_code',
+            redirect_uri: redirectUri,
+            code,
+          }),
+        },
+      );
       const tokenData = await tokenRes.json();
 
       if (!tokenData.access_token) {
@@ -551,7 +668,9 @@ export class ChatsService {
       }
 
       // Exchange for long-lived token
-      const longRes = await fetch(`https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${igAppSecret}&access_token=${tokenData.access_token}`);
+      const longRes = await fetch(
+        `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${igAppSecret}&access_token=${tokenData.access_token}`,
+      );
       const longData = await longRes.json();
       const igLongToken = longData.access_token || tokenData.access_token;
 
@@ -560,10 +679,16 @@ export class ChatsService {
       const igUserId = tokenData.user_id;
 
       try {
-        const profileRes = await fetch(`https://graph.instagram.com/v21.0/${igUserId}?fields=username,name,profile_picture_url&access_token=${igLongToken}`);
+        const profileRes = await fetch(
+          `https://graph.instagram.com/v21.0/${igUserId}?fields=username,name,profile_picture_url&access_token=${igLongToken}`,
+        );
         const profile = await profileRes.json();
         inbox.channelName = profile.username ? `@${profile.username}` : null;
-        inbox.metadata = { ...inbox.metadata, instagramUserId: igUserId, instagramUsername: profile.username };
+        inbox.metadata = {
+          ...inbox.metadata,
+          instagramUserId: igUserId,
+          instagramUsername: profile.username,
+        };
       } catch (err) {
         console.error('[Instagram OAuth] Failed to get profile:', err);
       }
@@ -574,11 +699,17 @@ export class ChatsService {
 
       // Subscribe Instagram account to webhook for messages
       try {
-        await fetch(`https://graph.instagram.com/v21.0/${igUserId}/subscribed_apps`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subscribed_fields: ['messages'], access_token: igLongToken }),
-        });
+        await fetch(
+          `https://graph.instagram.com/v21.0/${igUserId}/subscribed_apps`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subscribed_fields: ['messages'],
+              access_token: igLongToken,
+            }),
+          },
+        );
         console.log(`[Instagram] Subscribed account ${igUserId} to webhook`);
       } catch (err) {
         console.error('[Instagram] Failed to subscribe to webhook:', err);
@@ -611,7 +742,9 @@ export class ChatsService {
 
     if (channel === 'whatsapp') {
       // Get WABA info
-      const wabaRes = await fetch(`https://graph.facebook.com/v21.0/me/businesses?access_token=${fbLongToken}`);
+      const wabaRes = await fetch(
+        `https://graph.facebook.com/v21.0/me/businesses?access_token=${fbLongToken}`,
+      );
       const wabaData = await wabaRes.json();
       // Try to get WABA and phone number
       // For now store the token — user can configure phone number separately
@@ -620,7 +753,9 @@ export class ChatsService {
       inbox.metadata = { ...inbox.metadata, businesses: wabaData.data };
     } else if (channel === 'messenger') {
       // Get pages
-      const pagesRes = await fetch(`https://graph.facebook.com/v21.0/me/accounts?access_token=${fbLongToken}`);
+      const pagesRes = await fetch(
+        `https://graph.facebook.com/v21.0/me/accounts?access_token=${fbLongToken}`,
+      );
       const pagesData = await pagesRes.json();
       const pages = pagesData.data || [];
 
@@ -634,14 +769,23 @@ export class ChatsService {
         if (channel === 'instagram') {
           // Get Instagram Business Account linked to this page
           try {
-            const igRes = await fetch(`https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`);
+            const igRes = await fetch(
+              `https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`,
+            );
             const igData = await igRes.json();
             if (igData.instagram_business_account?.id) {
-              inbox.metadata = { ...inbox.metadata, instagramAccountId: igData.instagram_business_account.id };
+              inbox.metadata = {
+                ...inbox.metadata,
+                instagramAccountId: igData.instagram_business_account.id,
+              };
               // Get Instagram username
-              const igProfileRes = await fetch(`https://graph.facebook.com/v21.0/${igData.instagram_business_account.id}?fields=username,name&access_token=${page.access_token}`);
+              const igProfileRes = await fetch(
+                `https://graph.facebook.com/v21.0/${igData.instagram_business_account.id}?fields=username,name&access_token=${page.access_token}`,
+              );
               const igProfile = await igProfileRes.json();
-              inbox.channelName = igProfile.username ? `@${igProfile.username}` : page.name;
+              inbox.channelName = igProfile.username
+                ? `@${igProfile.username}`
+                : page.name;
             }
           } catch (err) {
             console.error('[OAuth] Failed to get Instagram account:', err);
@@ -649,18 +793,22 @@ export class ChatsService {
         }
 
         // Subscribe page to webhook
-        const subscribedFields = channel === 'messenger'
-          ? ['messages', 'messaging_postbacks']
-          : ['messages', 'messaging_postbacks'];
+        const subscribedFields =
+          channel === 'messenger'
+            ? ['messages', 'messaging_postbacks']
+            : ['messages', 'messaging_postbacks'];
 
-        await fetch(`https://graph.facebook.com/v21.0/${page.id}/subscribed_apps`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            access_token: page.access_token,
-            subscribed_fields: subscribedFields,
-          }),
-        });
+        await fetch(
+          `https://graph.facebook.com/v21.0/${page.id}/subscribed_apps`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              access_token: page.access_token,
+              subscribed_fields: subscribedFields,
+            }),
+          },
+        );
       }
     }
 
@@ -671,13 +819,22 @@ export class ChatsService {
 
   async manualConnect(
     inboxId: string,
-    data: { accessToken: string; phoneNumberId?: string; wabaId?: string; pageId?: string },
+    data: {
+      accessToken: string;
+      phoneNumberId?: string;
+      wabaId?: string;
+      pageId?: string;
+    },
   ): Promise<Inbox> {
     const inbox = await this.findInboxById(inboxId);
 
     // Regla A: el tenant solo puede estar vinculado a una WABA.
     if (data.wabaId) {
-      await this.assertSingleWabaPerTenant(inbox.tenantId, data.wabaId, inbox.id);
+      await this.assertSingleWabaPerTenant(
+        inbox.tenantId,
+        data.wabaId,
+        inbox.id,
+      );
     }
 
     inbox.accessToken = data.accessToken;
@@ -694,14 +851,19 @@ export class ChatsService {
           `https://graph.facebook.com/v21.0/${data.phoneNumberId}?fields=display_phone_number,verified_name&access_token=${data.accessToken}`,
         );
         const phoneData = await res.json();
-        inbox.channelName = phoneData.display_phone_number || phoneData.verified_name || null;
+        inbox.channelName =
+          phoneData.display_phone_number || phoneData.verified_name || null;
       } catch (error) {
         console.error('[Manual Connect] Error fetching phone info:', error);
       }
 
       // Subscribe WABA to webhook if we have wabaId
       if (data.wabaId) {
-        await this.subscribeWabaToWebhook(data.wabaId, data.accessToken, 'Manual Connect');
+        await this.subscribeWabaToWebhook(
+          data.wabaId,
+          data.accessToken,
+          'Manual Connect',
+        );
       }
     }
 
@@ -710,7 +872,19 @@ export class ChatsService {
 
   // === EMAIL SMTP ===
 
-  async configureSmtp(inboxId: string, smtpConfig: { host: string; port: number; secure: boolean; user: string; pass: string; fromName: string; fromEmail: string; defaultSubject?: string }) {
+  async configureSmtp(
+    inboxId: string,
+    smtpConfig: {
+      host: string;
+      port: number;
+      secure: boolean;
+      user: string;
+      pass: string;
+      fromName: string;
+      fromEmail: string;
+      defaultSubject?: string;
+    },
+  ) {
     const inbox = await this.findInboxById(inboxId);
     inbox.metadata = {
       ...inbox.metadata,
@@ -722,7 +896,15 @@ export class ChatsService {
     return { status: 'configured', channelName: smtpConfig.fromEmail };
   }
 
-  async testSmtp(smtpConfig: { host: string; port: number; secure: boolean; user: string; pass: string; fromName: string; fromEmail: string }) {
+  async testSmtp(smtpConfig: {
+    host: string;
+    port: number;
+    secure: boolean;
+    user: string;
+    pass: string;
+    fromName: string;
+    fromEmail: string;
+  }) {
     try {
       const nodemailer = await import('nodemailer');
       const transporter = nodemailer.createTransport({
@@ -738,7 +920,16 @@ export class ChatsService {
     }
   }
 
-  async sendTestEmail(inboxId: string, options: { to: string; subject: string; html: string; variables?: Record<string, string>; fromName?: string }) {
+  async sendTestEmail(
+    inboxId: string,
+    options: {
+      to: string;
+      subject: string;
+      html: string;
+      variables?: Record<string, string>;
+      fromName?: string;
+    },
+  ) {
     const inbox = await this.findInboxById(inboxId);
     const smtpConfig = inbox.metadata?.smtp;
     if (!smtpConfig?.host || !smtpConfig?.user || !smtpConfig?.pass) {
@@ -759,12 +950,18 @@ export class ChatsService {
     // Canonical {{unsubscribe_url}} plus the {{unsuscribe_url}} typo alias.
     // In the HTML body it becomes a clickable link (collapsing any wrapping
     // <u>…</u>); in the subject, where HTML is not allowed, it becomes the raw URL.
-    const unsubscribeUrl = this.emailUnsubscribeService.getUnsubscribeUrl(inbox.tenantId, options.to);
+    const unsubscribeUrl = this.emailUnsubscribeService.getUnsubscribeUrl(
+      inbox.tenantId,
+      options.to,
+    );
     const unsubRegex = /\{\{\s*(?:unsubscribe_url|unsuscribe_url)\s*\}\}/gi;
     const unsubscribeLink = `<a href="${unsubscribeUrl}" style="color:inherit;text-decoration:underline;">Cancelar suscripción</a>`;
     subject = subject.replace(unsubRegex, unsubscribeUrl);
     html = html
-      .replace(/<u>\s*\{\{\s*(?:unsubscribe_url|unsuscribe_url)\s*\}\}\s*<\/u>/gi, unsubscribeLink)
+      .replace(
+        /<u>\s*\{\{\s*(?:unsubscribe_url|unsuscribe_url)\s*\}\}\s*<\/u>/gi,
+        unsubscribeLink,
+      )
       .replace(unsubRegex, unsubscribeLink);
 
     try {
@@ -776,7 +973,8 @@ export class ChatsService {
         auth: { user: smtpConfig.user, pass: smtpConfig.pass },
       });
 
-      const senderName = options.fromName?.trim() || smtpConfig.fromName || 'Smartee';
+      const senderName =
+        options.fromName?.trim() || smtpConfig.fromName || 'Smartee';
       const from = `"${senderName}" <${smtpConfig.fromEmail || smtpConfig.user}>`;
       await transporter.sendMail({ from, to: options.to, subject, html });
       return { success: true };
@@ -785,7 +983,10 @@ export class ChatsService {
     }
   }
 
-  async handleWhatsAppEmbeddedSignup(code: string, inboxId: string): Promise<Inbox> {
+  async handleWhatsAppEmbeddedSignup(
+    code: string,
+    inboxId: string,
+  ): Promise<Inbox> {
     const appId = this.configService.get<string>('META_APP_ID');
     const appSecret = this.configService.get<string>('META_APP_SECRET');
 
@@ -810,7 +1011,10 @@ export class ChatsService {
         accessToken = longLivedData.access_token;
         console.log('[WhatsApp Embedded] Exchanged for long-lived token');
       } else {
-        console.warn('[WhatsApp Embedded] Long-lived token exchange failed, using short-lived:', longLivedData);
+        console.warn(
+          '[WhatsApp Embedded] Long-lived token exchange failed, using short-lived:',
+          longLivedData,
+        );
       }
     } catch (err) {
       console.warn('[WhatsApp Embedded] Long-lived token exchange error:', err);
@@ -821,14 +1025,20 @@ export class ChatsService {
 
     try {
       // Debug token to get granular scopes and target IDs
-      const sharedRes = await fetch(`https://graph.facebook.com/v21.0/debug_token?input_token=${accessToken}&access_token=${appId}|${appSecret}`);
+      const sharedRes = await fetch(
+        `https://graph.facebook.com/v21.0/debug_token?input_token=${accessToken}&access_token=${appId}|${appSecret}`,
+      );
       const sharedData = await sharedRes.json();
       const granularScopes = sharedData.data?.granular_scopes || [];
 
-      const waScope = granularScopes.find((s: any) => s.scope === 'whatsapp_business_management');
+      const waScope = granularScopes.find(
+        (s: any) => s.scope === 'whatsapp_business_management',
+      );
       if (waScope?.target_ids?.length > 0) wabaId = waScope.target_ids[0];
 
-      const msgScope = granularScopes.find((s: any) => s.scope === 'whatsapp_business_messaging');
+      const msgScope = granularScopes.find(
+        (s: any) => s.scope === 'whatsapp_business_messaging',
+      );
       if (msgScope?.target_ids?.length > 0) {
         // This might be phone number ID or WABA ID depending on the token type
         // We'll verify it below by fetching phone numbers from WABA
@@ -837,18 +1047,25 @@ export class ChatsService {
 
       // Always fetch phone numbers from WABA to get the correct phone number ID
       if (wabaId) {
-        const phonesRes = await fetch(`https://graph.facebook.com/v21.0/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name&access_token=${accessToken}`);
+        const phonesRes = await fetch(
+          `https://graph.facebook.com/v21.0/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name&access_token=${accessToken}`,
+        );
         const phonesData = await phonesRes.json();
         if (phonesData.data?.length > 0) {
           phoneNumberId = phonesData.data[0].id;
-          phoneDisplay = phonesData.data[0].display_phone_number || phonesData.data[0].verified_name;
+          phoneDisplay =
+            phonesData.data[0].display_phone_number ||
+            phonesData.data[0].verified_name;
         }
       }
 
       if (phoneNumberId && !phoneDisplay) {
-        const phoneRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}?fields=display_phone_number,verified_name&access_token=${accessToken}`);
+        const phoneRes = await fetch(
+          `https://graph.facebook.com/v21.0/${phoneNumberId}?fields=display_phone_number,verified_name&access_token=${accessToken}`,
+        );
         const phoneData = await phoneRes.json();
-        phoneDisplay = phoneData.display_phone_number || phoneData.verified_name || null;
+        phoneDisplay =
+          phoneData.display_phone_number || phoneData.verified_name || null;
       }
     } catch (error) {
       console.error('[WhatsApp Embedded] Error getting WABA info:', error);
@@ -870,7 +1087,11 @@ export class ChatsService {
 
     // Subscribe WABA to webhook
     if (wabaId) {
-      await this.subscribeWabaToWebhook(wabaId, accessToken, 'WhatsApp Embedded');
+      await this.subscribeWabaToWebhook(
+        wabaId,
+        accessToken,
+        'WhatsApp Embedded',
+      );
     }
 
     return this.inboxRepo.save(inbox);
@@ -882,29 +1103,46 @@ export class ChatsService {
    * puede no entregar los mensajes entrantes, con lo que la bandeja nunca los
    * recibe. Verifica además qué campos quedaron suscritos para dejar rastro.
    */
-  private async subscribeWabaToWebhook(wabaId: string, accessToken: string, tag: string): Promise<void> {
+  private async subscribeWabaToWebhook(
+    wabaId: string,
+    accessToken: string,
+    tag: string,
+  ): Promise<void> {
     try {
-      const res = await fetch(`https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          access_token: accessToken,
-          subscribed_fields: ['messages'],
-        }),
-      });
+      const res = await fetch(
+        `https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            access_token: accessToken,
+            subscribed_fields: ['messages'],
+          }),
+        },
+      );
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.success === false) {
-        console.error(`[${tag}] subscribed_apps falló para WABA ${wabaId}:`, JSON.stringify(data).slice(0, 300));
+        console.error(
+          `[${tag}] subscribed_apps falló para WABA ${wabaId}:`,
+          JSON.stringify(data).slice(0, 300),
+        );
       } else {
         console.log(`[${tag}] Suscrito WABA ${wabaId} al campo 'messages'`);
       }
 
       // Verificar qué campos quedaron suscritos (diagnóstico).
       try {
-        const check = await fetch(`https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps?access_token=${accessToken}`);
+        const check = await fetch(
+          `https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps?access_token=${accessToken}`,
+        );
         const checkData = await check.json().catch(() => ({}));
-        console.log(`[${tag}] subscribed_apps actuales de WABA ${wabaId}:`, JSON.stringify(checkData).slice(0, 400));
-      } catch { /* no-op */ }
+        console.log(
+          `[${tag}] subscribed_apps actuales de WABA ${wabaId}:`,
+          JSON.stringify(checkData).slice(0, 400),
+        );
+      } catch {
+        /* no-op */
+      }
     } catch (err) {
       console.error(`[${tag}] Error al suscribir WABA ${wabaId}:`, err);
     }
@@ -915,17 +1153,26 @@ export class ChatsService {
    * y devuelve el estado actual de suscripción que reporta Meta. Pensado para
    * reparar números que están conectados pero no reciben mensajes entrantes.
    */
-  async resubscribeInboxWebhook(inboxId: string): Promise<{ ok: boolean; reason?: string; subscribed?: any }> {
+  async resubscribeInboxWebhook(
+    inboxId: string,
+  ): Promise<{ ok: boolean; reason?: string; subscribed?: any }> {
     const inbox = await this.findInboxById(inboxId);
 
     if (inbox.channel !== 'whatsapp') {
       return { ok: false, reason: 'El canal no es de WhatsApp' };
     }
     if (!inbox.wabaId || !inbox.accessToken) {
-      return { ok: false, reason: 'Falta wabaId o accessToken en el canal. Reconecta el número.' };
+      return {
+        ok: false,
+        reason: 'Falta wabaId o accessToken en el canal. Reconecta el número.',
+      };
     }
 
-    await this.subscribeWabaToWebhook(inbox.wabaId, inbox.accessToken, 'Resubscribe');
+    await this.subscribeWabaToWebhook(
+      inbox.wabaId,
+      inbox.accessToken,
+      'Resubscribe',
+    );
 
     // Devolver los campos suscritos actuales para diagnóstico desde el frontend.
     try {
@@ -935,7 +1182,10 @@ export class ChatsService {
       const subscribed = await check.json().catch(() => ({}));
       return { ok: true, subscribed };
     } catch (err: any) {
-      return { ok: true, reason: `Suscrito, pero no se pudo verificar: ${err?.message || err}` };
+      return {
+        ok: true,
+        reason: `Suscrito, pero no se pudo verificar: ${err?.message || err}`,
+      };
     }
   }
 
@@ -957,7 +1207,11 @@ export class ChatsService {
             await this.handleWhatsAppStatuses(change.value.statuses);
           }
           // Instagram messages (new API format)
-          if (change.field === 'messages' && change.value?.sender && change.value?.message) {
+          if (
+            change.field === 'messages' &&
+            change.value?.sender &&
+            change.value?.message
+          ) {
             await this.handleInstagramMessage(entry.id, change.value);
           }
         }
@@ -1010,7 +1264,10 @@ export class ChatsService {
    * @param userId  user_id de identidad (normalmente con prefijo "CO.")
    * @returns el identificador canónico a usar como contactId de la conversación.
    */
-  private canonicalWhatsAppContactId(waId: string | null, userId: string | null): string | null {
+  private canonicalWhatsAppContactId(
+    waId: string | null,
+    userId: string | null,
+  ): string | null {
     // Si hay un BSUID con prefijo, esa es la forma canónica (identidad sin teléfono).
     if (userId && this.isWhatsAppIdentityId(userId)) return userId;
     // Si el userId vino sin prefijo pero el waId numérico coincide, y NO hay un
@@ -1046,9 +1303,13 @@ export class ChatsService {
    * Conservamos phone y whatsappId por separado en el contacto, de modo que el
    * teléfono se use cuando esté disponible y el BSUID cuando solo tengamos identidad.
    */
-  private async resolveWhatsAppRecipient(conversation: Conversation): Promise<Record<string, any>> {
+  private async resolveWhatsAppRecipient(
+    conversation: Conversation,
+  ): Promise<Record<string, any>> {
     if (conversation.recordId) {
-      const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+      const record = await this.clientRecordRepo.findOne({
+        where: { id: conversation.recordId },
+      });
       const phone = record?.phone?.trim();
       // 1) Preferir SIEMPRE el teléfono real del contacto (entrega por `to`).
       if (phone && !this.isWhatsAppIdentityId(phone)) {
@@ -1082,13 +1343,19 @@ export class ChatsService {
    * tolerante al código de país (compara los últimos 10 dígitos). Devuelve null si
    * no hay match o si el sufijo no es fiable.
    */
-  private async findRecordByPhoneFlexible(phone: string, tenantId: string): Promise<ClientRecord | null> {
+  private async findRecordByPhoneFlexible(
+    phone: string,
+    tenantId: string,
+  ): Promise<ClientRecord | null> {
     const suffix = this.phoneSuffix(phone);
     if (!suffix) return null;
     return this.clientRecordRepo
       .createQueryBuilder('client')
       .where('client.tenant_id = :tenantId', { tenantId })
-      .andWhere("RIGHT(regexp_replace(client.phone, '\\D', '', 'g'), 10) = :suffix", { suffix })
+      .andWhere(
+        "RIGHT(regexp_replace(client.phone, '\\D', '', 'g'), 10) = :suffix",
+        { suffix },
+      )
       .getOne();
   }
 
@@ -1098,7 +1365,9 @@ export class ChatsService {
 
     const inbox = await this.inboxRepo.findOne({ where: { phoneNumberId } });
     if (!inbox) {
-      console.warn(`[Webhook] No inbox found for phone_number_id: ${phoneNumberId}`);
+      console.warn(
+        `[Webhook] No inbox found for phone_number_id: ${phoneNumberId}`,
+      );
       return;
     }
 
@@ -1126,299 +1395,362 @@ export class ChatsService {
    * `withInboundLock`, de modo que el chequeo de idempotencia (findOne) y el
    * guardado (save) no compiten con una entrega duplicada concurrente.
    */
-  private async processWhatsAppInboundMessage(inbox: Inbox, value: any, msg: any): Promise<void> {
-      // Idempotencia: Meta puede reenviar el mismo webhook (reintentos o eventos
-      // duplicados, común con botones/interactive). Si ya guardamos un mensaje con
-      // este external_id (msg.id), lo saltamos para no duplicarlo ni re-disparar
-      // automatizaciones/notificaciones.
-      if (msg.id) {
-        const already = await this.messageRepo.findOne({ where: { externalId: msg.id }, select: { id: true } });
-        if (already) {
-          console.log(`[Webhook] Duplicate message skipped (external_id already exists): ${msg.id}`);
-          return;
-        }
-      }
-
-      const contact = value.contacts?.[0];
-      // Meta puede enviar el teléfono (wa_id/from) y/o el BSUID de identidad
-      // (user_id/from_user_id) según si el contacto usa username. Capturamos ambos
-      // por separado para conservar phone y whatsappId de forma independiente.
-      const waId: string | null = msg.from || contact?.wa_id || null;
-      const userId: string | null = msg.from_user_id || contact?.user_id || null;
-
-      // contactId canónico: si el contacto usa identidad (BSUID con prefijo),
-      // usamos el BSUID como forma canónica para que coincida con el guardado al
-      // enviar; si no, el teléfono/wa_id. Nunca debe quedar undefined.
-      const contactPhone = this.canonicalWhatsAppContactId(waId, userId);
-
-      if (!contactPhone) {
-        console.warn(`[Webhook] Skipping message with no resolvable contact id: ${JSON.stringify(msg).substring(0, 300)}`);
+  private async processWhatsAppInboundMessage(
+    inbox: Inbox,
+    value: any,
+    msg: any,
+  ): Promise<void> {
+    // Idempotencia: Meta puede reenviar el mismo webhook (reintentos o eventos
+    // duplicados, común con botones/interactive). Si ya guardamos un mensaje con
+    // este external_id (msg.id), lo saltamos para no duplicarlo ni re-disparar
+    // automatizaciones/notificaciones.
+    if (msg.id) {
+      const already = await this.messageRepo.findOne({
+        where: { externalId: msg.id },
+        select: { id: true },
+      });
+      if (already) {
+        console.log(
+          `[Webhook] Duplicate message skipped (external_id already exists): ${msg.id}`,
+        );
         return;
       }
+    }
 
-      const contactName = contact?.profile?.name || contactPhone;
-      const isIdentityContact = this.isWhatsAppIdentityId(contactPhone);
+    const contact = value.contacts?.[0];
+    // Meta puede enviar el teléfono (wa_id/from) y/o el BSUID de identidad
+    // (user_id/from_user_id) según si el contacto usa username. Capturamos ambos
+    // por separado para conservar phone y whatsappId de forma independiente.
+    const waId: string | null = msg.from || contact?.wa_id || null;
+    const userId: string | null = msg.from_user_id || contact?.user_id || null;
 
-      // 1) Buscar conversación por contactId exacto.
-      let conversation = await this.conversationRepo.findOne({
-        where: { inboxId: inbox.id, contactId: contactPhone },
-      });
+    // contactId canónico: si el contacto usa identidad (BSUID con prefijo),
+    // usamos el BSUID como forma canónica para que coincida con el guardado al
+    // enviar; si no, el teléfono/wa_id. Nunca debe quedar undefined.
+    const contactPhone = this.canonicalWhatsAppContactId(waId, userId);
 
-      // Identificadores útiles para reconciliar: BSUID (si aplica) y teléfono real.
-      const inboundBsuid = this.isWhatsAppIdentityId(userId) ? userId : (isIdentityContact ? contactPhone : null);
-      const inboundPhone = (waId && !this.isWhatsAppIdentityId(waId)) ? waId.replace(/^\+/, '') : null;
+    if (!contactPhone) {
+      console.warn(
+        `[Webhook] Skipping message with no resolvable contact id: ${JSON.stringify(msg).substring(0, 300)}`,
+      );
+      return;
+    }
 
-      // 2) Reconciliación: si no se encontró la conversación por contactId exacto,
-      // intentar encontrar el ClientRecord existente por BSUID o por TELÉFONO y
-      // reusar su conversación en este inbox. Esto cubre el caso de un contacto
-      // agregado manualmente con teléfono, al que se le envió una plantilla
-      // (conversación creada con contactId=teléfono) y que responde con su BSUID
-      // (webhook con user_id de identidad). Evita duplicar conversación y contacto.
-      if (!conversation && (inboundBsuid || inboundPhone)) {
-        // Match por BSUID exacto o por teléfono tolerante al código de país
-        // (últimos 10 dígitos), para reconciliar contactos guardados como
-        // "3203191584" con webhooks que traen "573203191584".
-        const phoneSuffix = this.phoneSuffix(inboundPhone);
-        const qb = this.clientRecordRepo
-          .createQueryBuilder('client')
-          .where('client.tenant_id = :tenantId', { tenantId: inbox.tenantId });
-        if (inboundBsuid && phoneSuffix) {
-          qb.andWhere("(client.whatsapp_id = :bsuid OR RIGHT(regexp_replace(client.phone, '\\D', '', 'g'), 10) = :suffix)", { bsuid: inboundBsuid, suffix: phoneSuffix });
-        } else if (inboundBsuid) {
-          qb.andWhere('client.whatsapp_id = :bsuid', { bsuid: inboundBsuid });
-        } else {
-          qb.andWhere("RIGHT(regexp_replace(client.phone, '\\D', '', 'g'), 10) = :suffix", { suffix: phoneSuffix });
-        }
-        const existingRecord = await qb.getOne();
+    const contactName = contact?.profile?.name || contactPhone;
+    const isIdentityContact = this.isWhatsAppIdentityId(contactPhone);
 
-        if (existingRecord) {
-          // Buscar la conversación existente del contacto en este inbox.
-          conversation = await this.conversationRepo.findOne({
-            where: { inboxId: inbox.id, recordId: existingRecord.id },
-          });
-          // Si el record no tenía conversación vinculada, buscar por el contactId
-          // con el que se creó la saliente (teléfono) antes de crear una nueva.
-          if (!conversation && inboundPhone) {
-            conversation = await this.conversationRepo.findOne({
-              where: { inboxId: inbox.id, contactId: inboundPhone },
-            });
-            if (conversation && !conversation.recordId) {
-              conversation.recordId = existingRecord.id;
-            }
-          }
-          // Canonicalizar el contactId de la conversación reencontrada al valor
-          // entrante (para futuras coincidencias directas).
-          if (conversation && conversation.contactId !== contactPhone) {
-            conversation.contactId = contactPhone;
-          }
-          if (conversation) await this.conversationRepo.save(conversation);
-        }
-      }
+    // 1) Buscar conversación por contactId exacto.
+    let conversation = await this.conversationRepo.findOne({
+      where: { inboxId: inbox.id, contactId: contactPhone },
+    });
 
-      // "Primer mensaje" = conversación nueva O conversación existente que aún
-      // no tiene ningún mensaje (p. ej. se vació o se creó sin actividad). En
-      // ambos casos el mensaje entrante actual es, de hecho, el primero.
-      let isNewConversation = false;
-      if (!conversation) {
-        conversation = this.conversationRepo.create({
-          inboxId: inbox.id,
-          contactId: contactPhone,
-          contactName,
-          status: 'open',
-        });
-        conversation = await this.conversationRepo.save(conversation);
-        isNewConversation = true;
+    // Identificadores útiles para reconciliar: BSUID (si aplica) y teléfono real.
+    const inboundBsuid = this.isWhatsAppIdentityId(userId)
+      ? userId
+      : isIdentityContact
+        ? contactPhone
+        : null;
+    const inboundPhone =
+      waId && !this.isWhatsAppIdentityId(waId) ? waId.replace(/^\+/, '') : null;
+
+    // 2) Reconciliación: si no se encontró la conversación por contactId exacto,
+    // intentar encontrar el ClientRecord existente por BSUID o por TELÉFONO y
+    // reusar su conversación en este inbox. Esto cubre el caso de un contacto
+    // agregado manualmente con teléfono, al que se le envió una plantilla
+    // (conversación creada con contactId=teléfono) y que responde con su BSUID
+    // (webhook con user_id de identidad). Evita duplicar conversación y contacto.
+    if (!conversation && (inboundBsuid || inboundPhone)) {
+      // Match por BSUID exacto o por teléfono tolerante al código de país
+      // (últimos 10 dígitos), para reconciliar contactos guardados como
+      // "3203191584" con webhooks que traen "573203191584".
+      const phoneSuffix = this.phoneSuffix(inboundPhone);
+      const qb = this.clientRecordRepo
+        .createQueryBuilder('client')
+        .where('client.tenant_id = :tenantId', { tenantId: inbox.tenantId });
+      if (inboundBsuid && phoneSuffix) {
+        qb.andWhere(
+          "(client.whatsapp_id = :bsuid OR RIGHT(regexp_replace(client.phone, '\\D', '', 'g'), 10) = :suffix)",
+          { bsuid: inboundBsuid, suffix: phoneSuffix },
+        );
+      } else if (inboundBsuid) {
+        qb.andWhere('client.whatsapp_id = :bsuid', { bsuid: inboundBsuid });
       } else {
-        // Conversación existente: comprobar si está vacía (0 mensajes) ANTES de
-        // guardar el entrante actual. Si lo está, se trata como primer mensaje.
-        const existingMsgCount = await this.messageRepo.count({
-          where: { conversationId: conversation.id },
+        qb.andWhere(
+          "RIGHT(regexp_replace(client.phone, '\\D', '', 'g'), 10) = :suffix",
+          { suffix: phoneSuffix },
+        );
+      }
+      const existingRecord = await qb.getOne();
+
+      if (existingRecord) {
+        // Buscar la conversación existente del contacto en este inbox.
+        conversation = await this.conversationRepo.findOne({
+          where: { inboxId: inbox.id, recordId: existingRecord.id },
         });
-        if (existingMsgCount === 0) isNewConversation = true;
+        // Si el record no tenía conversación vinculada, buscar por el contactId
+        // con el que se creó la saliente (teléfono) antes de crear una nueva.
+        if (!conversation && inboundPhone) {
+          conversation = await this.conversationRepo.findOne({
+            where: { inboxId: inbox.id, contactId: inboundPhone },
+          });
+          if (conversation && !conversation.recordId) {
+            conversation.recordId = existingRecord.id;
+          }
+        }
+        // Canonicalizar el contactId de la conversación reencontrada al valor
+        // entrante (para futuras coincidencias directas).
+        if (conversation && conversation.contactId !== contactPhone) {
+          conversation.contactId = contactPhone;
+        }
+        if (conversation) await this.conversationRepo.save(conversation);
       }
+    }
 
-      // Determine message type and content
-      let messageType = msg.type || 'text';
-      let content: string | null = null;
-      let mediaUrl: string | null = null;
-      let mediaMimeType: string | null = null;
-      // id del botón/fila pulsado (lo usan los flujos para seguir la rama correcta)
-      let interactivePayload: string | null = null;
+    // "Primer mensaje" = conversación nueva O conversación existente que aún
+    // no tiene ningún mensaje (p. ej. se vació o se creó sin actividad). En
+    // ambos casos el mensaje entrante actual es, de hecho, el primero.
+    let isNewConversation = false;
+    if (!conversation) {
+      conversation = this.conversationRepo.create({
+        inboxId: inbox.id,
+        contactId: contactPhone,
+        contactName,
+        status: 'open',
+      });
+      conversation = await this.conversationRepo.save(conversation);
+      isNewConversation = true;
+    } else {
+      // Conversación existente: comprobar si está vacía (0 mensajes) ANTES de
+      // guardar el entrante actual. Si lo está, se trata como primer mensaje.
+      const existingMsgCount = await this.messageRepo.count({
+        where: { conversationId: conversation.id },
+      });
+      if (existingMsgCount === 0) isNewConversation = true;
+    }
 
-      // Log non-text messages for debugging
-      if (messageType !== 'text') {
-        console.log(`[Webhook] Message type: ${messageType}, payload:`, JSON.stringify(msg).substring(0, 500));
-      }
+    // Determine message type and content
+    let messageType = msg.type || 'text';
+    let content: string | null = null;
+    let mediaUrl: string | null = null;
+    let mediaMimeType: string | null = null;
+    // id del botón/fila pulsado (lo usan los flujos para seguir la rama correcta)
+    let interactivePayload: string | null = null;
 
-      switch (messageType) {
-        case 'text':
-          content = msg.text?.body || '';
-          break;
-        case 'button':
-          // User tapped a quick reply button from a template
-          // Meta sends: msg.button.text or msg.button.payload
-          content = msg.button?.text || msg.button?.payload || msg.text?.body || '[button]';
-          interactivePayload = msg.button?.payload || null;
-          messageType = 'text';
-          break;
-        case 'interactive':
-          // User tapped an interactive button or list item
-          if (msg.interactive?.type === 'button_reply') {
-            content = msg.interactive.button_reply?.title || '[interactive]';
-            interactivePayload = msg.interactive.button_reply?.id || null;
-          } else if (msg.interactive?.type === 'list_reply') {
-            content = msg.interactive.list_reply?.title || '[interactive]';
-            interactivePayload = msg.interactive.list_reply?.id || null;
-          } else if (msg.interactive?.type === 'nfm_reply') {
-            // El usuario COMPLETÓ un WhatsApp Flow (acción "complete"). Meta no
-            // envía el "complete" al endpoint data_exchange, sino aquí como
-            // nfm_reply con el response_json (incluye flow_token + datos finales).
-            //
-            // El mensaje se guarda como messageType='flow' con el NOMBRE del
-            // flow/encuesta en `content` (para que el preview y el chat lo
-            // muestren) y una referencia JSON a la submission en `mediaUrl`
-            // (mismo patrón que las plantillas), para que el frontend pueda
-            // abrir un modal con las respuestas al hacer clic.
-            messageType = 'flow';
-            content = 'Formulario completado';
-            try {
-              const raw = msg.interactive.nfm_reply?.response_json;
-              const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw || {};
-              const flowToken = parsed.flow_token || parsed.flowToken;
-              if (flowToken) {
-                const submission = await this.flowSubmissionsService.recordScreen({
+    // Log non-text messages for debugging
+    if (messageType !== 'text') {
+      console.log(
+        `[Webhook] Message type: ${messageType}, payload:`,
+        JSON.stringify(msg).substring(0, 500),
+      );
+    }
+
+    switch (messageType) {
+      case 'text':
+        content = msg.text?.body || '';
+        break;
+      case 'button':
+        // User tapped a quick reply button from a template
+        // Meta sends: msg.button.text or msg.button.payload
+        content =
+          msg.button?.text ||
+          msg.button?.payload ||
+          msg.text?.body ||
+          '[button]';
+        interactivePayload = msg.button?.payload || null;
+        messageType = 'text';
+        break;
+      case 'interactive':
+        // User tapped an interactive button or list item
+        if (msg.interactive?.type === 'button_reply') {
+          content = msg.interactive.button_reply?.title || '[interactive]';
+          interactivePayload = msg.interactive.button_reply?.id || null;
+        } else if (msg.interactive?.type === 'list_reply') {
+          content = msg.interactive.list_reply?.title || '[interactive]';
+          interactivePayload = msg.interactive.list_reply?.id || null;
+        } else if (msg.interactive?.type === 'nfm_reply') {
+          // El usuario COMPLETÓ un WhatsApp Flow (acción "complete"). Meta no
+          // envía el "complete" al endpoint data_exchange, sino aquí como
+          // nfm_reply con el response_json (incluye flow_token + datos finales).
+          //
+          // El mensaje se guarda como messageType='flow' con el NOMBRE del
+          // flow/encuesta en `content` (para que el preview y el chat lo
+          // muestren) y una referencia JSON a la submission en `mediaUrl`
+          // (mismo patrón que las plantillas), para que el frontend pueda
+          // abrir un modal con las respuestas al hacer clic.
+          messageType = 'flow';
+          content = 'Formulario completado';
+          try {
+            const raw = msg.interactive.nfm_reply?.response_json;
+            const parsed =
+              typeof raw === 'string' ? JSON.parse(raw) : raw || {};
+            const flowToken = parsed.flow_token || parsed.flowToken;
+            if (flowToken) {
+              const submission = await this.flowSubmissionsService.recordScreen(
+                {
                   flowToken,
                   screen: 'FLOW_COMPLETE',
                   data: parsed,
                   completed: true,
                   tenantIdFallback: inbox.tenantId,
-                });
-                // Nombre a mostrar: el del Flow/encuesta vinculado al token.
-                const flowDef = await this.flowSubmissionsService
-                  .resolveFlowByToken(flowToken)
-                  .catch(() => null);
-                const flowName = flowDef?.name?.trim() || 'Formulario';
-                content = flowName;
-                mediaUrl = JSON.stringify({
-                  kind: 'flow_completed',
-                  submissionId: submission?.id || null,
-                  flowToken,
-                  flowName,
-                });
-              } else {
-                console.warn('[Flow] nfm_reply sin flow_token:', JSON.stringify(parsed).slice(0, 200));
-              }
-            } catch (err: any) {
-              console.error('[Flow] Error procesando nfm_reply:', err.message);
+                },
+              );
+              // Nombre a mostrar: el del Flow/encuesta vinculado al token.
+              const flowDef = await this.flowSubmissionsService
+                .resolveFlowByToken(flowToken)
+                .catch(() => null);
+              const flowName = flowDef?.name?.trim() || 'Formulario';
+              content = flowName;
+              mediaUrl = JSON.stringify({
+                kind: 'flow_completed',
+                submissionId: submission?.id || null,
+                flowToken,
+                flowName,
+              });
+            } else {
+              console.warn(
+                '[Flow] nfm_reply sin flow_token:',
+                JSON.stringify(parsed).slice(0, 200),
+              );
             }
-            break;
-          } else {
-            content = msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || '[interactive]';
-          }
-          messageType = 'text';
-          break;
-        case 'image':
-        case 'video':
-        case 'audio':
-        case 'document':
-        case 'sticker': {
-          content = msg[messageType]?.caption || null;
-          const mediaId = msg[messageType]?.id || null;
-          mediaMimeType = msg[messageType]?.mime_type || null;
-          const originalFilename = msg[messageType]?.filename || null;
-
-          // Download and store in Firebase
-          if (mediaId && inbox.accessToken) {
-            const stored = await this.mediaStorageService.processWhatsAppMedia(
-              mediaId,
-              inbox.accessToken,
-              {
-                channel: 'whatsapp',
-                tenantId: inbox.tenantId,
-                conversationId: conversation.id,
-                messageId: msg.id,
-                mimeType: mediaMimeType || undefined,
-                filename: originalFilename || undefined,
-              },
-            );
-            mediaUrl = stored?.url || null;
-            if (stored?.mimeType) mediaMimeType = stored.mimeType;
+          } catch (err: any) {
+            console.error('[Flow] Error procesando nfm_reply:', err.message);
           }
           break;
-        }
-        case 'location':
-          content = `📍 ${msg.location?.latitude}, ${msg.location?.longitude}`;
-          break;
-        default:
-          content = `[${messageType}]`;
-      }
-
-      // Save message
-      const replyToExternalId = msg.context?.id || null;
-      const message = this.messageRepo.create({
-        conversationId: conversation.id,
-        direction: 'inbound',
-        messageType,
-        content,
-        mediaUrl,
-        mediaMimeType,
-        externalId: msg.id,
-        replyToExternalId,
-        status: 'delivered',
-      });
-      await this.messageRepo.save(message);
-
-      // Update conversation
-      conversation.lastMessage = content || `[${messageType}]`;
-      conversation.lastMessageAt = new Date();
-      conversation.lastMessageSource = null;
-      conversation.unreadCount = (conversation.unreadCount || 0) + 1;
-      if (contactName && !conversation.contactName) conversation.contactName = contactName;
-
-      // Link conversation to client record. La vinculación/reconciliación de
-      // identidades NUNCA debe abortar el procesamiento del mensaje ni el emit en
-      // tiempo real: si falla (p. ej. teléfono duplicado), se registra y se sigue.
-      try {
-        if (!conversation.recordId) {
-          // Pasar el teléfono entrante (inboundPhone) para reconciliar con un
-          // contacto agregado manualmente que solo tenga teléfono.
-          const record = await this.findOrCreateRecordByPhone(contactPhone, inbox.tenantId, contactName, inbox.id, userId, inboundPhone);
-          conversation.recordId = record.id;
         } else {
-          // Update lastContactAt y completar identidades que falten (phone/BSUID).
-          const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
-          if (record) {
-            if (waId && !this.isWhatsAppIdentityId(waId) && !record.phone) {
-              // Evitar violar uq_clients_tenant_phone si el teléfono ya es de otro contacto.
-              if (!(await this.phoneBelongsToAnotherRecord(waId, inbox.tenantId, record.id))) {
-                record.phone = waId.replace(/^\+/, '');
-              }
-            }
-            if (userId && this.isWhatsAppIdentityId(userId) && record.whatsappId !== userId) {
-              record.whatsappId = userId;
-            }
-            record.lastContactAt = new Date();
-            await this.clientRecordRepo.save(record);
-          }
+          content =
+            msg.interactive?.button_reply?.title ||
+            msg.interactive?.list_reply?.title ||
+            '[interactive]';
         }
-      } catch (err: any) {
-        console.error('[Webhook] Record link/reconcile failed (continuing):', err?.message || err);
-      }
+        messageType = 'text';
+        break;
+      case 'image':
+      case 'video':
+      case 'audio':
+      case 'document':
+      case 'sticker': {
+        content = msg[messageType]?.caption || null;
+        const mediaId = msg[messageType]?.id || null;
+        mediaMimeType = msg[messageType]?.mime_type || null;
+        const originalFilename = msg[messageType]?.filename || null;
 
-      // Automatizaciones por palabra clave configuradas en el canal.
-      if (conversation.recordId && content) {
-        await this.runInboxAutomations(inbox, conversation, content).catch((err) =>
-          console.warn('[Webhook] Automations failed:', err?.message || err),
+        // Download and store in Firebase
+        if (mediaId && inbox.accessToken) {
+          const stored = await this.mediaStorageService.processWhatsAppMedia(
+            mediaId,
+            inbox.accessToken,
+            {
+              channel: 'whatsapp',
+              tenantId: inbox.tenantId,
+              conversationId: conversation.id,
+              messageId: msg.id,
+              mimeType: mediaMimeType || undefined,
+              filename: originalFilename || undefined,
+            },
+          );
+          mediaUrl = stored?.url || null;
+          if (stored?.mimeType) mediaMimeType = stored.mimeType;
+        }
+        break;
+      }
+      case 'location':
+        content = `📍 ${msg.location?.latitude}, ${msg.location?.longitude}`;
+        break;
+      default:
+        content = `[${messageType}]`;
+    }
+
+    // Save message
+    const replyToExternalId = msg.context?.id || null;
+    const message = this.messageRepo.create({
+      conversationId: conversation.id,
+      direction: 'inbound',
+      messageType,
+      content,
+      mediaUrl,
+      mediaMimeType,
+      externalId: msg.id,
+      replyToExternalId,
+      status: 'delivered',
+    });
+    await this.messageRepo.save(message);
+
+    // Update conversation
+    conversation.lastMessage = content || `[${messageType}]`;
+    conversation.lastMessageAt = new Date();
+    conversation.lastMessageSource = null;
+    conversation.unreadCount = (conversation.unreadCount || 0) + 1;
+    if (contactName && !conversation.contactName)
+      conversation.contactName = contactName;
+
+    // Link conversation to client record. La vinculación/reconciliación de
+    // identidades NUNCA debe abortar el procesamiento del mensaje ni el emit en
+    // tiempo real: si falla (p. ej. teléfono duplicado), se registra y se sigue.
+    try {
+      if (!conversation.recordId) {
+        // Pasar el teléfono entrante (inboundPhone) para reconciliar con un
+        // contacto agregado manualmente que solo tenga teléfono.
+        const record = await this.findOrCreateRecordByPhone(
+          contactPhone,
+          inbox.tenantId,
+          contactName,
+          inbox.id,
+          userId,
+          inboundPhone,
         );
+        conversation.recordId = record.id;
+      } else {
+        // Update lastContactAt y completar identidades que falten (phone/BSUID).
+        const record = await this.clientRecordRepo.findOne({
+          where: { id: conversation.recordId },
+        });
+        if (record) {
+          if (waId && !this.isWhatsAppIdentityId(waId) && !record.phone) {
+            // Evitar violar uq_clients_tenant_phone si el teléfono ya es de otro contacto.
+            if (
+              !(await this.phoneBelongsToAnotherRecord(
+                waId,
+                inbox.tenantId,
+                record.id,
+              ))
+            ) {
+              record.phone = waId.replace(/^\+/, '');
+            }
+          }
+          if (
+            userId &&
+            this.isWhatsAppIdentityId(userId) &&
+            record.whatsappId !== userId
+          ) {
+            record.whatsappId = userId;
+          }
+          record.lastContactAt = new Date();
+          await this.clientRecordRepo.save(record);
+        }
       }
+    } catch (err: any) {
+      console.error(
+        '[Webhook] Record link/reconcile failed (continuing):',
+        err?.message || err,
+      );
+    }
 
-      // Mark ad tracking if from Meta ad
-      if (msg.referral) {
-        conversation.hasAdTracking = true;
-        conversation.adPlatform = 'meta';
-        // Also mark the client record
-        if (conversation.recordId) {
-          this.clientRecordRepo.query(
+    // Automatizaciones por palabra clave configuradas en el canal.
+    if (conversation.recordId && content) {
+      await this.runInboxAutomations(inbox, conversation, content).catch(
+        (err) =>
+          console.warn('[Webhook] Automations failed:', err?.message || err),
+      );
+    }
+
+    // Mark ad tracking if from Meta ad
+    if (msg.referral) {
+      conversation.hasAdTracking = true;
+      conversation.adPlatform = 'meta';
+      // Also mark the client record
+      if (conversation.recordId) {
+        this.clientRecordRepo
+          .query(
             `UPDATE clients SET
               has_ad_tracking = true,
               ad_first_platform = COALESCE(ad_first_platform, 'meta'),
@@ -1426,25 +1758,33 @@ export class ChatsService {
               ad_touchpoints = COALESCE(ad_touchpoints, 0) + 1
             WHERE id = $1`,
             [conversation.recordId],
-          ).catch(() => {});
-        }
+          )
+          .catch(() => {});
       }
+    }
 
-      // Check if message contains a tracking code (from pixel/link tracker)
-      if (!msg.referral && content) {
-        const platform = await this.conversionsService.matchAndLinkTrackingCode(inbox.tenantId, content, conversation.recordId!).catch(() => null);
-        if (platform) {
-          conversation.hasAdTracking = true;
-          conversation.adPlatform = platform;
-        }
+    // Check if message contains a tracking code (from pixel/link tracker)
+    if (!msg.referral && content) {
+      const platform = await this.conversionsService
+        .matchAndLinkTrackingCode(
+          inbox.tenantId,
+          content,
+          conversation.recordId!,
+        )
+        .catch(() => null);
+      if (platform) {
+        conversation.hasAdTracking = true;
+        conversation.adPlatform = platform;
       }
+    }
 
-      await this.conversationRepo.save(conversation);
+    await this.conversationRepo.save(conversation);
 
-      // Capture ad attribution if message comes from a Meta ad (click-to-WhatsApp)
-      if (msg.referral) {
-        const referral = msg.referral;
-        this.conversionsService.trackEvent({
+    // Capture ad attribution if message comes from a Meta ad (click-to-WhatsApp)
+    if (msg.referral) {
+      const referral = msg.referral;
+      this.conversionsService
+        .trackEvent({
           tenantId: inbox.tenantId,
           recordId: conversation.recordId!,
           platform: 'meta',
@@ -1466,76 +1806,127 @@ export class ChatsService {
             inboxId: inbox.id,
             phone: contactPhone,
           },
-        }).catch((err) => console.warn('[Webhook] Failed to track ad event:', err));
-      }
+        })
+        .catch((err) =>
+          console.warn('[Webhook] Failed to track ad event:', err),
+        );
+    }
 
-      // Emit real-time events. Adjuntar la relación `inbox` para que el frontend
-      // pueda mostrar la bandeja (nombre/canal) en conversaciones nuevas sin
-      // necesidad de recargar; el objeto guardado solo trae inboxId.
-      if (!conversation.inbox) conversation.inbox = inbox;
-      this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
-      this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
+    // Emit real-time events. Adjuntar la relación `inbox` para que el frontend
+    // pueda mostrar la bandeja (nombre/canal) en conversaciones nuevas sin
+    // necesidad de recargar; el objeto guardado solo trae inboxId.
+    if (!conversation.inbox) conversation.inbox = inbox;
+    this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
+    this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
-      // Notify inbox collaborators about the new inbound message
-      this.notificationsService.getInboxCollaboratorUserIds(inbox.id).then(async (userIds) => {
+    // Notify inbox collaborators about the new inbound message
+    this.notificationsService
+      .getInboxCollaboratorUserIds(inbox.id)
+      .then(async (userIds) => {
         // Resolve contact name from record
-        let contactLabel = conversation.contactName || contactPhone || 'Contacto';
+        let contactLabel =
+          conversation.contactName || contactPhone || 'Contacto';
         if (conversation.recordId) {
-          const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+          const record = await this.clientRecordRepo.findOne({
+            where: { id: conversation.recordId },
+          });
           if (record) {
-            contactLabel = record.fullName || record.firstName || conversation.contactName || contactPhone || 'Contacto';
+            contactLabel =
+              record.fullName ||
+              record.firstName ||
+              conversation.contactName ||
+              contactPhone ||
+              'Contacto';
           }
         }
         for (const uid of userIds) {
           // Only create notification if user doesn't already have an unread one for this conversation
-          this.notificationsService.findUnreadByConversation(uid, conversation.id).then((existing) => {
-            if (!existing) {
-              this.notificationsService.notify({
-                tenantId: inbox.tenantId,
-                userId: uid,
-                type: 'message_received',
-                title: `Nuevo mensaje de ${contactLabel}`,
-                body: (content || `[${messageType}]`).substring(0, 120),
-                link: `/${inbox.tenantId}/comunicaciones/conversaciones/${conversation.id}`,
-                metadata: { conversationId: conversation.id, inboxId: inbox.id, messageType },
-              }).catch(() => {});
-            } else {
-              // Update existing notification body with latest message
-              this.notificationsService.updateBody(existing.id, (content || `[${messageType}]`).substring(0, 120)).catch(() => {});
-            }
-          }).catch(() => {});
+          this.notificationsService
+            .findUnreadByConversation(uid, conversation.id)
+            .then((existing) => {
+              if (!existing) {
+                this.notificationsService
+                  .notify({
+                    tenantId: inbox.tenantId,
+                    userId: uid,
+                    type: 'message_received',
+                    title: `Nuevo mensaje de ${contactLabel}`,
+                    body: (content || `[${messageType}]`).substring(0, 120),
+                    link: `/${inbox.tenantId}/comunicaciones/conversaciones/${conversation.id}`,
+                    metadata: {
+                      conversationId: conversation.id,
+                      inboxId: inbox.id,
+                      messageType,
+                    },
+                  })
+                  .catch(() => {});
+              } else {
+                // Update existing notification body with latest message
+                this.notificationsService
+                  .updateBody(
+                    existing.id,
+                    (content || `[${messageType}]`).substring(0, 120),
+                  )
+                  .catch(() => {});
+              }
+            })
+            .catch(() => {});
         }
-      }).catch(() => {});
+      })
+      .catch(() => {});
 
-      // Dispatch webhooks with full context
-      const contactRecord = conversation.recordId ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } }) : null;
-      this.webhooksService.dispatch(inbox.tenantId, 'message_created', {
+    // Dispatch webhooks with full context
+    const contactRecord = conversation.recordId
+      ? await this.clientRecordRepo.findOne({
+          where: { id: conversation.recordId },
+        })
+      : null;
+    this.webhooksService
+      .dispatch(inbox.tenantId, 'message_created', {
         message,
-        conversation: { id: conversation.id, contactId: conversation.contactId, contactName: conversation.contactName, status: conversation.status, recordId: conversation.recordId, inboxId: conversation.inboxId, lastMessage: conversation.lastMessage, lastMessageAt: conversation.lastMessageAt },
+        conversation: {
+          id: conversation.id,
+          contactId: conversation.contactId,
+          contactName: conversation.contactName,
+          status: conversation.status,
+          recordId: conversation.recordId,
+          inboxId: conversation.inboxId,
+          lastMessage: conversation.lastMessage,
+          lastMessageAt: conversation.lastMessageAt,
+        },
         contact: contactRecord,
         inbox: { id: inbox.id, name: inbox.name, channel: inbox.channel },
-      }).catch(() => {});
+      })
+      .catch(() => {});
 
-      // Plantilla de bienvenida: si es el PRIMER mensaje del contacto en esta
-      // conversación (conversación nueva, o existente pero sin mensajes previos)
-      // y el canal tiene configurada una plantilla de bienvenida activa, se
-      // envía automáticamente. Devuelve true si se envió, en cuyo caso se
-      // SUPRIME el bot en este primer turno: el bot responde del 2º mensaje.
-      let welcomeSent = false;
-      if (isNewConversation) {
-        welcomeSent = await this.sendFirstMessageTemplate(inbox, conversation).catch((err) => {
-          console.warn('[Welcome Template] Failed:', err?.message || err);
-          return false;
-        });
-      }
+    // Plantilla de bienvenida: si es el PRIMER mensaje del contacto en esta
+    // conversación (conversación nueva, o existente pero sin mensajes previos)
+    // y el canal tiene configurada una plantilla de bienvenida activa, se
+    // envía automáticamente. Devuelve true si se envió, en cuyo caso se
+    // SUPRIME el bot en este primer turno: el bot responde del 2º mensaje.
+    let welcomeSent = false;
+    if (isNewConversation) {
+      welcomeSent = await this.sendFirstMessageTemplate(
+        inbox,
+        conversation,
+      ).catch((err) => {
+        console.warn('[Welcome Template] Failed:', err?.message || err);
+        return false;
+      });
+    }
 
-      // Trigger bot auto-reply if a bot is assigned (salvo que ya se haya
-      // enviado la plantilla de bienvenida en este primer turno).
-      if (!welcomeSent) {
-        this.scheduleBotReply(inbox, conversation, content, { messageType, mediaUrl, mediaMimeType, interactivePayload }).catch((err) => {
-          console.error('[Bot Auto-Reply] Failed:', err?.message || err);
-        });
-      }
+    // Trigger bot auto-reply if a bot is assigned (salvo que ya se haya
+    // enviado la plantilla de bienvenida en este primer turno).
+    if (!welcomeSent) {
+      this.scheduleBotReply(inbox, conversation, content, {
+        messageType,
+        mediaUrl,
+        mediaMimeType,
+        interactivePayload,
+      }).catch((err) => {
+        console.error('[Bot Auto-Reply] Failed:', err?.message || err);
+      });
+    }
   }
 
   /**
@@ -1550,7 +1941,10 @@ export class ChatsService {
    *
    * @returns true si la plantilla se envió (para suprimir el bot en este turno).
    */
-  private async sendFirstMessageTemplate(inbox: Inbox, conversation: Conversation): Promise<boolean> {
+  private async sendFirstMessageTemplate(
+    inbox: Inbox,
+    conversation: Conversation,
+  ): Promise<boolean> {
     if (inbox.channel !== 'whatsapp') return false;
     const cfg = inbox.metadata?.firstMessageTemplate;
     if (!cfg?.enabled) return false;
@@ -1558,12 +1952,21 @@ export class ChatsService {
     const templateName = String(cfg.templateName || '').trim();
     if (!templateName) return false;
 
-    const requestedLanguage = String(cfg.templateLanguage || 'es').trim() || 'es';
-    const languageCode = await this.resolveTemplateLanguage(inbox, templateName, requestedLanguage);
-    const templateDef = Array.isArray(cfg.templateComponents) ? cfg.templateComponents : undefined;
+    const requestedLanguage =
+      String(cfg.templateLanguage || 'es').trim() || 'es';
+    const languageCode = await this.resolveTemplateLanguage(
+      inbox,
+      templateName,
+      requestedLanguage,
+    );
+    const templateDef = Array.isArray(cfg.templateComponents)
+      ? cfg.templateComponents
+      : undefined;
 
     const record = conversation.recordId
-      ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } }).catch(() => null)
+      ? await this.clientRecordRepo
+          .findOne({ where: { id: conversation.recordId } })
+          .catch(() => null)
       : null;
     const sendComponents = this.buildAutomationTemplateComponents(
       templateDef,
@@ -1611,7 +2014,11 @@ export class ChatsService {
    * ¿El texto entrante coincide con alguna de las keywords según el matchType?
    * matchType: 'exact' (por defecto) | 'contains' | 'startsWith'
    */
-  private matchesKeywords(content: string, keywords: string[], matchType: string): boolean {
+  private matchesKeywords(
+    content: string,
+    keywords: string[],
+    matchType: string,
+  ): boolean {
     const norm = this.normalizeKeyword(content);
     if (!norm) return false;
     return (keywords || []).some((kw) => {
@@ -1644,7 +2051,11 @@ export class ChatsService {
    *
    * Ejecuta TODAS las reglas habilitadas que coincidan, en orden.
    */
-  private async runInboxAutomations(inbox: Inbox, conversation: Conversation, content: string): Promise<void> {
+  private async runInboxAutomations(
+    inbox: Inbox,
+    conversation: Conversation,
+    content: string,
+  ): Promise<void> {
     const rules = inbox.metadata?.automations as any[] | undefined;
     if (!Array.isArray(rules) || rules.length === 0) return;
     if (!conversation.recordId || !content) return;
@@ -1653,13 +2064,25 @@ export class ChatsService {
       if (!rule?.enabled) continue;
       if (!Array.isArray(rule.keywords) || rule.keywords.length === 0) continue;
       if (!Array.isArray(rule.actions) || rule.actions.length === 0) continue;
-      if (!this.matchesKeywords(content, rule.keywords, rule.matchType || 'exact')) continue;
+      if (
+        !this.matchesKeywords(content, rule.keywords, rule.matchType || 'exact')
+      )
+        continue;
 
       for (const action of rule.actions) {
         try {
-          await this.executeAutomationAction(inbox, conversation, action, rule, content);
+          await this.executeAutomationAction(
+            inbox,
+            conversation,
+            action,
+            rule,
+            content,
+          );
         } catch (err: any) {
-          console.warn(`[Automation] Action ${action?.type} failed:`, err?.message || err);
+          console.warn(
+            `[Automation] Action ${action?.type} failed:`,
+            err?.message || err,
+          );
         }
       }
     }
@@ -1687,32 +2110,55 @@ export class ChatsService {
     switch (action.type) {
       case 'set_status':
         if (action.value) {
-          await this.clientRecordRepo.update(recordId, { status: String(action.value) });
-          await this.createSystemNote(conversation.id, `${ruleName}: estado del contacto cambiado a "${action.value}".`).catch(() => {});
+          await this.clientRecordRepo.update(recordId, {
+            status: String(action.value),
+          });
+          await this.createSystemNote(
+            conversation.id,
+            `${ruleName}: estado del contacto cambiado a "${action.value}".`,
+          ).catch(() => {});
         }
         break;
 
       case 'set_opt_in_whatsapp':
-        await this.clientRecordRepo.update(recordId, { optInWhatsapp: !!action.value });
-        await this.createSystemNote(conversation.id, `${ruleName}: Opt-in WhatsApp ${action.value ? 'activado' : 'desactivado'}.`).catch(() => {});
+        await this.clientRecordRepo.update(recordId, {
+          optInWhatsapp: !!action.value,
+        });
+        await this.createSystemNote(
+          conversation.id,
+          `${ruleName}: Opt-in WhatsApp ${action.value ? 'activado' : 'desactivado'}.`,
+        ).catch(() => {});
         break;
 
       case 'set_opt_in_email': {
         const optIn = !!action.value;
-        const client = await this.clientRecordRepo.findOne({ where: { id: recordId } });
+        const client = await this.clientRecordRepo.findOne({
+          where: { id: recordId },
+        });
         // Delegate to the unsubscribe service so the suppression list and the
         // optInEmail flag stay in sync regardless of which path toggled it.
         if (client?.email) {
           if (optIn) {
-            await this.emailUnsubscribeService.resubscribe(inbox.tenantId, client.email);
+            await this.emailUnsubscribeService.resubscribe(
+              inbox.tenantId,
+              client.email,
+            );
           } else {
-            await this.emailUnsubscribeService.unsubscribe(inbox.tenantId, client.email, 'manual', `automation:${ruleName}`);
+            await this.emailUnsubscribeService.unsubscribe(
+              inbox.tenantId,
+              client.email,
+              'manual',
+              `automation:${ruleName}`,
+            );
           }
         } else {
           // No email on the contact: just set the flag directly.
           await this.clientRecordRepo.update(recordId, { optInEmail: optIn });
         }
-        await this.createSystemNote(conversation.id, `${ruleName}: Opt-in Email ${optIn ? 'activado' : 'desactivado'}.`).catch(() => {});
+        await this.createSystemNote(
+          conversation.id,
+          `${ruleName}: Opt-in Email ${optIn ? 'activado' : 'desactivado'}.`,
+        ).catch(() => {});
         break;
       }
 
@@ -1720,41 +2166,65 @@ export class ChatsService {
       case 'remove_tag': {
         const tag = String(action.value || '').trim();
         if (!tag) break;
-        const record = await this.clientRecordRepo.findOne({ where: { id: recordId } });
+        const record = await this.clientRecordRepo.findOne({
+          where: { id: recordId },
+        });
         if (!record) break;
         const current = Array.isArray(record.tags) ? record.tags : [];
-        const next = action.type === 'add_tag'
-          ? [...new Set([...current, tag])]
-          : current.filter((t) => t !== tag);
+        const next =
+          action.type === 'add_tag'
+            ? [...new Set([...current, tag])]
+            : current.filter((t) => t !== tag);
         record.tags = next;
         await this.clientRecordRepo.save(record);
-        await this.createSystemNote(conversation.id, `${ruleName}: etiqueta "${tag}" ${action.type === 'add_tag' ? 'agregada' : 'removida'}.`).catch(() => {});
+        await this.createSystemNote(
+          conversation.id,
+          `${ruleName}: etiqueta "${tag}" ${action.type === 'add_tag' ? 'agregada' : 'removida'}.`,
+        ).catch(() => {});
         break;
       }
 
       case 'set_conversation_status':
         if (action.value) {
-          await this.updateConversationStatus(conversation.id, String(action.value), ruleName).catch(() => {});
+          await this.updateConversationStatus(
+            conversation.id,
+            String(action.value),
+            ruleName,
+          ).catch(() => {});
         }
         break;
 
       case 'assign_agent':
         if (action.value) {
-          await this.clientRecordRepo.update(recordId, { assignedTo: String(action.value) });
-          await this.createSystemNote(conversation.id, `${ruleName}: contacto asignado a un agente.`).catch(() => {});
+          await this.clientRecordRepo.update(recordId, {
+            assignedTo: String(action.value),
+          });
+          await this.createSystemNote(
+            conversation.id,
+            `${ruleName}: contacto asignado a un agente.`,
+          ).catch(() => {});
         }
         break;
 
       case 'assign_team':
         if (action.value) {
-          await this.clientRecordRepo.update(recordId, { assignedTeamId: String(action.value) });
-          await this.createSystemNote(conversation.id, `${ruleName}: contacto asignado a un equipo.`).catch(() => {});
+          await this.clientRecordRepo.update(recordId, {
+            assignedTeamId: String(action.value),
+          });
+          await this.createSystemNote(
+            conversation.id,
+            `${ruleName}: contacto asignado a un equipo.`,
+          ).catch(() => {});
         }
         break;
 
       case 'reply':
         if (action.message?.trim()) {
-          await this.sendAutomationReply(inbox, conversation, action.message.trim()).catch((err) =>
+          await this.sendAutomationReply(
+            inbox,
+            conversation,
+            action.message.trim(),
+          ).catch((err) =>
             console.warn('[Automation] reply failed:', err?.message || err),
           );
         }
@@ -1763,23 +2233,34 @@ export class ChatsService {
       case 'reply_template': {
         // Solo canales de WhatsApp pueden responder con plantilla.
         if (inbox.channel !== 'whatsapp') {
-          console.warn(`[Automation] reply_template ignorado: el canal "${inbox.channel}" no soporta plantillas.`);
+          console.warn(
+            `[Automation] reply_template ignorado: el canal "${inbox.channel}" no soporta plantillas.`,
+          );
           break;
         }
         const templateName = String(action.templateName || '').trim();
         if (!templateName) break;
-        const requestedLanguage = String(action.templateLanguage || 'es').trim() || 'es';
+        const requestedLanguage =
+          String(action.templateLanguage || 'es').trim() || 'es';
         // Resolver el idioma REAL con el que la plantilla está aprobada en Meta,
         // para evitar el error #132001 cuando el guardado (p. ej. "es") no coincide
         // con la traducción aprobada (p. ej. "es_CO").
-        const languageCode = await this.resolveTemplateLanguage(inbox, templateName, requestedLanguage);
-        const templateDef = Array.isArray(action.templateComponents) ? action.templateComponents : undefined;
+        const languageCode = await this.resolveTemplateLanguage(
+          inbox,
+          templateName,
+          requestedLanguage,
+        );
+        const templateDef = Array.isArray(action.templateComponents)
+          ? action.templateComponents
+          : undefined;
         try {
           // Construir los parámetros (components) que Meta espera a partir de la
           // definición de la plantilla, resolviendo variables con datos del
           // contacto o con los ejemplos de la propia plantilla. Sin esto, Meta
           // rechaza plantillas con variables/botones con el error #132000.
-          const record = await this.clientRecordRepo.findOne({ where: { id: recordId } }).catch(() => null);
+          const record = await this.clientRecordRepo
+            .findOne({ where: { id: recordId } })
+            .catch(() => null);
           const sendComponents = this.buildAutomationTemplateComponents(
             templateDef,
             record,
@@ -1800,13 +2281,18 @@ export class ChatsService {
             `${ruleName}: respuesta automática con plantilla "${templateName}".`,
           ).catch(() => {});
         } catch (err: any) {
-          console.warn('[Automation] reply_template failed:', err?.message || err);
+          console.warn(
+            '[Automation] reply_template failed:',
+            err?.message || err,
+          );
         }
         break;
       }
 
       default:
-        console.warn(`[Automation] Unknown action type: ${action.type} (trigger: "${triggerContent.substring(0, 40)}")`);
+        console.warn(
+          `[Automation] Unknown action type: ${action.type} (trigger: "${triggerContent.substring(0, 40)}")`,
+        );
     }
   }
 
@@ -1841,17 +2327,27 @@ export class ChatsService {
     // Sustituye placeholders de contacto por sus valores reales.
     const resolveContactField = (val: string): string => {
       switch (val.trim()) {
-        case '{{firstName}}': return record?.firstName || '';
-        case '{{lastName}}': return record?.lastName || '';
-        case '{{fullName}}': return contactFullName;
-        case '{{phone}}': return record?.phone || '';
-        case '{{email}}': return record?.email || '';
-        default: return val;
+        case '{{firstName}}':
+          return record?.firstName || '';
+        case '{{lastName}}':
+          return record?.lastName || '';
+        case '{{fullName}}':
+          return contactFullName;
+        case '{{phone}}':
+          return record?.phone || '';
+        case '{{email}}':
+          return record?.email || '';
+        default:
+          return val;
       }
     };
 
     // Resuelve el valor final de una variable de texto.
-    const resolveText = (key: string, example: string | undefined, index: number): string => {
+    const resolveText = (
+      key: string,
+      example: string | undefined,
+      index: number,
+    ): string => {
       const configured = vars[key];
       if (configured !== undefined && configured !== '') {
         const resolved = resolveContactField(configured);
@@ -1912,21 +2408,33 @@ export class ChatsService {
         const buttons: any[] = Array.isArray(comp?.buttons) ? comp.buttons : [];
         buttons.forEach((btn: any, idx: number) => {
           const btnType = String(btn?.type || '').toUpperCase();
-          const example = Array.isArray(btn?.example) ? btn.example[0] : btn?.example;
+          const example = Array.isArray(btn?.example)
+            ? btn.example[0]
+            : btn?.example;
           // Botón URL dinámico: la URL contiene una variable {{1}}.
           if (btnType === 'URL' && countVars(btn?.url) > 0) {
             components.push({
               type: 'button',
               sub_type: 'url',
               index: idx,
-              parameters: [{ type: 'text', text: resolveText(`button_${idx}`, example, -1) }],
+              parameters: [
+                {
+                  type: 'text',
+                  text: resolveText(`button_${idx}`, example, -1),
+                },
+              ],
             });
           } else if (btnType === 'COPY_CODE') {
             components.push({
               type: 'button',
               sub_type: 'copy_code',
               index: idx,
-              parameters: [{ type: 'coupon_code', coupon_code: resolveText(`button_${idx}`, example, -1) }],
+              parameters: [
+                {
+                  type: 'coupon_code',
+                  coupon_code: resolveText(`button_${idx}`, example, -1),
+                },
+              ],
             });
           }
           // QUICK_REPLY, PHONE_NUMBER y URL estáticos no requieren parámetros.
@@ -1941,31 +2449,61 @@ export class ChatsService {
    * Envía una respuesta automática de texto por el canal correspondiente y la
    * guarda como mensaje saliente en la conversación.
    */
-  private async sendAutomationReply(inbox: Inbox, conversation: Conversation, text: string): Promise<void> {
+  private async sendAutomationReply(
+    inbox: Inbox,
+    conversation: Conversation,
+    text: string,
+  ): Promise<void> {
     let externalId: string | null = null;
 
-    if (inbox.channel === 'whatsapp' && inbox.phoneNumberId && inbox.accessToken) {
-      const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${inbox.accessToken}` },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          ...this.buildWhatsAppRecipient(conversation.contactId),
-          type: 'text',
-          text: { body: text },
-        }),
-      });
+    if (
+      inbox.channel === 'whatsapp' &&
+      inbox.phoneNumberId &&
+      inbox.accessToken
+    ) {
+      const res = await fetch(
+        `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${inbox.accessToken}`,
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            ...this.buildWhatsAppRecipient(conversation.contactId),
+            type: 'text',
+            text: { body: text },
+          }),
+        },
+      );
       const data = await res.json();
       externalId = data.messages?.[0]?.id || null;
-    } else if ((inbox.channel === 'messenger' || inbox.channel === 'instagram') && inbox.pageId && inbox.accessToken) {
-      const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.pageId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${inbox.accessToken}` },
-        body: JSON.stringify({ recipient: { id: conversation.contactId }, message: { text } }),
-      });
+    } else if (
+      (inbox.channel === 'messenger' || inbox.channel === 'instagram') &&
+      inbox.pageId &&
+      inbox.accessToken
+    ) {
+      const res = await fetch(
+        `https://graph.facebook.com/v21.0/${inbox.pageId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${inbox.accessToken}`,
+          },
+          body: JSON.stringify({
+            recipient: { id: conversation.contactId },
+            message: { text },
+          }),
+        },
+      );
       const data = await res.json();
       externalId = data.message_id || null;
-    } else if (inbox.channel === 'evolution' && inbox.metadata?.evolutionInstanceName) {
+    } else if (
+      inbox.channel === 'evolution' &&
+      inbox.metadata?.evolutionInstanceName
+    ) {
       const result = await this.evolutionService.sendText(
         inbox.metadata.evolutionInstanceName,
         conversation.contactId,
@@ -2012,8 +2550,9 @@ export class ChatsService {
     const contactIsIdentity = this.isWhatsAppIdentityId(contactId);
     // El teléfono real puede venir explícito (explicitPhone) o ser el propio
     // contactId cuando este es numérico.
-    const phone = explicitPhone?.replace(/^\+/, '')
-      || (contactIsIdentity ? null : contactId.replace(/^\+/, ''));
+    const phone =
+      explicitPhone?.replace(/^\+/, '') ||
+      (contactIsIdentity ? null : contactId.replace(/^\+/, ''));
     // El BSUID puede venir explícito en `bsuid` o ser el propio contactId si este
     // tiene formato de identidad.
     const identityId = this.isWhatsAppIdentityId(bsuid)
@@ -2052,7 +2591,9 @@ export class ChatsService {
         lastContactAt: new Date(),
       } as Partial<ClientRecord>);
       record = await this.clientRecordRepo.save(record);
-      console.log(`[Chat] Created new record (phone=${phone ?? '—'}, whatsappId=${identityId ?? '—'}) in tenant ${tenantId}`);
+      console.log(
+        `[Chat] Created new record (phone=${phone ?? '—'}, whatsappId=${identityId ?? '—'}) in tenant ${tenantId}`,
+      );
     } else {
       // Restore if soft-deleted
       if (record.deletedAt) {
@@ -2065,7 +2606,11 @@ export class ChatsService {
       }
       // Solo asignar el teléfono si el record no lo tiene Y ese teléfono no
       // pertenece ya a OTRO contacto del tenant (evita violar uq_clients_tenant_phone).
-      if (phone && !record.phone && !(await this.phoneBelongsToAnotherRecord(phone, tenantId, record.id))) {
+      if (
+        phone &&
+        !record.phone &&
+        !(await this.phoneBelongsToAnotherRecord(phone, tenantId, record.id))
+      ) {
         record.phone = phone;
       }
       record.lastContactAt = new Date();
@@ -2080,12 +2625,18 @@ export class ChatsService {
    * dentro del tenant. Se usa para no reescribir un teléfono duplicado (lo que
    * violaría la restricción única uq_clients_tenant_phone).
    */
-  private async phoneBelongsToAnotherRecord(phone: string, tenantId: string, excludeId: string): Promise<boolean> {
+  private async phoneBelongsToAnotherRecord(
+    phone: string,
+    tenantId: string,
+    excludeId: string,
+  ): Promise<boolean> {
     const normalized = phone.replace(/^\+/, '');
     const other = await this.clientRecordRepo
       .createQueryBuilder('client')
       .where('client.tenant_id = :tenantId', { tenantId })
-      .andWhere("REPLACE(client.phone, '+', '') = :phone", { phone: normalized })
+      .andWhere("REPLACE(client.phone, '+', '') = :phone", {
+        phone: normalized,
+      })
       .andWhere('client.id != :excludeId', { excludeId })
       .getOne();
     return !!other;
@@ -2142,10 +2693,12 @@ export class ChatsService {
 
       // Datos de error normalizados (si el estado es failed). Se calculan una
       // sola vez para reutilizarlos en la nota de sistema y en el log de campaña.
-      const errObj = status.status === 'failed' ? status.errors?.[0] : undefined;
+      const errObj =
+        status.status === 'failed' ? status.errors?.[0] : undefined;
       const errorCodeNum: number | undefined = errObj?.code;
       const errorTitle: string | null = errObj?.title || null;
-      const rawDetail: string = errObj?.message || errObj?.title || 'Error desconocido de WhatsApp';
+      const rawDetail: string =
+        errObj?.message || errObj?.title || 'Error desconocido de WhatsApp';
       // Meta incluye el motivo específico en error_data.details (p. ej. por qué
       // no pudo cargar el multimedia). Es lo más útil para diagnosticar.
       const metaDetails: string | null = errObj?.error_data?.details || null;
@@ -2157,7 +2710,10 @@ export class ChatsService {
         // If failed, create a system note with the error details
         if (status.status === 'failed') {
           const errorCode = errorCodeNum ? ` (código: ${errorCodeNum})` : '';
-          console.error('[Webhook] WhatsApp message failed:', JSON.stringify({ externalId: status.id, errors: status.errors }));
+          console.error(
+            '[Webhook] WhatsApp message failed:',
+            JSON.stringify({ externalId: status.id, errors: status.errors }),
+          );
           const tenantId = message.conversation?.inbox?.tenantId;
           const friendlyDetail = this.explainWhatsAppDeliveryError(
             errorCodeNum,
@@ -2173,7 +2729,11 @@ export class ChatsService {
         }
 
         // Emit status update to frontend
-        this.chatsGateway.emitMessageStatus(message.conversationId, message.id, status.status);
+        this.chatsGateway.emitMessageStatus(
+          message.conversationId,
+          message.id,
+          status.status,
+        );
       }
 
       // Write-back al log de campaña (si este wamid provino de un envío de
@@ -2234,8 +2794,13 @@ export class ChatsService {
         if (err.errorCodeNum != null) {
           log.errorCode = String(err.errorCodeNum).substring(0, 50);
         }
-        log.errorTitle = (err.errorTitle || 'Message Undeliverable').substring(0, 255);
-        const detail = err.metaDetails ? `${err.rawDetail} — ${err.metaDetails}` : err.rawDetail;
+        log.errorTitle = (err.errorTitle || 'Message Undeliverable').substring(
+          0,
+          255,
+        );
+        const detail = err.metaDetails
+          ? `${err.rawDetail} — ${err.metaDetails}`
+          : err.rawDetail;
         log.errorDetail = detail;
         log.failedAt = new Date();
         await this.campaignSendLogRepo.save(log);
@@ -2243,7 +2808,10 @@ export class ChatsService {
       }
     } catch (e) {
       // No romper el procesamiento del webhook por un fallo de write-back.
-      console.error('[Webhook] Error actualizando campaign_send_log desde estado WA:', e);
+      console.error(
+        '[Webhook] Error actualizando campaign_send_log desde estado WA:',
+        e,
+      );
     }
   }
 
@@ -2255,10 +2823,7 @@ export class ChatsService {
   private async recalcCampaignSendCounters(sendId: string): Promise<void> {
     const row = await this.campaignSendLogRepo
       .createQueryBuilder('l')
-      .select(
-        `COUNT(*) FILTER (WHERE l.status = 'delivered')`,
-        'delivered',
-      )
+      .select(`COUNT(*) FILTER (WHERE l.status = 'delivered')`, 'delivered')
       .addSelect(
         `COUNT(*) FILTER (WHERE l.status = 'undelivered')`,
         'undelivered',
@@ -2272,13 +2837,23 @@ export class ChatsService {
     });
   }
 
-  private async handleMessengerMessage(pageId: string, event: any): Promise<void> {
+  private async handleMessengerMessage(
+    pageId: string,
+    event: any,
+  ): Promise<void> {
     // Try finding inbox by pageId (Messenger) or by instagram account ID stored in metadata
     let inbox = await this.inboxRepo.findOne({ where: { pageId } });
     if (!inbox) {
       // Try Instagram: entry.id might be the Instagram-scoped page ID
-      const allInboxes = await this.inboxRepo.find({ where: { channel: 'instagram' } });
-      inbox = allInboxes.find((i) => i.pageId === pageId || (i.metadata as any)?.instagramAccountId === pageId) || null;
+      const allInboxes = await this.inboxRepo.find({
+        where: { channel: 'instagram' },
+      });
+      inbox =
+        allInboxes.find(
+          (i) =>
+            i.pageId === pageId ||
+            (i.metadata as any)?.instagramAccountId === pageId,
+        ) || null;
     }
     if (!inbox) return;
 
@@ -2294,7 +2869,9 @@ export class ChatsService {
       let contactName = senderId;
       let contactAvatar: string | null = null;
       try {
-        const res = await fetch(`https://graph.facebook.com/v21.0/${senderId}?fields=name,profile_pic&access_token=${inbox.accessToken}`);
+        const res = await fetch(
+          `https://graph.facebook.com/v21.0/${senderId}?fields=name,profile_pic&access_token=${inbox.accessToken}`,
+        );
         const data = await res.json();
         if (data.name) contactName = data.name;
         if (data.profile_pic) contactAvatar = data.profile_pic;
@@ -2351,7 +2928,9 @@ export class ChatsService {
       let record = await this.clientRecordRepo
         .createQueryBuilder('client')
         .where('client.tenant_id = :tenantId', { tenantId: inbox.tenantId })
-        .andWhere("client.custom_data ->> 'messengerPsid' = :psid", { psid: senderId })
+        .andWhere("client.custom_data ->> 'messengerPsid' = :psid", {
+          psid: senderId,
+        })
         .getOne();
 
       if (!record) {
@@ -2375,15 +2954,21 @@ export class ChatsService {
       }
       conversation.recordId = record.id;
     } else {
-      await this.clientRecordRepo.update(conversation.recordId, { lastContactAt: new Date() });
+      await this.clientRecordRepo.update(conversation.recordId, {
+        lastContactAt: new Date(),
+      });
     }
 
     await this.conversationRepo.save(conversation);
 
     // Automatizaciones por palabra clave
     if (conversation.recordId && content) {
-      await this.runInboxAutomations(inbox, conversation, content).catch((err) =>
-        console.warn('[Webhook] Automations (messenger) failed:', err?.message || err),
+      await this.runInboxAutomations(inbox, conversation, content).catch(
+        (err) =>
+          console.warn(
+            '[Webhook] Automations (messenger) failed:',
+            err?.message || err,
+          ),
       );
     }
 
@@ -2400,18 +2985,27 @@ export class ChatsService {
     }).catch(() => {});
   }
 
-  private async handleInstagramMessage(igAccountId: string, value: any): Promise<void> {
+  private async handleInstagramMessage(
+    igAccountId: string,
+    value: any,
+  ): Promise<void> {
     const senderId = value.sender?.id;
     const recipientId = value.recipient?.id;
     if (!senderId || !recipientId) return;
 
     // Find inbox by the Instagram account ID (stored as pageId)
-    let inbox = await this.inboxRepo.findOne({ where: { pageId: recipientId, channel: 'instagram' } });
+    let inbox = await this.inboxRepo.findOne({
+      where: { pageId: recipientId, channel: 'instagram' },
+    });
     if (!inbox) {
-      inbox = await this.inboxRepo.findOne({ where: { pageId: igAccountId, channel: 'instagram' } });
+      inbox = await this.inboxRepo.findOne({
+        where: { pageId: igAccountId, channel: 'instagram' },
+      });
     }
     if (!inbox) {
-      console.warn(`[Webhook] No Instagram inbox found for account: ${recipientId} or ${igAccountId}`);
+      console.warn(
+        `[Webhook] No Instagram inbox found for account: ${recipientId} or ${igAccountId}`,
+      );
       return;
     }
 
@@ -2425,9 +3019,13 @@ export class ChatsService {
       let contactName = senderId;
       let contactAvatar: string | null = null;
       try {
-        const res = await fetch(`https://graph.instagram.com/v21.0/${senderId}?fields=username,name,profile_picture_url&access_token=${inbox.accessToken}`);
+        const res = await fetch(
+          `https://graph.instagram.com/v21.0/${senderId}?fields=username,name,profile_picture_url&access_token=${inbox.accessToken}`,
+        );
         const data = await res.json();
-        contactName = data.username ? `@${data.username}` : data.name || senderId;
+        contactName = data.username
+          ? `@${data.username}`
+          : data.name || senderId;
         if (data.profile_picture_url) contactAvatar = data.profile_picture_url;
       } catch {}
 
@@ -2475,11 +3073,15 @@ export class ChatsService {
 
     // Link conversation to client record (Instagram — por IG-scoped ID en customData)
     if (!conversation.recordId) {
-      const nameParts = (conversation.contactName || senderId).replace(/^@/, '').split(' ');
+      const nameParts = (conversation.contactName || senderId)
+        .replace(/^@/, '')
+        .split(' ');
       let record = await this.clientRecordRepo
         .createQueryBuilder('client')
         .where('client.tenant_id = :tenantId', { tenantId: inbox.tenantId })
-        .andWhere("client.custom_data ->> 'instagramId' = :igid", { igid: senderId })
+        .andWhere("client.custom_data ->> 'instagramId' = :igid", {
+          igid: senderId,
+        })
         .getOne();
       if (!record) {
         record = this.clientRecordRepo.create({
@@ -2499,15 +3101,21 @@ export class ChatsService {
       }
       conversation.recordId = record.id;
     } else {
-      await this.clientRecordRepo.update(conversation.recordId, { lastContactAt: new Date() });
+      await this.clientRecordRepo.update(conversation.recordId, {
+        lastContactAt: new Date(),
+      });
     }
 
     await this.conversationRepo.save(conversation);
 
     // Automatizaciones por palabra clave
     if (conversation.recordId && content) {
-      await this.runInboxAutomations(inbox, conversation, content).catch((err) =>
-        console.warn('[Webhook] Automations (instagram) failed:', err?.message || err),
+      await this.runInboxAutomations(inbox, conversation, content).catch(
+        (err) =>
+          console.warn(
+            '[Webhook] Automations (instagram) failed:',
+            err?.message || err,
+          ),
       );
     }
 
@@ -2527,7 +3135,13 @@ export class ChatsService {
   // === CONVERSATION FLOWS ===
 
   /** Canales donde se ejecutan flujos (mensajería en ventana de conversación). */
-  private static readonly FLOW_CHANNELS = new Set(['whatsapp', 'messenger', 'instagram', 'chat', 'evolution']);
+  private static readonly FLOW_CHANNELS = new Set([
+    'whatsapp',
+    'messenger',
+    'instagram',
+    'chat',
+    'evolution',
+  ]);
 
   /**
    * Ejecuta los flujos conversacionales para un mensaje entrante. Orden:
@@ -2549,7 +3163,9 @@ export class ChatsService {
     let handled = false;
     // Serializa por conversación: dos mensajes seguidos no deben avanzar el flujo en paralelo.
     await this.withInboundLock(`flow:${conversationRef.id}`, async () => {
-      const conversation = await this.conversationRepo.findOne({ where: { id: conversationRef.id } });
+      const conversation = await this.conversationRepo.findOne({
+        where: { id: conversationRef.id },
+      });
       if (!conversation) return;
       // Conversación tomada por un agente: las palabras clave y los botones de
       // flujo siguen funcionando (son una acción explícita del contacto), pero
@@ -2557,31 +3173,75 @@ export class ChatsService {
       // en curso se cancela en sendMessage.
       const handedOff = conversation.botStatus === 'handed_off';
 
-      const loader = (flowId: string) => this.conversationFlowsService.loadForTenant(inbox.tenantId, flowId);
+      const loader = (flowId: string) =>
+        this.conversationFlowsService.loadForTenant(inbox.tenantId, flowId);
       // El contacto del CRM se carga solo si un flujo va a ejecutarse (y una vez):
       // la mayoría de mensajes entrantes no lo necesitan.
       let contextPromise: Promise<FlowContext> | null = null;
-      const getContext = () => (contextPromise ??= this.buildFlowContext(inbox, conversation));
+      const getContext = () =>
+        (contextPromise ??= this.buildFlowContext(
+          inbox,
+          conversation,
+          content || '',
+        ));
       const variables = conversation.flowVariables || {};
       const input = { text: content, payload };
 
       let result: FlowRunResult | null = null;
 
       if (parseButtonPayload(payload)) {
-        result = await this.conversationFlowEngine.resume(conversation.flowState, variables, input, loader, await getContext());
+        result = await this.conversationFlowEngine.resume(
+          conversation.flowState,
+          variables,
+          input,
+          loader,
+          await getContext(),
+        );
       }
       if (!result?.handled && content) {
-        const keywordFlow = await this.conversationFlowsService.findTriggeredFlow(inbox.tenantId, inbox.id, content, false);
-        if (keywordFlow) result = await this.conversationFlowEngine.start(keywordFlow, variables, loader, await getContext());
+        const keywordFlow =
+          await this.conversationFlowsService.findTriggeredFlow(
+            inbox.tenantId,
+            inbox.id,
+            content,
+            false,
+          );
+        if (keywordFlow)
+          result = await this.conversationFlowEngine.start(
+            keywordFlow,
+            variables,
+            loader,
+            await getContext(),
+          );
       }
       if (!result?.handled && conversation.flowState) {
-        result = await this.conversationFlowEngine.resume(conversation.flowState, variables, { text: content, payload: null }, loader, await getContext());
+        result = await this.conversationFlowEngine.resume(
+          conversation.flowState,
+          variables,
+          { text: content, payload: null },
+          loader,
+          await getContext(),
+        );
       }
       if (!result?.handled && !handedOff) {
-        const inboundCount = await this.messageRepo.count({ where: { conversationId: conversation.id, direction: 'inbound' } });
+        const inboundCount = await this.messageRepo.count({
+          where: { conversationId: conversation.id, direction: 'inbound' },
+        });
         if (inboundCount <= 1) {
-          const newConvFlow = await this.conversationFlowsService.findTriggeredFlow(inbox.tenantId, inbox.id, null, true);
-          if (newConvFlow) result = await this.conversationFlowEngine.start(newConvFlow, variables, loader, await getContext());
+          const newConvFlow =
+            await this.conversationFlowsService.findTriggeredFlow(
+              inbox.tenantId,
+              inbox.id,
+              null,
+              true,
+            );
+          if (newConvFlow)
+            result = await this.conversationFlowEngine.start(
+              newConvFlow,
+              variables,
+              loader,
+              await getContext(),
+            );
         }
       }
 
@@ -2605,29 +3265,59 @@ export class ChatsService {
    * Contexto con el que el motor resuelve las {{variables}}: nombre del chat,
    * canal y los campos del CRM del contacto vinculado (sistema y personalizados).
    */
-  private async buildFlowContext(inbox: Inbox, conversation: Conversation): Promise<FlowContext> {
-    const record = conversation.recordId
-      ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } })
-      : null;
+  private async buildFlowContext(
+    inbox: Inbox,
+    conversation: Conversation,
+    lastMessage = '',
+  ): Promise<FlowContext> {
+    const [record, inboundCount] = await Promise.all([
+      conversation.recordId
+        ? this.clientRecordRepo.findOne({
+            where: { id: conversation.recordId },
+          })
+        : Promise.resolve(null),
+      // Los mensajes del contacto ya incluyen el que está procesando el flujo.
+      this.messageRepo.count({
+        where: { conversationId: conversation.id, direction: 'inbound' },
+      }),
+    ]);
     return {
       contactName: conversation.contactName,
       contact: buildContactVariables(record),
+      // Datos que usan las reglas del nodo Condición.
+      lastMessage,
+      channel: inbox.channel,
+      inboxId: inbox.id,
+      labelIds: conversation.labelIds || [],
+      conversationStatus: conversation.status,
+      inboundCount,
+      hasContact: !!record,
       // La paginación «Más opciones» solo aplica a WhatsApp Cloud nativo.
-      whatsappCloud: inbox.channel === 'whatsapp' && !isBridgeActive(inbox.metadata),
+      whatsappCloud:
+        inbox.channel === 'whatsapp' && !isBridgeActive(inbox.metadata),
     };
   }
 
   /** Persiste el estado del flujo, aplica sus efectos y envía sus mensajes. */
-  private async applyFlowResult(inbox: Inbox, conversation: Conversation, conversationRef: any, result: FlowRunResult): Promise<void> {
+  private async applyFlowResult(
+    inbox: Inbox,
+    conversation: Conversation,
+    conversationRef: any,
+    result: FlowRunResult,
+  ): Promise<void> {
     const { effects } = result;
     conversation.flowState = result.state;
     conversation.flowVariables = result.variables;
 
     if (effects.addLabelIds.length || effects.removeLabelIds.length) {
-      const validLabels = await this.labelRepo.find({ where: { tenantId: inbox.tenantId } });
+      const validLabels = await this.labelRepo.find({
+        where: { tenantId: inbox.tenantId },
+      });
       const validIds = new Set(validLabels.map((l) => l.id));
       const labels = new Set(conversation.labelIds || []);
-      effects.addLabelIds.filter((id) => validIds.has(id)).forEach((id) => labels.add(id));
+      effects.addLabelIds
+        .filter((id) => validIds.has(id))
+        .forEach((id) => labels.add(id));
       effects.removeLabelIds.forEach((id) => labels.delete(id));
       conversation.labelIds = [...labels];
     }
@@ -2646,32 +3336,62 @@ export class ChatsService {
 
     for (const msg of result.messages) {
       try {
-        await this.sendMessage(conversation.id, msg.text || '', 'text', undefined, undefined, {
-          buttons: msg.buttons,
-          actions: await this.trackFlowLinks(inbox, conversation.id, msg),
-          header: msg.header,
-          footer: msg.footer,
-          headerMedia: msg.headerMedia,
-        });
+        await this.sendMessage(
+          conversation.id,
+          msg.text || '',
+          'text',
+          undefined,
+          undefined,
+          {
+            buttons: msg.buttons,
+            actions: await this.trackFlowLinks(inbox, conversation.id, msg),
+            header: msg.header,
+            footer: msg.footer,
+            headerMedia: msg.headerMedia,
+          },
+        );
       } catch (err: any) {
         console.warn('[ConversationFlow] Send failed:', err?.message || err);
-        await this.createSystemNote(conversation.id, `⚠️ Flujo: no se pudo enviar un mensaje (${err?.message || 'error'})`, inbox.tenantId);
+        await this.createSystemNote(
+          conversation.id,
+          `⚠️ Flujo: no se pudo enviar un mensaje (${err?.message || 'error'})`,
+          inbox.tenantId,
+        );
         break;
       }
     }
 
     if (effects.handoff) {
-      await this.createSystemNote(conversation.id, '🔀 Flujo: conversación transferida a un agente.', inbox.tenantId);
+      await this.createSystemNote(
+        conversation.id,
+        '🔀 Flujo: conversación transferida a un agente.',
+        inbox.tenantId,
+      );
     }
     if (effects.resolve) {
-      await this.createSystemNote(conversation.id, '✅ Flujo: conversación marcada como resuelta.', inbox.tenantId);
+      await this.createSystemNote(
+        conversation.id,
+        '✅ Flujo: conversación marcada como resuelta.',
+        inbox.tenantId,
+      );
     }
-    if (effects.handoff || effects.resolve || effects.addLabelIds.length || effects.removeLabelIds.length) {
-      const convForEmit = await this.conversationRepo.findOne({ where: { id: conversation.id }, relations: { inbox: true, record: true } });
-      if (convForEmit) this.chatsGateway.emitConversationUpdate(inbox.tenantId, convForEmit);
+    if (
+      effects.handoff ||
+      effects.resolve ||
+      effects.addLabelIds.length ||
+      effects.removeLabelIds.length
+    ) {
+      const convForEmit = await this.conversationRepo.findOne({
+        where: { id: conversation.id },
+        relations: { inbox: true, record: true },
+      });
+      if (convForEmit)
+        this.chatsGateway.emitConversationUpdate(inbox.tenantId, convForEmit);
     }
     if (result.startedFlowIds.length) {
-      this.conversationFlowsService.incrementRunCount(result.startedFlowIds).catch(() => {});
+      this.conversationFlowsService
+        .incrementRunCount(result.startedFlowIds)
+        .catch(() => {});
     }
   }
 
@@ -2695,7 +3415,8 @@ export class ChatsService {
 
     return Promise.all(
       msg.actions.map(async (a): Promise<OutgoingAction> => {
-        if (a.type !== 'url' || !a.url || !a.track || !a.buttonId || !canTrack) return a;
+        if (a.type !== 'url' || !a.url || !a.track || !a.buttonId || !canTrack)
+          return a;
         try {
           const link = await this.flowLinksService.createLink({
             tenantId: inbox.tenantId,
@@ -2706,9 +3427,16 @@ export class ChatsService {
             title: a.title,
             url: a.url,
           });
-          return { ...a, url: this.flowLinksService.urlFor(link.code), displayUrl: a.url };
+          return {
+            ...a,
+            url: this.flowLinksService.urlFor(link.code),
+            displayUrl: a.url,
+          };
         } catch (err: any) {
-          console.warn('[FlowLink] No se pudo crear el enlace rastreado:', err?.message || err);
+          console.warn(
+            '[FlowLink] No se pudo crear el enlace rastreado:',
+            err?.message || err,
+          );
           return a;
         }
       }),
@@ -2716,14 +3444,20 @@ export class ChatsService {
   }
 
   /** true si se pueden enviar mensajes libres (ventana de 24 h de WhatsApp/Messenger/Instagram). */
-  private async isServiceWindowOpen(conversationId: string, channel: string): Promise<boolean> {
+  private async isServiceWindowOpen(
+    conversationId: string,
+    channel: string,
+  ): Promise<boolean> {
     if (!['whatsapp', 'messenger', 'instagram'].includes(channel)) return true;
     const lastInbound = await this.messageRepo.findOne({
       where: { conversationId, direction: 'inbound' },
       order: { createdAt: 'DESC' },
     });
     if (!lastInbound) return false;
-    return Date.now() - new Date(lastInbound.createdAt).getTime() <= 24 * 60 * 60 * 1000;
+    return (
+      Date.now() - new Date(lastInbound.createdAt).getTime() <=
+      24 * 60 * 60 * 1000
+    );
   }
 
   /**
@@ -2743,11 +3477,27 @@ export class ChatsService {
     const inbox = conversation?.inbox;
     if (!conversation || !inbox) return;
 
-    await this.createSystemNote(conversation.id, `🔗 El contacto abrió «${link.title}».`, inbox.tenantId).catch(() => {});
+    await this.createSystemNote(
+      conversation.id,
+      `🔗 El contacto abrió «${link.title}».`,
+      inbox.tenantId,
+    ).catch(() => {});
     this.webhooksService
       .dispatch(inbox.tenantId, 'link_clicked', {
-        link: { id: link.id, title: link.title, url: link.url, flowId: link.flowId, clickedAt: link.firstClickAt },
-        conversation: { id: conversation.id, contactId: conversation.contactId, contactName: conversation.contactName, recordId: conversation.recordId, inboxId: conversation.inboxId },
+        link: {
+          id: link.id,
+          title: link.title,
+          url: link.url,
+          flowId: link.flowId,
+          clickedAt: link.firstClickAt,
+        },
+        conversation: {
+          id: conversation.id,
+          contactId: conversation.contactId,
+          contactName: conversation.contactName,
+          recordId: conversation.recordId,
+          inboxId: conversation.inboxId,
+        },
         inbox: { id: inbox.id, name: inbox.name, channel: inbox.channel },
       })
       .catch(() => {});
@@ -2765,7 +3515,9 @@ export class ChatsService {
     link: { flowId: string; nodeId: string; buttonId: string; title: string },
   ): Promise<void> {
     await this.withInboundLock(`flow:${conversationId}`, async () => {
-      const conversation = await this.conversationRepo.findOne({ where: { id: conversationId } });
+      const conversation = await this.conversationRepo.findOne({
+        where: { id: conversationId },
+      });
       if (!conversation) return;
       // Un agente atiende la conversación: se registra el clic pero no se envía nada automático.
       if (conversation.botStatus === 'handed_off') return;
@@ -2773,7 +3525,8 @@ export class ChatsService {
       const result = await this.conversationFlowEngine.resumeFromClick(
         link,
         conversation.flowVariables || {},
-        (flowId) => this.conversationFlowsService.loadForTenant(inbox.tenantId, flowId),
+        (flowId) =>
+          this.conversationFlowsService.loadForTenant(inbox.tenantId, flowId),
         await this.buildFlowContext(inbox, conversation),
       );
       // Sin nada conectado a «Al hacer clic»: solo queda registrado.
@@ -2798,7 +3551,12 @@ export class ChatsService {
     inbox: Inbox,
     conversation: any,
     content: string | null,
-    mediaInfo?: { messageType?: string; mediaUrl?: string | null; mediaMimeType?: string | null; interactivePayload?: string | null },
+    mediaInfo?: {
+      messageType?: string;
+      mediaUrl?: string | null;
+      mediaMimeType?: string | null;
+      interactivePayload?: string | null;
+    },
   ): Promise<void> {
     // Los flujos conversacionales tienen prioridad sobre el bot: si un flujo
     // atiende el mensaje, el bot no responde en este turno.
@@ -2823,7 +3581,10 @@ export class ChatsService {
     if (!inbox.botId) return;
 
     // Allow through if there's text content OR if there's media
-    const hasMedia = mediaInfo?.messageType && mediaInfo.messageType !== 'text' && mediaInfo.mediaUrl;
+    const hasMedia =
+      mediaInfo?.messageType &&
+      mediaInfo.messageType !== 'text' &&
+      mediaInfo.mediaUrl;
     if (!content && !hasMedia) return;
 
     const bot = await this.botsService.findOne(inbox.botId);
@@ -2834,10 +3595,14 @@ export class ChatsService {
       const mediaHandling = bot.mediaHandling;
       if (!mediaHandling) return; // No media config = ignore
       const mType = mediaInfo!.messageType!;
-      const mode = mType === 'image' ? mediaHandling.image
-        : (mType === 'audio' || mType === 'ptt') ? mediaHandling.audio
-        : (mType === 'document' || mType === 'video') ? mediaHandling.document
-        : null;
+      const mode =
+        mType === 'image'
+          ? mediaHandling.image
+          : mType === 'audio' || mType === 'ptt'
+            ? mediaHandling.audio
+            : mType === 'document' || mType === 'video'
+              ? mediaHandling.document
+              : null;
       if (!mode || mode === 'ignore') return;
     }
 
@@ -2857,18 +3622,35 @@ export class ChatsService {
     // Set new timer
     const timer = setTimeout(() => {
       this.botReplyTimers.delete(conversationId);
-      this.triggerBotReply(inbox, conversation, content, mediaInfo).catch((err) => {
-        console.error('[Bot Auto-Reply] Debounced reply failed:', err?.message || err);
-      });
+      this.triggerBotReply(inbox, conversation, content, mediaInfo).catch(
+        (err) => {
+          console.error(
+            '[Bot Auto-Reply] Debounced reply failed:',
+            err?.message || err,
+          );
+        },
+      );
     }, delay);
 
     this.botReplyTimers.set(conversationId, timer);
   }
 
-  private async triggerBotReply(inbox: Inbox, conversation: any, inboundContent: string | null, mediaInfo?: { messageType?: string; mediaUrl?: string | null; mediaMimeType?: string | null }): Promise<void> {
+  private async triggerBotReply(
+    inbox: Inbox,
+    conversation: any,
+    inboundContent: string | null,
+    mediaInfo?: {
+      messageType?: string;
+      mediaUrl?: string | null;
+      mediaMimeType?: string | null;
+    },
+  ): Promise<void> {
     if (!inbox.botId) return;
     // Allow through if there's content OR media
-    const hasMedia = mediaInfo?.messageType && mediaInfo.messageType !== 'text' && mediaInfo.mediaUrl;
+    const hasMedia =
+      mediaInfo?.messageType &&
+      mediaInfo.messageType !== 'text' &&
+      mediaInfo.mediaUrl;
     if (!inboundContent && !hasMedia) return;
 
     try {
@@ -2883,7 +3665,11 @@ export class ChatsService {
       try {
         const balance = await this.billingService.getBalance(inbox.tenantId);
         if (balance && balance.available <= 0) {
-          await this.createSystemNote(conversation.id, '⚠️ Bot pausado: créditos insuficientes.', inbox.tenantId);
+          await this.createSystemNote(
+            conversation.id,
+            '⚠️ Bot pausado: créditos insuficientes.',
+            inbox.tenantId,
+          );
           conversation.botStatus = 'paused';
           await this.conversationRepo.save(conversation);
           return;
@@ -2894,30 +3680,57 @@ export class ChatsService {
       if (bot.schedule?.enabled) {
         const now = new Date();
         const tz = bot.schedule.timezone || 'America/Bogota';
-        const localTime = new Date(now.toLocaleString('en-US', { timeZone: tz }));
-        const dayNames = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+        const localTime = new Date(
+          now.toLocaleString('en-US', { timeZone: tz }),
+        );
+        const dayNames = [
+          'domingo',
+          'lunes',
+          'martes',
+          'miercoles',
+          'jueves',
+          'viernes',
+          'sabado',
+        ];
         const dayConfig = bot.schedule.days?.[dayNames[localTime.getDay()]];
 
         if (!dayConfig?.active) {
-          if (bot.schedule.offMessage) await this.sendMessage(conversation.id, bot.schedule.offMessage, 'text', undefined);
+          if (bot.schedule.offMessage)
+            await this.sendMessage(
+              conversation.id,
+              bot.schedule.offMessage,
+              'text',
+              undefined,
+            );
           return;
         }
 
-        const currentMinutes = localTime.getHours() * 60 + localTime.getMinutes();
-        const [startH, startM] = (dayConfig.start || '00:00').split(':').map(Number);
+        const currentMinutes =
+          localTime.getHours() * 60 + localTime.getMinutes();
+        const [startH, startM] = (dayConfig.start || '00:00')
+          .split(':')
+          .map(Number);
         const [endH, endM] = (dayConfig.end || '23:59').split(':').map(Number);
         const startMinutes = startH * 60 + startM;
         const endMinutes = endH * 60 + endM;
 
         if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
-          if (bot.schedule.offMessage) await this.sendMessage(conversation.id, bot.schedule.offMessage, 'text', undefined);
+          if (bot.schedule.offMessage)
+            await this.sendMessage(
+              conversation.id,
+              bot.schedule.offMessage,
+              'text',
+              undefined,
+            );
           return;
         }
       }
 
       // Check rate limit
       if (bot.rateLimit && bot.rateLimit.maxMessages > 0) {
-        const windowStart = new Date(Date.now() - bot.rateLimit.windowMinutes * 60 * 1000);
+        const windowStart = new Date(
+          Date.now() - bot.rateLimit.windowMinutes * 60 * 1000,
+        );
         const recentBotMessages = await this.messageRepo.count({
           where: {
             conversationId: conversation.id,
@@ -2927,23 +3740,46 @@ export class ChatsService {
           },
         });
         if (recentBotMessages >= bot.rateLimit.maxMessages) {
-          if (bot.rateLimit.limitMessage) await this.sendMessage(conversation.id, bot.rateLimit.limitMessage, 'text', undefined);
+          if (bot.rateLimit.limitMessage)
+            await this.sendMessage(
+              conversation.id,
+              bot.rateLimit.limitMessage,
+              'text',
+              undefined,
+            );
           return;
         }
       }
 
       // Check handoff keywords
-      if (bot.handoffKeywords && bot.handoffKeywords.length > 0 && inboundContent) {
+      if (
+        bot.handoffKeywords &&
+        bot.handoffKeywords.length > 0 &&
+        inboundContent
+      ) {
         const lowerContent = inboundContent.toLowerCase();
-        const triggered = bot.handoffKeywords.some((kw) => lowerContent.includes(kw.toLowerCase()));
+        const triggered = bot.handoffKeywords.some((kw) =>
+          lowerContent.includes(kw.toLowerCase()),
+        );
         if (triggered) {
           // Hand off to human
           conversation.botStatus = 'handed_off';
           await this.conversationRepo.save(conversation);
 
-          const handoffMsg = bot.handoffMessage || 'Te conecto con un agente humano. Un momento por favor.';
-          await this.sendMessage(conversation.id, handoffMsg, 'text', undefined);
-          await this.createSystemNote(conversation.id, '🤖→👤 Bot desactivado: el contacto pidió un agente humano.', inbox.tenantId);
+          const handoffMsg =
+            bot.handoffMessage ||
+            'Te conecto con un agente humano. Un momento por favor.';
+          await this.sendMessage(
+            conversation.id,
+            handoffMsg,
+            'text',
+            undefined,
+          );
+          await this.createSystemNote(
+            conversation.id,
+            '🤖→👤 Bot desactivado: el contacto pidió un agente humano.',
+            inbox.tenantId,
+          );
           return;
         }
       }
@@ -2951,63 +3787,100 @@ export class ChatsService {
       // Check max bot messages limit
       if (bot.maxBotMessages > 0) {
         const botMessageCount = await this.messageRepo.count({
-          where: { conversationId: conversation.id, direction: 'outbound', botId: inbox.botId },
+          where: {
+            conversationId: conversation.id,
+            direction: 'outbound',
+            botId: inbox.botId,
+          },
         });
         if (botMessageCount >= bot.maxBotMessages) {
           conversation.botStatus = 'paused';
           await this.conversationRepo.save(conversation);
-          await this.createSystemNote(conversation.id, `🤖 Bot pausado: se alcanzó el límite de ${bot.maxBotMessages} mensajes.`, inbox.tenantId);
+          await this.createSystemNote(
+            conversation.id,
+            `🤖 Bot pausado: se alcanzó el límite de ${bot.maxBotMessages} mensajes.`,
+            inbox.tenantId,
+          );
           return;
         }
       }
 
       // === MEDIA HANDLING ===
-      const hasMediaMsg = mediaInfo?.messageType && mediaInfo.messageType !== 'text' && mediaInfo.mediaUrl;
+      const hasMediaMsg =
+        mediaInfo?.messageType &&
+        mediaInfo.messageType !== 'text' &&
+        mediaInfo.mediaUrl;
       let mediaContentForBot: string | null = null;
-      let mediaUsage: { prompt_tokens: number; completion_tokens: number } | null = null;
+      let mediaUsage: {
+        prompt_tokens: number;
+        completion_tokens: number;
+      } | null = null;
 
       if (hasMediaMsg && bot.mediaHandling) {
         const mType = mediaInfo!.messageType!;
-        const mode = mType === 'image' ? bot.mediaHandling.image
-          : (mType === 'audio' || mType === 'ptt') ? bot.mediaHandling.audio
-          : (mType === 'document' || mType === 'video') ? bot.mediaHandling.document
-          : 'ignore';
+        const mode =
+          mType === 'image'
+            ? bot.mediaHandling.image
+            : mType === 'audio' || mType === 'ptt'
+              ? bot.mediaHandling.audio
+              : mType === 'document' || mType === 'video'
+                ? bot.mediaHandling.document
+                : 'ignore';
 
         if (mode === 'ignore') {
           // Do nothing for this media type
           if (!inboundContent) return;
         } else if (mode === 'acknowledge') {
           // Send a canned response and stop
-          const ackMsg = bot.mediaHandling.acknowledgeMessage || this.getDefaultAcknowledgeMessage(mType);
+          const ackMsg =
+            bot.mediaHandling.acknowledgeMessage ||
+            this.getDefaultAcknowledgeMessage(mType);
           await this.sendMessage(conversation.id, ackMsg, 'text', undefined);
           return;
         } else if (mode === 'forward') {
           // Hand off to a human agent
           conversation.botStatus = 'handed_off';
           await this.conversationRepo.save(conversation);
-          const fwdMsg = bot.mediaHandling.forwardMessage || 'Te conecto con un agente para que pueda revisar tu archivo.';
+          const fwdMsg =
+            bot.mediaHandling.forwardMessage ||
+            'Te conecto con un agente para que pueda revisar tu archivo.';
           await this.sendMessage(conversation.id, fwdMsg, 'text', undefined);
-          await this.createSystemNote(conversation.id, `🤖→👤 Bot desactivado: se recibió un archivo (${mType}) que requiere atención humana.`, inbox.tenantId);
+          await this.createSystemNote(
+            conversation.id,
+            `🤖→👤 Bot desactivado: se recibió un archivo (${mType}) que requiere atención humana.`,
+            inbox.tenantId,
+          );
           return;
         } else if (mode === 'describe' && mType === 'image') {
           // Use vision model to describe the image
           try {
-            const result = await this.botsService.describeImage(mediaInfo!.mediaUrl!, bot.tenantId);
+            const result = await this.botsService.describeImage(
+              mediaInfo!.mediaUrl!,
+              bot.tenantId,
+            );
             mediaContentForBot = result.text;
             mediaUsage = result.usage;
           } catch (err) {
             console.error('[Bot Media] Failed to describe image:', err);
-            mediaContentForBot = '[El usuario envió una imagen que no pudo ser analizada]';
+            mediaContentForBot =
+              '[El usuario envió una imagen que no pudo ser analizada]';
           }
-        } else if (mode === 'transcribe' && (mType === 'audio' || mType === 'ptt')) {
+        } else if (
+          mode === 'transcribe' &&
+          (mType === 'audio' || mType === 'ptt')
+        ) {
           // Transcribe audio to text
           try {
-            const result = await this.botsService.transcribeAudio(mediaInfo!.mediaUrl!, bot.tenantId);
+            const result = await this.botsService.transcribeAudio(
+              mediaInfo!.mediaUrl!,
+              bot.tenantId,
+            );
             mediaContentForBot = result.text;
             mediaUsage = result.usage;
           } catch (err) {
             console.error('[Bot Media] Failed to transcribe audio:', err);
-            mediaContentForBot = '[El usuario envió un audio que no pudo ser transcrito]';
+            mediaContentForBot =
+              '[El usuario envió un audio que no pudo ser transcrito]';
           }
         }
       }
@@ -3015,9 +3888,10 @@ export class ChatsService {
       // Build effective inbound content (text + media context)
       let effectiveContent = inboundContent || '';
       if (mediaContentForBot) {
-        const prefix = mediaInfo?.messageType === 'image'
-          ? '[Imagen enviada por el usuario - Descripción: '
-          : '[Audio enviado por el usuario - Transcripción: ';
+        const prefix =
+          mediaInfo?.messageType === 'image'
+            ? '[Imagen enviada por el usuario - Descripción: '
+            : '[Audio enviado por el usuario - Transcripción: ';
         effectiveContent = effectiveContent
           ? `${effectiveContent}\n\n${prefix}${mediaContentForBot}]`
           : `${prefix}${mediaContentForBot}]`;
@@ -3036,10 +3910,12 @@ export class ChatsService {
       recentMessages.reverse(); // Back to chronological order
 
       // Build messages array for the bot
-      const messages = recentMessages.map((m) => ({
-        role: m.direction === 'inbound' ? 'user' : 'assistant',
-        content: m.content || '',
-      })).filter((m) => m.content);
+      const messages = recentMessages
+        .map((m) => ({
+          role: m.direction === 'inbound' ? 'user' : 'assistant',
+          content: m.content || '',
+        }))
+        .filter((m) => m.content);
 
       // If we enriched the last inbound message with media context, replace it
       if (mediaContentForBot && messages.length > 0) {
@@ -3052,7 +3928,10 @@ export class ChatsService {
         }
       } else if (!inboundContent && effectiveContent) {
         // Pure media message that was processed - ensure it's in context
-        if (messages.length === 0 || messages[messages.length - 1].role !== 'user') {
+        if (
+          messages.length === 0 ||
+          messages[messages.length - 1].role !== 'user'
+        ) {
           messages.push({ role: 'user', content: effectiveContent });
         }
       }
@@ -3060,7 +3939,9 @@ export class ChatsService {
       // Build collectedData from existing record to avoid re-asking
       let collectedData: Record<string, string> | undefined;
       if (bot.dataCollectionEnabled && conversation.recordId) {
-        const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+        const record = await this.clientRecordRepo.findOne({
+          where: { id: conversation.recordId },
+        });
         if (record) {
           collectedData = {};
           const standardFields: Record<string, string> = {
@@ -3099,15 +3980,26 @@ export class ChatsService {
         const rejected = rejectWords.some((w) => lower.includes(w));
 
         if (rejected) {
-          const rejectMsg = consent.rejectMessage || 'Entendido. Sin tu autorización no podemos continuar.';
-          const sentMessage = await this.sendMessage(conversation.id, rejectMsg, 'text', undefined);
+          const rejectMsg =
+            consent.rejectMessage ||
+            'Entendido. Sin tu autorización no podemos continuar.';
+          const sentMessage = await this.sendMessage(
+            conversation.id,
+            rejectMsg,
+            'text',
+            undefined,
+          );
           sentMessage.botId = inbox.botId;
           await this.messageRepo.save(sentMessage);
 
           if (consent.rejectAction === 'handoff') {
             conversation.botStatus = 'handed_off';
             await this.conversationRepo.save(conversation);
-            await this.createSystemNote(conversation.id, '🤖→👤 Bot desactivado: el contacto rechazó el consentimiento.', inbox.tenantId);
+            await this.createSystemNote(
+              conversation.id,
+              '🤖→👤 Bot desactivado: el contacto rechazó el consentimiento.',
+              inbox.tenantId,
+            );
           } else {
             conversation.botStatus = 'paused';
             await this.conversationRepo.save(conversation);
@@ -3118,21 +4010,33 @@ export class ChatsService {
         // Not a rejection — check if this is the very first bot interaction (consent not yet sent)
         // We detect this by checking if there are any outbound bot messages in this conversation
         const botMessageCount = await this.messageRepo.count({
-          where: { conversationId: conversation.id, direction: 'outbound', botId: inbox.botId },
+          where: {
+            conversationId: conversation.id,
+            direction: 'outbound',
+            botId: inbox.botId,
+          },
         });
 
         if (botMessageCount === 0) {
           // First interaction — send consent message as a separate message first
           let consentText = consent.message || '';
-          if (consent.termsUrl) consentText += `\n\n📎 Términos y condiciones: ${consent.termsUrl}`;
-          if (consent.ageVerification) consentText += `\n\n${consent.ageMessage || '⚠️ Al continuar, declaro ser mayor de edad.'}`;
+          if (consent.termsUrl)
+            consentText += `\n\n📎 Términos y condiciones: ${consent.termsUrl}`;
+          if (consent.ageVerification)
+            consentText += `\n\n${consent.ageMessage || '⚠️ Al continuar, declaro ser mayor de edad.'}`;
           if (consent.mode !== 'implicit') {
             consentText += '\n\nResponde "Acepto" o "No acepto".';
           } else {
-            consentText += '\n\nAl continuar la conversación, aceptas estos términos.';
+            consentText +=
+              '\n\nAl continuar la conversación, aceptas estos términos.';
           }
 
-          const consentMsg = await this.sendMessage(conversation.id, consentText, 'text', undefined);
+          const consentMsg = await this.sendMessage(
+            conversation.id,
+            consentText,
+            'text',
+            undefined,
+          );
           consentMsg.botId = inbox.botId;
           await this.messageRepo.save(consentMsg);
 
@@ -3157,14 +4061,25 @@ export class ChatsService {
             if (accepted) {
               conversation.botConsentGiven = true;
               await this.conversationRepo.save(conversation);
-              await this.createSystemNote(conversation.id, '✅ Consentimiento otorgado por el contacto.', inbox.tenantId);
+              await this.createSystemNote(
+                conversation.id,
+                '✅ Consentimiento otorgado por el contacto.',
+                inbox.tenantId,
+              );
               // Fall through to normal bot response
             } else {
               // Re-ask
-              let consentText = consent.message || 'Necesito tu autorización para continuar.';
-              if (consent.termsUrl) consentText += `\n\n📎 Términos y condiciones: ${consent.termsUrl}`;
+              let consentText =
+                consent.message || 'Necesito tu autorización para continuar.';
+              if (consent.termsUrl)
+                consentText += `\n\n📎 Términos y condiciones: ${consent.termsUrl}`;
               consentText += '\n\nResponde "Acepto" o "No acepto".';
-              const sentMessage = await this.sendMessage(conversation.id, consentText, 'text', undefined);
+              const sentMessage = await this.sendMessage(
+                conversation.id,
+                consentText,
+                'text',
+                undefined,
+              );
               sentMessage.botId = inbox.botId;
               await this.messageRepo.save(sentMessage);
               return;
@@ -3178,24 +4093,41 @@ export class ChatsService {
       }
 
       // Get bot response — route by bot type
-      let response: { content: string; usage?: any; extractedData?: Record<string, string>; handedOff?: boolean; toolsExecuted?: { name: string; result: string }[]; flowCompleted?: boolean } | null = null;
+      let response: {
+        content: string;
+        usage?: any;
+        extractedData?: Record<string, string>;
+        handedOff?: boolean;
+        toolsExecuted?: { name: string; result: string }[];
+        flowCompleted?: boolean;
+      } | null = null;
 
       if (bot.type === 'sequential') {
         // Sequential flow: deterministic step-by-step data collection
         const flowResponse = conversation.botFlowState
-          ? await this.sequentialFlowEngine.processMessage(bot, conversation, effectiveContent)
+          ? await this.sequentialFlowEngine.processMessage(
+              bot,
+              conversation,
+              effectiveContent,
+            )
           : await this.sequentialFlowEngine.startFlow(bot, conversation);
 
-        response = flowResponse ? {
-          content: flowResponse.content,
-          usage: flowResponse.usage,
-          extractedData: flowResponse.extractedData,
-          handedOff: flowResponse.handedOff || false,
-          flowCompleted: flowResponse.flowCompleted,
-        } : null;
+        response = flowResponse
+          ? {
+              content: flowResponse.content,
+              usage: flowResponse.usage,
+              extractedData: flowResponse.extractedData,
+              handedOff: flowResponse.handedOff || false,
+              flowCompleted: flowResponse.flowCompleted,
+            }
+          : null;
       } else {
         // Freeform (default) and hybrid: AI-driven conversation
-        response = await this.botsService.chat(inbox.botId, messages, collectedData);
+        response = await this.botsService.chat(
+          inbox.botId,
+          messages,
+          collectedData,
+        );
       }
 
       if (!response?.content) return;
@@ -3204,19 +4136,33 @@ export class ChatsService {
       if (response.toolsExecuted && response.toolsExecuted.length > 0) {
         for (const t of response.toolsExecuted) {
           if (t.name === 'save_contact_data') continue;
-          if (t.name === 'handoff_to_human' || t.name === 'mark_resolved') continue;
-          await this.createSystemNote(conversation.id, `🔧 Herramienta ejecutada: ${t.name}`, inbox.tenantId);
+          if (t.name === 'handoff_to_human' || t.name === 'mark_resolved')
+            continue;
+          await this.createSystemNote(
+            conversation.id,
+            `🔧 Herramienta ejecutada: ${t.name}`,
+            inbox.tenantId,
+          );
         }
       }
 
       // Send the bot reply through the normal send flow
-      const sentMessage = await this.sendMessage(conversation.id, response.content, 'text', undefined);
+      const sentMessage = await this.sendMessage(
+        conversation.id,
+        response.content,
+        'text',
+        undefined,
+      );
 
       // Attach bot metadata to the saved message
       sentMessage.botId = inbox.botId;
       if (response.usage) {
-        const totalPromptTokens = (response.usage.prompt_tokens || 0) + (mediaUsage?.prompt_tokens || 0);
-        const totalCompletionTokens = (response.usage.completion_tokens || 0) + (mediaUsage?.completion_tokens || 0);
+        const totalPromptTokens =
+          (response.usage.prompt_tokens || 0) +
+          (mediaUsage?.prompt_tokens || 0);
+        const totalCompletionTokens =
+          (response.usage.completion_tokens || 0) +
+          (mediaUsage?.completion_tokens || 0);
         sentMessage.aiUsage = {
           promptTokens: totalPromptTokens,
           completionTokens: totalCompletionTokens,
@@ -3241,53 +4187,97 @@ export class ChatsService {
         conversation.botStatus = 'handed_off';
         await this.conversationRepo.save(conversation);
 
-        const wasResolved = response.toolsExecuted?.some((t) => t.name === 'mark_resolved') || (response as any).flowCompleted;
+        const wasResolved =
+          response.toolsExecuted?.some((t) => t.name === 'mark_resolved') ||
+          (response as any).flowCompleted;
         if (wasResolved) {
-          await this.createSystemNote(conversation.id, '✅ Bot: objetivo cumplido, conversación resuelta.', inbox.tenantId);
+          await this.createSystemNote(
+            conversation.id,
+            '✅ Bot: objetivo cumplido, conversación resuelta.',
+            inbox.tenantId,
+          );
 
           // Execute on-resolved actions
           if (bot.onResolvedActions && conversation.recordId) {
-            const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+            const record = await this.clientRecordRepo.findOne({
+              where: { id: conversation.recordId },
+            });
             if (record) {
               if (bot.onResolvedActions.changeStatus) {
                 const prevStatus = record.status;
                 record.status = bot.onResolvedActions.changeStatus;
                 // Create timeline activity
-                this.activityRepo.save(this.activityRepo.create({
-                  tenantId: inbox.tenantId,
-                  recordId: record.id,
-                  type: 'status_changed',
-                  description: `Estado cambiado a ${bot.onResolvedActions.changeStatus} (por bot "${bot.name}")`,
-                  metadata: { from: prevStatus, to: bot.onResolvedActions.changeStatus, botId: bot.id, botName: bot.name },
-                })).catch(() => {});
+                this.activityRepo
+                  .save(
+                    this.activityRepo.create({
+                      tenantId: inbox.tenantId,
+                      recordId: record.id,
+                      type: 'status_changed',
+                      description: `Estado cambiado a ${bot.onResolvedActions.changeStatus} (por bot "${bot.name}")`,
+                      metadata: {
+                        from: prevStatus,
+                        to: bot.onResolvedActions.changeStatus,
+                        botId: bot.id,
+                        botName: bot.name,
+                      },
+                    }),
+                  )
+                  .catch(() => {});
               }
               if (bot.onResolvedActions.assignTeamId) {
                 record.assignedTeamId = bot.onResolvedActions.assignTeamId;
-                this.activityRepo.save(this.activityRepo.create({
-                  tenantId: inbox.tenantId,
-                  recordId: record.id,
-                  type: 'assigned',
-                  description: `Equipo asignado por bot "${bot.name}" al resolver`,
-                  metadata: { assignedTeamId: bot.onResolvedActions.assignTeamId, botId: bot.id, botName: bot.name, trigger: 'bot_resolved' },
-                })).catch(() => {});
+                this.activityRepo
+                  .save(
+                    this.activityRepo.create({
+                      tenantId: inbox.tenantId,
+                      recordId: record.id,
+                      type: 'assigned',
+                      description: `Equipo asignado por bot "${bot.name}" al resolver`,
+                      metadata: {
+                        assignedTeamId: bot.onResolvedActions.assignTeamId,
+                        botId: bot.id,
+                        botName: bot.name,
+                        trigger: 'bot_resolved',
+                      },
+                    }),
+                  )
+                  .catch(() => {});
               }
               await this.clientRecordRepo.save(record);
             }
             // Add labels to conversation
-            if (bot.onResolvedActions.addTags && bot.onResolvedActions.addTags.length > 0) {
+            if (
+              bot.onResolvedActions.addTags &&
+              bot.onResolvedActions.addTags.length > 0
+            ) {
               const existingLabels = conversation.labelIds || [];
-              conversation.labelIds = [...new Set([...existingLabels, ...bot.onResolvedActions.addTags])];
+              conversation.labelIds = [
+                ...new Set([
+                  ...existingLabels,
+                  ...bot.onResolvedActions.addTags,
+                ]),
+              ];
               await this.conversationRepo.save(conversation);
             }
           }
         } else {
-          await this.createSystemNote(conversation.id, '🤖→👤 Bot desactivado: transferido a un agente humano.', inbox.tenantId);
+          await this.createSystemNote(
+            conversation.id,
+            '🤖→👤 Bot desactivado: transferido a un agente humano.',
+            inbox.tenantId,
+          );
         }
       }
 
       // Handle extracted data — update CRM record and insert system note
-      if (response.extractedData && Object.keys(response.extractedData).length > 0 && conversation.recordId) {
-        const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+      if (
+        response.extractedData &&
+        Object.keys(response.extractedData).length > 0 &&
+        conversation.recordId
+      ) {
+        const record = await this.clientRecordRepo.findOne({
+          where: { id: conversation.recordId },
+        });
         if (record) {
           const standardFieldMap: Record<string, string> = {
             firstName: 'firstName',
@@ -3304,19 +4294,26 @@ export class ChatsService {
           const newData: Record<string, string> = {};
 
           // Overwrite existing data only when the new value differs (except phone on WA/evolution channels)
-          const isPhoneChannel = inbox.channel === 'whatsapp' || inbox.channel === 'evolution';
+          const isPhoneChannel =
+            inbox.channel === 'whatsapp' || inbox.channel === 'evolution';
 
           // Overwrite only when the incoming value is non-empty AND different
           // from the currently stored value (case-insensitive, trimmed compare).
-          const isDifferent = (incoming: unknown, current: unknown): boolean => {
+          const isDifferent = (
+            incoming: unknown,
+            current: unknown,
+          ): boolean => {
             const a = String(incoming ?? '').trim();
             const b = String(current ?? '').trim();
             if (!a) return false; // never write empty values
             return a.toLowerCase() !== b.toLowerCase();
           };
 
-          for (const [key, rawValue] of Object.entries(response.extractedData)) {
-            const value = typeof rawValue === 'string' ? rawValue.trim() : rawValue;
+          for (const [key, rawValue] of Object.entries(
+            response.extractedData,
+          )) {
+            const value =
+              typeof rawValue === 'string' ? rawValue.trim() : rawValue;
             if (!value) continue;
 
             if (key.startsWith('custom:')) {
@@ -3344,7 +4341,9 @@ export class ChatsService {
 
           // Update fullName if we got first/last name
           if (newData.firstName || newData.lastName) {
-            record.fullName = [record.firstName, record.lastName].filter(Boolean).join(' ');
+            record.fullName = [record.firstName, record.lastName]
+              .filter(Boolean)
+              .join(' ');
           }
 
           if (Object.keys(newData).length > 0) {
@@ -3353,18 +4352,31 @@ export class ChatsService {
             // Insert system note in conversation — use flow steps labels if sequential, otherwise dataCollectionFields
             const fieldLabelMap = Object.fromEntries(
               bot.type === 'sequential'
-                ? (bot.flowSteps || []).map((f) => [f.field, f.question?.substring(0, 30) || f.field])
-                : (bot.dataCollectionFields || []).map((f) => [f.field, f.label]),
+                ? (bot.flowSteps || []).map((f) => [
+                    f.field,
+                    f.question?.substring(0, 30) || f.field,
+                  ])
+                : (bot.dataCollectionFields || []).map((f) => [
+                    f.field,
+                    f.label,
+                  ]),
             );
             const collected = Object.entries(newData)
               .map(([k, v]) => `${fieldLabelMap[k] || k}: ${v}`)
               .join(', ');
-            await this.createSystemNote(conversation.id, `📋 Dato recopilado: ${collected}`, inbox.tenantId);
+            await this.createSystemNote(
+              conversation.id,
+              `📋 Dato recopilado: ${collected}`,
+              inbox.tenantId,
+            );
           }
         }
       }
     } catch (err) {
-      console.error(`[Bot Auto-Reply] Error for inbox ${inbox.id}:`, err?.message || err);
+      console.error(
+        `[Bot Auto-Reply] Error for inbox ${inbox.id}:`,
+        err?.message || err,
+      );
     }
   }
 
@@ -3401,7 +4413,11 @@ export class ChatsService {
     });
   }
 
-  async getUnreadCount(tenantId: string, userId?: string, role?: string): Promise<{ count: number }> {
+  async getUnreadCount(
+    tenantId: string,
+    userId?: string,
+    role?: string,
+  ): Promise<{ count: number }> {
     // Admin/Owner sees all unread for the tenant
     if (isAdminRole(role) || !userId) {
       const result = await this.conversationRepo.query(
@@ -3431,8 +4447,12 @@ export class ChatsService {
     return { count: parseInt(result[0]?.count || '0') };
   }
 
-  async getConversationsPaginated(inboxId: string, opts: ConvListOpts): Promise<{ data: Conversation[]; total: number }> {
-    const qb = this.conversationRepo.createQueryBuilder('conv')
+  async getConversationsPaginated(
+    inboxId: string,
+    opts: ConvListOpts,
+  ): Promise<{ data: Conversation[]; total: number }> {
+    const qb = this.conversationRepo
+      .createQueryBuilder('conv')
       .leftJoinAndSelect('conv.inbox', 'inbox')
       .leftJoinAndSelect('conv.record', 'record')
       .where('conv.inbox_id = :inboxId', { inboxId })
@@ -3456,12 +4476,16 @@ export class ChatsService {
     });
   }
 
-  async getConversationsByTenantPaginated(tenantId: string, opts: ConvListOpts): Promise<{ data: Conversation[]; total: number }> {
+  async getConversationsByTenantPaginated(
+    tenantId: string,
+    opts: ConvListOpts,
+  ): Promise<{ data: Conversation[]; total: number }> {
     const inboxes = await this.inboxRepo.find({ where: { tenantId } });
     if (inboxes.length === 0) return { data: [], total: 0 };
     const inboxIds = inboxes.map((i) => i.id);
 
-    const qb = this.conversationRepo.createQueryBuilder('conv')
+    const qb = this.conversationRepo
+      .createQueryBuilder('conv')
       .leftJoinAndSelect('conv.inbox', 'inbox')
       .leftJoinAndSelect('conv.record', 'record')
       .where('conv.inbox_id IN (:...inboxIds)', { inboxIds })
@@ -3475,10 +4499,14 @@ export class ChatsService {
     return { data, total };
   }
 
-  async getConversationsByInboxes(inboxIds: string[], opts: ConvListOpts): Promise<{ data: Conversation[]; total: number }> {
+  async getConversationsByInboxes(
+    inboxIds: string[],
+    opts: ConvListOpts,
+  ): Promise<{ data: Conversation[]; total: number }> {
     if (inboxIds.length === 0) return { data: [], total: 0 };
 
-    const qb = this.conversationRepo.createQueryBuilder('conv')
+    const qb = this.conversationRepo
+      .createQueryBuilder('conv')
       .leftJoinAndSelect('conv.inbox', 'inbox')
       .leftJoinAndSelect('conv.record', 'record')
       .where('conv.inbox_id IN (:...inboxIds)', { inboxIds })
@@ -3502,21 +4530,30 @@ export class ChatsService {
     opts: ConvListOpts,
   ): void {
     if (opts.labelIds && opts.labelIds.length > 0) {
-      const conditions = opts.labelIds.map((_, i) => `conv.label_ids @> :lbl${i}`).join(' OR ');
+      const conditions = opts.labelIds
+        .map((_, i) => `conv.label_ids @> :lbl${i}`)
+        .join(' OR ');
       const params: Record<string, string> = {};
-      opts.labelIds.forEach((id, i) => { params[`lbl${i}`] = JSON.stringify([id]); });
+      opts.labelIds.forEach((id, i) => {
+        params[`lbl${i}`] = JSON.stringify([id]);
+      });
       qb.andWhere(`(${conditions})`, params);
     }
 
     if (opts.hideCampaign) {
-      qb.andWhere("(conv.last_message_source != :campaignSource OR conv.last_message_source IS NULL)", { campaignSource: "campaign" });
+      qb.andWhere(
+        '(conv.last_message_source != :campaignSource OR conv.last_message_source IS NULL)',
+        { campaignSource: 'campaign' },
+      );
     }
 
     // Filtro de asignación basado en record.assigned_to
     if (opts.assignment === 'unassigned') {
       qb.andWhere('record.assigned_to IS NULL');
     } else if (opts.assignment === 'mine' && opts.userId) {
-      qb.andWhere('record.assigned_to = :assignedUserId', { assignedUserId: opts.userId });
+      qb.andWhere('record.assigned_to = :assignedUserId', {
+        assignedUserId: opts.userId,
+      });
     }
 
     // Reglas de filtro sobre campos del contacto vinculado (record).
@@ -3552,23 +4589,56 @@ export class ChatsService {
   // Columnas de sistema del contacto (mismas que records.service). El resto se
   // trata como campo personalizado dentro de record.custom_data.
   private readonly RECORD_SYSTEM_COLUMNS = new Set([
-    'id', 'firstName', 'lastName', 'fullName', 'documentType', 'documentNumber',
-    'phone', 'countryCode', 'email', 'gender', 'birthDate',
-    'city', 'region', 'status', 'channelSource', 'source', 'score',
-    'optInWhatsapp', 'optInEmail', 'assignedTo',
-    'lastContactAt', 'lastActivityAt', 'tags',
+    'id',
+    'firstName',
+    'lastName',
+    'fullName',
+    'documentType',
+    'documentNumber',
+    'phone',
+    'countryCode',
+    'email',
+    'gender',
+    'birthDate',
+    'city',
+    'region',
+    'status',
+    'channelSource',
+    'source',
+    'score',
+    'optInWhatsapp',
+    'optInEmail',
+    'assignedTo',
+    'lastContactAt',
+    'lastActivityAt',
+    'tags',
   ]);
-  private readonly RECORD_TIMESTAMP_FIELDS = new Set(['lastContactAt', 'lastActivityAt', 'birthDate', 'createdAt', 'updatedAt']);
+  private readonly RECORD_TIMESTAMP_FIELDS = new Set([
+    'lastContactAt',
+    'lastActivityAt',
+    'birthDate',
+    'createdAt',
+    'updatedAt',
+  ]);
 
   private recordFieldToSnake(field: string): string {
     const map: Record<string, string> = {
-      firstName: 'first_name', lastName: 'last_name', fullName: 'full_name',
-      documentType: 'document_type', documentNumber: 'document_number',
-      countryCode: 'country_code', birthDate: 'birth_date',
-      channelSource: 'channel_source', optInWhatsapp: 'opt_in_whatsapp',
-      optInEmail: 'opt_in_email', assignedTo: 'assigned_to',
-      lastContactAt: 'last_contact_at', lastActivityAt: 'last_activity_at',
-      createdAt: 'created_at', updatedAt: 'updated_at', avatarUrl: 'avatar_url',
+      firstName: 'first_name',
+      lastName: 'last_name',
+      fullName: 'full_name',
+      documentType: 'document_type',
+      documentNumber: 'document_number',
+      countryCode: 'country_code',
+      birthDate: 'birth_date',
+      channelSource: 'channel_source',
+      optInWhatsapp: 'opt_in_whatsapp',
+      optInEmail: 'opt_in_email',
+      assignedTo: 'assigned_to',
+      lastContactAt: 'last_contact_at',
+      lastActivityAt: 'last_activity_at',
+      createdAt: 'created_at',
+      updatedAt: 'updated_at',
+      avatarUrl: 'avatar_url',
     };
     return map[field] || field;
   }
@@ -3602,20 +4672,32 @@ export class ChatsService {
           else qb.andWhere(`${col} != :${paramKey}`, { [paramKey]: value });
           break;
         case 'contains':
-          qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `%${value.toLowerCase()}%` });
+          qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, {
+            [paramKey]: `%${value.toLowerCase()}%`,
+          });
           break;
         case 'starts_with':
-          qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `${value.toLowerCase()}%` });
+          qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, {
+            [paramKey]: `${value.toLowerCase()}%`,
+          });
           break;
         case 'greater_than':
           if (!value.trim()) break;
-          if (isTimestamp) qb.andWhere(`${col} > :${paramKey}`, { [paramKey]: value });
-          else qb.andWhere(`${col}::numeric > :${paramKey}`, { [paramKey]: Number(value) });
+          if (isTimestamp)
+            qb.andWhere(`${col} > :${paramKey}`, { [paramKey]: value });
+          else
+            qb.andWhere(`${col}::numeric > :${paramKey}`, {
+              [paramKey]: Number(value),
+            });
           break;
         case 'less_than':
           if (!value.trim()) break;
-          if (isTimestamp) qb.andWhere(`${col} < :${paramKey}`, { [paramKey]: value });
-          else qb.andWhere(`${col}::numeric < :${paramKey}`, { [paramKey]: Number(value) });
+          if (isTimestamp)
+            qb.andWhere(`${col} < :${paramKey}`, { [paramKey]: value });
+          else
+            qb.andWhere(`${col}::numeric < :${paramKey}`, {
+              [paramKey]: Number(value),
+            });
           break;
         case 'is_empty':
           if (isTimestamp) qb.andWhere(`${col} IS NULL`);
@@ -3629,7 +4711,10 @@ export class ChatsService {
     });
   }
 
-  async getConversationsByRecordId(recordId: string, opts: { limit: number; offset: number }): Promise<{ data: Conversation[]; total: number }> {
+  async getConversationsByRecordId(
+    recordId: string,
+    opts: { limit: number; offset: number },
+  ): Promise<{ data: Conversation[]; total: number }> {
     const [data, total] = await this.conversationRepo.findAndCount({
       where: { recordId },
       relations: { inbox: true, record: true },
@@ -3646,15 +4731,22 @@ export class ChatsService {
    * al elegir un canal disponible. Si ya existe una conversación para ese
    * inbox + record (o inbox + contactId), la devuelve; si no, la crea.
    */
-  async findOrCreateConversationForRecord(inboxId: string, recordId: string): Promise<Conversation> {
+  async findOrCreateConversationForRecord(
+    inboxId: string,
+    recordId: string,
+  ): Promise<Conversation> {
     const inbox = await this.inboxRepo.findOne({ where: { id: inboxId } });
     if (!inbox) throw new NotFoundException('Canal no encontrado');
 
-    const record = await this.clientRecordRepo.findOne({ where: { id: recordId } });
+    const record = await this.clientRecordRepo.findOne({
+      where: { id: recordId },
+    });
     if (!record) throw new NotFoundException('Contacto no encontrado');
 
     if (record.tenantId !== inbox.tenantId) {
-      throw new BadRequestException('El canal no pertenece al mismo tenant que el contacto');
+      throw new BadRequestException(
+        'El canal no pertenece al mismo tenant que el contacto',
+      );
     }
 
     // 1) Conversación ya vinculada al record en este inbox
@@ -3667,7 +4759,9 @@ export class ChatsService {
     // 2) Resolver el identificador externo del contacto según el canal.
     const contactId = this.resolveContactIdForChannel(inbox.channel, record);
     if (!contactId) {
-      throw new BadRequestException('El contacto no tiene un identificador válido para este canal');
+      throw new BadRequestException(
+        'El contacto no tiene un identificador válido para este canal',
+      );
     }
 
     // 3) Conversación existente por inbox + contactId (aún no vinculada al record)
@@ -3702,7 +4796,10 @@ export class ChatsService {
   }
 
   /** Devuelve el identificador externo de contacto adecuado para el canal dado. */
-  private resolveContactIdForChannel(channel: string, record: ClientRecord): string | null {
+  private resolveContactIdForChannel(
+    channel: string,
+    record: ClientRecord,
+  ): string | null {
     const custom = (record.customData || {}) as Record<string, any>;
     switch (channel) {
       case 'whatsapp':
@@ -3710,10 +4807,12 @@ export class ChatsService {
         // ID (BSUID) del contacto que usa username y no expone su teléfono.
         return record.phone
           ? record.phone.replace(/^\+/, '')
-          : (record.whatsappId || custom.whatsappIdentityId || null);
+          : record.whatsappId || custom.whatsappIdentityId || null;
       case 'sms':
       case 'llamada':
-        return record.phone ? record.phone.replace(/^\+/, '') : (custom.whatsappIdentityId || null);
+        return record.phone
+          ? record.phone.replace(/^\+/, '')
+          : custom.whatsappIdentityId || null;
       case 'messenger':
         return custom.messengerPsid || null;
       case 'instagram':
@@ -3721,14 +4820,21 @@ export class ChatsService {
       case 'email':
         return record.email || null;
       default:
-        return record.phone ? record.phone.replace(/^\+/, '') : (record.email || null);
+        return record.phone
+          ? record.phone.replace(/^\+/, '')
+          : record.email || null;
     }
   }
 
   // === MESSAGES ===
 
-  async getMessages(conversationId: string, limit = 50, before?: string): Promise<Message[]> {
-    const qb = this.messageRepo.createQueryBuilder('m')
+  async getMessages(
+    conversationId: string,
+    limit = 50,
+    before?: string,
+  ): Promise<Message[]> {
+    const qb = this.messageRepo
+      .createQueryBuilder('m')
       .leftJoinAndSelect('m.sender', 'sender')
       .where('m.conversation_id = :conversationId', { conversationId })
       .orderBy('m.created_at', 'DESC')
@@ -3736,9 +4842,13 @@ export class ChatsService {
 
     if (before) {
       // Use the before message's created_at to get older messages
-      const beforeMsg = await this.messageRepo.findOne({ where: { id: before } });
+      const beforeMsg = await this.messageRepo.findOne({
+        where: { id: before },
+      });
       if (beforeMsg) {
-        qb.andWhere('m.created_at < :beforeDate', { beforeDate: beforeMsg.createdAt });
+        qb.andWhere('m.created_at < :beforeDate', {
+          beforeDate: beforeMsg.createdAt,
+        });
       }
     }
 
@@ -3751,7 +4861,10 @@ export class ChatsService {
    * una conversación, más recientes primero. Se usa para la sección de
    * "archivos compartidos" del panel de información del contacto.
    */
-  async getConversationMedia(conversationId: string, limit = 100): Promise<Message[]> {
+  async getConversationMedia(
+    conversationId: string,
+    limit = 100,
+  ): Promise<Message[]> {
     return this.messageRepo
       .createQueryBuilder('m')
       .where('m.conversation_id = :conversationId', { conversationId })
@@ -3769,17 +4882,22 @@ export class ChatsService {
    * `query` (case-insensitive). Devuelve los mensajes completos (con sender) en
    * orden cronológico ascendente para navegar entre coincidencias.
    */
-  async searchMessages(conversationId: string, query: string, limit = 200): Promise<Message[]> {
+  async searchMessages(
+    conversationId: string,
+    query: string,
+    limit = 200,
+  ): Promise<Message[]> {
     const term = query.trim();
     if (!term) return [];
 
     // Escapa comodines de LIKE para tratar el término como texto literal.
     const escaped = term.replace(/[\\%_]/g, (ch) => `\\${ch}`);
 
-    const messages = await this.messageRepo.createQueryBuilder('m')
+    const messages = await this.messageRepo
+      .createQueryBuilder('m')
       .leftJoinAndSelect('m.sender', 'sender')
       .where('m.conversation_id = :conversationId', { conversationId })
-      .andWhere('m.content ILIKE :term ESCAPE \'\\\'', { term: `%${escaped}%` })
+      .andWhere("m.content ILIKE :term ESCAPE '\\'", { term: `%${escaped}%` })
       .orderBy('m.created_at', 'ASC')
       .take(limit)
       .getMany();
@@ -3791,45 +4909,86 @@ export class ChatsService {
     await this.conversationRepo.update(conversationId, { unreadCount: 0 });
   }
 
-  async reactivateBot(conversationId: string, agentName?: string): Promise<{ botStatus: string }> {
-    const conversation = await this.conversationRepo.findOne({ where: { id: conversationId }, relations: { inbox: true } });
+  async reactivateBot(
+    conversationId: string,
+    agentName?: string,
+  ): Promise<{ botStatus: string }> {
+    const conversation = await this.conversationRepo.findOne({
+      where: { id: conversationId },
+      relations: { inbox: true },
+    });
     if (!conversation) throw new NotFoundException('Conversation not found');
     conversation.botStatus = 'active';
     await this.conversationRepo.save(conversation);
-    await this.createSystemNote(conversationId, `🤖 Bot reactivado por ${agentName || 'un agente'}.`, conversation.inbox?.tenantId);
-    this.chatsGateway.emitConversationUpdate(conversation.inbox?.tenantId, conversation);
+    await this.createSystemNote(
+      conversationId,
+      `🤖 Bot reactivado por ${agentName || 'un agente'}.`,
+      conversation.inbox?.tenantId,
+    );
+    this.chatsGateway.emitConversationUpdate(
+      conversation.inbox?.tenantId,
+      conversation,
+    );
     return { botStatus: 'active' };
   }
 
-  async pauseBot(conversationId: string, agentName?: string): Promise<{ botStatus: string }> {
-    const conversation = await this.conversationRepo.findOne({ where: { id: conversationId }, relations: { inbox: true } });
+  async pauseBot(
+    conversationId: string,
+    agentName?: string,
+  ): Promise<{ botStatus: string }> {
+    const conversation = await this.conversationRepo.findOne({
+      where: { id: conversationId },
+      relations: { inbox: true },
+    });
     if (!conversation) throw new NotFoundException('Conversation not found');
     conversation.botStatus = 'handed_off';
     await this.conversationRepo.save(conversation);
-    await this.createSystemNote(conversationId, `🤖 Bot desactivado por ${agentName || 'un agente'}.`, conversation.inbox?.tenantId);
-    this.chatsGateway.emitConversationUpdate(conversation.inbox?.tenantId, conversation);
+    await this.createSystemNote(
+      conversationId,
+      `🤖 Bot desactivado por ${agentName || 'un agente'}.`,
+      conversation.inbox?.tenantId,
+    );
+    this.chatsGateway.emitConversationUpdate(
+      conversation.inbox?.tenantId,
+      conversation,
+    );
     return { botStatus: 'handed_off' };
   }
 
-  async updateConversationStatus(conversationId: string, status: string, agentName?: string): Promise<{ status: string }> {
+  async updateConversationStatus(
+    conversationId: string,
+    status: string,
+    agentName?: string,
+  ): Promise<{ status: string }> {
     // 'closed' se mantiene como alias legado de 'resolved' para datos existentes
     const allowed = ['open', 'resolved', 'closed', 'archived'];
     if (!allowed.includes(status)) {
       throw new BadRequestException('Estado de conversación inválido');
     }
-    const conversation = await this.conversationRepo.findOne({ where: { id: conversationId }, relations: { inbox: true } });
+    const conversation = await this.conversationRepo.findOne({
+      where: { id: conversationId },
+      relations: { inbox: true },
+    });
     if (!conversation) throw new NotFoundException('Conversation not found');
     const prevStatus = conversation.status;
     if (prevStatus === status) return { status };
     conversation.status = status;
     await this.conversationRepo.save(conversation);
-    const labels: Record<string, string> = { open: 'abierta', resolved: 'resuelta', closed: 'resuelta', archived: 'archivada' };
+    const labels: Record<string, string> = {
+      open: 'abierta',
+      resolved: 'resuelta',
+      closed: 'resuelta',
+      archived: 'archivada',
+    };
     await this.createSystemNote(
       conversationId,
       `📁 Conversación marcada como ${labels[status] || status} por ${agentName || 'un agente'}.`,
       conversation.inbox?.tenantId,
     );
-    this.chatsGateway.emitConversationUpdate(conversation.inbox?.tenantId, conversation);
+    this.chatsGateway.emitConversationUpdate(
+      conversation.inbox?.tenantId,
+      conversation,
+    );
     return { status };
   }
 
@@ -3881,22 +5040,44 @@ export class ChatsService {
     // las opciones numeradas en el texto y el flujo acepta el número como respuesta.
     const buttons = opts?.buttons?.length ? opts.buttons.slice(0, 10) : null;
     const actions = (opts?.actions || []).slice(0, 3);
-    const headerMedia = opts?.headerMedia && /^https:\/\//i.test(opts.headerMedia.url) ? opts.headerMedia : null;
-    const header = headerMedia ? null : truncateText(opts?.header || '', 60) || null;
+    const headerMedia =
+      opts?.headerMedia && /^https:\/\//i.test(opts.headerMedia.url)
+        ? opts.headerMedia
+        : null;
+    const header = headerMedia
+      ? null
+      : truncateText(opts?.header || '', 60) || null;
     const footer = truncateText(opts?.footer || '', 60) || null;
-    const parts: FlowMessageParts = { content, buttons, actions, header, footer, headerMedia };
+    const parts: FlowMessageParts = {
+      content,
+      buttons,
+      actions,
+      header,
+      footer,
+      headerMedia,
+    };
     // Lo que se guarda y ve el agente lleva la URL real: si abriera el enlace
     // corto contaría como un clic del contacto y continuaría el flujo.
     const storedActions = actions.map((a) => ({
       type: a.type,
       title: a.title,
-      ...(a.type === 'url' ? { url: a.displayUrl || a.url } : { phone: a.phone }),
+      ...(a.type === 'url'
+        ? { url: a.displayUrl || a.url }
+        : { phone: a.phone }),
     }));
-    const waFormatting = inbox.channel === 'whatsapp' || inbox.channel === 'evolution' || isBridgeActive(inbox.metadata);
+    const waFormatting =
+      inbox.channel === 'whatsapp' ||
+      inbox.channel === 'evolution' ||
+      isBridgeActive(inbox.metadata);
     // Texto para canales sin botones nativos (chat web, Evolution, puente SendPulse).
-    const textWithOptions = buildPlainText(parts, waFormatting ? WHATSAPP_FORMAT : PLAIN_FORMAT);
+    const textWithOptions = buildPlainText(
+      parts,
+      waFormatting ? WHATSAPP_FORMAT : PLAIN_FORMAT,
+    );
     // Estos canales no envían el archivo del encabezado por link: va como enlace en el texto.
-    const textWithMediaLink = headerMedia ? `${headerMedia.url}\n\n${textWithOptions}`.trim() : textWithOptions;
+    const textWithMediaLink = headerMedia
+      ? `${headerMedia.url}\n\n${textWithOptions}`.trim()
+      : textWithOptions;
 
     // Check 24h messaging window for social channels
     if (['whatsapp', 'messenger', 'instagram'].includes(inbox.channel)) {
@@ -3905,11 +5086,17 @@ export class ChatsService {
         order: { createdAt: 'DESC' },
       });
       if (!lastInbound) {
-        throw new BadRequestException('No se puede enviar un mensaje libre sin un mensaje previo del contacto. Usa una plantilla para iniciar la conversación.');
+        throw new BadRequestException(
+          'No se puede enviar un mensaje libre sin un mensaje previo del contacto. Usa una plantilla para iniciar la conversación.',
+        );
       }
-      const hoursSinceLastInbound = (Date.now() - new Date(lastInbound.createdAt).getTime()) / (1000 * 60 * 60);
+      const hoursSinceLastInbound =
+        (Date.now() - new Date(lastInbound.createdAt).getTime()) /
+        (1000 * 60 * 60);
       if (hoursSinceLastInbound > 24) {
-        throw new BadRequestException('La ventana de conversación de 24 horas está cerrada. Usa una plantilla para reabrir la conversación.');
+        throw new BadRequestException(
+          'La ventana de conversación de 24 horas está cerrada. Usa una plantilla para reabrir la conversación.',
+        );
       }
     }
 
@@ -3922,7 +5109,9 @@ export class ChatsService {
     if (isBridgeActive(inbox.metadata)) {
       const bridge = getBridgeConfig(inbox.metadata);
       if (!inbox.accessToken || !bridge) {
-        throw new Error('Modo puente SendPulse mal configurado (falta API key)');
+        throw new Error(
+          'Modo puente SendPulse mal configurado (falta API key)',
+        );
       }
       try {
         const result = await this.sendPulseService.sendText(
@@ -3944,7 +5133,9 @@ export class ChatsService {
 
       // Get contact email from record
       const record = conversation.recordId
-        ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } })
+        ? await this.clientRecordRepo.findOne({
+            where: { id: conversation.recordId },
+          })
         : null;
       const toEmail = record?.email || conversation.contactId;
       if (!toEmail || !toEmail.includes('@')) {
@@ -3960,7 +5151,9 @@ export class ChatsService {
       });
 
       const from = `"${smtpConfig.fromName || 'Smartee'}" <${smtpConfig.fromEmail || smtpConfig.user}>`;
-      const subject = smtpConfig.defaultSubject || 'Mensaje de ' + (smtpConfig.fromName || 'Smartee');
+      const subject =
+        smtpConfig.defaultSubject ||
+        'Mensaje de ' + (smtpConfig.fromName || 'Smartee');
 
       try {
         const info = await transporter.sendMail({
@@ -3984,7 +5177,9 @@ export class ChatsService {
 
       // Get contact email from record
       const record = conversation.recordId
-        ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } })
+        ? await this.clientRecordRepo.findOne({
+            where: { id: conversation.recordId },
+          })
         : null;
       const toEmail = record?.email || conversation.contactId;
       if (!toEmail || !toEmail.includes('@')) {
@@ -3992,7 +5187,8 @@ export class ChatsService {
       }
 
       const from = `"${emailConfig.fromName}" <${emailConfig.fromEmail}>`;
-      const subject = inbox.metadata?.defaultSubject || 'Mensaje de ' + emailConfig.fromName;
+      const subject =
+        inbox.metadata?.defaultSubject || 'Mensaje de ' + emailConfig.fromName;
 
       try {
         const result = await this.mailgunService.sendEmail({
@@ -4008,12 +5204,16 @@ export class ChatsService {
           },
           tags: ['transactional', `inbox:${inbox.id}`],
           tracking: true,
-          unsubscribeUrl: this.emailUnsubscribeService.getUnsubscribeUrl(inbox.tenantId, toEmail),
+          unsubscribeUrl: this.emailUnsubscribeService.getUnsubscribeUrl(
+            inbox.tenantId,
+            toEmail,
+          ),
         });
         externalId = result.id || null;
       } catch (err: any) {
         console.error('[Chat] Mailgun email send failed:', err);
-        sendError = err.message || 'Error desconocido al enviar email vía Mailgun';
+        sendError =
+          err.message || 'Error desconocido al enviar email vía Mailgun';
       }
     } else if (inbox.channel === 'whatsapp') {
       if (!inbox.accessToken) throw new Error('Inbox not connected');
@@ -4022,25 +5222,37 @@ export class ChatsService {
       // es el que se guarda.
       const recipient = await this.resolveWhatsAppRecipient(conversation);
       const bodies = buildWhatsAppMessages(parts);
-      if (!bodies.length) bodies.push({ type: 'text', text: { body: content } });
+      if (!bodies.length)
+        bodies.push({ type: 'text', text: { body: content } });
       try {
         for (let i = 0; i < bodies.length; i++) {
           const isLast = i === bodies.length - 1;
-          const payload: any = { messaging_product: 'whatsapp', ...recipient, ...bodies[i] };
-          if (isLast && replyToExternalId) payload.context = { message_id: replyToExternalId };
-          const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${inbox.accessToken}`,
+          const payload: any = {
+            messaging_product: 'whatsapp',
+            ...recipient,
+            ...bodies[i],
+          };
+          if (isLast && replyToExternalId)
+            payload.context = { message_id: replyToExternalId };
+          const res = await fetch(
+            `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${inbox.accessToken}`,
+              },
+              body: JSON.stringify(payload),
             },
-            body: JSON.stringify(payload),
-          });
+          );
           const data = await readJsonSafe(res);
           if (!res.ok) {
             console.error('[Chat] WhatsApp send failed:', JSON.stringify(data));
             if (isLast) {
-              const errDetail = data.error?.message || data.error?.error_data?.details || `HTTP ${res.status}`;
+              const errDetail =
+                data.error?.message ||
+                data.error?.error_data?.details ||
+                `HTTP ${res.status}`;
               sendError = `WhatsApp API error: ${errDetail}`;
             }
           }
@@ -4059,19 +5271,29 @@ export class ChatsService {
       try {
         for (let i = 0; i < outgoing.length; i++) {
           const isLast = i === outgoing.length - 1;
-          const payload: any = { recipient: { id: conversation.contactId }, message: outgoing[i] };
-          if (isLast && replyToExternalId) payload.reply_to = { mid: replyToExternalId };
-          const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.pageId}/messages`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${inbox.accessToken}`,
+          const payload: any = {
+            recipient: { id: conversation.contactId },
+            message: outgoing[i],
+          };
+          if (isLast && replyToExternalId)
+            payload.reply_to = { mid: replyToExternalId };
+          const res = await fetch(
+            `https://graph.facebook.com/v21.0/${inbox.pageId}/messages`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${inbox.accessToken}`,
+              },
+              body: JSON.stringify(payload),
             },
-            body: JSON.stringify(payload),
-          });
+          );
           const data = await readJsonSafe(res);
           if (!data.message_id) {
-            console.error(`[Chat] ${inbox.channel} send failed:`, JSON.stringify(data));
+            console.error(
+              `[Chat] ${inbox.channel} send failed:`,
+              JSON.stringify(data),
+            );
             if (isLast) {
               const errDetail = data.error?.message || `HTTP ${res.status}`;
               sendError = `${inbox.channel === 'instagram' ? 'Instagram' : 'Messenger'} API error: ${errDetail}`;
@@ -4092,9 +5314,16 @@ export class ChatsService {
       if (!instanceName) throw new Error('Evolution instance not configured');
       try {
         // Construir quoted si es una respuesta a otro mensaje
-        let quoted: { key: { remoteJid: string; fromMe: boolean; id: string }; message?: any } | undefined;
+        let quoted:
+          | {
+              key: { remoteJid: string; fromMe: boolean; id: string };
+              message?: any;
+            }
+          | undefined;
         if (replyToExternalId) {
-          const replyMsg = await this.messageRepo.findOne({ where: { externalId: replyToExternalId } });
+          const replyMsg = await this.messageRepo.findOne({
+            where: { externalId: replyToExternalId },
+          });
           quoted = {
             key: {
               remoteJid: `${conversation.contactId}@s.whatsapp.net`,
@@ -4156,11 +5385,16 @@ export class ChatsService {
 
     // If send failed, create a system note with the error details
     if (!externalId && sendError) {
-      await this.createSystemNote(conversationId, `⚠️ Error al enviar mensaje: ${sendError}`, inbox.tenantId);
+      await this.createSystemNote(
+        conversationId,
+        `⚠️ Error al enviar mensaje: ${sendError}`,
+        inbox.tenantId,
+      );
     }
 
     // Update conversation
-    conversation.lastMessage = content || (headerMedia ? `[${headerMedia.type}]` : content);
+    conversation.lastMessage =
+      content || (headerMedia ? `[${headerMedia.type}]` : content);
     conversation.lastMessageAt = new Date();
 
     // Auto-pause bot when a human agent sends a message
@@ -4176,18 +5410,24 @@ export class ChatsService {
 
     // Auto-assign agent to record if not already assigned
     if (senderId && senderId !== 'bot' && conversation.recordId) {
-      const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+      const record = await this.clientRecordRepo.findOne({
+        where: { id: conversation.recordId },
+      });
       if (record && !record.assignedTo) {
         record.assignedTo = senderId;
         await this.clientRecordRepo.save(record);
         // Log assignment to timeline
-        this.activityRepo.save(this.activityRepo.create({
-          tenantId: inbox.tenantId,
-          recordId: record.id,
-          type: 'assigned',
-          description: 'Agente asignado automáticamente al responder',
-          metadata: { assignedTo: senderId, trigger: 'auto_reply' },
-        })).catch(() => {});
+        this.activityRepo
+          .save(
+            this.activityRepo.create({
+              tenantId: inbox.tenantId,
+              recordId: record.id,
+              type: 'assigned',
+              description: 'Agente asignado automáticamente al responder',
+              metadata: { assignedTo: senderId, trigger: 'auto_reply' },
+            }),
+          )
+          .catch(() => {});
       }
     }
 
@@ -4195,12 +5435,25 @@ export class ChatsService {
     // Emitir el mensaje con la relación `sender` poblada, para que el frontend
     // pueda mostrar el avatar del agente sin esperar a recargar la página.
     const savedForEmit = senderId
-      ? (await this.messageRepo.findOne({ where: { id: saved.id }, relations: { sender: true } })) || saved
+      ? (await this.messageRepo.findOne({
+          where: { id: saved.id },
+          relations: { sender: true },
+        })) || saved
       : saved;
-    this.chatsGateway.emitNewMessage(inbox.tenantId, conversationId, savedForEmit);
+    this.chatsGateway.emitNewMessage(
+      inbox.tenantId,
+      conversationId,
+      savedForEmit,
+    );
     // Load record for the conversation update event
-    const convForEmit = await this.conversationRepo.findOne({ where: { id: conversationId }, relations: { inbox: true, record: true } });
-    this.chatsGateway.emitConversationUpdate(inbox.tenantId, convForEmit || conversation);
+    const convForEmit = await this.conversationRepo.findOne({
+      where: { id: conversationId },
+      relations: { inbox: true, record: true },
+    });
+    this.chatsGateway.emitConversationUpdate(
+      inbox.tenantId,
+      convForEmit || conversation,
+    );
 
     // Send to chat widget visitor via WebSocket
     if (inbox.channel === 'chat') {
@@ -4213,19 +5466,40 @@ export class ChatsService {
     }
 
     // Dispatch webhooks with full context
-    const contactRecord = conversation.recordId ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } }) : null;
-    this.webhooksService.dispatch(inbox.tenantId, 'message_created', {
-      message: saved,
-      conversation: { id: conversation.id, contactId: conversation.contactId, contactName: conversation.contactName, status: conversation.status, recordId: conversation.recordId, inboxId: conversation.inboxId, lastMessage: conversation.lastMessage, lastMessageAt: conversation.lastMessageAt },
-      contact: contactRecord,
-      inbox: { id: inbox.id, name: inbox.name, channel: inbox.channel },
-    }).catch(() => {});
+    const contactRecord = conversation.recordId
+      ? await this.clientRecordRepo.findOne({
+          where: { id: conversation.recordId },
+        })
+      : null;
+    this.webhooksService
+      .dispatch(inbox.tenantId, 'message_created', {
+        message: saved,
+        conversation: {
+          id: conversation.id,
+          contactId: conversation.contactId,
+          contactName: conversation.contactName,
+          status: conversation.status,
+          recordId: conversation.recordId,
+          inboxId: conversation.inboxId,
+          lastMessage: conversation.lastMessage,
+          lastMessageAt: conversation.lastMessageAt,
+        },
+        contact: contactRecord,
+        inbox: { id: inbox.id, name: inbox.name, channel: inbox.channel },
+      })
+      .catch(() => {});
 
     return saved;
   }
 
-  async createNote(conversationId: string, content: string, senderId?: string): Promise<Message> {
-    const conversation = await this.conversationRepo.findOne({ where: { id: conversationId } });
+  async createNote(
+    conversationId: string,
+    content: string,
+    senderId?: string,
+  ): Promise<Message> {
+    const conversation = await this.conversationRepo.findOne({
+      where: { id: conversationId },
+    });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
     const message = this.messageRepo.create({
@@ -4243,7 +5517,11 @@ export class ChatsService {
    * Creates a system note (visible in the conversation) to inform about errors or events.
    * Used across all channels when a send operation fails.
    */
-  private async createSystemNote(conversationId: string, content: string, tenantId?: string): Promise<void> {
+  private async createSystemNote(
+    conversationId: string,
+    content: string,
+    tenantId?: string,
+  ): Promise<void> {
     const note = this.messageRepo.create({
       conversationId,
       direction: 'outbound',
@@ -4281,13 +5559,19 @@ export class ChatsService {
         order: { createdAt: 'DESC' },
       });
       if (!lastInbound) {
-        throw new BadRequestException('No se puede enviar archivos sin un mensaje previo del contacto.');
+        throw new BadRequestException(
+          'No se puede enviar archivos sin un mensaje previo del contacto.',
+        );
       }
-      const hoursSinceLastInbound = (Date.now() - new Date(lastInbound.createdAt).getTime()) / (1000 * 60 * 60);
+      const hoursSinceLastInbound =
+        (Date.now() - new Date(lastInbound.createdAt).getTime()) /
+        (1000 * 60 * 60);
       if (hoursSinceLastInbound > 24) {
-        throw new BadRequestException('La ventana de conversación de 24 horas está cerrada. No se pueden enviar archivos.');
+        throw new BadRequestException(
+          'La ventana de conversación de 24 horas está cerrada. No se pueden enviar archivos.',
+        );
       }
-    }    // Determine message type from mime
+    } // Determine message type from mime
     let messageType = 'document';
     if (file.mimetype.startsWith('image/')) messageType = 'image';
     else if (file.mimetype.startsWith('video/')) messageType = 'video';
@@ -4318,19 +5602,26 @@ export class ChatsService {
           // SendPulse soporta image | document | audio por link. Video se envía
           // como documento (SendPulse no expone tipo video por link en la API).
           const spType: 'image' | 'document' | 'audio' =
-            messageType === 'image' ? 'image' : messageType === 'audio' ? 'audio' : 'document';
+            messageType === 'image'
+              ? 'image'
+              : messageType === 'audio'
+                ? 'audio'
+                : 'document';
 
           // WhatsApp no acepta WebP como imagen (stored.url es WebP por la
           // optimización). Para imágenes generamos y enviamos un JPEG desde el
           // buffer original. El resto de tipos usa la URL ya subida.
           let link = stored?.url;
           if (messageType === 'image') {
-            const jpeg = await this.mediaStorageService.uploadImageAsJpeg(file.buffer, {
-              channel: inbox.channel,
-              tenantId: inbox.tenantId,
-              conversationId,
-              messageId: `outbound-sp-${Date.now()}`,
-            });
+            const jpeg = await this.mediaStorageService.uploadImageAsJpeg(
+              file.buffer,
+              {
+                channel: inbox.channel,
+                tenantId: inbox.tenantId,
+                conversationId,
+                messageId: `outbound-sp-${Date.now()}`,
+              },
+            );
             if (jpeg?.url) link = jpeg.url;
           }
 
@@ -4352,7 +5643,11 @@ export class ChatsService {
           sendError = err.message || 'Error de conexión con SendPulse API';
         }
       }
-    } else if (inbox.accessToken && inbox.channel === 'whatsapp' && inbox.phoneNumberId) {
+    } else if (
+      inbox.accessToken &&
+      inbox.channel === 'whatsapp' &&
+      inbox.phoneNumberId
+    ) {
       try {
         // WhatsApp accepts: audio/aac, audio/mp4, audio/mpeg, audio/amr, audio/ogg (opus)
         // Los navegadores graban audio/webm (contenedor WebM) o un OGG no estándar.
@@ -4361,14 +5656,25 @@ export class ChatsService {
         let whatsappBuffer: Buffer = file.buffer as Buffer;
         let whatsappMime = file.mimetype.split(';')[0].trim();
         let whatsappFilename = file.originalname;
-        if (messageType === 'audio' && (whatsappMime === 'audio/webm' || whatsappMime === 'audio/ogg' || whatsappMime === 'video/webm')) {
+        if (
+          messageType === 'audio' &&
+          (whatsappMime === 'audio/webm' ||
+            whatsappMime === 'audio/ogg' ||
+            whatsappMime === 'video/webm')
+        ) {
           try {
             whatsappBuffer = await convertAudioToOggOpus(file.buffer as Buffer);
             whatsappMime = 'audio/ogg';
-            whatsappFilename = file.originalname.replace(/\.[^.]+$/, '') + '.ogg';
+            whatsappFilename =
+              file.originalname.replace(/\.[^.]+$/, '') + '.ogg';
           } catch (convErr: any) {
-            console.error('[Chat] Audio conversion to ogg/opus failed:', convErr?.message || convErr);
-            throw new Error(`No se pudo convertir el audio a OGG/Opus (¿ffmpeg instalado?): ${convErr?.message || convErr}`);
+            console.error(
+              '[Chat] Audio conversion to ogg/opus failed:',
+              convErr?.message || convErr,
+            );
+            throw new Error(
+              `No se pudo convertir el audio a OGG/Opus (¿ffmpeg instalado?): ${convErr?.message || convErr}`,
+            );
           }
         }
 
@@ -4376,16 +5682,27 @@ export class ChatsService {
         // falla con perfiles High/Main o dimensiones no múltiplo de 16. Se
         // re-codifica siempre a un perfil compatible, igual que en campañas.
         if (messageType === 'video') {
-          console.log(`[Chat] Re-codificando video (${whatsappBuffer.length} bytes) para WhatsApp...`);
+          console.log(
+            `[Chat] Re-codificando video (${whatsappBuffer.length} bytes) para WhatsApp...`,
+          );
           try {
-            whatsappBuffer = await compressVideoForWhatsApp(whatsappBuffer, WA_VIDEO_LIMIT, (msg) =>
-              console.warn(`[Chat] ${msg}`),
+            whatsappBuffer = await compressVideoForWhatsApp(
+              whatsappBuffer,
+              WA_VIDEO_LIMIT,
+              (msg) => console.warn(`[Chat] ${msg}`),
             );
           } catch (convErr: any) {
-            console.error('[Chat] Video transcode failed:', convErr?.message || convErr);
-            throw new Error(`No se pudo convertir el video para WhatsApp: ${convErr?.message || convErr}`);
+            console.error(
+              '[Chat] Video transcode failed:',
+              convErr?.message || convErr,
+            );
+            throw new Error(
+              `No se pudo convertir el video para WhatsApp: ${convErr?.message || convErr}`,
+            );
           }
-          console.log(`[Chat] Video re-codificado a ${whatsappBuffer.length} bytes.`);
+          console.log(
+            `[Chat] Video re-codificado a ${whatsappBuffer.length} bytes.`,
+          );
           if (whatsappBuffer.length > WA_VIDEO_LIMIT) {
             throw new Error(
               `El video no se pudo comprimir por debajo de 16MB (quedó en ${(whatsappBuffer.length / 1048576).toFixed(1)}MB). Envía un video más corto.`,
@@ -4399,29 +5716,38 @@ export class ChatsService {
         const boundary = `----FormBoundary${Date.now()}`;
         const parts: Buffer[] = [];
 
-        parts.push(Buffer.from(
-          `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${whatsappFilename}"\r\nContent-Type: ${whatsappMime}\r\n\r\n`,
-        ));
+        parts.push(
+          Buffer.from(
+            `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${whatsappFilename}"\r\nContent-Type: ${whatsappMime}\r\n\r\n`,
+          ),
+        );
         parts.push(whatsappBuffer);
         parts.push(Buffer.from('\r\n'));
-        parts.push(Buffer.from(
-          `--${boundary}\r\nContent-Disposition: form-data; name="messaging_product"\r\n\r\nwhatsapp\r\n`,
-        ));
-        parts.push(Buffer.from(
-          `--${boundary}\r\nContent-Disposition: form-data; name="type"\r\n\r\n${whatsappMime}\r\n`,
-        ));
+        parts.push(
+          Buffer.from(
+            `--${boundary}\r\nContent-Disposition: form-data; name="messaging_product"\r\n\r\nwhatsapp\r\n`,
+          ),
+        );
+        parts.push(
+          Buffer.from(
+            `--${boundary}\r\nContent-Disposition: form-data; name="type"\r\n\r\n${whatsappMime}\r\n`,
+          ),
+        );
         parts.push(Buffer.from(`--${boundary}--\r\n`));
 
         const uploadBody = Buffer.concat(parts);
 
-        const uploadRes = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/media`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${inbox.accessToken}`,
-            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        const uploadRes = await fetch(
+          `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/media`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${inbox.accessToken}`,
+              'Content-Type': `multipart/form-data; boundary=${boundary}`,
+            },
+            body: uploadBody,
           },
-          body: uploadBody,
-        });
+        );
         // Meta puede responder con cuerpo vacío o no-JSON (p. ej. 413 por tamaño),
         // así que se lee como texto y se parsea de forma segura.
         const uploadText = await uploadRes.text();
@@ -4434,7 +5760,10 @@ export class ChatsService {
         const mediaId = uploadData.id;
 
         if (!mediaId) {
-          console.error(`[Chat] WhatsApp media upload failed (HTTP ${uploadRes.status}):`, uploadText.slice(0, 500));
+          console.error(
+            `[Chat] WhatsApp media upload failed (HTTP ${uploadRes.status}):`,
+            uploadText.slice(0, 500),
+          );
           sendError = `Error al subir archivo a WhatsApp: ${uploadData.error?.message || `HTTP ${uploadRes.status} ${uploadRes.statusText}`.trim()}`;
         }
 
@@ -4453,17 +5782,24 @@ export class ChatsService {
           } else if (messageType === 'audio') {
             messageBody.audio = { id: mediaId };
           } else {
-            messageBody.document = { id: mediaId, caption: caption || undefined, filename: file.originalname };
+            messageBody.document = {
+              id: mediaId,
+              caption: caption || undefined,
+              filename: file.originalname,
+            };
           }
 
-          const sendRes = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${inbox.accessToken}`,
+          const sendRes = await fetch(
+            `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${inbox.accessToken}`,
+              },
+              body: JSON.stringify(messageBody),
             },
-            body: JSON.stringify(messageBody),
-          });
+          );
           const sendText = await sendRes.text();
           let sendData: any = {};
           try {
@@ -4473,7 +5809,9 @@ export class ChatsService {
           }
           externalId = sendData.messages?.[0]?.id || null;
           if (!externalId) {
-            const errDetail = sendData.error?.message || `HTTP ${sendRes.status} ${sendRes.statusText}`.trim();
+            const errDetail =
+              sendData.error?.message ||
+              `HTTP ${sendRes.status} ${sendRes.statusText}`.trim();
             sendError = `WhatsApp API error: ${errDetail}`;
           }
         }
@@ -4481,7 +5819,11 @@ export class ChatsService {
         console.error('[Chat] Failed to send media via WhatsApp:', err);
         sendError = err.message || 'Error de conexión con WhatsApp API';
       }
-    } else if (inbox.accessToken && (inbox.channel === 'messenger' || inbox.channel === 'instagram') && inbox.pageId) {
+    } else if (
+      inbox.accessToken &&
+      (inbox.channel === 'messenger' || inbox.channel === 'instagram') &&
+      inbox.pageId
+    ) {
       // Messenger/Instagram: send media using the Firebase URL directly
       try {
         const messagePayload: any = {
@@ -4491,34 +5833,52 @@ export class ChatsService {
 
         if (messageType === 'image') {
           messagePayload.message = {
-            attachment: { type: 'image', payload: { url: stored?.url, is_reusable: true } },
+            attachment: {
+              type: 'image',
+              payload: { url: stored?.url, is_reusable: true },
+            },
           };
         } else if (messageType === 'video') {
           messagePayload.message = {
-            attachment: { type: 'video', payload: { url: stored?.url, is_reusable: true } },
+            attachment: {
+              type: 'video',
+              payload: { url: stored?.url, is_reusable: true },
+            },
           };
         } else if (messageType === 'audio') {
           messagePayload.message = {
-            attachment: { type: 'audio', payload: { url: stored?.url, is_reusable: true } },
+            attachment: {
+              type: 'audio',
+              payload: { url: stored?.url, is_reusable: true },
+            },
           };
         } else {
           messagePayload.message = {
-            attachment: { type: 'file', payload: { url: stored?.url, is_reusable: true } },
+            attachment: {
+              type: 'file',
+              payload: { url: stored?.url, is_reusable: true },
+            },
           };
         }
 
-        const sendRes = await fetch(`https://graph.facebook.com/v21.0/${inbox.pageId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${inbox.accessToken}`,
+        const sendRes = await fetch(
+          `https://graph.facebook.com/v21.0/${inbox.pageId}/messages`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${inbox.accessToken}`,
+            },
+            body: JSON.stringify(messagePayload),
           },
-          body: JSON.stringify(messagePayload),
-        });
+        );
         const sendData = await sendRes.json();
         externalId = sendData.message_id || null;
         if (!externalId) {
-          console.error('[Chat] Messenger media send failed:', JSON.stringify(sendData));
+          console.error(
+            '[Chat] Messenger media send failed:',
+            JSON.stringify(sendData),
+          );
           const errDetail = sendData.error?.message || 'Error desconocido';
           sendError = `${inbox.channel === 'instagram' ? 'Instagram' : 'Messenger'} API error: ${errDetail}`;
         }
@@ -4526,14 +5886,21 @@ export class ChatsService {
         console.error(`[Chat] Failed to send media via ${inbox.channel}:`, err);
         sendError = err.message || `Error de conexión con ${inbox.channel} API`;
       }
-    } else if (inbox.channel === 'evolution' && inbox.metadata?.evolutionInstanceName) {
+    } else if (
+      inbox.channel === 'evolution' &&
+      inbox.metadata?.evolutionInstanceName
+    ) {
       // Evolution API — send media via URL
       const instanceName = inbox.metadata.evolutionInstanceName;
       try {
-        const evoMediaType = messageType === 'image' ? 'image'
-          : messageType === 'video' ? 'video'
-          : messageType === 'audio' ? 'audio'
-          : 'document';
+        const evoMediaType =
+          messageType === 'image'
+            ? 'image'
+            : messageType === 'video'
+              ? 'video'
+              : messageType === 'audio'
+                ? 'audio'
+                : 'document';
         const result = await this.evolutionService.sendMedia(
           instanceName,
           conversation.contactId,
@@ -4566,7 +5933,11 @@ export class ChatsService {
 
     // If send failed, create a system note with the error details
     if (!externalId && sendError) {
-      await this.createSystemNote(conversationId, `⚠️ Error al enviar archivo: ${sendError}`, inbox.tenantId);
+      await this.createSystemNote(
+        conversationId,
+        `⚠️ Error al enviar archivo: ${sendError}`,
+        inbox.tenantId,
+      );
     }
 
     // Update conversation
@@ -4578,15 +5949,25 @@ export class ChatsService {
     // muestre el avatar del agente sin esperar a recargar (mismo criterio que
     // sendMessage).
     const savedForEmit = senderId
-      ? (await this.messageRepo.findOne({ where: { id: saved.id }, relations: { sender: true } })) || saved
+      ? (await this.messageRepo.findOne({
+          where: { id: saved.id },
+          relations: { sender: true },
+        })) || saved
       : saved;
-    this.chatsGateway.emitNewMessage(inbox.tenantId, conversationId, savedForEmit);
+    this.chatsGateway.emitNewMessage(
+      inbox.tenantId,
+      conversationId,
+      savedForEmit,
+    );
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
     return saved;
   }
 
-  async uploadMediaOnly(file: Express.Multer.File, conversationId?: string): Promise<{ url: string }> {
+  async uploadMediaOnly(
+    file: Express.Multer.File,
+    conversationId?: string,
+  ): Promise<{ url: string }> {
     const stored = await this.mediaStorageService.uploadBuffer(file.buffer, {
       channel: 'template',
       tenantId: 'shared',
@@ -4604,7 +5985,15 @@ export class ChatsService {
 
   // === WHATSAPP TEMPLATE MEDIA UPLOAD ===
 
-  async uploadTemplateMedia(inboxId: string, file: { buffer: Buffer; originalname: string; mimetype: string; size: number }): Promise<{ handle: string }> {
+  async uploadTemplateMedia(
+    inboxId: string,
+    file: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+      size: number;
+    },
+  ): Promise<{ handle: string }> {
     const inbox = await this.findInboxById(inboxId);
     if (!inbox.accessToken) throw new Error('Inbox not configured');
 
@@ -4617,8 +6006,15 @@ export class ChatsService {
     );
     const sessionData = await sessionRes.json();
     if (sessionData.error) {
-      console.error('[Chat] uploadTemplateMedia session error:', JSON.stringify(sessionData.error));
-      throw new Error(sessionData.error.error_user_msg || sessionData.error.message || 'Failed to create upload session');
+      console.error(
+        '[Chat] uploadTemplateMedia session error:',
+        JSON.stringify(sessionData.error),
+      );
+      throw new Error(
+        sessionData.error.error_user_msg ||
+          sessionData.error.message ||
+          'Failed to create upload session',
+      );
     }
 
     const uploadSessionId = sessionData.id; // "upload:SESSION_ID"
@@ -4629,8 +6025,8 @@ export class ChatsService {
       {
         method: 'POST',
         headers: {
-          'Authorization': `OAuth ${inbox.accessToken}`,
-          'file_offset': '0',
+          Authorization: `OAuth ${inbox.accessToken}`,
+          file_offset: '0',
           'Content-Type': file.mimetype,
         },
         body: new Uint8Array(file.buffer),
@@ -4638,12 +6034,24 @@ export class ChatsService {
     );
     const uploadData = await uploadRes.json();
     if (uploadData.error) {
-      console.error('[Chat] uploadTemplateMedia upload error:', JSON.stringify(uploadData.error));
-      throw new Error(uploadData.error.error_user_msg || uploadData.error.message || 'Failed to upload file');
+      console.error(
+        '[Chat] uploadTemplateMedia upload error:',
+        JSON.stringify(uploadData.error),
+      );
+      throw new Error(
+        uploadData.error.error_user_msg ||
+          uploadData.error.message ||
+          'Failed to upload file',
+      );
     }
     if (!uploadData.h) {
-      console.error('[Chat] uploadTemplateMedia: no handle returned:', JSON.stringify(uploadData));
-      throw new Error('Meta no devolvió un handle para la imagen. Verifica el formato (JPG/PNG) y el tamaño.');
+      console.error(
+        '[Chat] uploadTemplateMedia: no handle returned:',
+        JSON.stringify(uploadData),
+      );
+      throw new Error(
+        'Meta no devolvió un handle para la imagen. Verifica el formato (JPG/PNG) y el tamaño.',
+      );
     }
 
     return { handle: uploadData.h };
@@ -4653,7 +6061,8 @@ export class ChatsService {
 
   async syncWhatsAppPhoneNumber(inboxId: string): Promise<any> {
     const inbox = await this.findInboxById(inboxId);
-    if (!inbox.wabaId || !inbox.accessToken) throw new Error('WABA ID or access token not configured');
+    if (!inbox.wabaId || !inbox.accessToken)
+      throw new Error('WABA ID or access token not configured');
 
     // Fetch phone numbers from WABA
     const res = await fetch(
@@ -4661,15 +6070,19 @@ export class ChatsService {
     );
     const data = await res.json();
 
-    if (data.error) throw new Error(data.error.message || 'Failed to fetch phone numbers');
+    if (data.error)
+      throw new Error(data.error.message || 'Failed to fetch phone numbers');
 
     const phones = data.data || [];
-    if (phones.length === 0) throw new Error('No hay números de teléfono asociados a esta WABA');
+    if (phones.length === 0)
+      throw new Error('No hay números de teléfono asociados a esta WABA');
 
     // Use first phone number (or match existing if possible)
-    const phone = inbox.phoneNumberId && phones.find((p: any) => p.id === inbox.phoneNumberId)
-      ? phones.find((p: any) => p.id === inbox.phoneNumberId)
-      : phones[0];
+    const phone =
+      inbox.phoneNumberId &&
+      phones.find((p: any) => p.id === inbox.phoneNumberId)
+        ? phones.find((p: any) => p.id === inbox.phoneNumberId)
+        : phones[0];
 
     // Update inbox with correct phone number data
     inbox.phoneNumberId = phone.id;
@@ -4685,9 +6098,13 @@ export class ChatsService {
     };
   }
 
-  async registerWhatsAppPhoneNumber(inboxId: string, pin: string): Promise<any> {
+  async registerWhatsAppPhoneNumber(
+    inboxId: string,
+    pin: string,
+  ): Promise<any> {
     const inbox = await this.findInboxById(inboxId);
-    if (!inbox.phoneNumberId || !inbox.accessToken) throw new Error('Phone Number ID or access token not configured');
+    if (!inbox.phoneNumberId || !inbox.accessToken)
+      throw new Error('Phone Number ID or access token not configured');
 
     const res = await fetch(
       `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/register`,
@@ -4695,7 +6112,7 @@ export class ChatsService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${inbox.accessToken}`,
+          Authorization: `Bearer ${inbox.accessToken}`,
         },
         body: JSON.stringify({
           messaging_product: 'whatsapp',
@@ -4705,7 +6122,8 @@ export class ChatsService {
     );
     const data = await res.json();
 
-    if (data.error) throw new Error(data.error.message || 'Failed to register phone number');
+    if (data.error)
+      throw new Error(data.error.message || 'Failed to register phone number');
 
     // Update inbox status
     inbox.status = 'connected';
@@ -4716,9 +6134,21 @@ export class ChatsService {
 
   // === WHATSAPP BUSINESS PROFILE UPDATE ===
 
-  async updateWhatsAppBusinessProfile(inboxId: string, profileData: { about?: string; description?: string; address?: string; email?: string; websites?: string[]; vertical?: string; profile_picture_handle?: string }): Promise<any> {
+  async updateWhatsAppBusinessProfile(
+    inboxId: string,
+    profileData: {
+      about?: string;
+      description?: string;
+      address?: string;
+      email?: string;
+      websites?: string[];
+      vertical?: string;
+      profile_picture_handle?: string;
+    },
+  ): Promise<any> {
     const inbox = await this.findInboxById(inboxId);
-    if (!inbox.phoneNumberId || !inbox.accessToken) throw new Error('Inbox not configured');
+    if (!inbox.phoneNumberId || !inbox.accessToken)
+      throw new Error('Inbox not configured');
 
     const res = await fetch(
       `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/whatsapp_business_profile`,
@@ -4726,7 +6156,7 @@ export class ChatsService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${inbox.accessToken}`,
+          Authorization: `Bearer ${inbox.accessToken}`,
         },
         body: JSON.stringify({ messaging_product: 'whatsapp', ...profileData }),
       },
@@ -4735,20 +6165,33 @@ export class ChatsService {
     if (data.error) {
       // Loguear el error completo de Meta para diagnóstico (el mensaje genérico
       // "An unknown error occurred" ocultaba la causa real).
-      console.error('[Chat] updateWhatsAppBusinessProfile Meta error:', JSON.stringify(data.error));
+      console.error(
+        '[Chat] updateWhatsAppBusinessProfile Meta error:',
+        JSON.stringify(data.error),
+      );
       const err = data.error;
       const detail =
         err.error_user_msg ||
         err.message ||
         err.error_data?.details ||
         'Failed to update business profile';
-      const code = err.code ? ` (código ${err.code}${err.error_subcode ? '/' + err.error_subcode : ''})` : '';
+      const code = err.code
+        ? ` (código ${err.code}${err.error_subcode ? '/' + err.error_subcode : ''})`
+        : '';
       throw new Error(`${detail}${code}`);
     }
     return data;
   }
 
-  async uploadWhatsAppProfilePicture(inboxId: string, file: { buffer: Buffer; originalname: string; mimetype: string; size: number }): Promise<{ handle: string }> {
+  async uploadWhatsAppProfilePicture(
+    inboxId: string,
+    file: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+      size: number;
+    },
+  ): Promise<{ handle: string }> {
     // Same as template media upload — reuse the resumable upload API to get a handle
     return this.uploadTemplateMedia(inboxId, file);
   }
@@ -4759,12 +6202,16 @@ export class ChatsService {
     const inbox = await this.findInboxById(inboxId);
     if (!inbox.accessToken) return { error: 'No access token configured' };
 
-    const result: any = { phoneNumberId: inbox.phoneNumberId, wabaId: inbox.wabaId };
+    const result: any = {
+      phoneNumberId: inbox.phoneNumberId,
+      wabaId: inbox.wabaId,
+    };
 
     // Fetch phone number details (quality, status, name, messaging limits)
     if (inbox.phoneNumberId) {
       try {
-        const fields = 'verified_name,display_phone_number,quality_rating,status,name_status,code_verification_status,platform_type,throughput,last_onboarded_time,is_official_business_account,account_mode,messaging_limit_tier';
+        const fields =
+          'verified_name,display_phone_number,quality_rating,status,name_status,code_verification_status,platform_type,throughput,last_onboarded_time,is_official_business_account,account_mode,messaging_limit_tier';
         const res = await fetch(
           `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}?fields=${fields}&access_token=${inbox.accessToken}`,
         );
@@ -4777,7 +6224,8 @@ export class ChatsService {
 
       // Fetch business profile (about, address, description, email, profile picture, etc.)
       try {
-        const profileFields = 'about,address,description,email,profile_picture_url,websites,vertical';
+        const profileFields =
+          'about,address,description,email,profile_picture_url,websites,vertical';
         const res = await fetch(
           `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/whatsapp_business_profile?fields=${profileFields}&access_token=${inbox.accessToken}`,
         );
@@ -4792,7 +6240,8 @@ export class ChatsService {
     // Fetch WABA info (name, currency, payment method, etc.)
     if (inbox.wabaId) {
       try {
-        const wabaFields = 'name,currency,message_template_namespace,account_review_status,business_verification_status,ownership_type';
+        const wabaFields =
+          'name,currency,message_template_namespace,account_review_status,business_verification_status,ownership_type';
         const res = await fetch(
           `https://graph.facebook.com/v21.0/${inbox.wabaId}?fields=${wabaFields}&access_token=${inbox.accessToken}`,
         );
@@ -4861,7 +6310,9 @@ export class ChatsService {
 
       // 2) Misma base de idioma (es <-> es_CO, es_MX, etc.).
       const base = (preferred || 'es').split(/[_-]/)[0].toLowerCase();
-      const sameBase = langs.find((l) => l.split(/[_-]/)[0].toLowerCase() === base);
+      const sameBase = langs.find(
+        (l) => l.split(/[_-]/)[0].toLowerCase() === base,
+      );
       if (sameBase) return sameBase;
 
       // 3) Única traducción disponible.
@@ -4870,7 +6321,10 @@ export class ChatsService {
       // 4) Fallback: lo pedido (Meta decidirá).
       return preferred || langs[0] || 'es';
     } catch (err) {
-      console.warn('[Templates] resolveTemplateLanguage failed:', (err as any)?.message || err);
+      console.warn(
+        '[Templates] resolveTemplateLanguage failed:',
+        (err as any)?.message || err,
+      );
       return preferred || 'es';
     }
   }
@@ -4881,14 +6335,20 @@ export class ChatsService {
    * consultar. Se usa para PRE-VALIDAR botones FLOW antes de crear la plantilla
    * y así evitar intentos fallidos de creación (Meta penaliza el abuso).
    */
-  private async getFlowStatus(inbox: Inbox, flowId: string): Promise<string | null> {
+  private async getFlowStatus(
+    inbox: Inbox,
+    flowId: string,
+  ): Promise<string | null> {
     try {
       const res = await fetch(
         `https://graph.facebook.com/v21.0/${flowId}?fields=status&access_token=${inbox.accessToken}`,
       );
       const data = await res.json();
       if (data?.error) {
-        console.warn('[Templates] No se pudo consultar el estado del Flow:', JSON.stringify(data.error));
+        console.warn(
+          '[Templates] No se pudo consultar el estado del Flow:',
+          JSON.stringify(data.error),
+        );
         return null;
       }
       return data?.status ? String(data.status).toUpperCase() : null;
@@ -4898,9 +6358,18 @@ export class ChatsService {
     }
   }
 
-  async createWhatsAppTemplate(inboxId: string, templateData: { name: string; category: string; language: string; components: any[] }): Promise<any> {
+  async createWhatsAppTemplate(
+    inboxId: string,
+    templateData: {
+      name: string;
+      category: string;
+      language: string;
+      components: any[];
+    },
+  ): Promise<any> {
     const inbox = await this.findInboxById(inboxId);
-    if (!inbox.wabaId || !inbox.accessToken) throw new Error('Inbox not configured for WhatsApp');
+    if (!inbox.wabaId || !inbox.accessToken)
+      throw new Error('Inbox not configured for WhatsApp');
 
     // PRE-VALIDACIÓN de botones FLOW (encuestas): Meta exige que el Flow esté
     // PUBLISHED, de lo contrario rechaza la plantilla ("Debe publicarse el flujo
@@ -4932,13 +6401,22 @@ export class ChatsService {
       if (comp.type === 'BODY' && comp.text && !comp.example) {
         const vars = comp.text.match(/\{\{\d+\}\}/g);
         if (vars && vars.length > 0) {
-          comp.example = { body_text: [vars.map((_: string, i: number) => `ejemplo_${i + 1}`)] };
+          comp.example = {
+            body_text: [vars.map((_: string, i: number) => `ejemplo_${i + 1}`)],
+          };
         }
       }
-      if (comp.type === 'HEADER' && comp.format === 'TEXT' && comp.text && !comp.example) {
+      if (
+        comp.type === 'HEADER' &&
+        comp.format === 'TEXT' &&
+        comp.text &&
+        !comp.example
+      ) {
         const vars = comp.text.match(/\{\{\d+\}\}/g);
         if (vars && vars.length > 0) {
-          comp.example = { header_text: vars.map((_: string, i: number) => `ejemplo_${i + 1}`) };
+          comp.example = {
+            header_text: vars.map((_: string, i: number) => `ejemplo_${i + 1}`),
+          };
         }
       }
       // Normaliza los botones FLOW (encuestas) para enviar a Meta SOLO los
@@ -4956,8 +6434,11 @@ export class ChatsService {
           };
           const screen = String(btn.navigate_screen || '').trim();
           if (screen) flowBtn.navigate_screen = screen;
-          const icon = String(btn.icon || '').trim().toUpperCase();
-          if (['DOCUMENT', 'PROMOTION', 'REVIEW'].includes(icon)) flowBtn.icon = icon;
+          const icon = String(btn.icon || '')
+            .trim()
+            .toUpperCase();
+          if (['DOCUMENT', 'PROMOTION', 'REVIEW'].includes(icon))
+            flowBtn.icon = icon;
           return flowBtn;
         });
       }
@@ -4971,7 +6452,7 @@ export class ChatsService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${inbox.accessToken}`,
+          Authorization: `Bearer ${inbox.accessToken}`,
         },
         body: JSON.stringify(payload),
       },
@@ -4982,7 +6463,10 @@ export class ChatsService {
       // viene en error_user_msg / error_data.details / error_subcode. Lo
       // registramos completo y lo propagamos para poder diagnosticar.
       const err = data.error;
-      console.error('[Templates] Meta rejected template creation:', JSON.stringify(err));
+      console.error(
+        '[Templates] Meta rejected template creation:',
+        JSON.stringify(err),
+      );
       console.error('[Templates] Payload sent:', JSON.stringify(payload));
       const detail =
         err.error_user_msg ||
@@ -4995,36 +6479,43 @@ export class ChatsService {
     return data;
   }
 
-  async updateWhatsAppTemplate(inboxId: string, templateId: string, templateData: { components: any[]; category?: string }): Promise<any> {
+  async updateWhatsAppTemplate(
+    inboxId: string,
+    templateId: string,
+    templateData: { components: any[]; category?: string },
+  ): Promise<any> {
     const inbox = await this.findInboxById(inboxId);
     if (!inbox.accessToken) throw new Error('Inbox not configured');
 
-    const res = await fetch(
-      `https://graph.facebook.com/v21.0/${templateId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${inbox.accessToken}`,
-        },
-        body: JSON.stringify(templateData),
+    const res = await fetch(`https://graph.facebook.com/v21.0/${templateId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${inbox.accessToken}`,
       },
-    );
+      body: JSON.stringify(templateData),
+    });
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message || 'Failed to update template');
+    if (data.error)
+      throw new Error(data.error.message || 'Failed to update template');
     return data;
   }
 
-  async deleteWhatsAppTemplate(inboxId: string, templateName: string): Promise<any> {
+  async deleteWhatsAppTemplate(
+    inboxId: string,
+    templateName: string,
+  ): Promise<any> {
     const inbox = await this.findInboxById(inboxId);
-    if (!inbox.wabaId || !inbox.accessToken) throw new Error('Inbox not configured');
+    if (!inbox.wabaId || !inbox.accessToken)
+      throw new Error('Inbox not configured');
 
     const res = await fetch(
       `https://graph.facebook.com/v21.0/${inbox.wabaId}/message_templates?name=${encodeURIComponent(templateName)}&access_token=${inbox.accessToken}`,
       { method: 'DELETE' },
     );
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message || 'Failed to delete template');
+    if (data.error)
+      throw new Error(data.error.message || 'Failed to delete template');
     return data;
   }
 
@@ -5047,14 +6538,18 @@ export class ChatsService {
     try {
       const imgRes = await fetch(url);
       if (!imgRes.ok) {
-        throw new Error(`No se pudo descargar la imagen (HTTP ${imgRes.status})`);
+        throw new Error(
+          `No se pudo descargar la imagen (HTTP ${imgRes.status})`,
+        );
       }
       rawBuffer = Buffer.from(await imgRes.arrayBuffer());
       if (rawBuffer.length === 0) {
         throw new Error('La imagen descargada está vacía');
       }
     } catch (err: any) {
-      throw new Error(`Error al descargar la imagen del header: ${err.message || err}`);
+      throw new Error(
+        `Error al descargar la imagen del header: ${err.message || err}`,
+      );
     }
 
     // 2) Normalizar la imagen a un formato que WhatsApp acepte sin ambigüedad.
@@ -5068,11 +6563,18 @@ export class ChatsService {
     try {
       imgBuffer = await sharp(rawBuffer)
         .flatten({ background: { r: 255, g: 255, b: 255 } })
-        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+        .resize({
+          width: 1600,
+          height: 1600,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
         .jpeg({ quality: 85, chromaSubsampling: '4:2:0' })
         .toBuffer();
     } catch (err: any) {
-      throw new Error(`No se pudo procesar la imagen del header: ${err.message || err}`);
+      throw new Error(
+        `No se pudo procesar la imagen del header: ${err.message || err}`,
+      );
     }
     const boundary = `----FormBoundary${Date.now()}${Math.floor(Math.random() * 1e9)}`;
     const parts: Buffer[] = [];
@@ -5083,7 +6585,9 @@ export class ChatsService {
     );
     // El campo "type" debe ser el MIME real del archivo (p.ej. image/jpeg)
     parts.push(
-      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="type"\r\n\r\n${contentType}\r\n`),
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="type"\r\n\r\n${contentType}\r\n`,
+      ),
     );
     parts.push(
       Buffer.from(
@@ -5109,7 +6613,9 @@ export class ChatsService {
       );
       uploadData = await uploadRes.json();
     } catch (err: any) {
-      throw new Error(`Error de red al subir la imagen a WhatsApp: ${err.message || err}`);
+      throw new Error(
+        `Error de red al subir la imagen a WhatsApp: ${err.message || err}`,
+      );
     }
 
     if (!uploadData?.id) {
@@ -5133,7 +6639,9 @@ export class ChatsService {
       (c: any) => (c?.type || '').toUpperCase() === 'BUTTONS',
     )?.buttons;
     if (!Array.isArray(buttons)) return -1;
-    return buttons.findIndex((b: any) => (b?.type || '').toUpperCase() === 'FLOW');
+    return buttons.findIndex(
+      (b: any) => (b?.type || '').toUpperCase() === 'FLOW',
+    );
   }
 
   /**
@@ -5143,7 +6651,9 @@ export class ChatsService {
     const buttons = (templateComponents || []).find(
       (c: any) => (c?.type || '').toUpperCase() === 'BUTTONS',
     )?.buttons;
-    const flowBtn = (buttons || []).find((b: any) => (b?.type || '').toUpperCase() === 'FLOW');
+    const flowBtn = (buttons || []).find(
+      (b: any) => (b?.type || '').toUpperCase() === 'FLOW',
+    );
     return flowBtn?.flow_id ? String(flowBtn.flow_id) : null;
   }
 
@@ -5166,11 +6676,16 @@ export class ChatsService {
     if (!conversation) throw new NotFoundException('Conversation not found');
 
     const inbox = conversation.inbox;
-    if (!inbox.accessToken || inbox.channel !== 'whatsapp') throw new Error('Inbox not configured for templates');
+    if (!inbox.accessToken || inbox.channel !== 'whatsapp')
+      throw new Error('Inbox not configured for templates');
 
     // Resolver el idioma REAL de la plantilla en Meta para evitar #132001 cuando
     // el idioma solicitado no coincide con la traducción aprobada (es vs es_CO).
-    languageCode = await this.resolveTemplateLanguage(inbox, templateName, languageCode);
+    languageCode = await this.resolveTemplateLanguage(
+      inbox,
+      templateName,
+      languageCode,
+    );
 
     // Respetar consentimiento (opt-in) del contacto: si tiene el opt-in de
     // WhatsApp desactivado, no se le pueden enviar plantillas. Solo se permiten
@@ -5181,7 +6696,9 @@ export class ChatsService {
     // envía como respuesta inmediata al contacto que ACABA de escribir, por lo
     // que se omite la verificación de opt-in para ese caso puntual.
     if (!skipOptIn && conversation.recordId) {
-      const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+      const record = await this.clientRecordRepo.findOne({
+        where: { id: conversation.recordId },
+      });
       if (record && record.optInWhatsapp === false) {
         throw new BadRequestException(
           'El contacto tiene desactivado el opt-in de WhatsApp. No se pueden enviar plantillas; solo mensajes dentro de la ventana de conversación de 24 horas.',
@@ -5200,7 +6717,10 @@ export class ChatsService {
 
     let templateCreditsCost = 0;
     try {
-      const cost = await this.billingService.getEffectiveActionCost(inbox.tenantId, billingAction);
+      const cost = await this.billingService.getEffectiveActionCost(
+        inbox.tenantId,
+        billingAction,
+      );
       templateCreditsCost = cost ?? 0;
       await this.billingService.consumeByAction(
         inbox.tenantId,
@@ -5237,7 +6757,9 @@ export class ChatsService {
     // de la definición de la plantilla para que la plantilla se pueda entregar.
     try {
       const defHeader = (templateComponents || []).find(
-        (c: any) => c?.type === 'HEADER' && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(c?.format),
+        (c: any) =>
+          c?.type === 'HEADER' &&
+          ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(c?.format),
       );
       if (defHeader) {
         const providedHeader = (components || []).find(
@@ -5269,7 +6791,9 @@ export class ChatsService {
       // el mensaje como fallido con el motivo real en lugar de lanzar un 500.
       try {
         if (!inbox.phoneNumberId) {
-          throw new Error('La bandeja no tiene un número de WhatsApp configurado');
+          throw new Error(
+            'La bandeja no tiene un número de WhatsApp configurado',
+          );
         }
         const phoneNumberId = inbox.phoneNumberId;
         for (const comp of components) {
@@ -5277,7 +6801,10 @@ export class ChatsService {
             for (const card of comp.cards) {
               if (card.components) {
                 for (const cardComp of card.components) {
-                  if (cardComp.type === 'header' && cardComp.parameters?.[0]?.type === 'image') {
+                  if (
+                    cardComp.type === 'header' &&
+                    cardComp.parameters?.[0]?.type === 'image'
+                  ) {
                     const imgParam = cardComp.parameters[0];
                     if (imgParam.image?.link) {
                       const mediaId = await this.uploadWhatsAppMediaFromUrl(
@@ -5293,7 +6820,11 @@ export class ChatsService {
             }
           }
           // Also handle single header images
-          if (comp.type === 'header' && comp.parameters?.[0]?.type === 'image' && comp.parameters[0].image?.link) {
+          if (
+            comp.type === 'header' &&
+            comp.parameters?.[0]?.type === 'image' &&
+            comp.parameters[0].image?.link
+          ) {
             const mediaId = await this.uploadWhatsAppMediaFromUrl(
               phoneNumberId,
               inbox.accessToken,
@@ -5304,7 +6835,8 @@ export class ChatsService {
         }
       } catch (err: any) {
         console.error('[Templates] Media upload failed:', err);
-        sendError = err.message || 'No se pudo preparar la imagen de la plantilla';
+        sendError =
+          err.message || 'No se pudo preparar la imagen de la plantilla';
       }
       messageBody.template.components = components;
     }
@@ -5328,7 +6860,9 @@ export class ChatsService {
               type: 'button',
               sub_type: 'flow',
               index: String(flowButtonIndex),
-              parameters: [{ type: 'action', action: { flow_token: flowToken } }],
+              parameters: [
+                { type: 'action', action: { flow_token: flowToken } },
+              ],
             });
             messageBody.template.components = existing;
           }
@@ -5345,7 +6879,10 @@ export class ChatsService {
               metaFlowId: this.getFlowId(templateComponents),
             })
             .catch((err) =>
-              console.warn('[Templates] No se pudo registrar la submission del Flow:', err.message),
+              console.warn(
+                '[Templates] No se pudo registrar la submission del Flow:',
+                err.message,
+              ),
             );
         }
       } catch (err: any) {
@@ -5358,21 +6895,30 @@ export class ChatsService {
 
     // Solo se llama a Meta si la preparación de la media no falló
     if (!sendError) {
-      const res = await fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${inbox.accessToken}`,
+      const res = await fetch(
+        `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${inbox.accessToken}`,
+          },
+          body: JSON.stringify(messageBody),
         },
-        body: JSON.stringify(messageBody),
-      });
+      );
       data = await res.json();
       externalId = data.messages?.[0]?.id || null;
 
       if (!externalId) {
         console.error('[Templates] Send failed:', JSON.stringify(data));
-        console.error('[Templates] Payload sent:', JSON.stringify(messageBody, null, 2));
-        sendError = data.error?.message || data.error?.error_data?.details || 'Error desconocido al enviar plantilla';
+        console.error(
+          '[Templates] Payload sent:',
+          JSON.stringify(messageBody, null, 2),
+        );
+        sendError =
+          data.error?.message ||
+          data.error?.error_data?.details ||
+          'Error desconocido al enviar plantilla';
       }
     }
 
@@ -5383,7 +6929,13 @@ export class ChatsService {
       direction: 'outbound',
       messageType: 'template',
       content: displayContent,
-      mediaUrl: templateComponents ? JSON.stringify({ name: templateName, language: languageCode, components: templateComponents }) : null,
+      mediaUrl: templateComponents
+        ? JSON.stringify({
+            name: templateName,
+            language: languageCode,
+            components: templateComponents,
+          })
+        : null,
       externalId,
       senderId: senderId || null,
       status: externalId ? 'sent' : 'failed',
@@ -5393,7 +6945,11 @@ export class ChatsService {
 
     // If send failed, create a system note with the error details
     if (!externalId && sendError) {
-      await this.createSystemNote(conversationId, `⚠️ Error al enviar plantilla "${templateName}": ${sendError}`, inbox.tenantId);
+      await this.createSystemNote(
+        conversationId,
+        `⚠️ Error al enviar plantilla "${templateName}": ${sendError}`,
+        inbox.tenantId,
+      );
     }
 
     conversation.lastMessage = `📋 ${templateName}`;
@@ -5406,10 +6962,20 @@ export class ChatsService {
   // === LABELS ===
 
   async getLabels(tenantId: string): Promise<Label[]> {
-    return this.labelRepo.find({ where: { tenantId }, order: { createdAt: 'ASC' } });
+    return this.labelRepo.find({
+      where: { tenantId },
+      order: { createdAt: 'ASC' },
+    });
   }
 
-  async createLabel(data: { tenantId: string; slug: string; label: string; description?: string; color?: string; showInSidebar?: boolean }): Promise<Label> {
+  async createLabel(data: {
+    tenantId: string;
+    slug: string;
+    label: string;
+    description?: string;
+    color?: string;
+    showInSidebar?: boolean;
+  }): Promise<Label> {
     const label = this.labelRepo.create({
       tenantId: data.tenantId,
       slug: data.slug,
@@ -5421,7 +6987,15 @@ export class ChatsService {
     return this.labelRepo.save(label);
   }
 
-  async updateLabel(id: string, data: Partial<{ label: string; description: string; color: string; showInSidebar: boolean }>): Promise<Label> {
+  async updateLabel(
+    id: string,
+    data: Partial<{
+      label: string;
+      description: string;
+      color: string;
+      showInSidebar: boolean;
+    }>,
+  ): Promise<Label> {
     const label = await this.labelRepo.findOne({ where: { id } });
     if (!label) throw new NotFoundException('Label not found');
     Object.assign(label, data);
@@ -5439,7 +7013,9 @@ export class ChatsService {
     userId?: string,
     userName?: string,
   ): Promise<{ labelIds: string[] }> {
-    const conversation = await this.conversationRepo.findOne({ where: { id: conversationId } });
+    const conversation = await this.conversationRepo.findOne({
+      where: { id: conversationId },
+    });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
     const label = await this.labelRepo.findOne({ where: { id: labelId } });
@@ -5502,7 +7078,12 @@ export class ChatsService {
       conversation = await this.conversationRepo.save(conversation);
 
       // Link to client record
-      const record = await this.findOrCreateRecordForWidget(inbox.tenantId, contactId, name, email);
+      const record = await this.findOrCreateRecordForWidget(
+        inbox.tenantId,
+        contactId,
+        name,
+        email,
+      );
       conversation.recordId = record.id;
       await this.conversationRepo.save(conversation);
 
@@ -5511,40 +7092,50 @@ export class ChatsService {
 
       // Track ad attribution from URL params
       if (attribution && conversation.recordId) {
-        const hasAttribution = attribution.fbclid || attribution.gclid || attribution.ttclid || attribution.li_fat_id || attribution.twclid || attribution.utm_source;
+        const hasAttribution =
+          attribution.fbclid ||
+          attribution.gclid ||
+          attribution.ttclid ||
+          attribution.li_fat_id ||
+          attribution.twclid ||
+          attribution.utm_source;
         if (hasAttribution) {
-          this.conversionsService.trackFromUrlParams(
-            inbox.tenantId,
-            attribution,
-            {
+          this.conversionsService
+            .trackFromUrlParams(inbox.tenantId, attribution, {
               recordId: conversation.recordId,
               referrer: attribution.referrer,
               landingPage: attribution.landingPage,
               sessionId: `chat_${conversation.id}`,
-            },
-          ).then((adEvent) => {
-            if (adEvent) {
-              // Mark conversation with ad tracking
-              conversation!.hasAdTracking = true;
-              conversation!.adPlatform = adEvent.platform;
-              this.conversationRepo.save(conversation!).catch(() => {});
+            })
+            .then((adEvent) => {
+              if (adEvent) {
+                // Mark conversation with ad tracking
+                conversation!.hasAdTracking = true;
+                conversation!.adPlatform = adEvent.platform;
+                this.conversationRepo.save(conversation!).catch(() => {});
 
-              // Also mark the client record
-              if (conversation!.recordId) {
-                this.clientRecordRepo.query(
-                  `UPDATE clients SET
+                // Also mark the client record
+                if (conversation!.recordId) {
+                  this.clientRecordRepo
+                    .query(
+                      `UPDATE clients SET
                     has_ad_tracking = true,
                     ad_first_platform = COALESCE(ad_first_platform, $2),
                     ad_last_platform = $2,
                     ad_touchpoints = COALESCE(ad_touchpoints, 0) + 1
                   WHERE id = $1`,
-                  [conversation!.recordId, adEvent.platform],
-                ).catch(() => {});
+                      [conversation!.recordId, adEvent.platform],
+                    )
+                    .catch(() => {});
+                }
               }
-            }
-          }).catch((err) => {
-            console.warn('[ChatWidget] Failed to track attribution:', err?.message || err);
-          });
+            })
+            .catch((err) => {
+              console.warn(
+                '[ChatWidget] Failed to track attribution:',
+                err?.message || err,
+              );
+            });
         }
       }
     }
@@ -5572,7 +7163,12 @@ export class ChatsService {
     conversationId: string,
     visitorId: string,
     content: string,
-  ): Promise<{ id: string; content: string; direction: string; createdAt: Date }> {
+  ): Promise<{
+    id: string;
+    content: string;
+    direction: string;
+    createdAt: Date;
+  }> {
     const conversation = await this.conversationRepo.findOne({
       where: { id: conversationId, inboxId: inbox.id },
     });
@@ -5596,8 +7192,12 @@ export class ChatsService {
 
     // Automatizaciones por palabra clave (si la conversación tiene contacto vinculado)
     if (conversation.recordId && content) {
-      await this.runInboxAutomations(inbox, conversation, content).catch((err) =>
-        console.warn('[Webhook] Automations (chat) failed:', err?.message || err),
+      await this.runInboxAutomations(inbox, conversation, content).catch(
+        (err) =>
+          console.warn(
+            '[Webhook] Automations (chat) failed:',
+            err?.message || err,
+          ),
       );
     }
 
@@ -5626,11 +7226,15 @@ export class ChatsService {
     let record = await this.clientRecordRepo
       .createQueryBuilder('client')
       .where('client.tenant_id = :tenantId', { tenantId })
-      .andWhere("client.custom_data ->> 'chatVisitorId' = :visitorId", { visitorId })
+      .andWhere("client.custom_data ->> 'chatVisitorId' = :visitorId", {
+        visitorId,
+      })
       .getOne();
 
     if (!record && email) {
-      record = await this.clientRecordRepo.findOne({ where: { tenantId, email } });
+      record = await this.clientRecordRepo.findOne({
+        where: { tenantId, email },
+      });
     }
 
     if (!record) {
@@ -5676,7 +7280,16 @@ export class ChatsService {
       return;
     }
 
-    const { contactPhone, contactName, messageType, content, mediaUrl, mediaMimeType, externalId, replyToExternalId } = data;
+    const {
+      contactPhone,
+      contactName,
+      messageType,
+      content,
+      mediaUrl,
+      mediaMimeType,
+      externalId,
+      replyToExternalId,
+    } = data;
 
     // Buscar o crear conversación
     let conversation = await this.conversationRepo.findOne({
@@ -5737,22 +7350,34 @@ export class ChatsService {
     conversation.lastMessageAt = new Date();
     conversation.lastMessageSource = null;
     conversation.unreadCount = (conversation.unreadCount || 0) + 1;
-    if (contactName && !conversation.contactName) conversation.contactName = contactName;
+    if (contactName && !conversation.contactName)
+      conversation.contactName = contactName;
 
     // Vincular a registro de contacto
     if (!conversation.recordId) {
-      const record = await this.findOrCreateRecordByPhone(contactPhone, inbox.tenantId, contactName, inbox.id);
+      const record = await this.findOrCreateRecordByPhone(
+        contactPhone,
+        inbox.tenantId,
+        contactName,
+        inbox.id,
+      );
       conversation.recordId = record.id;
     } else {
-      await this.clientRecordRepo.update(conversation.recordId, { lastContactAt: new Date() });
+      await this.clientRecordRepo.update(conversation.recordId, {
+        lastContactAt: new Date(),
+      });
     }
 
     await this.conversationRepo.save(conversation);
 
     // Automatizaciones por palabra clave
     if (conversation.recordId && content) {
-      await this.runInboxAutomations(inbox, conversation, content).catch((err) =>
-        console.warn('[Webhook] Automations (evolution) failed:', err?.message || err),
+      await this.runInboxAutomations(inbox, conversation, content).catch(
+        (err) =>
+          console.warn(
+            '[Webhook] Automations (evolution) failed:',
+            err?.message || err,
+          ),
       );
     }
 
@@ -5762,44 +7387,83 @@ export class ChatsService {
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
     // Notificar colaboradores del inbox
-    this.notificationsService.getInboxCollaboratorUserIds(inbox.id).then(async (userIds) => {
-      let contactLabel = conversation!.contactName || contactPhone || 'Contacto';
-      if (conversation!.recordId) {
-        const record = await this.clientRecordRepo.findOne({ where: { id: conversation!.recordId! } });
-        if (record) {
-          contactLabel = record.fullName || record.firstName || contactLabel;
-        }
-      }
-      for (const uid of userIds) {
-        this.notificationsService.findUnreadByConversation(uid, conversation!.id).then((existing) => {
-          if (!existing) {
-            this.notificationsService.notify({
-              tenantId: inbox.tenantId,
-              userId: uid,
-              type: 'message_received',
-              title: `Nuevo mensaje de ${contactLabel}`,
-              body: (content || `[${messageType}]`).substring(0, 120),
-              link: `/${inbox.tenantId}/comunicaciones/conversaciones/${conversation!.id}`,
-              metadata: { conversationId: conversation!.id, inboxId: inbox.id, messageType },
-            }).catch(() => {});
-          } else {
-            this.notificationsService.updateBody(existing.id, (content || `[${messageType}]`).substring(0, 120)).catch(() => {});
+    this.notificationsService
+      .getInboxCollaboratorUserIds(inbox.id)
+      .then(async (userIds) => {
+        let contactLabel =
+          conversation!.contactName || contactPhone || 'Contacto';
+        if (conversation!.recordId) {
+          const record = await this.clientRecordRepo.findOne({
+            where: { id: conversation!.recordId! },
+          });
+          if (record) {
+            contactLabel = record.fullName || record.firstName || contactLabel;
           }
-        }).catch(() => {});
-      }
-    }).catch(() => {});
+        }
+        for (const uid of userIds) {
+          this.notificationsService
+            .findUnreadByConversation(uid, conversation!.id)
+            .then((existing) => {
+              if (!existing) {
+                this.notificationsService
+                  .notify({
+                    tenantId: inbox.tenantId,
+                    userId: uid,
+                    type: 'message_received',
+                    title: `Nuevo mensaje de ${contactLabel}`,
+                    body: (content || `[${messageType}]`).substring(0, 120),
+                    link: `/${inbox.tenantId}/comunicaciones/conversaciones/${conversation!.id}`,
+                    metadata: {
+                      conversationId: conversation!.id,
+                      inboxId: inbox.id,
+                      messageType,
+                    },
+                  })
+                  .catch(() => {});
+              } else {
+                this.notificationsService
+                  .updateBody(
+                    existing.id,
+                    (content || `[${messageType}]`).substring(0, 120),
+                  )
+                  .catch(() => {});
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
 
     // Dispatch webhooks
-    const contactRecord = conversation.recordId ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } }) : null;
-    this.webhooksService.dispatch(inbox.tenantId, 'message_created', {
-      message,
-      conversation: { id: conversation.id, contactId: conversation.contactId, contactName: conversation.contactName, status: conversation.status, recordId: conversation.recordId, inboxId: conversation.inboxId, lastMessage: conversation.lastMessage, lastMessageAt: conversation.lastMessageAt },
-      contact: contactRecord,
-      inbox: { id: inbox.id, name: inbox.name, channel: inbox.channel },
-    }).catch(() => {});
+    const contactRecord = conversation.recordId
+      ? await this.clientRecordRepo.findOne({
+          where: { id: conversation.recordId },
+        })
+      : null;
+    this.webhooksService
+      .dispatch(inbox.tenantId, 'message_created', {
+        message,
+        conversation: {
+          id: conversation.id,
+          contactId: conversation.contactId,
+          contactName: conversation.contactName,
+          status: conversation.status,
+          recordId: conversation.recordId,
+          inboxId: conversation.inboxId,
+          lastMessage: conversation.lastMessage,
+          lastMessageAt: conversation.lastMessageAt,
+        },
+        contact: contactRecord,
+        inbox: { id: inbox.id, name: inbox.name, channel: inbox.channel },
+      })
+      .catch(() => {});
 
     // Trigger bot auto-reply si hay bot asignado
-    this.scheduleBotReply(inbox, conversation, content, { messageType, mediaUrl: storedMediaUrl, mediaMimeType }).catch((err) => {
+    this.scheduleBotReply(inbox, conversation, content, {
+      messageType,
+      mediaUrl: storedMediaUrl,
+      mediaMimeType,
+    }).catch((err) => {
       console.error('[Evolution Bot Auto-Reply] Failed:', err?.message || err);
     });
   }

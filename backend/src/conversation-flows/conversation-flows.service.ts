@@ -14,14 +14,25 @@ import {
   FlowButton,
   FlowButtonType,
   FlowHeaderType,
+  FlowConditionBranch,
+  FlowConditionOperator,
+  FlowConditionRule,
+  FlowConditionSource,
   FlowTriggers,
 } from './conversation-flow.entity';
 import { MediaStorageService } from '../media/media-storage.service';
 import { CustomField } from '../records/custom-field.entity';
 import {
+  CONDITION_OPERATORS,
+  CONDITION_SOURCES,
+  REGEX_MAX_PATTERN,
+  isValidRegex,
+} from './flow-conditions.util';
+import {
   CONTACT_SYSTEM_FIELDS,
   FLOW_SPECIAL_VARIABLES,
   VARIABLE_KEY_RE,
+  type ContactFieldDef,
 } from './contact-fields.util';
 import { isValidButtonUrl, normalizePhone } from './flow-buttons.util';
 import {
@@ -77,6 +88,9 @@ export const MAX_FLOW_BUTTONS = 10;
 /** Botones de enlace o llamada por mensaje (Messenger admite 3 en su plantilla). */
 const MAX_ACTION_BUTTONS = 3;
 const MAX_BUTTON_TITLE = 24;
+/** Ramas por nodo Condición y reglas por rama. */
+const MAX_BRANCHES = 12;
+const MAX_RULES_PER_BRANCH = 12;
 /** Título de botones de enlace/llamada: 20 en WhatsApp (cta_url) y Messenger. */
 const MAX_ACTION_TITLE = 20;
 const MAX_NODES = 300;
@@ -98,8 +112,13 @@ export class ConversationFlowsService {
    */
   async getVariableCatalog(tenantId: string): Promise<{
     special: { key: string; label: string; description: string }[];
-    crm: { key: string; label: string; group: string }[];
-    custom: { key: string; label: string; fieldType: string }[];
+    crm: ContactFieldDef[];
+    custom: {
+      key: string;
+      label: string;
+      fieldType: string;
+      options?: string[];
+    }[];
   }> {
     if (!tenantId) throw new BadRequestException('tenantId es requerido');
     const customFields = await this.customFieldRepo.find({
@@ -118,6 +137,9 @@ export class ConversationFlowsService {
         key: f.fieldKey,
         label: f.fieldLabel,
         fieldType: f.fieldType,
+        ...(Array.isArray(f.options) && f.options.length
+          ? { options: f.options }
+          : {}),
       }));
 
     return {
@@ -448,16 +470,23 @@ export class ConversationFlowsService {
             }));
           break;
         case 'condition':
-          node.data.conditionVariable = this.cleanVariable(d.conditionVariable);
-          node.data.conditionOperator = OPERATORS.has(
-            d.conditionOperator as string,
-          )
-            ? d.conditionOperator
-            : 'equals';
-          node.data.conditionValue = String(d.conditionValue ?? '').slice(
-            0,
-            500,
-          );
+          if (Array.isArray(d.branches)) {
+            node.data.branches = this.sanitizeBranches(d.branches);
+          } else {
+            // Formato antiguo de una sola regla (salidas true/false).
+            node.data.conditionVariable = this.cleanVariable(
+              d.conditionVariable,
+            );
+            node.data.conditionOperator = OPERATORS.has(
+              d.conditionOperator as string,
+            )
+              ? d.conditionOperator
+              : 'equals';
+            node.data.conditionValue = String(d.conditionValue ?? '').slice(
+              0,
+              500,
+            );
+          }
           break;
         case 'start_flow': {
           const target = String(d.targetFlowId || '');
@@ -582,6 +611,77 @@ export class ConversationFlowsService {
     return out;
   }
 
+  /**
+   * Valida las ramas de un nodo Condición. Se rechaza lo que no se podría
+   * evaluar bien (más ramas o reglas de las admitidas, una expresión regular
+   * inválida); lo incompleto, como una regla sin valor, se conserva para no
+   * perder lo que se está editando: el evaluador la trata como falsa.
+   */
+  private sanitizeBranches(raw: unknown[]): FlowConditionBranch[] {
+    if (raw.length > MAX_BRANCHES) {
+      throw new BadRequestException(
+        `Un nodo Condición admite máximo ${MAX_BRANCHES} ramas`,
+      );
+    }
+    const seen = new Set<string>();
+    return raw.map((item, index) => {
+      const b = (item ?? {}) as Record<string, unknown>;
+      let id = String(b.id || '')
+        .trim()
+        .replace(/[^\w-]/g, '')
+        .slice(0, 32);
+      if (!id || seen.has(id))
+        id = `r${index + 1}_${Math.random().toString(36).slice(2, 7)}`;
+      seen.add(id);
+      const name =
+        String(b.name || '')
+          .trim()
+          .slice(0, 40) || `Rama ${index + 1}`;
+
+      const rawRules = Array.isArray(b.rules) ? b.rules : [];
+      if (rawRules.length > MAX_RULES_PER_BRANCH) {
+        throw new BadRequestException(
+          `La rama «${name}» admite máximo ${MAX_RULES_PER_BRANCH} reglas`,
+        );
+      }
+      const rules = rawRules.map((r, i): FlowConditionRule => {
+        const x = (r ?? {}) as Record<string, unknown>;
+        const source = CONDITION_SOURCES.has(x.source as FlowConditionSource)
+          ? (x.source as FlowConditionSource)
+          : 'variable';
+        const operator = CONDITION_OPERATORS.has(
+          x.operator as FlowConditionOperator,
+        )
+          ? (x.operator as FlowConditionOperator)
+          : 'equals';
+        const value = String(x.value ?? '').slice(0, 500);
+        if (operator === 'regex' && value && !isValidRegex(value)) {
+          throw new BadRequestException(
+            `La expresión regular de la rama «${name}» no es válida (máximo ${REGEX_MAX_PATTERN} caracteres)`,
+          );
+        }
+        return {
+          id:
+            String(x.id || '')
+              .replace(/[^\w-]/g, '')
+              .slice(0, 32) || `${id}_${i + 1}`,
+          source,
+          ...(x.field
+            ? {
+                field: String(x.field)
+                  .replace(/[^\w-]/g, '')
+                  .slice(0, 64),
+              }
+            : {}),
+          operator,
+          ...(value ? { value } : {}),
+          ...(x.value2 ? { value2: String(x.value2).slice(0, 500) } : {}),
+        };
+      });
+      return { id, name, match: b.match === 'any' ? 'any' : 'all', rules };
+    });
+  }
+
   private isValidHandle(node: FlowNode, handle: string): boolean {
     switch (node.type) {
       case 'message': {
@@ -605,8 +705,18 @@ export class ConversationFlowsService {
         }
         return handle === 'next';
       }
-      case 'condition':
-        return handle === 'true' || handle === 'false';
+      case 'condition': {
+        // Con ramas: una salida por rama y «Si no». Sin ramas es el nodo antiguo (Sí / No).
+        const branches = node.data.branches;
+        if (!Array.isArray(branches)) {
+          return handle === 'true' || handle === 'false';
+        }
+        return (
+          handle === 'else' ||
+          (handle.startsWith('cond:') &&
+            branches.some((b) => `cond:${b.id}` === handle))
+        );
+      }
       case 'start_flow':
         return false; // salta a otro flujo: no tiene salida
       default:

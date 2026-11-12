@@ -42,14 +42,78 @@ export const HEADER_ACCEPT: Record<Exclude<FlowHeaderType, "text">, string> = {
   document: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt",
 };
 export type FlowActionType = "set_variable" | "add_label" | "remove_label" | "handoff" | "resolve";
+/** Operadores de condición (espejo del backend: flow-conditions.util.ts). */
 export type FlowConditionOperator =
+  // Texto
   | "equals"
   | "not_equals"
   | "contains"
+  | "not_contains"
+  | "starts_with"
+  | "ends_with"
+  | "in_list"
+  | "not_in_list"
+  | "regex"
+  // Presencia
   | "is_set"
   | "is_not_set"
+  // Número
+  | "eq"
+  | "neq"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "between"
+  // Fecha
+  | "date_before"
+  | "date_after"
+  | "date_on"
+  | "date_between"
+  | "within_last_days"
+  | "older_than_days"
+  // Sí / No
+  | "is_true"
+  | "is_false"
+  // Reparto al azar
+  | "percent"
+  // Nombres del nodo antiguo de una sola regla
   | "greater_than"
   | "less_than";
+
+/** Qué evalúa una regla. */
+export type FlowConditionSource =
+  | "variable"
+  | "message"
+  | "channel"
+  | "inbox"
+  | "label"
+  | "new_conversation"
+  | "has_contact"
+  | "inbound_count"
+  | "conversation_status"
+  | "time_of_day"
+  | "weekday"
+  | "date"
+  | "random";
+
+export interface FlowConditionRule {
+  id: string;
+  source: FlowConditionSource;
+  /** variable: clave de la variable o campo · label: id de la etiqueta */
+  field?: string;
+  operator: FlowConditionOperator;
+  value?: string;
+  value2?: string;
+}
+
+/** Rama de un nodo Condición: sale por `cond:<id>` si se cumplen todas (o alguna) de sus reglas. */
+export interface FlowConditionBranch {
+  id: string;
+  name: string;
+  match: "all" | "any";
+  rules: FlowConditionRule[];
+}
 
 export interface FlowAction {
   type: FlowActionType;
@@ -75,6 +139,9 @@ export interface FlowNodeData {
   validation?: FlowInputValidation;
   errorMessage?: string;
   actions?: FlowAction[];
+  /** condition: ramas evaluadas en orden; si ninguna se cumple sale por `else` */
+  branches?: FlowConditionBranch[];
+  /** condition (formato antiguo de una sola regla; el editor lo convierte al abrir) */
   conditionVariable?: string;
   conditionOperator?: FlowConditionOperator;
   conditionValue?: string;
@@ -164,16 +231,6 @@ export const VALIDATION_LABELS: Record<FlowInputValidation, string> = {
   number: "Número",
   email: "Correo electrónico",
   phone: "Teléfono",
-};
-
-export const OPERATOR_LABELS: Record<FlowConditionOperator, string> = {
-  equals: "es igual a",
-  not_equals: "es distinto de",
-  contains: "contiene",
-  is_set: "tiene valor",
-  is_not_set: "está vacía",
-  greater_than: "es mayor que",
-  less_than: "es menor que",
 };
 
 export const ACTION_LABELS: Record<FlowActionType, string> = {
