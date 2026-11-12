@@ -21,12 +21,20 @@ import {
   FlowTriggers,
   FlowNodeData,
   FlowAiExtra,
+  FlowAgentCollect,
+  FlowAgentConfig,
   FlowInputTransform,
   FlowInputValidation,
   FlowMediaKind,
 } from './conversation-flow.entity';
 import { MediaStorageService } from '../media/media-storage.service';
 import { CustomField } from '../records/custom-field.entity';
+import { Bot } from '../bots/bot.entity';
+import {
+  AGENT_MAX_COLLECT,
+  AGENT_MAX_OUTCOMES,
+  AGENT_MAX_TURNS,
+} from './flow-agent.util';
 import {
   CONDITION_OPERATORS,
   CONDITION_SOURCES,
@@ -69,6 +77,7 @@ const NODE_TYPES = new Set<FlowNodeType>([
   'action',
   'condition',
   'start_flow',
+  'ai_agent',
 ]);
 const ACTION_TYPES = new Set<FlowAction['type']>([
   'set_variable',
@@ -120,6 +129,8 @@ export class ConversationFlowsService {
     private readonly mediaStorage: MediaStorageService,
     @InjectRepository(CustomField)
     private readonly customFieldRepo: Repository<CustomField>,
+    @InjectRepository(Bot)
+    private readonly botRepo: Repository<Bot>,
   ) {}
 
   /**
@@ -506,6 +517,13 @@ export class ConversationFlowsService {
             );
           }
           break;
+        case 'ai_agent':
+          node.data.agent = await this.sanitizeAgent(
+            d.agent,
+            flow.tenantId,
+            () => (customKeys ??= this.writableCustomKeys(flow.tenantId)),
+          );
+          break;
         case 'start_flow': {
           const target = String(d.targetFlowId || '');
           if (target) {
@@ -735,6 +753,15 @@ export class ConversationFlowsService {
             branches.some((b) => `cond:${b.id}` === handle))
         );
       }
+      case 'ai_agent': {
+        const agent = node.data.agent;
+        if (handle === 'limit' || handle === 'error') return true;
+        if (handle === 'handoff') return agent?.allowHandoff !== false;
+        return (
+          handle.startsWith('out:') &&
+          !!agent?.outcomes.some((o) => `out:${o.id}` === handle)
+        );
+      }
       case 'user_input':
         // «Siguiente» y «Sin respuesta válida» (se agotaron los intentos).
         return handle === 'next' || handle === 'invalid';
@@ -938,6 +965,82 @@ export class ConversationFlowsService {
         };
       }
     }
+    return out;
+  }
+
+  /**
+   * Nodo «Conversación con IA». El bot debe ser del tenant y no secuencial (un
+   * bot secuencial sigue sus propios pasos y no sabe volver al flujo). Siempre
+   * queda al menos un resultado para que el tramo pueda terminar.
+   */
+  private async sanitizeAgent(
+    raw: FlowAgentConfig | undefined,
+    tenantId: string,
+    customKeys: () => Promise<Set<string>>,
+  ): Promise<FlowAgentConfig> {
+    const a = (
+      raw && typeof raw === 'object' ? raw : {}
+    ) as Partial<FlowAgentConfig>;
+    const out: FlowAgentConfig = {
+      source: a.source === 'bot' ? 'bot' : 'custom',
+      outcomes: [],
+    };
+    if (out.source === 'bot' && a.botId) {
+      const bot = await this.botRepo.findOne({
+        where: { id: String(a.botId), tenantId },
+        select: { id: true, type: true },
+      });
+      if (bot && bot.type !== 'sequential') out.botId = bot.id;
+    }
+    const instructions = String(a.instructions || '').trim();
+    if (instructions) out.instructions = instructions.slice(0, 4000);
+    const first = String(a.firstMessage || '').trim();
+    if (first) out.firstMessage = first.slice(0, 2000);
+
+    const ids = new Set<string>();
+    for (const o of (Array.isArray(a.outcomes) ? a.outcomes : []).slice(
+      0,
+      AGENT_MAX_OUTCOMES,
+    )) {
+      const id = String(o?.id || '').trim();
+      const name = String(o?.name || '')
+        .trim()
+        .slice(0, 40);
+      if (!/^[\w-]{1,40}$/.test(id) || ids.has(id) || !name) continue;
+      ids.add(id);
+      const description = String(o?.description || '')
+        .trim()
+        .slice(0, 300);
+      out.outcomes.push({ id, name, ...(description ? { description } : {}) });
+    }
+    if (!out.outcomes.length)
+      out.outcomes.push({ id: 'done', name: 'Objetivo cumplido' });
+
+    const seen = new Set<string>();
+    const collect: FlowAgentCollect[] = [];
+    for (const c of (Array.isArray(a.collect) ? a.collect : []).slice(
+      0,
+      AGENT_MAX_COLLECT,
+    )) {
+      const variable = this.cleanVariable(c?.variable);
+      if (!variable || seen.has(variable)) continue;
+      seen.add(variable);
+      const field = await this.cleanContactField(c?.saveToField, customKeys);
+      collect.push({
+        variable,
+        description: String(c?.description || '')
+          .trim()
+          .slice(0, 200),
+        ...(field ? { saveToField: field } : {}),
+      });
+    }
+    if (collect.length) out.collect = collect;
+
+    const turns = Number(a.maxTurns);
+    if (a.maxTurns != null && Number.isFinite(turns))
+      out.maxTurns = Math.min(Math.max(Math.floor(turns), 1), AGENT_MAX_TURNS);
+    if (a.allowHandoff === false) out.allowHandoff = false;
+    if (AI_MODES.has(a.mode as string)) out.mode = a.mode;
     return out;
   }
 

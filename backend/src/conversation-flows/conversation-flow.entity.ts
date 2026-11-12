@@ -40,7 +40,13 @@ export interface FlowButton {
 export type FlowOverflowMode = 'paginate' | 'list';
 
 export type FlowNodeType =
-  'start' | 'message' | 'user_input' | 'action' | 'condition' | 'start_flow';
+  | 'start'
+  | 'message'
+  | 'user_input'
+  | 'action'
+  | 'condition'
+  | 'start_flow'
+  | 'ai_agent';
 
 /**
  * Tipo de respuesta que espera un nodo Entrada. Las de texto se validan y
@@ -82,6 +88,44 @@ export interface FlowAiExtra {
  * predeterminado de la cuenta (mismas opciones que los bots). Sin modo = balanceado.
  */
 export type FlowAiMode = 'nitro' | 'exacto' | 'floor';
+
+/** Resultado posible de un nodo «Conversación con IA»: cada uno es una salida `out:<id>`. */
+export interface FlowAgentOutcome {
+  id: string;
+  name: string;
+  /** Cuándo debe elegirlo la IA */
+  description?: string;
+}
+
+/** Dato que la IA debe averiguar durante la conversación. */
+export interface FlowAgentCollect {
+  variable: string;
+  description: string;
+  saveToField?: string;
+}
+
+/**
+ * Nodo «Conversación con IA»: la IA conversa con el contacto durante varios
+ * mensajes y vuelve al flujo por la salida del resultado al que llegó.
+ * Salidas: `out:<id>` por resultado, `handoff`, `limit` (máximo de mensajes) y
+ * `error` (la IA no está disponible).
+ */
+export interface FlowAgentConfig {
+  /** 'bot': usa un bot existente (prompt, conocimiento, herramientas); 'custom': solo las instrucciones */
+  source: 'bot' | 'custom';
+  botId?: string;
+  /** Objetivo e instrucciones del tramo (en modo bot se suman a las del bot) */
+  instructions?: string;
+  /** Primer mensaje al entrar; vacío = lo escribe la IA */
+  firstMessage?: string;
+  outcomes: FlowAgentOutcome[];
+  collect?: FlowAgentCollect[];
+  /** Mensajes del contacto antes de salir por `limit` (1–30, predeterminado 10) */
+  maxTurns?: number;
+  /** Permitir que la IA transfiera a un agente (salida `handoff`); predeterminado sí */
+  allowHandoff?: boolean;
+  mode?: FlowAiMode;
+}
 
 /** Procesamiento de la respuesta con IA (OpenRouter). */
 export interface FlowInputAi {
@@ -276,6 +320,8 @@ export interface FlowNodeData {
   conditionValue?: string;
   /** start_flow: flujo a iniciar */
   targetFlowId?: string;
+  /** ai_agent: configuración de la conversación con IA */
+  agent?: FlowAgentConfig;
 }
 
 export interface FlowNode {
@@ -319,10 +365,15 @@ export interface ConversationFlowState {
   flowId: string;
   /** Nodo que espera respuesta (message con botones o user_input) */
   nodeId: string;
-  waitingFor: 'button' | 'input';
+  waitingFor: 'button' | 'input' | 'agent';
   retries: number;
   startedAt: string;
   updatedAt: string;
+  /** ai_agent: conversación del tramo con IA (últimos mensajes) y mensajes del contacto */
+  agent?: {
+    history: { role: 'user' | 'assistant'; content: string }[];
+    turns: number;
+  };
 }
 
 // ─── Entidad ─────────────────────────────────────────────────────

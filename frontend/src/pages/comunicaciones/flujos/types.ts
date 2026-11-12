@@ -24,7 +24,7 @@ export interface FlowButton {
   phone?: string;
 }
 
-export type FlowNodeType = "start" | "message" | "user_input" | "action" | "condition" | "start_flow";
+export type FlowNodeType = "start" | "message" | "user_input" | "action" | "condition" | "start_flow" | "ai_agent";
 export type FlowInputValidation =
   | "any"
   | "number"
@@ -48,6 +48,30 @@ export interface FlowAiExtra {
 }
 /** Variante de OpenRouter sobre el modelo de la cuenta; sin modo = balanceado. */
 export type FlowAiMode = "nitro" | "exacto" | "floor";
+/** Resultado de una conversación con IA: cada uno es una salida `out:<id>`. */
+export interface FlowAgentOutcome {
+  id: string;
+  name: string;
+  /** Cuándo debe elegirlo la IA */
+  description?: string;
+}
+export interface FlowAgentCollect {
+  variable: string;
+  description: string;
+  saveToField?: string;
+}
+/** Nodo «Conversación con IA». Salidas: `out:<id>`, `handoff`, `limit` y `error`. */
+export interface FlowAgentConfig {
+  source: "bot" | "custom";
+  botId?: string;
+  instructions?: string;
+  firstMessage?: string;
+  outcomes: FlowAgentOutcome[];
+  collect?: FlowAgentCollect[];
+  maxTurns?: number;
+  allowHandoff?: boolean;
+  mode?: FlowAiMode;
+}
 export interface FlowInputAi {
   enabled: boolean;
   /** Qué dato debe obtener («el nombre completo», «el monto en pesos») */
@@ -196,6 +220,7 @@ export interface FlowNodeData {
   conditionOperator?: FlowConditionOperator;
   conditionValue?: string;
   targetFlowId?: string;
+  agent?: FlowAgentConfig;
   [key: string]: unknown;
 }
 
@@ -306,6 +331,7 @@ export const NODE_LABELS: Record<FlowNodeType, string> = {
   action: "Acción",
   condition: "Condición",
   start_flow: "Iniciar flujo",
+  ai_agent: "Conversación con IA",
 };
 
 /** Id corto para nodos y botones (sin ":" porque viaja en el payload del canal). */

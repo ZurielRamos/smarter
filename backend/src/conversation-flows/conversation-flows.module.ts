@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConversationFlow } from './conversation-flow.entity';
 import { FlowLink } from './flow-link.entity';
 import { CustomField } from '../records/custom-field.entity';
+import { Bot } from '../bots/bot.entity';
 import { ConversationFlowsService } from './conversation-flows.service';
 import { ConversationFlowsController } from './conversation-flows.controller';
 import { ConversationFlowEngine } from './conversation-flow.engine';
@@ -17,7 +18,7 @@ import { BotsModule } from '../bots/bots.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ConversationFlow, FlowLink, CustomField]),
+    TypeOrmModule.forFeature([ConversationFlow, FlowLink, CustomField, Bot]),
     // IA de los nodos Entrada (OpenRouter, créditos y transcripción de audio).
     BillingModule,
     BotsModule,

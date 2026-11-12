@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { VariableInput, VariableTextarea } from "./VariableField";
 import { ConditionEditor } from "./ConditionEditor";
 import { InputEditor } from "./InputEditor";
+import { AgentEditor } from "./AgentEditor";
 import { FlowSelect } from "./FlowSelect";
 import {
   ACTION_LABELS,
@@ -118,6 +119,9 @@ export function NodeInspector({
           <ActionFields data={data} set={set} labels={labels} variableListId={variableListId} />
         )}
 
+        {type === "ai_agent" && (
+          <AgentEditor nodeId={nodeId} data={data} set={set} options={variableOptions} tenantId={tenantId} />
+        )}
         {type === "condition" && <ConditionEditor data={data} set={set} options={variableOptions} labels={labels} inboxes={inboxes} />}
         {type === "start_flow" && (
           <div>

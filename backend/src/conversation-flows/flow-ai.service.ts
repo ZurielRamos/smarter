@@ -2,7 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BillingService } from '../billing/billing.service';
 import { BotsService } from '../bots/bots.service';
-import type { FlowNodeData } from './conversation-flow.entity';
+import type { FlowAgentConfig, FlowNodeData } from './conversation-flow.entity';
+import {
+  FINISH_TOOL,
+  HANDOFF_TOOL,
+  buildAgentPrompt,
+  buildAgentTools,
+  interpretAgentTurn,
+  type AgentKnownData,
+  type AgentTurn,
+} from './flow-agent.util';
 import {
   AI_MODES,
   buildExtractionPrompt,
@@ -15,6 +24,11 @@ const FALLBACK_MODEL = 'openai/gpt-4o-mini';
 /** Un flujo no puede dejar al contacto esperando: pasado este tiempo se sigue sin IA. */
 const AI_TIMEOUT_MS = 15_000;
 const BILLING_SOURCE = 'flow_ai';
+/** Un turno de conversación puede incluir herramientas del bot (webhooks, conocimiento). */
+const AGENT_TIMEOUT_MS = 25_000;
+/** Mensaje interno para que la IA abra el tramo cuando no hay primer mensaje. */
+const OPENING_CUE =
+  '[Mensaje interno, no lo escribió el contacto: el contacto acaba de llegar a este tramo de la conversación. Escribe tu primer mensaje según el objetivo.]';
 
 interface Usage {
   prompt_tokens?: number;
@@ -107,6 +121,49 @@ export class FlowAiService {
     } catch (err) {
       this.logger.warn(
         `IA no disponible en entrada de flujo ${params.flowId}: ${(err as Error)?.message || err}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Un turno del nodo «Conversación con IA». Sin historial, la IA escribe el
+   * primer mensaje. null = la IA no está disponible (sin clave, sin créditos,
+   * error o tiempo agotado).
+   */
+  async converse(params: {
+    tenantId: string;
+    flowId: string;
+    config: FlowAgentConfig;
+    history: { role: 'user' | 'assistant'; content: string }[];
+    known: AgentKnownData;
+  }): Promise<AgentTurn | null> {
+    if (!this.apiKey() || !(await this.canSpend(params.tenantId))) return null;
+    const { config } = params;
+    try {
+      const result = await this.bots.runFlowAgent({
+        tenantId: params.tenantId,
+        botId: config.source === 'bot' ? config.botId : null,
+        flowPrompt: buildAgentPrompt(config, params.known),
+        messages: params.history.length
+          ? params.history
+          : [{ role: 'user', content: OPENING_CUE }],
+        flowTools: buildAgentTools(config),
+        terminalTools: [FINISH_TOOL, HANDOFF_TOOL],
+        variant: config.mode ?? null,
+        contactData: params.known.data,
+        timeoutMs: AGENT_TIMEOUT_MS,
+      });
+      await this.charge(
+        params.tenantId,
+        params.flowId,
+        result.usage,
+        'conversación',
+      );
+      return interpretAgentTurn(config, result.content, result.flowCalls);
+    } catch (err) {
+      this.logger.warn(
+        `Conversación con IA no disponible en el flujo ${params.flowId}: ${(err as Error)?.message || err}`,
       );
       return null;
     }

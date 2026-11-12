@@ -225,6 +225,16 @@ export const FLOW_SPECIAL_VARIABLES: {
     label: 'Último enlace abierto',
     description: 'Título del último enlace con seguimiento que abrió',
   },
+  {
+    key: 'ai_outcome',
+    label: 'Resultado de la conversación con IA',
+    description: 'Resultado al que llegó el último nodo Conversación con IA',
+  },
+  {
+    key: 'ai_summary',
+    label: 'Resumen de la conversación con IA',
+    description: 'Resumen que escribió la IA al terminar el tramo',
+  },
 ];
 
 /** Una clave usable como {{variable}} (el motor reconoce letras, números y _). */

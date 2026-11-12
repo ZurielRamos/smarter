@@ -25,6 +25,14 @@ import {
   type FlowInputMedia,
 } from './flow-input.util';
 import { FlowAiService } from './flow-ai.service';
+import {
+  AGENT_DEFAULT_TURNS,
+  AGENT_MAX_TURNS,
+  pushHistory,
+  type AgentTurn,
+} from './flow-agent.util';
+
+type AgentHistory = { role: 'user' | 'assistant'; content: string }[];
 
 /** Botón de enlace o llamada ya resuelto (variables sustituidas) para enviar. */
 export interface FlowOutgoingAction {
@@ -310,7 +318,22 @@ export class ConversationFlowEngine {
       return result;
     }
 
-    // 3) Esperando la respuesta de un nodo Entrada.
+    // 3) Conversación con IA en curso.
+    if (state.waitingFor === 'agent') {
+      await this.continueAgent(
+        flow,
+        node,
+        state,
+        input,
+        variables,
+        loader,
+        context,
+        result,
+      );
+      return result;
+    }
+
+    // 4) Esperando la respuesta de un nodo Entrada.
     const reading = await this.readInput(flow, node, input, variables, context);
 
     if (reading.kind === 'invalid') {
@@ -543,6 +566,19 @@ export class ConversationFlowEngine {
           break;
         }
 
+        case 'ai_agent': {
+          const next = await this.enterAgent(
+            flow,
+            node,
+            variables,
+            context,
+            result,
+          );
+          if (next === 'wait') return;
+          nodeId = next;
+          break;
+        }
+
         case 'start_flow': {
           const targetId = node.data.targetFlowId;
           const target = targetId ? await loader(targetId) : null;
@@ -588,7 +624,7 @@ export class ConversationFlowEngine {
   private waitingState(
     flowId: string,
     nodeId: string,
-    waitingFor: 'button' | 'input',
+    waitingFor: ConversationFlowState['waitingFor'],
   ): ConversationFlowState {
     const now = new Date().toISOString();
     return {
@@ -792,6 +828,211 @@ export class ConversationFlowEngine {
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[.)]+$/, '')
       .trim();
+  }
+
+  // ─── Conversación con IA ──────────────────────────────────────
+
+  /**
+   * Entra al nodo: envía el primer mensaje (fijo o escrito por la IA) y queda
+   * esperando al contacto. Devuelve 'wait' o el siguiente nodo si el tramo
+   * terminó de inmediato (IA no disponible o resultado en el primer mensaje).
+   */
+  private async enterAgent(
+    flow: ConversationFlow,
+    node: FlowNode,
+    variables: Record<string, string>,
+    context: FlowContext,
+    result: FlowRunResult,
+  ): Promise<string | null | 'wait'> {
+    const config = node.data.agent;
+    if (!config?.outcomes?.length)
+      return this.nextNodeId(flow, node.id, 'error');
+
+    const first = this.interpolate(
+      config.firstMessage || '',
+      variables,
+      context,
+    ).trim();
+    if (first) {
+      result.messages.push({ text: first });
+      result.state = this.agentState(
+        flow.id,
+        node.id,
+        pushHistory([], 'assistant', first),
+        0,
+      );
+      return 'wait';
+    }
+
+    const turn = await this.agentTurn(flow, node, [], variables, context);
+    if (!turn) return this.nextNodeId(flow, node.id, 'error');
+    return this.applyAgentTurn(
+      flow,
+      node,
+      turn,
+      [],
+      0,
+      variables,
+      context,
+      result,
+    );
+  }
+
+  /** Un mensaje del contacto dentro del tramo con IA. */
+  private async continueAgent(
+    flow: ConversationFlow,
+    node: FlowNode,
+    state: ConversationFlowState,
+    input: FlowInput,
+    variables: Record<string, string>,
+    loader: FlowLoader,
+    context: FlowContext,
+    result: FlowRunResult,
+  ): Promise<void> {
+    if (node.type !== 'ai_agent' || !node.data.agent) {
+      result.state = null;
+      return;
+    }
+    let text = (input.text || '').trim();
+    const media = input.media;
+    if (!text && media?.url && mediaKindOf(media.type) === 'audio' && this.ai) {
+      text =
+        (await this.ai.transcribe(flow.tenantId, flow.id, media.url)) || '';
+    }
+    if (!text && media) {
+      const kind = mediaKindOf(media.type);
+      const names = {
+        image: 'una imagen',
+        video: 'un video',
+        audio: 'un audio',
+        document: 'un documento',
+      };
+      text = kind ? `[El contacto envió ${names[kind]}]` : '';
+    }
+    result.handled = true;
+    if (!text) return; // p. ej. una reacción: no hay nada que responder
+
+    const history = pushHistory(state.agent?.history ?? [], 'user', text);
+    const turns = (state.agent?.turns ?? 0) + 1;
+    const turn = await this.agentTurn(flow, node, history, variables, context);
+    result.state = null;
+    if (!turn) {
+      // La IA falló a mitad de la conversación: «Si la IA falla» o, sin esa
+      // salida, se suelta la conversación para que la atienda el bot o un agente.
+      const fallback = this.nextNodeId(flow, node.id, 'error');
+      if (fallback)
+        await this.runFrom(flow, fallback, variables, loader, context, result);
+      else result.handled = false;
+      return;
+    }
+    const next = await this.applyAgentTurn(
+      flow,
+      node,
+      turn,
+      history,
+      turns,
+      variables,
+      context,
+      result,
+    );
+    if (next && next !== 'wait')
+      await this.runFrom(flow, next, variables, loader, context, result);
+  }
+
+  private async agentTurn(
+    flow: ConversationFlow,
+    node: FlowNode,
+    history: AgentHistory,
+    variables: Record<string, string>,
+    context: FlowContext,
+  ): Promise<AgentTurn | null> {
+    if (!this.ai || !node.data.agent) return null;
+    const data: Record<string, string> = {};
+    for (const [k, v] of Object.entries(context.contact || {}))
+      if (v?.trim()) data[k] = v;
+    for (const [k, v] of Object.entries(variables)) if (v?.trim()) data[k] = v;
+    return this.ai.converse({
+      tenantId: flow.tenantId,
+      flowId: flow.id,
+      config: node.data.agent,
+      history,
+      known: {
+        contactName: context.contactName || undefined,
+        channel: context.channel,
+        data,
+      },
+    });
+  }
+
+  /**
+   * Aplica un turno: guarda los datos, envía la respuesta y decide si el tramo
+   * sigue ('wait') o sale por un resultado, «Transferir» o «Límite».
+   */
+  private applyAgentTurn(
+    flow: ConversationFlow,
+    node: FlowNode,
+    turn: AgentTurn,
+    history: AgentHistory,
+    turns: number,
+    variables: Record<string, string>,
+    context: FlowContext,
+    result: FlowRunResult,
+  ): string | null | 'wait' {
+    const config = node.data.agent!;
+    for (const c of config.collect || []) {
+      const value = turn.saved[c.variable];
+      if (!value) continue;
+      variables[c.variable] = value;
+      if (c.saveToField)
+        this.queueContactUpdate(c.saveToField, value, context, result);
+    }
+    let next = history;
+    if (turn.reply) {
+      result.messages.push({ text: turn.reply });
+      next = pushHistory(history, 'assistant', turn.reply);
+    }
+
+    if (turn.finish) {
+      variables.ai_outcome = turn.finish.outcome.name;
+      if (turn.finish.summary) variables.ai_summary = turn.finish.summary;
+      result.state = null;
+      return this.nextNodeId(flow, node.id, `out:${turn.finish.outcome.id}`);
+    }
+    if (turn.handoff) {
+      variables.ai_outcome = 'Transferir a un agente';
+      if (turn.handoff.reason) variables.ai_summary = turn.handoff.reason;
+      result.state = null;
+      const target = this.nextNodeId(flow, node.id, 'handoff');
+      // Sin nada conectado a «Transferir»: se transfiere directamente.
+      if (!target) result.effects.handoff = true;
+      return target;
+    }
+    const max = this.agentMaxTurns(config.maxTurns);
+    if (turns >= max) {
+      variables.ai_outcome = 'Límite de mensajes';
+      result.state = null;
+      return this.nextNodeId(flow, node.id, 'limit');
+    }
+    result.state = this.agentState(flow.id, node.id, next, turns);
+    return 'wait';
+  }
+
+  private agentMaxTurns(n: number | undefined): number {
+    return typeof n === 'number' && Number.isFinite(n)
+      ? Math.min(Math.max(Math.floor(n), 1), AGENT_MAX_TURNS)
+      : AGENT_DEFAULT_TURNS;
+  }
+
+  private agentState(
+    flowId: string,
+    nodeId: string,
+    history: AgentHistory,
+    turns: number,
+  ): ConversationFlowState {
+    return {
+      ...this.waitingState(flowId, nodeId, 'agent'),
+      agent: { history, turns },
+    };
   }
 
   // ─── Nodo Entrada ─────────────────────────────────────────────

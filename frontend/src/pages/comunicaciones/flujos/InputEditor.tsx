@@ -6,11 +6,11 @@ import { FlowSelect, type SelectOption } from "./FlowSelect";
 import { Toggle } from "./Toggle";
 import { VariableInput, VariableTextarea } from "./VariableField";
 import { VARIABLE_GROUP_LABELS, type VariableOption } from "./variables";
-import { AI_MODE_OPTIONS, REGEX_MAX, inputIssue, isValidPattern } from "./inputs";
+import { REGEX_MAX, inputIssue, isValidPattern } from "./inputs";
+import { AiModePicker } from "./AiModePicker";
 import {
   VALIDATION_LABELS,
   type FlowAiExtra,
-  type FlowAiMode,
   type FlowInputAi,
   type FlowInputTransform,
   type FlowInputValidation,
@@ -551,49 +551,6 @@ function SkipKeywords({ value, onChange }: { value: string[]; onChange: (v: stri
       <p className={hintClass}>
         Separadas por comas. Si el contacto escribe una, sigue por <strong>Respuesta válida</strong> sin guardar nada.
       </p>
-    </div>
-  );
-}
-
-/** Modo de la IA en botones, como la «Velocidad de respuesta» de los bots. */
-function AiModePicker({ value, onChange }: { value?: FlowAiMode; onChange: (v: FlowAiMode | undefined) => void }) {
-  const current = value ?? "";
-  const labelId = useId();
-  return (
-    <div>
-      <span id={labelId} className={labelClass}>
-        Modo
-      </span>
-      <div role="radiogroup" aria-labelledby={labelId} className="grid grid-cols-2 gap-1.5">
-        {AI_MODE_OPTIONS.map((m) => {
-          const active = current === m.value;
-          return (
-            <button
-              key={m.value || "balanced"}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              onClick={() => onChange(m.value || undefined)}
-              className={cn(
-                "rounded-lg border px-2 py-1.5 text-left transition-colors",
-                active
-                  ? "border-brand-400 bg-brand-100 dark:bg-brand-900/40"
-                  : "border-border bg-card hover:bg-muted",
-              )}
-            >
-              <span
-                className={cn(
-                  "block text-xs font-medium",
-                  active ? "text-brand-800 dark:text-brand-100" : "text-foreground",
-                )}
-              >
-                {m.label}
-              </span>
-              <span className="block text-[10px] text-muted-foreground">{m.description}</span>
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }

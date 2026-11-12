@@ -539,6 +539,149 @@ export class BotsService {
     };
   }
 
+  // ─── Agente para nodos de flujo ─────────────────────────
+
+  /**
+   * Un turno del nodo «Conversación con IA» de los flujos. Con `botId` usa el
+   * prompt, la base de conocimiento y las herramientas personalizadas de ese
+   * bot; sin él, solo el prompt del flujo. Las herramientas del sistema del bot
+   * (guardar datos, transferir, resolver) se sustituyen por las del flujo, que
+   * vienen en `flowTools`: no se ejecutan aquí, se devuelven en `flowCalls`.
+   * Una herramienta del flujo marcada como terminal corta el turno.
+   *
+   * No cobra créditos: devuelve el uso y el llamador cobra.
+   */
+  async runFlowAgent(params: {
+    tenantId: string;
+    botId?: string | null;
+    flowPrompt: string;
+    messages: { role: 'user' | 'assistant'; content: string }[];
+    flowTools: any[];
+    terminalTools: string[];
+    variant?: string | null;
+    contactData?: Record<string, string>;
+    timeoutMs: number;
+  }): Promise<{
+    content: string;
+    flowCalls: { name: string; args: Record<string, any> }[];
+    usage: { prompt_tokens: number; completion_tokens: number };
+    model: string;
+  }> {
+    const apiKey = this.configService.get<string>('OPENROUTER_API_KEY');
+    if (!apiKey) throw new Error('OPENROUTER_API_KEY no configurada');
+
+    let bot: Bot | null = null;
+    if (params.botId) {
+      bot = await this.botRepo.findOne({
+        where: { id: params.botId, tenantId: params.tenantId },
+      });
+      if (!bot) throw new Error('El bot del nodo ya no existe');
+    }
+
+    const SYSTEM_TOOLS = new Set([
+      'save_contact_data',
+      'handoff_to_human',
+      'mark_resolved',
+    ]);
+    const botTools = bot
+      ? (await this.compileTools(bot)).filter(
+          (t) => !SYSTEM_TOOLS.has(t.function?.name),
+        )
+      : [];
+    const flowToolNames = new Set(
+      params.flowTools.map((t) => t.function?.name),
+    );
+    const tools = [
+      ...botTools.filter((t) => !flowToolNames.has(t.function?.name)),
+      ...params.flowTools,
+    ];
+
+    const system = bot
+      ? `${this.compileSystemPrompt(bot)}\n\n${params.flowPrompt}`
+      : params.flowPrompt;
+    const variant = params.variant || bot?.model || null;
+    const model = await this.resolveModel(params.tenantId, variant);
+    const body: any = {
+      model,
+      messages: [{ role: 'system', content: system }, ...params.messages],
+      temperature: bot ? Number(bot.temperature) || 0.5 : 0.4,
+      max_tokens: Math.min(bot?.maxTokens || 600, 1024),
+    };
+    if (tools.length) {
+      body.tools = tools;
+      body.tool_choice = 'auto';
+    }
+
+    const call = async () => {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(params.timeoutMs),
+      });
+      if (!res.ok)
+        throw new Error(
+          `OpenRouter ${res.status}: ${(await res.text()).slice(0, 200)}`,
+        );
+      const json = await res.json();
+      usage.prompt_tokens += json.usage?.prompt_tokens || 0;
+      usage.completion_tokens += json.usage?.completion_tokens || 0;
+      return json.choices?.[0]?.message || {};
+    };
+
+    const usage = { prompt_tokens: 0, completion_tokens: 0 };
+    const flowCalls: { name: string; args: Record<string, any> }[] = [];
+    const terminal = new Set(params.terminalTools);
+    let response = await call();
+
+    for (let round = 0; round < 3 && response.tool_calls?.length; round++) {
+      body.messages.push({
+        role: 'assistant',
+        content: response.content || null,
+        tool_calls: response.tool_calls,
+      });
+      let stop = false;
+      for (const tc of response.tool_calls) {
+        const name: string = tc.function?.name || '';
+        let args: Record<string, any> = {};
+        try {
+          args = JSON.parse(tc.function?.arguments || '{}') || {};
+        } catch {
+          args = {};
+        }
+        let result: string;
+        if (flowToolNames.has(name)) {
+          flowCalls.push({ name, args });
+          if (terminal.has(name)) stop = true;
+          result = JSON.stringify({ ok: true });
+        } else if (bot) {
+          result = await this.executeTool(bot, name, args, params.contactData);
+        } else {
+          result = JSON.stringify({ error: 'Herramienta no disponible' });
+        }
+        body.messages.push({
+          role: 'tool',
+          tool_call_id: tc.id,
+          content: result,
+        });
+      }
+      // Terminó el tramo: no hace falta otra respuesta (el mensaje final viaja en la herramienta).
+      if (stop)
+        return { content: response.content || '', flowCalls, usage, model };
+      response = await call();
+    }
+
+    return {
+      content: (response.content || '').trim(),
+      flowCalls,
+      usage,
+      model,
+    };
+  }
+
   // ─── OpenRouter API Call ────────────────────────────────
 
   private async callOpenRouter(apiKey: string, body: any): Promise<any> {

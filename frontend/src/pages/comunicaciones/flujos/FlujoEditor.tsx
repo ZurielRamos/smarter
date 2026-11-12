@@ -18,6 +18,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { toast } from "sonner";
 import {
+  Bot,
   GitFork,
   Loader2,
   MessageSquare,
@@ -68,6 +69,7 @@ const ADDABLE: { type: Exclude<FlowNodeType, "start">; label: string; icon: Reac
   { type: "user_input", label: "Entrada", icon: <TextCursorInput className="h-3.5 w-3.5" />, className: "text-sky-700 dark:text-sky-300" },
   { type: "action", label: "Acción", icon: <Zap className="h-3.5 w-3.5" />, className: "text-purple-700 dark:text-purple-300" },
   { type: "condition", label: "Condición", icon: <GitFork className="h-3.5 w-3.5" />, className: "text-amber-600 dark:text-amber-300" },
+  { type: "ai_agent", label: "Conversación IA", icon: <Bot className="h-3.5 w-3.5" />, className: "text-fuchsia-700 dark:text-fuchsia-300" },
   { type: "start_flow", label: "Iniciar flujo", icon: <Workflow className="h-3.5 w-3.5" />, className: "text-brand-700 dark:text-brand-200" },
 ];
 
@@ -81,6 +83,13 @@ function defaultData(type: FlowNodeType): FlowNodeData {
       return { actions: [] };
     case "condition":
       return { branches: [newBranch(1)] };
+    case "ai_agent":
+      return {
+        agent: {
+          source: "custom",
+          outcomes: [{ id: shortId("o"), name: "Objetivo cumplido", description: "Cuando se cumplió el objetivo del tramo" }],
+        },
+      };
     default:
       return {};
   }
@@ -136,6 +145,15 @@ function validHandles(node: RFNode): Set<string> {
     case "user_input":
       // «Sin respuesta válida» se usa al agotarse los intentos.
       return new Set(["next", "invalid"]);
+    case "ai_agent": {
+      const agent = node.data.agent;
+      return new Set([
+        ...(agent?.outcomes || []).map((o) => `out:${o.id}`),
+        ...(agent?.allowHandoff === false ? [] : ["handoff"]),
+        "limit",
+        "error",
+      ]);
+    }
     case "condition": {
       const branches = node.data.branches;
       // Nodo antiguo sin ramas: conserva sus salidas Sí / No.
@@ -340,6 +358,7 @@ function FlujoEditorInner() {
     for (const n of nodes) {
       if (n.data.variable) set.add(n.data.variable);
       for (const e of n.data.ai?.extras || []) if (e.variable) set.add(e.variable);
+      for (const c of n.data.agent?.collect || []) if (c.variable) set.add(c.variable);
       for (const a of n.data.actions || []) if (a.type === "set_variable" && a.variable) set.add(a.variable);
     }
     return [...set].sort();
@@ -379,6 +398,17 @@ function FlujoEditorInner() {
         if (a.type === "set_variable" && a.variable && !meta[a.variable]) meta[a.variable] = { type: "text" };
       }
     }
+    // Resultados posibles de las conversaciones con IA, para comparar en una Condición.
+    const outcomes = new Set<string>();
+    for (const n of nodes) {
+      if (n.type !== "ai_agent") continue;
+      for (const o of n.data.agent?.outcomes || []) if (o.name.trim()) outcomes.add(o.name.trim());
+      if (n.data.agent?.allowHandoff !== false) outcomes.add("Transferir a un agente");
+      outcomes.add("Límite de mensajes");
+      for (const c of n.data.agent?.collect || []) if (c.variable && !meta[c.variable]) meta[c.variable] = { type: "text" };
+    }
+    if (outcomes.size) meta.ai_outcome = { type: "select", options: [...outcomes] };
+    meta.ai_summary = { type: "text" };
     meta.last_button = replies.size ? { type: "select", options: [...replies] } : { type: "text" };
     meta.last_link = links.size ? { type: "select", options: [...links] } : { type: "text" };
     return meta;

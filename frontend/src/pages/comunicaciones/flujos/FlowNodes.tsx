@@ -13,12 +13,14 @@ import {
   ExternalLink,
   Phone,
   Sparkles,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ACTION_LABELS, VALIDATION_LABELS, type FlowNodeData } from "./types";
 import { FlowEditorContext, FlowVariablesContext } from "./editorContext";
 import { conditionIssues, describeBranch } from "./conditions";
 import { AI_MODE_OPTIONS, inputIssue } from "./inputs";
+import { agentIssue } from "./agent";
 
 type FlowNode = Node<FlowNodeData>;
 
@@ -343,6 +345,46 @@ export function ConditionNode({ data, selected }: NodeProps<FlowNode>) {
           />
         ))}
         <OutputRow id="else" label="Si no" className="text-muted-foreground" />
+      </div>
+    </NodeShell>
+  );
+}
+
+export function AgentNode({ data, selected }: NodeProps<FlowNode>) {
+  const agent = data.agent;
+  const outcomes = agent?.outcomes ?? [];
+  return (
+    <NodeShell
+      selected={selected}
+      header="Conversación con IA"
+      headerClass="bg-fuchsia-600 text-white"
+      icon={<Bot className="h-3.5 w-3.5" />}
+      warning={agentIssue(agent)}
+    >
+      <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+        <Sparkles className="h-3 w-3 shrink-0 text-fuchsia-600" aria-hidden />
+        {agent?.source === "bot" ? "Con un bot existente" : "Instrucciones propias"}
+        {agent?.maxTurns ? ` · hasta ${agent.maxTurns} mensajes` : ""}
+      </p>
+      {agent?.instructions?.trim() ? (
+        <p className="line-clamp-3 whitespace-pre-wrap break-words rounded-lg bg-muted/60 px-2.5 py-2">{agent.instructions}</p>
+      ) : agent?.source !== "bot" ? (
+        <Placeholder>Objetivo de la conversación…</Placeholder>
+      ) : null}
+      <div className="space-y-1.5">
+        {outcomes.map((o) => (
+          <OutputRow
+            key={o.id}
+            id={`out:${o.id}`}
+            label={o.name || "Resultado"}
+            className="text-fuchsia-700 dark:text-fuchsia-300"
+          />
+        ))}
+        {agent?.allowHandoff !== false && (
+          <OutputRow id="handoff" label="Transferir a agente" className="text-muted-foreground" />
+        )}
+        <OutputRow id="limit" label="Límite de mensajes" className="text-muted-foreground" />
+        <OutputRow id="error" label="Si la IA falla" className="text-muted-foreground" />
       </div>
     </NodeShell>
   );
