@@ -26,6 +26,12 @@ import {
 } from './flow-input.util';
 import { FlowAiService } from './flow-ai.service';
 import {
+  DEFAULT_NO_MATCH_RETRIES,
+  MAX_NO_MATCH_RETRIES,
+  matchReplyOption,
+} from './flow-reply-match.util';
+import { matchChoice } from './flow-input.util';
+import {
   AGENT_DEFAULT_TURNS,
   AGENT_MAX_TURNS,
   pushHistory,
@@ -140,7 +146,6 @@ export type FlowLoader = (flowId: string) => Promise<ConversationFlow | null>;
 const PAYLOAD_PREFIX = 'cf:';
 /** Límite de nodos ejecutados por turno, evita bucles infinitos entre flujos. */
 const MAX_STEPS_PER_TURN = 60;
-const MAX_BUTTON_RETRIES = 2;
 
 export function buildButtonPayload(
   flowId: string,
@@ -281,9 +286,16 @@ export class ConversationFlowEngine {
       updatedAt: new Date().toISOString(),
     });
 
-    // 2) Esperando botón: se acepta título exacto o número de opción (canales en texto).
+    // 2) Esperando botón. Si escribe en lugar de pulsar, se intenta reconocer la
+    //    opción (título, sinónimo, número, mención o IA). Si no, «Otra respuesta».
     if (state.waitingFor === 'button') {
-      const button = this.matchButton(this.replyButtons(node.data), text);
+      const button = await this.recognizeButton(
+        flow,
+        node,
+        text,
+        variables,
+        context,
+      );
       if (button) {
         await this.followButton(
           flow,
@@ -296,25 +308,16 @@ export class ConversationFlowEngine {
         );
         return result;
       }
-
-      if (state.retries + 1 > MAX_BUTTON_RETRIES) {
-        // Demasiados intentos: el flujo suelta la conversación para que responda el bot/agente.
-        result.state = null;
-        return result;
-      }
-      result.handled = true;
-      result.messages.push({ text: 'Por favor elige una de las opciones.' });
-      result.messages.push(
-        this.withPayloads(
-          flow.id,
-          node.id,
-          // Al repetir las opciones no se vuelve a enviar el archivo del encabezado.
-          this.renderMessage(node.data, variables, context, {
-            includeMedia: false,
-          }),
-        ),
+      await this.handleNoMatch(
+        flow,
+        node,
+        state,
+        text,
+        variables,
+        loader,
+        context,
+        result,
       );
-      result.state = retryState();
       return result;
     }
 
@@ -414,6 +417,124 @@ export class ConversationFlowEngine {
     result.variables.last_link = link.title;
     await this.runFrom(flow, next, result.variables, loader, context, result);
     return result;
+  }
+
+  /**
+   * Opción que eligió el contacto al escribir: primero por texto (título,
+   * sinónimos, número, mención, errores de tipeo) y, si el nodo lo pide, con IA.
+   */
+  private async recognizeButton(
+    flow: ConversationFlow,
+    node: FlowNode,
+    text: string,
+    variables: Record<string, string>,
+    context: FlowContext,
+  ): Promise<FlowButton | null> {
+    if (!text) return null;
+    const buttons = this.replyButtons(node.data);
+    const options = buttons.map((b) => ({
+      title: this.interpolate(b.title, variables, context),
+      keywords: b.keywords,
+    }));
+    const idx = matchReplyOption(options, text);
+    if (idx >= 0) return buttons[idx];
+
+    if (!node.data.noMatch?.ai || !this.ai) return null;
+    const titles = options.map((o) => o.title);
+    const extraction = await this.ai.extract({
+      tenantId: flow.tenantId,
+      flowId: flow.id,
+      data: {
+        validation: 'choice',
+        choices: titles,
+        ai: {
+          enabled: true,
+          instruction:
+            'La opción que el contacto quiso elegir. Si no eligió claramente una de las opciones (hace otra pregunta, saluda o dice otra cosa), found=false.',
+          mode: node.data.noMatch.aiMode,
+        },
+      },
+      question: this.interpolate(node.data.text || '', variables, context),
+      answer: text,
+      now: context.now ?? new Date(),
+    });
+    if (!extraction?.found) return null;
+    const picked = matchChoice(extraction.value, titles);
+    return picked ? buttons[titles.indexOf(picked)] : null;
+  }
+
+  /**
+   * El contacto escribió algo que no es una opción. Según el nodo: sigue por
+   * «Otra respuesta» de inmediato, o avisa y repite las opciones hasta agotar
+   * los intentos y entonces sigue por «Otra respuesta». Sin esa salida
+   * conectada, al agotar los intentos el flujo suelta la conversación (bot o
+   * agente), como antes.
+   */
+  private async handleNoMatch(
+    flow: ConversationFlow,
+    node: FlowNode,
+    state: ConversationFlowState,
+    text: string,
+    variables: Record<string, string>,
+    loader: FlowLoader,
+    context: FlowContext,
+    result: FlowRunResult,
+  ): Promise<void> {
+    const cfg = node.data.noMatch ?? {};
+    // Lo que escribió queda disponible para la rama «Otra respuesta».
+    if (text) variables.last_reply = text;
+    const target = this.nextNodeId(flow, node.id, 'nomatch');
+
+    const goOther = async () => {
+      result.state = null;
+      if (!target) return; // sin salida: el flujo suelta la conversación
+      result.handled = true;
+      await this.runFrom(flow, target, variables, loader, context, result);
+    };
+
+    if (cfg.mode === 'branch' && target) return goOther();
+
+    const max =
+      typeof cfg.maxRetries === 'number' && Number.isFinite(cfg.maxRetries)
+        ? Math.min(
+            Math.max(Math.floor(cfg.maxRetries), 0),
+            MAX_NO_MATCH_RETRIES,
+          )
+        : DEFAULT_NO_MATCH_RETRIES;
+    if (state.retries + 1 > max) return goOther();
+
+    result.handled = true;
+    const repeat = cfg.repeatOptions !== false;
+    const notice = this.interpolate(
+      cfg.message?.trim() ||
+        (repeat
+          ? 'No reconocí tu respuesta. Por favor elige una de las opciones:'
+          : 'Por favor elige una de las opciones.'),
+      variables,
+      context,
+    );
+    if (repeat) {
+      // Un solo mensaje: el aviso con los mismos botones (sin el archivo del
+      // encabezado ni los botones de enlace, que ya se enviaron).
+      const msg = this.renderMessage(node.data, variables, context, {
+        includeMedia: false,
+      });
+      result.messages.push(
+        this.withPayloads(flow.id, node.id, {
+          ...msg,
+          text: notice,
+          header: undefined,
+          actions: undefined,
+        }),
+      );
+    } else {
+      result.messages.push({ text: notice });
+    }
+    result.state = {
+      ...state,
+      retries: state.retries + 1,
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   /** Continúa por la salida del botón pulsado. */
@@ -809,16 +930,6 @@ export class ConversationFlowEngine {
         title: b.title,
       })),
     };
-  }
-
-  private matchButton(buttons: FlowButton[], text: string): FlowButton | null {
-    if (!text) return null;
-    const norm = this.normalize(text);
-    const byTitle = buttons.find((b) => this.normalize(b.title) === norm);
-    if (byTitle) return byTitle;
-    // Canales sin botones nativos reciben "1. Opción"; se acepta el número.
-    const idx = /^\d{1,2}$/.test(norm) ? parseInt(norm, 10) - 1 : -1;
-    return idx >= 0 && idx < buttons.length ? buttons[idx] : null;
   }
 
   private normalize(s: string): string {

@@ -22,6 +22,21 @@ export interface FlowButton {
   track?: boolean;
   /** type 'call': teléfono en formato internacional */
   phone?: string;
+  /** type 'reply': otras palabras con las que el contacto puede elegir esta opción */
+  keywords?: string[];
+}
+
+/** Mensaje con botones: qué hacer si el contacto escribe otra cosa (salida `nomatch`). */
+export interface FlowNoMatch {
+  /** 'retry' (sin definir): avisa y repite; 'branch': sigue por «Otra respuesta» de inmediato */
+  mode?: "branch";
+  message?: string;
+  /** false = no repetir los botones con el aviso */
+  repeatOptions?: false;
+  /** Intentos antes de «Otra respuesta» (0–5; sin definir = 2) */
+  maxRetries?: number;
+  ai?: boolean;
+  aiMode?: FlowAiMode;
 }
 
 export type FlowNodeType = "start" | "message" | "user_input" | "action" | "condition" | "start_flow" | "ai_agent";
@@ -190,6 +205,8 @@ export interface FlowNodeData {
   buttons?: FlowButton[];
   /** Más de 3 respuestas con archivo en el encabezado: 'paginate' (predeterminado) o 'list' */
   overflow?: "paginate" | "list";
+  /** message con botones: si escribe otra cosa */
+  noMatch?: FlowNoMatch;
   variable?: string;
   validation?: FlowInputValidation;
   errorMessage?: string;

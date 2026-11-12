@@ -140,7 +140,8 @@ function validHandles(node: RFNode): Set<string> {
       const buttons = node.data.buttons || [];
       const replies = buttons.filter((b) => (b.type ?? "reply") === "reply");
       const clicks = buttons.filter((b) => b.type === "url" && b.track !== false).map((b) => `click:${b.id}`);
-      return new Set([...(replies.length ? replies.map((b) => `btn:${b.id}`) : ["next"]), ...clicks]);
+      // Con respuestas, además «Otra respuesta» (escribió algo que no es ninguna opción).
+      return new Set([...(replies.length ? [...replies.map((b) => `btn:${b.id}`), "nomatch"] : ["next"]), ...clicks]);
     }
     case "user_input":
       // «Sin respuesta válida» se usa al agotarse los intentos.

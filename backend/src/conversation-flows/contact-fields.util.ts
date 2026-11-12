@@ -226,6 +226,11 @@ export const FLOW_SPECIAL_VARIABLES: {
     description: 'Título del último enlace con seguimiento que abrió',
   },
   {
+    key: 'last_reply',
+    label: 'Última respuesta no reconocida',
+    description: 'Lo que escribió el contacto cuando no eligió ninguna opción',
+  },
+  {
     key: 'ai_outcome',
     label: 'Resultado de la conversación con IA',
     description: 'Resultado al que llegó el último nodo Conversación con IA',

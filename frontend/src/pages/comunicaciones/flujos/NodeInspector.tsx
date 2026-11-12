@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { VariableInput, VariableTextarea } from "./VariableField";
 import { ConditionEditor } from "./ConditionEditor";
 import { InputEditor } from "./InputEditor";
+import { NoMatchEditor } from "./NoMatchEditor";
+import { CommaListInput } from "./CommaListInput";
 import { AgentEditor } from "./AgentEditor";
 import { FlowSelect } from "./FlowSelect";
 import {
@@ -425,6 +427,7 @@ function MessageFields({
       />
 
       <ButtonsEditor data={data} set={set} linkTracking={linkTracking} />
+      {replyCount > 0 && <NoMatchEditor data={data} set={set} />}
     </>
   );
 }
@@ -526,6 +529,17 @@ function ButtonsEditor({
                   </button>
                 </div>
 
+                {type === "reply" && (
+                  <CommaListInput
+                    aria-label={`Sinónimos del botón ${i + 1}`}
+                    value={b.keywords || []}
+                    onChange={(v) => update(b.id, { keywords: v.length ? v : undefined })}
+                    max={10}
+                    maxLength={40}
+                    placeholder="También acepta: comprar, precio, cotizar"
+                    className={cn(inputClass, "py-1 text-xs")}
+                  />
+                )}
                 {type === "url" && (
                   <div>
                     <VariableInput

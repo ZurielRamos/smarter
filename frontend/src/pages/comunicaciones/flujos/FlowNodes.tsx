@@ -191,6 +191,18 @@ export function MessageNode({ data, selected }: NodeProps<FlowNode>) {
           {replies.map((b) => (
             <OutputRow key={b.id} id={`btn:${b.id}`} label={b.title || "(sin título)"} />
           ))}
+          {replies.length > 0 && (
+            <OutputRow
+              id="nomatch"
+              label={
+                <span className="inline-flex items-center gap-1">
+                  Otra respuesta
+                  {data.noMatch?.ai && <Sparkles className="h-2.5 w-2.5 text-brand-600" aria-label="con IA" />}
+                </span>
+              }
+              className="border-dashed text-muted-foreground"
+            />
+          )}
           {actions.map((b) => (
             <ActionRow
               key={b.id}

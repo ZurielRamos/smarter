@@ -22,6 +22,7 @@ import {
   FlowNodeData,
   FlowAiExtra,
   FlowAgentCollect,
+  FlowNoMatch,
   FlowAgentConfig,
   FlowInputTransform,
   FlowInputValidation,
@@ -30,6 +31,11 @@ import {
 import { MediaStorageService } from '../media/media-storage.service';
 import { CustomField } from '../records/custom-field.entity';
 import { Bot } from '../bots/bot.entity';
+import {
+  MAX_BUTTON_KEYWORDS,
+  MAX_KEYWORD_LENGTH,
+  MAX_NO_MATCH_RETRIES,
+} from './flow-reply-match.util';
 import {
   AGENT_MAX_COLLECT,
   AGENT_MAX_OUTCOMES,
@@ -473,6 +479,10 @@ export class ConversationFlowsService {
           if (buttons.length) node.data.buttons = buttons;
           // Solo tiene sentido si hay archivo en el encabezado y más de 3 respuestas.
           if (d.overflow === 'list') node.data.overflow = 'list';
+          if (buttons.some((b) => (b.type ?? 'reply') === 'reply')) {
+            const noMatch = this.sanitizeNoMatch(d.noMatch);
+            if (noMatch) node.data.noMatch = noMatch;
+          }
           break;
         }
         case 'user_input':
@@ -605,7 +615,12 @@ export class ConversationFlowsService {
       seen.add(id);
 
       if (type === 'reply') {
-        out.push({ id, title });
+        const keywords = this.cleanList(
+          b.keywords,
+          MAX_BUTTON_KEYWORDS,
+          MAX_KEYWORD_LENGTH,
+        );
+        out.push({ id, title, ...(keywords.length ? { keywords } : {}) });
       } else if (type === 'url') {
         const url = String(b.url || '').trim();
         if (url && !isValidButtonUrl(url)) {
@@ -734,6 +749,8 @@ export class ConversationFlowsService {
         }
         const replies = buttons.filter((b) => (b.type ?? 'reply') === 'reply');
         if (replies.length) {
+          // «Otra respuesta»: escribió algo que no es ninguna opción.
+          if (handle === 'nomatch') return true;
           return (
             handle.startsWith('btn:') &&
             replies.some((b) => `btn:${b.id}` === handle)
@@ -1042,6 +1059,27 @@ export class ConversationFlowsService {
     if (a.allowHandoff === false) out.allowHandoff = false;
     if (AI_MODES.has(a.mode as string)) out.mode = a.mode;
     return out;
+  }
+
+  /** Qué hacer si escribe otra cosa en un mensaje con botones. Sin ajustes = undefined. */
+  private sanitizeNoMatch(raw: unknown): FlowNoMatch | undefined {
+    if (!raw || typeof raw !== 'object') return undefined;
+    const r = raw as Record<string, unknown>;
+    const out: FlowNoMatch = {};
+    if (r.mode === 'branch') out.mode = 'branch';
+    const message = String(r.message || '').trim();
+    if (message) out.message = message.slice(0, 1000);
+    if (r.repeatOptions === false) out.repeatOptions = false;
+    const n = Number(r.maxRetries);
+    if (r.maxRetries != null && r.maxRetries !== '' && Number.isFinite(n))
+      out.maxRetries = Math.min(
+        Math.max(Math.floor(n), 0),
+        MAX_NO_MATCH_RETRIES,
+      );
+    if (r.ai === true) out.ai = true;
+    if (AI_MODES.has(r.aiMode as string))
+      out.aiMode = r.aiMode as FlowNoMatch['aiMode'];
+    return Object.keys(out).length ? out : undefined;
   }
 
   /** Lista de textos sin vacíos ni repetidos (sin distinguir mayúsculas). */

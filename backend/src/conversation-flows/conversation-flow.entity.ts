@@ -34,6 +34,29 @@ export interface FlowButton {
   track?: boolean;
   /** type 'call': teléfono en formato internacional, p. ej. +573001234567 */
   phone?: string;
+  /** type 'reply': otras palabras con las que el contacto puede elegir esta opción */
+  keywords?: string[];
+}
+
+/**
+ * Qué hacer cuando el contacto escribe algo que no es ninguna de las opciones
+ * de un mensaje con botones. Salida `nomatch` («Otra respuesta»).
+ */
+export interface FlowNoMatch {
+  /**
+   * 'retry' (predeterminado): avisa y repite las opciones; al agotar los
+   * intentos sigue por `nomatch`. 'branch': sigue por `nomatch` de inmediato.
+   */
+  mode?: 'retry' | 'branch';
+  /** Aviso antes de repetir (admite {{variables}}) */
+  message?: string;
+  /** Repetir los botones junto al aviso (predeterminado sí) */
+  repeatOptions?: boolean;
+  /** Intentos antes de seguir por `nomatch` (0–5, predeterminado 2) */
+  maxRetries?: number;
+  /** Interpretar con IA lo que escribió para ver si corresponde a una opción */
+  ai?: boolean;
+  aiMode?: FlowAiMode;
 }
 
 /** Cómo mostrar más de 3 botones de respuesta cuando el encabezado es un archivo. */
@@ -272,6 +295,8 @@ export interface FlowNodeData {
    * aparte y las opciones en una lista desplegable.
    */
   overflow?: FlowOverflowMode;
+  /** message: qué hacer si el contacto escribe otra cosa que no es una opción */
+  noMatch?: FlowNoMatch;
   /** user_input: variable donde se guarda la respuesta */
   variable?: string;
   /** user_input: validación de la respuesta */
