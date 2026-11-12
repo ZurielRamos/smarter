@@ -16,6 +16,8 @@ export interface ContactFieldDef {
   type: ContactFieldType;
   /** Valores posibles de un campo de selección. */
   options?: string[];
+  /** Un nodo Entrada puede guardar la respuesta en este campo. */
+  writable?: boolean;
 }
 
 export const CONTACT_SYSTEM_FIELDS: ContactFieldDef[] = [
@@ -172,6 +174,35 @@ export const CONTACT_SYSTEM_FIELDS: ContactFieldDef[] = [
   // General
   { key: 'notes', label: 'Notas rápidas', group: 'general', type: 'text' },
 ];
+
+/**
+ * Campos del sistema donde un nodo Entrada puede guardar la respuesta. Quedan
+ * fuera los que gestiona el CRM (estado, score, etiquetas, consentimientos,
+ * fechas de actividad, identificadores del canal).
+ */
+export const WRITABLE_CONTACT_KEYS = new Set([
+  'firstName',
+  'lastName',
+  'fullName',
+  'documentType',
+  'documentNumber',
+  'company',
+  'jobTitle',
+  'phone',
+  'email',
+  'website',
+  'language',
+  'gender',
+  'birthDate',
+  'city',
+  'region',
+  'address',
+  'source',
+  'notes',
+]);
+for (const f of CONTACT_SYSTEM_FIELDS) {
+  if (WRITABLE_CONTACT_KEYS.has(f.key)) f.writable = true;
+}
 
 /** Variables propias del flujo que siempre existen. */
 export const FLOW_SPECIAL_VARIABLES: {

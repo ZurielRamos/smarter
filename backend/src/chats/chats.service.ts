@@ -52,7 +52,13 @@ import {
   FlowRunResult,
   parseButtonPayload,
 } from '../conversation-flows/conversation-flow.engine';
-import { buildContactVariables } from '../conversation-flows/contact-fields.util';
+import {
+  CONTACT_SYSTEM_FIELDS,
+  WRITABLE_CONTACT_KEYS,
+  buildContactVariables,
+} from '../conversation-flows/contact-fields.util';
+import { parseDay } from '../conversation-flows/flow-conditions.util';
+import type { FlowInputMedia } from '../conversation-flows/flow-input.util';
 import { FlowLinksService } from '../conversation-flows/flow-links.service';
 
 import {
@@ -220,9 +226,7 @@ export class ChatsService {
    *
    * El frontend ya no necesita conocer esta regla: recibe `connected` listo.
    */
-  async getCampaignInboxes(
-    tenantId: string,
-  ): Promise<
+  async getCampaignInboxes(tenantId: string): Promise<
     Array<{
       id: string;
       name: string;
@@ -3156,9 +3160,12 @@ export class ChatsService {
     conversationRef: any,
     content: string | null,
     payload: string | null,
+    media: FlowInputMedia | null = null,
   ): Promise<boolean> {
     if (!ChatsService.FLOW_CHANNELS.has(inbox.channel)) return false;
-    if (!content && !payload) return false;
+    // Un archivo sin texto solo le interesa a un flujo que espera una respuesta
+    // (entrada de archivo o nota de voz); no inicia flujos por sí solo.
+    if (!content && !payload && !media?.url) return false;
 
     let handled = false;
     // Serializa por conversación: dos mensajes seguidos no deben avanzar el flujo en paralelo.
@@ -3185,7 +3192,7 @@ export class ChatsService {
           content || '',
         ));
       const variables = conversation.flowVariables || {};
-      const input = { text: content, payload };
+      const input = { text: content, payload, media };
 
       let result: FlowRunResult | null = null;
 
@@ -3218,12 +3225,12 @@ export class ChatsService {
         result = await this.conversationFlowEngine.resume(
           conversation.flowState,
           variables,
-          { text: content, payload: null },
+          { text: content, payload: null, media },
           loader,
           await getContext(),
         );
       }
-      if (!result?.handled && !handedOff) {
+      if (!result?.handled && !handedOff && content) {
         const inboundCount = await this.messageRepo.count({
           where: { conversationId: conversation.id, direction: 'inbound' },
         });
@@ -3325,6 +3332,18 @@ export class ChatsService {
     if (effects.handoff) conversation.botStatus = 'handed_off';
 
     await this.conversationRepo.save(conversation);
+    if (Object.keys(result.contactUpdates || {}).length) {
+      await this.applyFlowContactUpdates(
+        inbox,
+        conversation,
+        result.contactUpdates,
+      ).catch((err) =>
+        console.warn(
+          '[ConversationFlow] Contact update failed:',
+          err?.message || err,
+        ),
+      );
+    }
     // Sincronizar el objeto del pipeline para que un save posterior no pise el estado.
     Object.assign(conversationRef, {
       flowState: conversation.flowState,
@@ -3392,6 +3411,129 @@ export class ChatsService {
       this.conversationFlowsService
         .incrementRunCount(result.startedFlowIds)
         .catch(() => {});
+    }
+  }
+
+  /**
+   * Guarda en el contacto del CRM las respuestas de los nodos Entrada con
+   * «Guardar también en el CRM». Mismas reglas que los datos que recoge el bot:
+   * no se escriben valores vacíos ni iguales, y en WhatsApp no se cambia el
+   * teléfono (es el identificador del contacto). Deja una nota con lo guardado.
+   */
+  private async applyFlowContactUpdates(
+    inbox: Inbox,
+    conversation: Conversation,
+    updates: Record<string, string>,
+  ): Promise<void> {
+    const entries = Object.entries(updates).filter(([, v]) => v?.trim());
+    if (!entries.length) return;
+    const record = conversation.recordId
+      ? await this.clientRecordRepo.findOne({
+          where: { id: conversation.recordId },
+        })
+      : null;
+    if (!record) {
+      await this.createSystemNote(
+        conversation.id,
+        '📋 Flujo: no se guardaron datos en el CRM porque la conversación no tiene un contacto vinculado.',
+        inbox.tenantId,
+      );
+      return;
+    }
+
+    const catalog = await this.conversationFlowsService.getVariableCatalog(
+      inbox.tenantId,
+    );
+    const customByKey = new Map(catalog.custom.map((f) => [f.key, f]));
+    const systemByKey = new Map(CONTACT_SYSTEM_FIELDS.map((f) => [f.key, f]));
+    const isPhoneChannel =
+      inbox.channel === 'whatsapp' || inbox.channel === 'evolution';
+    const r = record as unknown as Record<string, unknown>;
+    const saved: string[] = [];
+    const skipped: string[] = [];
+    let nameChanged = false;
+
+    const sameAs = (a: unknown, b: unknown) =>
+      String(a ?? '')
+        .trim()
+        .toLowerCase() ===
+      String(b ?? '')
+        .trim()
+        .toLowerCase();
+
+    for (const [key, raw] of entries) {
+      const value = raw.trim();
+      const system = systemByKey.get(key);
+      if (system && WRITABLE_CONTACT_KEYS.has(key)) {
+        if (key === 'phone' && isPhoneChannel) {
+          skipped.push(
+            `${system.label} (es el identificador del contacto en WhatsApp)`,
+          );
+          continue;
+        }
+        let toStore: string | null = value;
+        if (key === 'birthDate') {
+          const day = parseDay(value);
+          toStore =
+            day === null
+              ? null
+              : new Date(day * 86_400_000).toISOString().slice(0, 10);
+        } else if (system.options?.length) {
+          // Campos de selección: solo un valor de la lista (sin distinguir mayúsculas ni tildes).
+          const norm = (x: string) =>
+            x
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .trim();
+          toStore = system.options.find((o) => norm(o) === norm(value)) ?? null;
+        }
+        if (toStore === null) {
+          skipped.push(`${system.label} («${value}» no es un valor válido)`);
+          continue;
+        }
+        const current =
+          r[key] instanceof Date
+            ? (r[key] as Date).toISOString().slice(0, 10)
+            : r[key];
+        if (sameAs(toStore, current)) continue;
+        r[key] = toStore;
+        if (key === 'firstName' || key === 'lastName') nameChanged = true;
+        saved.push(`${system.label}: ${toStore}`);
+        continue;
+      }
+      const custom = customByKey.get(key);
+      if (custom) {
+        const stored: string | number =
+          custom.fieldType === 'number' && Number.isFinite(Number(value))
+            ? Number(value)
+            : value;
+        if (sameAs(stored, record.customData?.[key])) continue;
+        record.customData = { ...(record.customData || {}), [key]: stored };
+        saved.push(`${custom.label}: ${value}`);
+      }
+      // Claves que ya no existen (campo borrado): se ignoran.
+    }
+
+    if (nameChanged && !updates.fullName) {
+      record.fullName = [record.firstName, record.lastName]
+        .filter(Boolean)
+        .join(' ');
+    }
+    if (saved.length) {
+      await this.clientRecordRepo.save(record);
+      await this.createSystemNote(
+        conversation.id,
+        `📋 Flujo guardó en el CRM: ${saved.join(', ')}`,
+        inbox.tenantId,
+      );
+    }
+    if (skipped.length) {
+      await this.createSystemNote(
+        conversation.id,
+        `⚠️ Flujo: no se guardó en el CRM ${skipped.join('; ')}`,
+        inbox.tenantId,
+      );
     }
   }
 
@@ -3565,6 +3707,15 @@ export class ChatsService {
       conversation,
       content,
       mediaInfo?.interactivePayload ?? null,
+      mediaInfo?.messageType &&
+        mediaInfo.messageType !== 'text' &&
+        (mediaInfo.mediaUrl || mediaInfo.messageType === 'location')
+        ? {
+            type: mediaInfo.messageType,
+            url: mediaInfo.mediaUrl ?? null,
+            mimeType: mediaInfo.mediaMimeType ?? null,
+          }
+        : null,
     ).catch((err) => {
       console.error('[ConversationFlow] Failed:', err?.message || err);
       return false;

@@ -25,7 +25,38 @@ export interface FlowButton {
 }
 
 export type FlowNodeType = "start" | "message" | "user_input" | "action" | "condition" | "start_flow";
-export type FlowInputValidation = "any" | "number" | "email" | "phone";
+export type FlowInputValidation =
+  | "any"
+  | "number"
+  | "email"
+  | "phone"
+  | "date"
+  | "time"
+  | "url"
+  | "yes_no"
+  | "choice"
+  | "regex"
+  | "media"
+  | "location";
+export type FlowInputTransform = "none" | "upper" | "lower" | "title";
+export type FlowMediaKind = "image" | "video" | "audio" | "document";
+/** Dato adicional que la IA saca de la misma respuesta. */
+export interface FlowAiExtra {
+  variable: string;
+  description: string;
+  saveToField?: string;
+}
+/** Variante de OpenRouter sobre el modelo de la cuenta; sin modo = balanceado. */
+export type FlowAiMode = "nitro" | "exacto" | "floor";
+export interface FlowInputAi {
+  enabled: boolean;
+  /** Qué dato debe obtener («el nombre completo», «el monto en pesos») */
+  instruction?: string;
+  extras?: FlowAiExtra[];
+  /** Transcribir notas de voz antes de procesarlas */
+  transcribeAudio?: boolean;
+  mode?: FlowAiMode;
+}
 export type FlowHeaderType = "text" | "image" | "video" | "document";
 
 export const HEADER_TYPE_LABELS: Record<FlowHeaderType, string> = {
@@ -138,6 +169,25 @@ export interface FlowNodeData {
   variable?: string;
   validation?: FlowInputValidation;
   errorMessage?: string;
+  /** user_input: campo del CRM donde también se guarda la respuesta */
+  saveToField?: string;
+  /** user_input: no preguntar si la variable o el campo del CRM ya tienen valor */
+  skipIfFilled?: boolean;
+  transform?: FlowInputTransform;
+  /** user_input: intentos extra tras una respuesta no válida (0–10; sin definir = 3) */
+  maxRetries?: number;
+  skipKeywords?: string[];
+  minLength?: number;
+  maxLength?: number;
+  minValue?: number;
+  maxValue?: number;
+  integerOnly?: boolean;
+  dateRange?: "any" | "past" | "future";
+  choices?: string[];
+  showChoices?: boolean;
+  pattern?: string;
+  mediaKinds?: FlowMediaKind[];
+  ai?: FlowInputAi;
   actions?: FlowAction[];
   /** condition: ramas evaluadas en orden; si ninguna se cumple sale por `else` */
   branches?: FlowConditionBranch[];
@@ -227,10 +277,18 @@ export const statusColors: Record<FlowStatus, string> = {
 };
 
 export const VALIDATION_LABELS: Record<FlowInputValidation, string> = {
-  any: "Cualquier texto",
+  any: "Texto libre",
   number: "Número",
   email: "Correo electrónico",
   phone: "Teléfono",
+  date: "Fecha",
+  time: "Hora",
+  url: "Enlace web",
+  yes_no: "Sí / No",
+  choice: "Una opción de una lista",
+  regex: "Formato propio (expresión regular)",
+  media: "Archivo (foto, video, audio, documento)",
+  location: "Ubicación",
 };
 
 export const ACTION_LABELS: Record<FlowActionType, string> = {

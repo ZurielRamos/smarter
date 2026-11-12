@@ -19,6 +19,11 @@ import {
   FlowConditionRule,
   FlowConditionSource,
   FlowTriggers,
+  FlowNodeData,
+  FlowAiExtra,
+  FlowInputTransform,
+  FlowInputValidation,
+  FlowMediaKind,
 } from './conversation-flow.entity';
 import { MediaStorageService } from '../media/media-storage.service';
 import { CustomField } from '../records/custom-field.entity';
@@ -32,8 +37,21 @@ import {
   CONTACT_SYSTEM_FIELDS,
   FLOW_SPECIAL_VARIABLES,
   VARIABLE_KEY_RE,
+  WRITABLE_CONTACT_KEYS,
   type ContactFieldDef,
 } from './contact-fields.util';
+import {
+  INPUT_TRANSFORMS,
+  INPUT_VALIDATIONS,
+  AI_MODES,
+  MAX_AI_EXTRAS,
+  MAX_AI_INSTRUCTION,
+  MAX_CHOICES,
+  MAX_CHOICE_LENGTH,
+  MAX_INPUT_RETRIES_LIMIT,
+  MAX_SKIP_KEYWORDS,
+  MEDIA_KINDS,
+} from './flow-input.util';
 import { isValidButtonUrl, normalizePhone } from './flow-buttons.util';
 import {
   compressVideoForWhatsApp,
@@ -68,7 +86,6 @@ const OPERATORS = new Set([
   'greater_than',
   'less_than',
 ]);
-const VALIDATIONS = new Set(['any', 'number', 'email', 'phone']);
 const HEADER_MEDIA_TYPES = new Set(['image', 'video', 'document']);
 /** Documentos que WhatsApp acepta. */
 const DOCUMENT_MIMES = new Set([
@@ -118,6 +135,7 @@ export class ConversationFlowsService {
       label: string;
       fieldType: string;
       options?: string[];
+      writable: boolean;
     }[];
   }> {
     if (!tenantId) throw new BadRequestException('tenantId es requerido');
@@ -137,6 +155,7 @@ export class ConversationFlowsService {
         key: f.fieldKey,
         label: f.fieldLabel,
         fieldType: f.fieldType,
+        writable: true,
         ...(Array.isArray(f.options) && f.options.length
           ? { options: f.options }
           : {}),
@@ -392,6 +411,8 @@ export class ConversationFlowsService {
 
     const seen = new Set<string>();
     const clean: FlowNode[] = [];
+    // Claves de campos personalizados: se cargan solo si algún nodo Entrada las necesita.
+    let customKeys: Promise<Set<string>> | undefined;
     for (const raw of nodes) {
       const id = String(raw?.id || '').trim();
       if (!id || id.length > 64 || id.includes(':') || seen.has(id)) continue;
@@ -444,14 +465,11 @@ export class ConversationFlowsService {
           break;
         }
         case 'user_input':
-          node.data.text = String(d.text || '').slice(0, 4096);
-          node.data.variable = this.cleanVariable(d.variable);
-          node.data.validation = VALIDATIONS.has(d.validation as string)
-            ? d.validation
-            : 'any';
-          node.data.errorMessage = d.errorMessage
-            ? String(d.errorMessage).slice(0, 1000)
-            : undefined;
+          node.data = await this.sanitizeInput(
+            d,
+            flow.tenantId,
+            () => (customKeys ??= this.writableCustomKeys(flow.tenantId)),
+          );
           break;
         case 'action':
           node.data.actions = (Array.isArray(d.actions) ? d.actions : [])
@@ -717,6 +735,9 @@ export class ConversationFlowsService {
             branches.some((b) => `cond:${b.id}` === handle))
         );
       }
+      case 'user_input':
+        // «Siguiente» y «Sin respuesta válida» (se agotaron los intentos).
+        return handle === 'next' || handle === 'invalid';
       case 'start_flow':
         return false; // salta a otro flujo: no tiene salida
       default:
@@ -741,6 +762,200 @@ export class ConversationFlowsService {
         .map(String)
         .filter(Boolean),
     };
+  }
+
+  /** Claves de los campos personalizados del tenant (todos admiten escritura). */
+  private async writableCustomKeys(tenantId: string): Promise<Set<string>> {
+    const fields = await this.customFieldRepo.find({ where: { tenantId } });
+    return new Set(
+      fields
+        .filter((f) => !f.isSystem && VARIABLE_KEY_RE.test(f.fieldKey))
+        .map((f) => f.fieldKey),
+    );
+  }
+
+  /** Campo del CRM donde se puede guardar una respuesta; undefined si no existe o no admite escritura. */
+  private async cleanContactField(
+    v: unknown,
+    customKeys: () => Promise<Set<string>>,
+  ): Promise<string | undefined> {
+    const key = String(v || '').trim();
+    if (!key) return undefined;
+    if (WRITABLE_CONTACT_KEYS.has(key)) return key;
+    return (await customKeys()).has(key) ? key : undefined;
+  }
+
+  /**
+   * Datos de un nodo Entrada. Lista blanca: lo que no aparece aquí se descarta.
+   * Los límites incoherentes (mínimo > máximo) o una expresión regular inválida
+   * se rechazan con un mensaje claro en lugar de guardarse a medias.
+   */
+  private async sanitizeInput(
+    d: FlowNodeData,
+    tenantId: string,
+    customKeys: () => Promise<Set<string>>,
+  ): Promise<FlowNodeData> {
+    void tenantId;
+    const out: FlowNodeData = {};
+    out.text = String(d.text || '').slice(0, 4096);
+    out.variable = this.cleanVariable(d.variable);
+    const validation: FlowInputValidation = INPUT_VALIDATIONS.has(
+      d.validation as FlowInputValidation,
+    )
+      ? (d.validation as FlowInputValidation)
+      : 'any';
+    out.validation = validation;
+    const errorMessage = String(d.errorMessage || '').trim();
+    if (errorMessage) out.errorMessage = errorMessage.slice(0, 1000);
+
+    const saveToField = await this.cleanContactField(d.saveToField, customKeys);
+    if (saveToField) out.saveToField = saveToField;
+    if (d.skipIfFilled === true) out.skipIfFilled = true;
+    if (
+      INPUT_TRANSFORMS.has(d.transform as FlowInputTransform) &&
+      d.transform !== 'none' &&
+      (validation === 'any' || validation === 'regex')
+    )
+      out.transform = d.transform;
+    const retries = Number(d.maxRetries);
+    if (
+      d.maxRetries !== undefined &&
+      d.maxRetries !== null &&
+      Number.isFinite(retries)
+    )
+      out.maxRetries = Math.min(
+        Math.max(Math.floor(retries), 0),
+        MAX_INPUT_RETRIES_LIMIT,
+      );
+    const skip = this.cleanList(d.skipKeywords, MAX_SKIP_KEYWORDS, 40);
+    if (skip.length) out.skipKeywords = skip;
+
+    const int = (v: unknown, max: number): number | undefined => {
+      const n = Number(v);
+      return v === '' || v === null || v === undefined || !Number.isFinite(n)
+        ? undefined
+        : Math.min(Math.max(Math.floor(n), 0), max);
+    };
+    const num = (v: unknown): number | undefined => {
+      const n = Number(v);
+      return v === '' || v === null || v === undefined || !Number.isFinite(n)
+        ? undefined
+        : n;
+    };
+
+    switch (validation) {
+      case 'any': {
+        const min = int(d.minLength, 4096);
+        const max = int(d.maxLength, 4096);
+        if (min !== undefined && max !== undefined && max > 0 && min > max)
+          throw new BadRequestException(
+            'Entrada: la longitud mínima no puede ser mayor que la máxima',
+          );
+        if (min) out.minLength = min;
+        if (max) out.maxLength = max;
+        break;
+      }
+      case 'number': {
+        const min = num(d.minValue);
+        const max = num(d.maxValue);
+        if (min !== undefined && max !== undefined && min > max)
+          throw new BadRequestException(
+            'Entrada: el valor mínimo no puede ser mayor que el máximo',
+          );
+        if (min !== undefined) out.minValue = min;
+        if (max !== undefined) out.maxValue = max;
+        if (d.integerOnly === true) out.integerOnly = true;
+        break;
+      }
+      case 'date':
+        if (d.dateRange === 'past' || d.dateRange === 'future')
+          out.dateRange = d.dateRange;
+        break;
+      case 'choice': {
+        const choices = this.cleanList(
+          d.choices,
+          MAX_CHOICES,
+          MAX_CHOICE_LENGTH,
+        );
+        out.choices = choices;
+        if (d.showChoices === true) out.showChoices = true;
+        break;
+      }
+      case 'regex': {
+        const pattern = String(d.pattern || '').trim();
+        if (pattern && !isValidRegex(pattern))
+          throw new BadRequestException(
+            `Entrada: la expresión regular no es válida (máximo ${REGEX_MAX_PATTERN} caracteres)`,
+          );
+        out.pattern = pattern;
+        break;
+      }
+      case 'media': {
+        const kinds = (Array.isArray(d.mediaKinds) ? d.mediaKinds : []).filter(
+          (k, i, all): k is FlowMediaKind =>
+            MEDIA_KINDS.has(k) && all.indexOf(k) === i,
+        );
+        if (kinds.length) out.mediaKinds = kinds;
+        break;
+      }
+    }
+
+    // La IA solo procesa respuestas de texto (o notas de voz transcritas).
+    const ai = d.ai;
+    if (ai && validation !== 'media' && validation !== 'location') {
+      const extras: FlowAiExtra[] = [];
+      const seenVars = new Set<string>(out.variable ? [out.variable] : []);
+      for (const raw of (Array.isArray(ai.extras) ? ai.extras : []).slice(
+        0,
+        MAX_AI_EXTRAS,
+      )) {
+        const variable = this.cleanVariable(raw?.variable);
+        const description = String(raw?.description || '')
+          .trim()
+          .slice(0, 200);
+        if (!variable || seenVars.has(variable)) continue;
+        seenVars.add(variable);
+        const field = await this.cleanContactField(
+          raw?.saveToField,
+          customKeys,
+        );
+        extras.push({
+          variable,
+          description,
+          ...(field ? { saveToField: field } : {}),
+        });
+      }
+      const instruction = String(ai.instruction || '')
+        .trim()
+        .slice(0, MAX_AI_INSTRUCTION);
+      if (ai.enabled === true || instruction || extras.length) {
+        out.ai = {
+          enabled: ai.enabled === true,
+          ...(instruction ? { instruction } : {}),
+          ...(extras.length ? { extras } : {}),
+          ...(ai.transcribeAudio === true ? { transcribeAudio: true } : {}),
+          ...(AI_MODES.has(ai.mode as string) ? { mode: ai.mode } : {}),
+        };
+      }
+    }
+    return out;
+  }
+
+  /** Lista de textos sin vacíos ni repetidos (sin distinguir mayúsculas). */
+  private cleanList(raw: unknown, max: number, maxLength: number): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const item of Array.isArray(raw) ? raw : []) {
+      const v = String(item ?? '')
+        .trim()
+        .slice(0, maxLength);
+      const key = normalize(v);
+      if (!v || seen.has(key)) continue;
+      seen.add(key);
+      out.push(v);
+      if (out.length >= max) break;
+    }
+    return out;
   }
 
   private cleanVariable(v: unknown): string | undefined {

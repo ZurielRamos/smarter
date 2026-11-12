@@ -12,11 +12,13 @@ import {
   Video,
   ExternalLink,
   Phone,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ACTION_LABELS, VALIDATION_LABELS, type FlowNodeData } from "./types";
 import { FlowEditorContext, FlowVariablesContext } from "./editorContext";
 import { conditionIssues, describeBranch } from "./conditions";
+import { AI_MODE_OPTIONS, inputIssue } from "./inputs";
 
 type FlowNode = Node<FlowNodeData>;
 
@@ -213,29 +215,53 @@ export function MessageNode({ data, selected }: NodeProps<FlowNode>) {
 }
 
 export function UserInputNode({ data, selected }: NodeProps<FlowNode>) {
+  const options = useContext(FlowVariablesContext);
+  const type = data.validation || "any";
+  const crmLabel = data.saveToField
+    ? (options.find((o) => o.key === data.saveToField)?.label ?? data.saveToField)
+    : null;
+  const choices = type === "choice" ? (data.choices || []).filter((c) => c.trim()) : [];
+  const aiOn = !!data.ai?.enabled && type !== "media" && type !== "location";
   return (
     <NodeShell
       selected={selected}
       header="Entrada de usuario"
       headerClass="bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
       icon={<TextCursorInput className="h-3.5 w-3.5" />}
-      warning={!data.variable ? "Elige una variable" : null}
+      warning={inputIssue(data)}
     >
       {data.text?.trim() ? (
         <p className="whitespace-pre-wrap break-words line-clamp-4 rounded-lg bg-muted/60 px-2.5 py-2">{data.text}</p>
       ) : (
         <Placeholder>Pregunta al contacto…</Placeholder>
       )}
-      <div className="rounded-lg border border-dashed border-sky-300 dark:border-sky-500/40 px-2.5 py-1.5 text-[11px]">
-        <span className="text-sky-700 dark:text-sky-300">{VALIDATION_LABELS[data.validation || "any"]}</span>
-        {data.variable && (
-          <span className="text-muted-foreground">
-            {" "}
-            → <code className="font-mono">{`{{${data.variable}}}`}</code>
-          </span>
+      <div className="space-y-1 rounded-lg border border-dashed border-sky-300 px-2.5 py-1.5 text-[11px] dark:border-sky-500/40">
+        <div className="flex items-center gap-1.5">
+          <span className="min-w-0 flex-1 truncate text-sky-700 dark:text-sky-300">{VALIDATION_LABELS[type]}</span>
+          {aiOn && (
+            <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-brand-100 px-1 py-px text-[10px] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+              <Sparkles className="h-2.5 w-2.5" aria-hidden />
+              IA{data.ai?.mode ? ` · ${AI_MODE_OPTIONS.find((m) => m.value === data.ai?.mode)?.label ?? ""}` : ""}
+            </span>
+          )}
+        </div>
+        {choices.length > 0 && (
+          <p className="truncate text-muted-foreground">{choices.join(" · ")}</p>
+        )}
+        {(data.variable || crmLabel) && (
+          <p className="truncate text-muted-foreground">
+            →{data.variable && <code className="ml-1 font-mono">{`{{${data.variable}}}`}</code>}
+            {crmLabel && <span className="ml-1">CRM: {crmLabel}</span>}
+          </p>
+        )}
+        {aiOn && data.ai?.instruction && (
+          <p className="line-clamp-2 text-muted-foreground">IA: {data.ai.instruction}</p>
         )}
       </div>
-      <NextHandle />
+      <div className="space-y-1.5">
+        <OutputRow id="next" label="Respuesta válida" className="text-sky-700 dark:text-sky-300" />
+        <OutputRow id="invalid" label="Sin respuesta válida" className="text-muted-foreground" />
+      </div>
     </NodeShell>
   );
 }

@@ -42,7 +42,59 @@ export type FlowOverflowMode = 'paginate' | 'list';
 export type FlowNodeType =
   'start' | 'message' | 'user_input' | 'action' | 'condition' | 'start_flow';
 
-export type FlowInputValidation = 'any' | 'number' | 'email' | 'phone';
+/**
+ * Tipo de respuesta que espera un nodo Entrada. Las de texto se validan y
+ * normalizan en el servidor; `media` y `location` esperan un archivo o una
+ * ubicación en lugar de texto.
+ */
+export type FlowInputValidation =
+  | 'any'
+  | 'number'
+  | 'email'
+  | 'phone'
+  | 'date'
+  | 'time'
+  | 'url'
+  | 'yes_no'
+  | 'choice'
+  | 'regex'
+  | 'media'
+  | 'location';
+
+/** Formato con el que se guarda una respuesta de texto. */
+export type FlowInputTransform = 'none' | 'upper' | 'lower' | 'title';
+
+/** Tipos de archivo que acepta una entrada `media`. */
+export type FlowMediaKind = 'image' | 'video' | 'audio' | 'document';
+
+/** Dato adicional que la IA extrae de la misma respuesta. */
+export interface FlowAiExtra {
+  /** Variable donde se guarda */
+  variable: string;
+  /** Qué dato es («la ciudad», «el presupuesto en pesos») */
+  description: string;
+  /** Campo del CRM donde también se guarda (opcional) */
+  saveToField?: string;
+}
+
+/**
+ * Modo de la IA: variante de enrutamiento de OpenRouter sobre el modelo
+ * predeterminado de la cuenta (mismas opciones que los bots). Sin modo = balanceado.
+ */
+export type FlowAiMode = 'nitro' | 'exacto' | 'floor';
+
+/** Procesamiento de la respuesta con IA (OpenRouter). */
+export interface FlowInputAi {
+  enabled: boolean;
+  /** Qué dato debe obtener de la respuesta («el nombre completo», «el monto») */
+  instruction?: string;
+  /** Otros datos a sacar de la misma respuesta (máx. 5) */
+  extras?: FlowAiExtra[];
+  /** Transcribir notas de voz antes de procesarlas */
+  transcribeAudio?: boolean;
+  /** Rápido (nitro), preciso (exacto) o económico (floor); sin definir = balanceado */
+  mode?: FlowAiMode;
+}
 
 export type FlowHeaderType = 'text' | 'image' | 'video' | 'document';
 
@@ -182,6 +234,35 @@ export interface FlowNodeData {
   validation?: FlowInputValidation;
   /** user_input: mensaje cuando la respuesta no es válida */
   errorMessage?: string;
+  /** user_input: campo del CRM donde también se guarda la respuesta */
+  saveToField?: string;
+  /** user_input: no preguntar si la variable o el campo del CRM ya tienen valor */
+  skipIfFilled?: boolean;
+  /** user_input: formato al guardar (solo respuestas de texto) */
+  transform?: FlowInputTransform;
+  /** user_input: intentos extra tras una respuesta no válida (0–10, predeterminado 3) */
+  maxRetries?: number;
+  /** user_input: palabras con las que el contacto puede saltar la pregunta */
+  skipKeywords?: string[];
+  /** user_input (any): longitud mínima y máxima del texto */
+  minLength?: number;
+  maxLength?: number;
+  /** user_input (number): rango permitido y si solo admite enteros */
+  minValue?: number;
+  maxValue?: number;
+  integerOnly?: boolean;
+  /** user_input (date): solo fechas pasadas o futuras (hoy cuenta en ambas) */
+  dateRange?: 'any' | 'past' | 'future';
+  /** user_input (choice): opciones válidas */
+  choices?: string[];
+  /** user_input (choice): añadir la lista numerada de opciones a la pregunta */
+  showChoices?: boolean;
+  /** user_input (regex): patrón que debe cumplir la respuesta */
+  pattern?: string;
+  /** user_input (media): tipos de archivo aceptados; vacío = cualquiera */
+  mediaKinds?: FlowMediaKind[];
+  /** user_input: procesamiento con IA */
+  ai?: FlowInputAi;
   /** action: acciones a ejecutar en orden */
   actions?: FlowAction[];
   /**
@@ -208,7 +289,9 @@ export interface FlowNode {
  * Conexión entre nodos. `sourceHandle` identifica la salida:
  *   - 'next'           → salida por defecto
  *   - 'btn:<buttonId>' → botón de un nodo Mensaje
- *   - 'true' / 'false' → ramas de un nodo Condición
+ *   - 'true' / 'false' → ramas de un nodo Condición (formato antiguo)
+ *   - 'cond:<id>' / 'else' → ramas de un nodo Condición
+ *   - 'invalid'        → nodo Entrada: se agotaron los intentos
  */
 export interface FlowEdge {
   id: string;

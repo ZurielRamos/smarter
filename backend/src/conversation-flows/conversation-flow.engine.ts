@@ -1,15 +1,30 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import {
   ConversationFlow,
   ConversationFlowState,
   FlowButton,
   FlowNode,
-  FlowInputValidation,
   FlowNodeData,
   FlowHeaderMedia,
 } from './conversation-flow.entity';
 import { isHttpUrl, normalizePhone } from './flow-buttons.util';
-import { evaluateBranch, type ConditionEnv } from './flow-conditions.util';
+import {
+  evaluateBranch,
+  normalizeText,
+  type ConditionEnv,
+} from './flow-conditions.util';
+import {
+  DEFAULT_INPUT_RETRIES,
+  MAX_INPUT_RETRIES_LIMIT,
+  defaultInputError,
+  formatChoices,
+  mediaKindOf,
+  readLocationInput,
+  readMediaInput,
+  validateInputValue,
+  type FlowInputMedia,
+} from './flow-input.util';
+import { FlowAiService } from './flow-ai.service';
 
 /** Botón de enlace o llamada ya resuelto (variables sustituidas) para enviar. */
 export interface FlowOutgoingAction {
@@ -57,12 +72,19 @@ export interface FlowRunResult {
   effects: FlowEffects;
   /** Flujos que se iniciaron en esta ejecución (para métricas). */
   startedFlowIds: string[];
+  /**
+   * Campos del CRM que los nodos Entrada quieren guardar en el contacto
+   * (clave del campo → valor). Los aplica ChatsService.
+   */
+  contactUpdates: Record<string, string>;
 }
 
 export interface FlowInput {
   text: string | null;
   /** id del botón pulsado (WhatsApp button_reply/list_reply, quick_reply payload) */
   payload?: string | null;
+  /** Archivo o ubicación del mensaje (para entradas de archivo, ubicación o notas de voz) */
+  media?: FlowInputMedia | null;
 }
 
 export interface FlowContext {
@@ -111,7 +133,6 @@ const PAYLOAD_PREFIX = 'cf:';
 /** Límite de nodos ejecutados por turno, evita bucles infinitos entre flujos. */
 const MAX_STEPS_PER_TURN = 60;
 const MAX_BUTTON_RETRIES = 2;
-const MAX_INPUT_RETRIES = 3;
 
 export function buildButtonPayload(
   flowId: string,
@@ -142,6 +163,9 @@ export function parseButtonPayload(
  */
 @Injectable()
 export class ConversationFlowEngine {
+  /** La IA es opcional: sin ella las entradas se validan solo con reglas. */
+  constructor(@Optional() private readonly ai?: FlowAiService) {}
+
   /** Inicia un flujo desde su nodo Inicio. */
   async start(
     flow: ConversationFlow,
@@ -286,18 +310,34 @@ export class ConversationFlowEngine {
       return result;
     }
 
-    // 3) Esperando entrada de texto.
-    const validation = node.data.validation || 'any';
-    const value = this.validateInput(text, validation);
-    if (value === null) {
-      if (state.retries + 1 > MAX_INPUT_RETRIES) {
+    // 3) Esperando la respuesta de un nodo Entrada.
+    const reading = await this.readInput(flow, node, input, variables, context);
+
+    if (reading.kind === 'invalid') {
+      const maxRetries = this.maxRetries(node.data);
+      if (state.retries + 1 > maxRetries) {
+        // Sin intentos: sigue por «Sin respuesta válida» si está conectada; si no,
+        // el flujo suelta la conversación para que responda el bot o un agente.
+        const fallback = this.nextNodeId(flow, node.id, 'invalid');
         result.state = null;
+        if (fallback) {
+          result.handled = true;
+          await this.runFrom(
+            flow,
+            fallback,
+            variables,
+            loader,
+            context,
+            result,
+          );
+        }
         return result;
       }
       result.handled = true;
       result.messages.push({
         text: this.interpolate(
-          node.data.errorMessage || this.defaultErrorMessage(validation),
+          node.data.errorMessage ||
+            defaultInputError(node.data.validation || 'any'),
           variables,
           context,
         ),
@@ -308,7 +348,16 @@ export class ConversationFlowEngine {
 
     result.handled = true;
     result.state = null;
-    if (node.data.variable) variables[node.data.variable] = value;
+    if (reading.kind === 'ok') {
+      this.storeAnswer(node.data, reading.value, variables, context, result);
+      for (const extra of node.data.ai?.extras || []) {
+        const v = reading.extras[extra.variable];
+        if (!v) continue;
+        variables[extra.variable] = v;
+        if (extra.saveToField)
+          this.queueContactUpdate(extra.saveToField, v, context, result);
+      }
+    }
     const next = this.nextNodeId(flow, node.id, 'next');
     if (next)
       await this.runFrom(flow, next, variables, loader, context, result);
@@ -415,11 +464,18 @@ export class ConversationFlowEngine {
         }
 
         case 'user_input': {
-          const text = this.interpolate(
-            node.data.text || '',
-            variables,
-            context,
-          );
+          // «No preguntar si ya lo sabemos»: con valor en la variable o en el CRM sigue de largo.
+          const known = this.knownAnswer(node.data, variables, context);
+          if (known !== null) {
+            if (node.data.variable) variables[node.data.variable] = known;
+            nodeId = this.nextNodeId(flow, node.id, 'next');
+            break;
+          }
+          let text = this.interpolate(node.data.text || '', variables, context);
+          if (node.data.validation === 'choice' && node.data.showChoices) {
+            const list = formatChoices(node.data.choices || []);
+            if (list) text = text ? `${text}\n\n${list}` : list;
+          }
           if (text) result.messages.push({ text });
           result.state = this.waitingState(flow.id, node.id, 'input');
           return;
@@ -525,6 +581,7 @@ export class ConversationFlowEngine {
         removeLabelIds: [],
       },
       startedFlowIds: [],
+      contactUpdates: {},
     };
   }
 
@@ -737,40 +794,146 @@ export class ConversationFlowEngine {
       .trim();
   }
 
-  private validateInput(
-    text: string,
-    validation: FlowInputValidation,
-  ): string | null {
-    if (!text) return null;
-    switch (validation) {
-      case 'number': {
-        const v = text.replace(/\s/g, '');
-        return /^-?\d+([.,]\d+)?$/.test(v) ? v.replace(',', '.') : null;
-      }
-      case 'email':
-        return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(text)
-          ? text.toLowerCase()
-          : null;
-      case 'phone': {
-        const digits = text.replace(/[\s\-().]/g, '');
-        return /^\+?\d{7,15}$/.test(digits) ? digits : null;
-      }
-      default:
-        return text;
+  // ─── Nodo Entrada ─────────────────────────────────────────────
+
+  /**
+   * Lee la respuesta del contacto:
+   *  - una palabra para saltar la pregunta → skip (sigue sin guardar nada);
+   *  - archivo o ubicación según el tipo;
+   *  - texto (o nota de voz transcrita) validado y normalizado; con IA activa,
+   *    primero se extrae el dato y luego se valida igual que si lo hubiera escrito.
+   */
+  private async readInput(
+    flow: ConversationFlow,
+    node: FlowNode,
+    input: FlowInput,
+    variables: Record<string, string>,
+    context: FlowContext,
+  ): Promise<
+    | { kind: 'skip' }
+    | { kind: 'invalid' }
+    | { kind: 'ok'; value: string; extras: Record<string, string> }
+  > {
+    const data = node.data;
+    const type = data.validation || 'any';
+    const now = context.now ?? new Date();
+    let text = (input.text || '').trim();
+
+    if (text && data.skipKeywords?.length) {
+      const said = normalizeText(text);
+      if (data.skipKeywords.some((k) => normalizeText(k) === said))
+        return { kind: 'skip' };
     }
+
+    if (type === 'media') {
+      const url = readMediaInput(input.media, data.mediaKinds);
+      return url ? { kind: 'ok', value: url, extras: {} } : { kind: 'invalid' };
+    }
+    if (type === 'location') {
+      const loc = readLocationInput(input.media, text);
+      return loc ? { kind: 'ok', value: loc, extras: {} } : { kind: 'invalid' };
+    }
+
+    const ai = data.ai?.enabled ? this.ai : undefined;
+    // Nota de voz: con IA y transcripción activas se convierte en texto.
+    if (
+      !text &&
+      ai &&
+      data.ai?.transcribeAudio &&
+      input.media?.url &&
+      mediaKindOf(input.media.type) === 'audio'
+    ) {
+      text =
+        (await ai.transcribe(flow.tenantId, flow.id, input.media.url)) || '';
+    }
+    if (!text) return { kind: 'invalid' };
+
+    if (ai) {
+      const extraction = await ai.extract({
+        tenantId: flow.tenantId,
+        flowId: flow.id,
+        data,
+        question: this.interpolate(data.text || '', variables, context),
+        answer: text,
+        now,
+      });
+      if (extraction) {
+        if (!extraction.found) return { kind: 'invalid' };
+        // Lo que devuelve la IA pasa por la misma validación; si no encaja, se
+        // prueba con el texto original antes de darla por no válida.
+        const value =
+          validateInputValue(extraction.value, data, now) ??
+          validateInputValue(text, data, now);
+        return value === null
+          ? { kind: 'invalid' }
+          : { kind: 'ok', value, extras: extraction.extras };
+      }
+      // IA no disponible (sin clave, sin créditos, error): se valida sin ella.
+    }
+
+    const value = validateInputValue(text, data, now);
+    return value === null
+      ? { kind: 'invalid' }
+      : { kind: 'ok', value, extras: {} };
   }
 
-  private defaultErrorMessage(validation: FlowInputValidation): string {
-    switch (validation) {
-      case 'number':
-        return 'Por favor escribe un número válido.';
-      case 'email':
-        return 'Por favor escribe un correo electrónico válido.';
-      case 'phone':
-        return 'Por favor escribe un número de teléfono válido.';
-      default:
-        return 'Por favor escribe una respuesta.';
-    }
+  private maxRetries(data: FlowNodeData): number {
+    const n = data.maxRetries;
+    return typeof n === 'number' && Number.isFinite(n)
+      ? Math.min(Math.max(Math.floor(n), 0), MAX_INPUT_RETRIES_LIMIT)
+      : DEFAULT_INPUT_RETRIES;
+  }
+
+  /** Valor ya conocido para un nodo con «no preguntar si ya tiene valor»; null si hay que preguntar. */
+  private knownAnswer(
+    data: FlowNodeData,
+    variables: Record<string, string>,
+    context: FlowContext,
+  ): string | null {
+    if (!data.skipIfFilled) return null;
+    const fromVariable = data.variable
+      ? this.lookup(data.variable, variables, context).trim()
+      : '';
+    if (fromVariable) return fromVariable;
+    const field = data.saveToField;
+    const fromCrm =
+      field &&
+      context.contact &&
+      Object.prototype.hasOwnProperty.call(context.contact, field)
+        ? (context.contact[field] ?? '').trim()
+        : '';
+    return fromCrm || null;
+  }
+
+  private storeAnswer(
+    data: FlowNodeData,
+    value: string,
+    variables: Record<string, string>,
+    context: FlowContext,
+    result: FlowRunResult,
+  ): void {
+    if (data.variable) variables[data.variable] = value;
+    if (data.saveToField)
+      this.queueContactUpdate(data.saveToField, value, context, result);
+  }
+
+  /**
+   * Anota un campo del CRM para guardar y lo refleja en el contexto, para que
+   * los nodos siguientes del mismo turno ya vean el valor nuevo.
+   */
+  private queueContactUpdate(
+    field: string,
+    value: string,
+    context: FlowContext,
+    result: FlowRunResult,
+  ): void {
+    result.contactUpdates[field] = value;
+    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    context.contact = {
+      ...(context.contact || {}),
+      // Las fechas del CRM se muestran como dd/mm/aaaa.
+      [field]: iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : value,
+    };
   }
 
   /** Datos con los que se evalúan las reglas de un nodo Condición. */

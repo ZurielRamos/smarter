@@ -86,6 +86,24 @@ function defaultData(type: FlowNodeType): FlowNodeData {
   }
 }
 
+/** Tipo con el que la condición trata la respuesta guardada por un nodo Entrada. */
+function inputVariableMeta(data: FlowNodeData): VariableMeta {
+  switch (data.validation) {
+    case "number":
+      return { type: "number" };
+    case "date":
+      return { type: "date" };
+    case "yes_no":
+      return { type: "select", options: ["sí", "no"] };
+    case "choice": {
+      const options = (data.choices || []).map((c) => c.trim()).filter(Boolean);
+      return options.length ? { type: "select", options } : { type: "text" };
+    }
+    default:
+      return { type: "text" };
+  }
+}
+
 function toRFNodes(nodes: FlowNodeModel[]): RFNode[] {
   return nodes.map((n) => ({
     id: n.id,
@@ -115,6 +133,9 @@ function validHandles(node: RFNode): Set<string> {
       const clicks = buttons.filter((b) => b.type === "url" && b.track !== false).map((b) => `click:${b.id}`);
       return new Set([...(replies.length ? replies.map((b) => `btn:${b.id}`) : ["next"]), ...clicks]);
     }
+    case "user_input":
+      // «Sin respuesta válida» se usa al agotarse los intentos.
+      return new Set(["next", "invalid"]);
     case "condition": {
       const branches = node.data.branches;
       // Nodo antiguo sin ramas: conserva sus salidas Sí / No.
@@ -318,6 +339,7 @@ function FlujoEditorInner() {
     const set = new Set<string>(["last_button"]);
     for (const n of nodes) {
       if (n.data.variable) set.add(n.data.variable);
+      for (const e of n.data.ai?.extras || []) if (e.variable) set.add(e.variable);
       for (const a of n.data.actions || []) if (a.type === "set_variable" && a.variable) set.add(a.variable);
     }
     return [...set].sort();
@@ -347,8 +369,9 @@ function FlujoEditorInner() {
         if ((b.type ?? "reply") === "reply") replies.add(title);
         else if (b.type === "url" && b.track !== false) links.add(title);
       }
-      if (n.type === "user_input" && n.data.variable) {
-        meta[n.data.variable] = { type: n.data.validation === "number" ? "number" : "text" };
+      if (n.type === "user_input") {
+        if (n.data.variable) meta[n.data.variable] = inputVariableMeta(n.data);
+        for (const e of n.data.ai?.extras || []) if (e.variable && !meta[e.variable]) meta[e.variable] = { type: "text" };
       }
     }
     for (const n of nodes) {

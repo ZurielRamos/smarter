@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { VariableInput, VariableTextarea } from "./VariableField";
 import { ConditionEditor } from "./ConditionEditor";
+import { InputEditor } from "./InputEditor";
 import { FlowSelect } from "./FlowSelect";
 import {
   ACTION_LABELS,
@@ -19,13 +20,11 @@ import {
   MAX_BUTTON_TITLE,
   MAX_HEADER_FOOTER,
   NODE_LABELS,
-  VALIDATION_LABELS,
   WA_REPLY_BUTTON_TITLE,
   shortId,
   type ConversationFlowSummary,
   type FlowAction,
   type FlowActionType,
-  type FlowInputValidation,
   type FlowNodeData,
   type FlowNodeType,
   type InboxOption,
@@ -106,60 +105,13 @@ export function NodeInspector({
         {type === "message" && <MessageFields data={data} set={set} tenantId={tenantId} linkTracking={linkTracking} />}
 
         {type === "user_input" && (
-          <>
-            <div>
-              <label className={labelClass} htmlFor={`${nodeId}-text`}>
-                Pregunta
-              </label>
-              <VariableTextarea
-                id={`${nodeId}-text`}
-                rows={4}
-                value={data.text || ""}
-                onChange={(v) => set({ text: v })}
-                placeholder="¿Cuál es tu correo electrónico?"
-                className={cn(inputClass, "resize-y")}
-              />
-              <VariableHint />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor={`${nodeId}-var`}>
-                Guardar respuesta en la variable
-              </label>
-              <input
-                id={`${nodeId}-var`}
-                list={variableListId}
-                value={data.variable || ""}
-                onChange={(e) => set({ variable: e.target.value.replace(/[^\w]/g, "") })}
-                placeholder="email"
-                className={cn(inputClass, "font-mono")}
-              />
-              <p className={hintClass}>Letras, números y guion bajo. Úsala luego como {"{{variable}}"}.</p>
-            </div>
-            <div>
-              <label className={labelClass} htmlFor={`${nodeId}-val`}>
-                Validación
-              </label>
-              <FlowSelect
-                id={`${nodeId}-val`}
-                value={data.validation || "any"}
-                onChange={(v) => set({ validation: v as FlowInputValidation })}
-                options={Object.entries(VALIDATION_LABELS).map(([v, l]) => ({ value: v, label: l }))}
-              />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor={`${nodeId}-err`}>
-                Mensaje si la respuesta no es válida
-              </label>
-              <VariableInput
-                id={`${nodeId}-err`}
-                value={data.errorMessage || ""}
-                onChange={(v) => set({ errorMessage: v })}
-                placeholder="Por favor escribe un correo válido."
-                className={inputClass}
-              />
-              <p className={hintClass}>Tras 3 respuestas no válidas el flujo deja la conversación al bot o al agente.</p>
-            </div>
-          </>
+          <InputEditor
+            nodeId={nodeId}
+            data={data}
+            set={set}
+            options={variableOptions}
+            variableListId={variableListId}
+          />
         )}
 
         {type === "action" && (

@@ -16,13 +16,15 @@ export interface VariableOption {
   type?: string;
   /** Valores posibles de un campo de selección */
   options?: string[];
+  /** Un nodo Entrada puede guardar la respuesta en este campo del CRM */
+  writable?: boolean;
 }
 
 /** Respuesta de GET /conversation-flows/variables */
 export interface VariableCatalog {
   special: { key: string; label: string; description: string }[];
-  crm: { key: string; label: string; group: string; type?: string; options?: string[] }[];
-  custom: { key: string; label: string; fieldType: string; options?: string[] }[];
+  crm: { key: string; label: string; group: string; type?: string; options?: string[]; writable?: boolean }[];
+  custom: { key: string; label: string; fieldType: string; options?: string[]; writable?: boolean }[];
 }
 
 export const VARIABLE_GROUP_LABELS: Record<VariableGroup, string> = {
@@ -84,8 +86,15 @@ export function buildVariableOptions(
       ...meta[key],
     });
   }
-  for (const f of catalog?.crm ?? []) add({ key: f.key, label: f.label, group: "crm", type: normalizeType(f.type), options: f.options });
-  for (const f of catalog?.custom ?? []) add({ key: f.key, label: f.label, group: "custom", type: normalizeType(f.fieldType), options: f.options });
+  for (const f of catalog?.crm ?? []) add({ key: f.key, label: f.label, group: "crm", type: normalizeType(f.type), options: f.options, writable: !!f.writable });
+  for (const f of catalog?.custom ?? []) add({
+      key: f.key,
+      label: f.label,
+      group: "custom",
+      type: normalizeType(f.fieldType),
+      options: f.options,
+      writable: f.writable !== false,
+    });
   for (const s of special) add({ key: s.key, label: s.label, group: "special", hint: s.description, ...meta[s.key] });
   return options;
 }

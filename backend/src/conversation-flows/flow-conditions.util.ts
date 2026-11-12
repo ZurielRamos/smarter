@@ -191,6 +191,11 @@ function zonedParts(now: Date): {
   };
 }
 
+/** Día de hoy (días desde 1970) en la zona horaria de los flujos. */
+export function zonedToday(now: Date): number {
+  return zonedParts(now).day;
+}
+
 /** «HH:mm» a minutos desde la medianoche; NaN si no es una hora válida. */
 export function parseClock(raw: string): number {
   const m = /^(\d{1,2}):(\d{2})$/.exec((raw ?? '').trim());
