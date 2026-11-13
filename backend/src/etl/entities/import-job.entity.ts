@@ -98,6 +98,10 @@ export class ImportJob {
   deduplicateConfig: DeduplicateConfig | null;
 
   // === Reglas de validación ===
+  /** Estado asignado a los contactos nuevos cuando el archivo no trae uno propio */
+  @Column({ name: 'default_status', type: 'varchar', length: 100, nullable: true })
+  defaultStatus: string | null;
+
   @Column({ name: 'validation_rules', type: 'jsonb', nullable: true })
   validationRules: ValidationRule[] | null;
 

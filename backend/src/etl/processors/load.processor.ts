@@ -35,13 +35,14 @@ export class LoadProcessor {
   async loadNewRecords(
     records: Record<string, unknown>[],
     tenantId: string,
+    defaultStatus?: string,
     chunkSize = 1000,
   ): Promise<LoadResult> {
     const result: LoadResult = { created: 0, updated: 0, skipped: 0, errors: [] };
 
     for (let i = 0; i < records.length; i += chunkSize) {
       const chunk = records.slice(i, i + chunkSize);
-      const entities = chunk.map((record) => this.buildEntity(record, tenantId));
+      const entities = chunk.map((record) => this.buildEntity(record, tenantId, defaultStatus));
 
       try {
         // INSERT ... ON CONFLICT DO NOTHING sobre los índices únicos parciales
@@ -220,7 +221,11 @@ export class LoadProcessor {
     return map[field] || null;
   }
 
-  private buildEntity(record: Record<string, unknown>, tenantId: string): ClientRecord {
+  private buildEntity(
+    record: Record<string, unknown>,
+    tenantId: string,
+    defaultStatus?: string,
+  ): ClientRecord {
     const systemData: Partial<ClientRecord> = {};
     const customData: Record<string, unknown> = {};
 
@@ -235,6 +240,8 @@ export class LoadProcessor {
     return this.recordRepo.create({
       ...systemData,
       tenantId,
+      // Si el archivo trae estado por fila se respeta; si no, se usa el elegido en el mapper
+      status: systemData.status || defaultStatus || undefined,
       channelSource: systemData.channelSource || 'import',
       customData: Object.keys(customData).length > 0 ? customData : null,
     } as Partial<ClientRecord>);

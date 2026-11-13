@@ -277,6 +277,7 @@ export class EtlService {
     validationRules?: ValidationRule[];
     templateName?: string;
     headers?: string[];
+    defaultStatus?: string;
     createdBy?: string;
   }): Promise<ImportJob> {
     const meta = this.fileStore.getMeta(params.fileId);
@@ -306,6 +307,7 @@ export class EtlService {
       mapping: params.mapping,
       transforms: params.transforms || null,
       deduplicateConfig,
+      defaultStatus: params.defaultStatus?.trim() || null,
       validationRules: params.validationRules || null,
       totalRows: meta.totalRows,
       createdBy: params.createdBy || null,
@@ -448,7 +450,11 @@ export class EtlService {
       await this.jobRepo.save(job);
 
       // Load new records
-      const loadResult = await this.loadProcessor.loadNewRecords(recordsToLoad, job.tenantId);
+      const loadResult = await this.loadProcessor.loadNewRecords(
+        recordsToLoad,
+        job.tenantId,
+        job.defaultStatus || undefined,
+      );
       job.createdRecords = loadResult.created;
       job.progress = 85;
       await this.jobRepo.save(job);
@@ -514,6 +520,7 @@ export class EtlService {
     validationRules?: ValidationRule[];
     templateName?: string;
     headers?: string[];
+    defaultStatus?: string;
   }): Promise<ImportJob> {
     const job = await this.createImportJob(params);
     await this.executeJob(job.id, params.fileId);

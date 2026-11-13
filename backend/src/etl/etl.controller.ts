@@ -112,6 +112,7 @@ export class EtlController {
         validationRules: body.validationRules,
         templateName: body.templateName,
         headers: body.headers,
+        defaultStatus: body.defaultStatus,
       });
     }
 
@@ -128,6 +129,7 @@ export class EtlController {
       validationRules: body.validationRules,
       templateName: body.templateName,
       headers: body.headers,
+      defaultStatus: body.defaultStatus,
     });
   }
 

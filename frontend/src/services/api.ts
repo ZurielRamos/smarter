@@ -156,6 +156,8 @@ export async function executeImport(params: {
   validationRules?: ValidationRule[];
   templateName?: string;
   headers?: string[];
+  /** Estado con el que se guardan los contactos nuevos que no traen estado en el archivo */
+  defaultStatus?: string;
 }): Promise<ImportJob> {
   const { data } = await api.post<ImportJob>('/etl/import', params);
   return data;

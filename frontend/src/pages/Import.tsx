@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { FileUploader } from "@/components/FileUploader";
 import { DataPreview } from "@/components/DataPreview";
 import { FieldMapper } from "@/components/FieldMapper";
+import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { motion } from "framer-motion";
 import headerBg from "@/assets/header-background.jpg";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const DEFAULT_IMPORT_STATUS = "lead";
+// Se usan solo si la cuenta no tiene estados configurados en el campo de sistema "status"
+const FALLBACK_STATUSES = [
+  "lead", "contactado", "interesado", "oportunidad",
+  "cliente", "premium", "fidelizado", "inactivo", "perdido",
+];
+
 type Step = "upload" | "preview" | "map" | "validate" | "deduplicate" | "processing" | "success";
 
 export function Import() {
@@ -66,6 +74,8 @@ export function Import() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preloadedFields, setPreloadedFields] = useState(0);
+  const [defaultStatus, setDefaultStatus] = useState<string>(DEFAULT_IMPORT_STATUS);
+  const [statusOptions, setStatusOptions] = useState<string[]>(FALLBACK_STATUSES);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { slug } = useParams();
@@ -80,6 +90,13 @@ export function Import() {
         const systemFields = await getTargetFields();
         if (tenantId) {
           const customFields = await getCustomFields(tenantId);
+          const configuredStatuses = customFields.find((f) => f.fieldKey === "status")?.options;
+          if (configuredStatuses && configuredStatuses.length > 0) {
+            setStatusOptions(configuredStatuses);
+            setDefaultStatus((prev) =>
+              configuredStatuses.includes(prev) ? prev : configuredStatuses[0],
+            );
+          }
           const customTargetFields: TargetField[] = customFields
             .filter((f) => !f.isSystem && f.fieldType !== "computed")
             .map((f) => ({
@@ -330,6 +347,7 @@ export function Import() {
         overwriteFields: deduplicateStrategy === 'overwrite_selected' ? overwriteFields : undefined,
         headers: parseResult.headers,
         templateName: "auto",
+        defaultStatus,
       });
       setImportJob(job);
 
@@ -487,6 +505,21 @@ export function Import() {
                   Se precargaron <strong>{preloadedFields}</strong> campos del mapeo anterior.
                 </div>
               )}
+              <div className="shrink-0 mx-4 mt-4 mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">Estado de los contactos nuevos</p>
+                  <p className="text-xs text-muted-foreground">
+                    Se asigna a los contactos creados que no tengan estado en el archivo.
+                    Si mapeas una columna al campo Estado, esa tiene prioridad.
+                  </p>
+                </div>
+                <DropdownSelect
+                  className="w-52"
+                  value={defaultStatus}
+                  onChange={setDefaultStatus}
+                  options={statusOptions.map((s) => ({ value: s, label: s }))}
+                />
+              </div>
               <div className="flex-1 min-h-0">
                 <FieldMapper
                   targetFields={targetFields}

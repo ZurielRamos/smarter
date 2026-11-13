@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsArray, IsObject, IsEnum, IsNumber, Min, Max } from 'class-validator';
+import { IsOptional, IsString, IsArray, IsObject, IsEnum, IsNumber, Min, Max, MaxLength } from 'class-validator';
 import type { DeduplicateStrategy, ValidationRule } from '../entities/import-job.entity';
 
 export class CreateImportDto {
@@ -47,6 +47,12 @@ export class CreateImportDto {
   @IsOptional()
   @IsArray()
   headers?: string[];
+
+  /** Estado con el que se guardan los contactos nuevos sin estado en el archivo */
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  defaultStatus?: string;
 }
 
 export class ValidatePreviewDto {
