@@ -220,7 +220,9 @@ export function EmailCampaignEditor({
             <span className="ml-1 font-normal text-muted-foreground">(fallback — la plantilla ya define un asunto)</span>
           )}
         </label>
-        <div className="flex items-center rounded-lg border border-border overflow-hidden focus-within:ring-2 focus-within:ring-brand-500 relative">
+        {/* El menú vive en este wrapper (sin overflow-hidden) para que no lo recorte la caja del input */}
+        <div className="relative">
+        <div className="flex items-center rounded-lg border border-border overflow-hidden focus-within:ring-2 focus-within:ring-brand-500">
           <input
             type="text"
             value={emailSubject}
@@ -236,9 +238,11 @@ export function EmailCampaignEditor({
           >
             <Braces className="h-3.5 w-3.5" />
           </button>
-          {showVars && (variables?.length ?? 0) > 0 && (
-            <div className="absolute right-0 top-full mt-1 z-20 w-56 max-h-56 overflow-y-auto bg-card border border-border rounded-lg shadow-lg p-1">
-              {variables!.map((v) => (
+        </div>
+        {showVars && (
+          <div className="absolute right-0 top-full mt-1 z-20 w-56 max-h-56 overflow-y-auto bg-card border border-border rounded-lg shadow-lg p-1">
+            {(variables?.length ?? 0) > 0 ? (
+              variables!.map((v) => (
                 <button
                   key={v.field}
                   type="button"
@@ -247,9 +251,12 @@ export function EmailCampaignEditor({
                 >
                   {v.label} <span className="text-muted-foreground">{`{{${v.field}}}`}</span>
                 </button>
-              ))}
-            </div>
-          )}
+              ))
+            ) : (
+              <p className="px-2.5 py-2 text-xs text-muted-foreground">No hay variables disponibles.</p>
+            )}
+          </div>
+        )}
         </div>
       </div>
 

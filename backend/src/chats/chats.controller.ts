@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, Res, UseInterceptors, UploadedFile, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, Res, UseInterceptors, UploadedFile, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { SkipThrottle } from '@nestjs/throttler';
@@ -188,7 +188,7 @@ export class ChatsController {
   // Send test email template
   @Post('inboxes/:id/email/test')
   async sendTestEmail(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { to: string; subject: string; html: string; variables?: Record<string, string>; fromName?: string },
   ) {
     return this.chatsService.sendTestEmail(id, body);

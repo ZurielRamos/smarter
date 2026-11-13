@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useParams } from "react-router-dom";
-import { api } from "@/services/api";
+import { api, getInboxes, type InboxSummary } from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
+import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { useContactVariables } from "./properties/RichTextEditor";
 
 interface Props {
@@ -12,13 +14,46 @@ interface Props {
 }
 
 export function TestEmailModal({ open, onClose, subject, html }: Props) {
-  const { inboxId } = useParams();
+  // En plantillas globales la ruta trae inboxId = "global", que no es una bandeja real.
+  const { slug, inboxId: routeInboxId } = useParams();
+  const { user } = useAuth();
+  const tenantId = user?.tenantRoles.find((tr) => tr.tenant.slug === slug)?.tenantId;
   const variables = useContactVariables();
+  const [inboxes, setInboxes] = useState<InboxSummary[]>([]);
+  const [loadingInboxes, setLoadingInboxes] = useState(false);
+  const [inboxId, setInboxId] = useState("");
   const [to, setTo] = useState("");
   const [fromName, setFromName] = useState("");
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ success: boolean; error?: string } | null>(null);
+
+  // Carga las bandejas de email con SMTP configurado (las únicas desde las que se puede enviar la prueba)
+  useEffect(() => {
+    if (!open || !tenantId) return;
+    let cancelled = false;
+    setLoadingInboxes(true);
+    getInboxes(tenantId)
+      .then((all) => {
+        if (cancelled) return;
+        const usable = all.filter((i) => i.channel === "email" && !!i.metadata?.smtp?.host);
+        setInboxes(usable);
+        setInboxId((prev) => {
+          if (prev && usable.some((i) => i.id === prev)) return prev;
+          const fromRoute = usable.find((i) => i.id === routeInboxId);
+          return (fromRoute ?? usable[0])?.id ?? "";
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setInboxes([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingInboxes(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, tenantId, routeInboxId]);
 
   if (!open) return null;
 
@@ -69,6 +104,29 @@ export function TestEmailModal({ open, onClose, subject, html }: Props) {
 
         {/* Body */}
         <div className="overflow-y-auto px-5 py-4 space-y-4">
+          {/* Inbox selector */}
+          <div>
+            <label className="block text-[10px] font-medium text-muted-foreground uppercase mb-1">Enviar desde la bandeja</label>
+            {loadingInboxes ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Cargando bandejas...
+              </div>
+            ) : inboxes.length === 0 ? (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                No hay bandejas de email con SMTP configurado. Configura una en Canales para poder enviar pruebas.
+              </p>
+            ) : (
+              <DropdownSelect
+                value={inboxId}
+                onChange={setInboxId}
+                options={inboxes.map((i) => ({
+                  value: i.id,
+                  label: i.metadata?.smtp?.fromEmail ? `${i.name} (${i.metadata.smtp.fromEmail})` : i.name,
+                }))}
+              />
+            )}
+          </div>
+
           {/* Email to */}
           <div>
             <label className="block text-[10px] font-medium text-muted-foreground uppercase mb-1">Correo destinatario</label>
@@ -133,7 +191,7 @@ export function TestEmailModal({ open, onClose, subject, html }: Props) {
           </button>
           <button
             onClick={handleSend}
-            disabled={!to.trim() || sending}
+            disabled={!to.trim() || !inboxId || sending}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-600 text-white text-sm font-medium disabled:opacity-50 transition-colors"
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

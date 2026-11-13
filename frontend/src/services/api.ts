@@ -629,6 +629,7 @@ export interface InboxSummary {
   channel: string;
   status: string;
   channelName: string | null;
+  metadata?: { smtp?: { host?: string; fromEmail?: string; user?: string } } | null;
 }
 
 export async function getInboxes(tenantId: string): Promise<InboxSummary[]> {
