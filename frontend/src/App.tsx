@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -112,9 +112,31 @@ function ProtectedAdminLayout() {
   );
 }
 
+/**
+ * Corrige URLs con barras duplicadas (ej. "//setup-password?token=...") que
+ * llegaron en correos antiguos, para que React Router las reconozca.
+ */
+function NormalizePath() {
+  const location = useLocation();
+  if (/\/{2,}/.test(location.pathname)) {
+    return (
+      <Navigate
+        to={{
+          pathname: location.pathname.replace(/\/{2,}/g, "/"),
+          search: location.search,
+          hash: location.hash,
+        }}
+        replace
+      />
+    );
+  }
+  return null;
+}
+
 function App() {
   return (
     <BrowserRouter>
+      <NormalizePath />
       <Toaster position="bottom-right" richColors closeButton />
       <AuthProvider>
         <PendingInvites />
@@ -211,6 +233,8 @@ function App() {
               <Route path="/:slug/integraciones/webhooks" element={<Webhooks />} />
               <Route path="/:slug/integraciones/woocommerce" element={<WooCommerceIntegration />} />
             </Route>
+            {/* URL desconocida: evita la pantalla en blanco */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </Suspense>
       </AuthProvider>

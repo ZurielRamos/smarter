@@ -159,7 +159,7 @@ export class TenantsController {
     email: string,
     name?: string,
   ): Promise<void> {
-    const loginUrl = this.configService.get('FRONTEND_URL', 'http://localhost:5173') + '/login';
+    const loginUrl = String(this.configService.get('FRONTEND_URL', 'http://localhost:5173')).replace(/\/+$/, '') + '/login';
 
     let user = await this.userRepo.findOne({ where: { email } });
 

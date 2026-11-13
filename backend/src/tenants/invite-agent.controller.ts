@@ -83,7 +83,7 @@ export class InviteAgentController {
       throw new BadRequestException(`Se alcanzó el límite de ${tenant.maxAgents} agentes para esta cuenta`);
     }
 
-    const loginUrl = this.configService.get('FRONTEND_URL', 'http://localhost:5173') + '/login';
+    const loginUrl = String(this.configService.get('FRONTEND_URL', 'http://localhost:5173')).replace(/\/+$/, '') + '/login';
 
     // Check if user already exists
     let user = await this.userRepo.findOne({ where: { email } });
@@ -169,7 +169,7 @@ export class InviteAgentController {
     const tenant = await this.tenantRepo.findOne({ where: { id: tenantId } });
     if (!tenant) throw new BadRequestException('Tenant no encontrado');
 
-    const loginUrl = this.configService.get('FRONTEND_URL', 'http://localhost:5173') + '/login';
+    const loginUrl = String(this.configService.get('FRONTEND_URL', 'http://localhost:5173')).replace(/\/+$/, '') + '/login';
     const setupToken = this.authService.generateSetupToken(user.id, user.email);
     const setupUrl = `${loginUrl.replace('/login', '/setup-password')}?token=${setupToken}`;
 
