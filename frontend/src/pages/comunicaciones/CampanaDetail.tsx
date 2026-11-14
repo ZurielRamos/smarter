@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Users, Send, Calendar, Clock, RefreshCw, Pencil, List, Settings2, Filter, Play, Pause, CheckCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MessageEditor } from "@/components/campaigns/MessageEditor";
+import { EditSendModal } from "@/components/campaigns/EditSendModal";
 import { WhatsAppTemplateSelector } from "@/components/campaigns/WhatsAppTemplateSelector";
 import { CallEditor } from "@/components/campaigns/CallEditor";
 import { EmailEditor } from "@/components/campaigns/EmailEditor";
@@ -152,6 +153,8 @@ export function CampanaDetail() {
   // Estado del modal de confirmación de reintento.
   const [retryTarget, setRetryTarget] = useState<{ sendId: string; errorCode: string | null; count: number } | null>(null);
   const [retrying, setRetrying] = useState(false);
+  // Ejecución del historial que se está editando en el modal.
+  const [editingSend, setEditingSend] = useState<CampaignSendRecord | null>(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const [recordLists, setRecordLists] = useState<RecordListItem[]>([]);
@@ -1194,6 +1197,17 @@ export function CampanaDetail() {
                               </button>
                             )}
                             <span className="text-xs text-muted-foreground">{new Date(s.createdAt).toLocaleString()}</span>
+                            {/* Editar / eliminar (no disponible mientras el envío está en curso) */}
+                            {!isActive && (
+                              <button
+                                type="button"
+                                onClick={() => setEditingSend(s)}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground border border-border hover:bg-muted rounded-md px-2 py-1 transition-colors"
+                                title="Editar ejecución"
+                              >
+                                <Pencil className="h-3 w-3" /> Editar
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -1385,6 +1399,20 @@ export function CampanaDetail() {
           </div>
         </div>
       )}
+
+      {/* Editar / eliminar una ejecución del historial */}
+      <EditSendModal
+        send={editingSend}
+        onClose={() => setEditingSend(null)}
+        onSaved={(updated) =>
+          setSends((prev) => prev.map((s) => (s.id === updated.id ? { ...s, ...updated } : s)))
+        }
+        onDeleted={(sendId) => {
+          setSends((prev) => prev.filter((s) => s.id !== sendId));
+          // Si estaba abierto el detalle de fallos de esa ejecución, lo cerramos.
+          setExpandedFailures((cur) => (cur === sendId ? null : cur));
+        }}
+      />
 
       {/* Confirmación de reintento de no entregados */}
       <ConfirmModal

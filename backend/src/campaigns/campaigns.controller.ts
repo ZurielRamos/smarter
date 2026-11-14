@@ -1,4 +1,7 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Req, UseGuards,
+  ForbiddenException, ParseUUIDPipe,
+} from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -178,6 +181,50 @@ export class CampaignsController {
   @Post(':id/send')
   sendCampaign(@Param('id') id: string) {
     return this.campaignsService.sendCampaign(id);
+  }
+
+  /**
+   * Las rutas `sends/:sendId` no traen tenantId, así que TenantAccessGuard no las
+   * protege. Verificamos aquí que el usuario pertenezca a la cuenta dueña de la campaña.
+   */
+  private async assertSendAccess(req: any, sendId: string): Promise<void> {
+    const tenantId = await this.campaignsService.getSendTenantId(sendId);
+    const user = req.user;
+    if (user?.isSuperAdmin) return;
+    const membership = user?.tenantRoles?.find((tr: any) => tr.tenantId === tenantId);
+    if (!membership || !membership.tenant) {
+      throw new ForbiddenException('No tienes acceso a esta cuenta');
+    }
+  }
+
+  // Editar los datos de una ejecución del historial.
+  @Patch('sends/:sendId')
+  async updateSend(
+    @Req() req: any,
+    @Param('sendId', ParseUUIDPipe) sendId: string,
+    @Body()
+    body: {
+      status?: string;
+      totalRecipients?: number;
+      totalSent?: number;
+      totalDelivered?: number;
+      totalFailed?: number;
+      totalUndelivered?: number;
+      errorMessage?: string | null;
+      startedAt?: string | null;
+      completedAt?: string | null;
+      createdAt?: string;
+    },
+  ) {
+    await this.assertSendAccess(req, sendId);
+    return this.campaignsService.updateSend(sendId, body);
+  }
+
+  // Eliminar una ejecución del historial (y sus registros por destinatario).
+  @Delete('sends/:sendId')
+  async deleteSend(@Req() req: any, @Param('sendId', ParseUUIDPipe) sendId: string) {
+    await this.assertSendAccess(req, sendId);
+    return this.campaignsService.deleteSend(sendId);
   }
 
   // Pausar un envío en curso (pausa cooperativa: el worker se detiene en el

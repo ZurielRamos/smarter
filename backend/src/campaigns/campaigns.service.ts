@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, SelectQueryBuilder } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -404,6 +404,128 @@ export class CampaignsService {
     return this.sendRepository.find({
       where: { campaignId },
       order: { createdAt: 'DESC' },
+    });
+  }
+
+  /** Estados en los que un worker puede estar procesando la ejecución. */
+  private static readonly ACTIVE_SEND_STATUSES = ['queued', 'sending'];
+  /** Estados que se pueden asignar a mano al editar una ejecución. */
+  private static readonly EDITABLE_SEND_STATUSES = ['pending', 'paused', 'completed', 'failed'];
+
+  /**
+   * tenantId dueño de una ejecución (vía su campaña). Sirve para verificar que el
+   * usuario pertenece a esa cuenta, ya que las rutas `sends/:sendId` no traen tenantId.
+   */
+  async getSendTenantId(sendId: string): Promise<string> {
+    const send = await this.sendRepository.findOne({
+      where: { id: sendId },
+      relations: { campaign: true },
+    });
+    if (!send || !send.campaign) throw new NotFoundException('Ejecución no encontrada');
+    return send.campaign.tenantId;
+  }
+
+  /**
+   * Edita los datos de una ejecución del historial. Solo toca los campos enviados
+   * (`undefined` = sin cambios; `null` en fechas/mensaje = vaciar). No permite editar
+   * una ejecución en curso ni dejarla en un estado "activo" a mano, porque el worker
+   * seguiría sobrescribiéndola o no habría nadie procesándola.
+   */
+  async updateSend(
+    sendId: string,
+    body: {
+      status?: string;
+      totalRecipients?: number;
+      totalSent?: number;
+      totalDelivered?: number;
+      totalFailed?: number;
+      totalUndelivered?: number;
+      errorMessage?: string | null;
+      startedAt?: string | null;
+      completedAt?: string | null;
+      createdAt?: string;
+    },
+  ): Promise<CampaignSend> {
+    const send = await this.sendRepository.findOne({ where: { id: sendId } });
+    if (!send) throw new NotFoundException('Ejecución no encontrada');
+    if (CampaignsService.ACTIVE_SEND_STATUSES.includes(send.status)) {
+      throw new BadRequestException('Pausa el envío antes de editarlo');
+    }
+
+    const patch: Partial<CampaignSend> = {};
+
+    if (body.status !== undefined) {
+      if (!CampaignsService.EDITABLE_SEND_STATUSES.includes(body.status)) {
+        throw new BadRequestException(
+          `Estado inválido. Opciones: ${CampaignsService.EDITABLE_SEND_STATUSES.join(', ')}`,
+        );
+      }
+      patch.status = body.status;
+    }
+
+    const counters = ['totalRecipients', 'totalSent', 'totalDelivered', 'totalFailed', 'totalUndelivered'] as const;
+    for (const key of counters) {
+      const value = body[key];
+      if (value === undefined) continue;
+      if (!Number.isInteger(value) || value < 0 || value > 2_147_483_647) {
+        throw new BadRequestException(`"${key}" debe ser un entero mayor o igual a 0`);
+      }
+      patch[key] = value;
+    }
+
+    if (body.errorMessage !== undefined) {
+      if (body.errorMessage !== null && typeof body.errorMessage !== 'string') {
+        throw new BadRequestException('"errorMessage" debe ser texto');
+      }
+      patch.errorMessage = (body.errorMessage?.trim() || null) as any;
+    }
+
+    const parseDate = (key: string, value: string): Date => {
+      const d = new Date(value);
+      if (typeof value !== 'string' || isNaN(d.getTime())) {
+        throw new BadRequestException(`"${key}" no es una fecha válida`);
+      }
+      return d;
+    };
+    if (body.startedAt !== undefined) {
+      patch.startedAt = (body.startedAt === null ? null : parseDate('startedAt', body.startedAt)) as any;
+    }
+    if (body.completedAt !== undefined) {
+      patch.completedAt = (body.completedAt === null ? null : parseDate('completedAt', body.completedAt)) as any;
+    }
+    if (body.createdAt !== undefined) {
+      if (body.createdAt === null) throw new BadRequestException('"createdAt" no puede estar vacío');
+      patch.createdAt = parseDate('createdAt', body.createdAt);
+    }
+
+    const startedAt = 'startedAt' in patch ? patch.startedAt : send.startedAt;
+    const completedAt = 'completedAt' in patch ? patch.completedAt : send.completedAt;
+    if (startedAt && completedAt && new Date(completedAt) < new Date(startedAt)) {
+      throw new BadRequestException('La fecha de fin no puede ser anterior a la de inicio');
+    }
+
+    if (Object.keys(patch).length > 0) {
+      await this.sendRepository.update(sendId, patch);
+    }
+    return this.sendRepository.findOneByOrFail({ id: sendId });
+  }
+
+  /**
+   * Elimina una ejecución del historial junto con sus registros por destinatario
+   * (`campaign_send_logs`, que no tiene FK). No devuelve créditos ya reservados ni
+   * revierte los mensajes enviados. Una ejecución en curso debe pausarse primero.
+   */
+  async deleteSend(sendId: string): Promise<{ deleted: boolean; deletedLogs: number }> {
+    const send = await this.sendRepository.findOne({ where: { id: sendId } });
+    if (!send) throw new NotFoundException('Ejecución no encontrada');
+    if (CampaignsService.ACTIVE_SEND_STATUSES.includes(send.status)) {
+      throw new BadRequestException('Pausa el envío antes de eliminarlo');
+    }
+
+    return this.sendRepository.manager.transaction(async (tx) => {
+      const logs = await tx.delete(CampaignSendLog, { sendId });
+      await tx.delete(CampaignSend, { id: sendId });
+      return { deleted: true, deletedLogs: logs.affected ?? 0 };
     });
   }
 
