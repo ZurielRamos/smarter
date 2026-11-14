@@ -171,6 +171,54 @@ export class MailService {
     }
   }
 
+  /** Código de 6 dígitos para restablecer la contraseña desde la app móvil. */
+  async sendPasswordResetCode(params: {
+    to: string;
+    name: string;
+    code: string;
+    expiresInMinutes: number;
+  }): Promise<void> {
+    const { to, name, code, expiresInMinutes } = params;
+    const escape = (value: string) =>
+      value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 0;">
+        <div style="background: #1a1a1a; padding: 24px 32px; border-radius: 12px 12px 0 0;">
+          <img src="https://crm.strategee.us/logo-dark.png" alt="Smarter" style="height: 28px;" />
+        </div>
+        <div style="background: #ffffff; padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+          <h2 style="color: #1a1a1a; margin: 0 0 16px 0; font-size: 20px;">Tu código de verificación</h2>
+          <p style="color: #4b5563; font-size: 14px; line-height: 1.6; margin: 0 0 8px 0;">
+            Hola <strong>${escape(name)}</strong>,
+          </p>
+          <p style="color: #4b5563; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
+            Usa este código en la app de Smarter para restablecer tu contraseña:
+          </p>
+          <div style="background: #f3f4f6; border-radius: 8px; padding: 18px; text-align: center; margin: 0 0 24px 0;">
+            <span style="font-family: 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #1a1a1a;">${code}</span>
+          </div>
+          <p style="color: #9ca3af; font-size: 12px; margin: 24px 0 0 0; padding-top: 16px; border-top: 1px solid #f3f4f6;">
+            El código expira en ${expiresInMinutes} minutos. Si no solicitaste este cambio, ignora este correo: tu contraseña no cambiará.
+          </p>
+        </div>
+      </div>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: this.from,
+        to,
+        subject: `${code} es tu código para restablecer la contraseña — Smarter`,
+        text: `Tu código para restablecer la contraseña de Smarter es ${code}. Expira en ${expiresInMinutes} minutos. Si no lo solicitaste, ignora este correo.`,
+        html,
+      });
+      this.logger.log(`Password reset code sent to ${to}`);
+    } catch (err) {
+      this.logger.error(`Failed to send password reset code to ${to}:`, err);
+    }
+  }
+
   async sendPasswordReset(params: {
     to: string;
     name: string;

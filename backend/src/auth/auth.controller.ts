@@ -1,5 +1,6 @@
 import { Controller, Post, Body, Get, Patch, UseGuards, Req, UseInterceptors, UploadedFile, UnauthorizedException } from '@nestjs/common';
 import { FirebaseAuthService } from './firebase-auth.service';
+import { PasswordResetService, RESET_CODE_TTL_MINUTES } from './password-reset.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -22,6 +23,7 @@ export class AuthController {
     private readonly mailService: MailService,
     private readonly mediaStorageService: MediaStorageService,
     private readonly firebaseAuth: FirebaseAuthService,
+    private readonly passwordReset: PasswordResetService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserTenant)
@@ -78,7 +80,7 @@ export class AuthController {
     }
 
     const token = this.authService.generateSetupToken(user.id, user.email);
-    const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:5173');
+    const frontendUrl = String(this.configService.get('FRONTEND_URL', 'http://localhost:5173')).replace(/\/+$/, '');
     const resetUrl = `${frontendUrl}/setup-password?token=${token}&mode=reset`;
 
     await this.mailService.sendPasswordReset({
@@ -88,6 +90,35 @@ export class AuthController {
     });
 
     return { status: 'sent', message: 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.' };
+  }
+
+  // === Restablecer contraseña con código (app móvil) ===
+
+  /** Envía un código de 6 dígitos al correo. La respuesta es la misma exista o no la cuenta. */
+  @Throttle({ short: { limit: 3, ttl: 60000 } })
+  @Post('password-reset/request')
+  async requestResetCode(@Body() body: { email?: string }) {
+    await this.passwordReset.request(body?.email ?? '');
+    return {
+      status: 'sent',
+      expiresInMinutes: RESET_CODE_TTL_MINUTES,
+      message: 'Si el correo está registrado, recibirás un código para restablecer tu contraseña.',
+    };
+  }
+
+  /** Comprueba el código y devuelve un token temporal para cambiar la contraseña. */
+  @Throttle({ short: { limit: 10, ttl: 60000 } })
+  @Post('password-reset/verify')
+  verifyResetCode(@Body() body: { email?: string; code?: string }) {
+    return this.passwordReset.verify(body?.email ?? '', body?.code ?? '');
+  }
+
+  /** Cambia la contraseña con el token de `verify` (un solo uso). */
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
+  @Post('password-reset/confirm')
+  async confirmPasswordReset(@Body() body: { resetToken?: string; newPassword?: string }) {
+    await this.passwordReset.confirm(body?.resetToken ?? '', body?.newPassword ?? '');
+    return { status: 'completed', message: 'Contraseña actualizada correctamente' };
   }
 
   /** Aceptar invitación a un tenant (usuario existente) */
