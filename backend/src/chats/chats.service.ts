@@ -220,6 +220,65 @@ export class ChatsService {
     private readonly flowTimersService: FlowTimersService,
   ) {}
 
+  /**
+   * Avisos de un mensaje entrante (no bloquea ni lanza):
+   * - Campana de la web: a los colaboradores de la bandeja, una por conversación sin leer
+   *   (si ya existe se actualiza el texto). Sin push.
+   * - Push al móvil: a los usuarios asignados al contacto (responsable y equipo asignado).
+   */
+  private notifyInboundMessage(
+    inbox: Inbox,
+    conversation: Conversation,
+    contactPhone: string | null | undefined,
+    content: string | null | undefined,
+    messageType: string,
+  ): void {
+    const body = (content || `[${messageType}]`).substring(0, 120);
+
+    void (async () => {
+      let contactLabel = conversation.contactName || contactPhone || 'Contacto';
+      if (conversation.recordId) {
+        const record = await this.clientRecordRepo.findOne({ where: { id: conversation.recordId } });
+        if (record) contactLabel = record.fullName || record.firstName || contactLabel;
+      }
+      const title = `Nuevo mensaje de ${contactLabel}`;
+
+      void this.notificationsService.pushNewMessage({
+        tenantId: inbox.tenantId,
+        recordId: conversation.recordId,
+        conversationId: conversation.id,
+        inboxId: inbox.id,
+        title,
+        body,
+      });
+
+      const userIds = await this.notificationsService.getInboxCollaboratorUserIds(inbox.id);
+      for (const uid of userIds) {
+        const existing = await this.notificationsService
+          .findUnreadByConversation(uid, conversation.id)
+          .catch(() => null);
+        if (existing) {
+          this.notificationsService.updateBody(existing.id, body, { push: false }).catch(() => {});
+        } else {
+          this.notificationsService
+            .notify(
+              {
+                tenantId: inbox.tenantId,
+                userId: uid,
+                type: 'message_received',
+                title,
+                body,
+                link: `/${inbox.tenantId}/comunicaciones/conversaciones/${conversation.id}`,
+                metadata: { conversationId: conversation.id, inboxId: inbox.id, messageType },
+              },
+              { push: false },
+            )
+            .catch(() => {});
+        }
+      }
+    })().catch(() => {});
+  }
+
   // === INBOXES ===
 
   async getInboxes(tenantId: string): Promise<Inbox[]> {
@@ -1836,61 +1895,7 @@ export class ChatsService {
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
-    // Notify inbox collaborators about the new inbound message
-    this.notificationsService
-      .getInboxCollaboratorUserIds(inbox.id)
-      .then(async (userIds) => {
-        // Resolve contact name from record
-        let contactLabel =
-          conversation.contactName || contactPhone || 'Contacto';
-        if (conversation.recordId) {
-          const record = await this.clientRecordRepo.findOne({
-            where: { id: conversation.recordId },
-          });
-          if (record) {
-            contactLabel =
-              record.fullName ||
-              record.firstName ||
-              conversation.contactName ||
-              contactPhone ||
-              'Contacto';
-          }
-        }
-        for (const uid of userIds) {
-          // Only create notification if user doesn't already have an unread one for this conversation
-          this.notificationsService
-            .findUnreadByConversation(uid, conversation.id)
-            .then((existing) => {
-              if (!existing) {
-                this.notificationsService
-                  .notify({
-                    tenantId: inbox.tenantId,
-                    userId: uid,
-                    type: 'message_received',
-                    title: `Nuevo mensaje de ${contactLabel}`,
-                    body: (content || `[${messageType}]`).substring(0, 120),
-                    link: `/${inbox.tenantId}/comunicaciones/conversaciones/${conversation.id}`,
-                    metadata: {
-                      conversationId: conversation.id,
-                      inboxId: inbox.id,
-                      messageType,
-                    },
-                  })
-                  .catch(() => {});
-              } else {
-                // Update existing notification body with latest message
-                this.notificationsService
-                  .updateBody(
-                    existing.id,
-                    (content || `[${messageType}]`).substring(0, 120),
-                  )
-                  .catch(() => {});
-              }
-            })
-            .catch(() => {});
-        }
-      })
-      .catch(() => {});
+    this.notifyInboundMessage(inbox, conversation, contactPhone, content, messageType);
 
     // Dispatch webhooks with full context
     const contactRecord = conversation.recordId
@@ -7778,53 +7783,7 @@ export class ChatsService {
     this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
     this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
 
-    // Notificar colaboradores del inbox
-    this.notificationsService
-      .getInboxCollaboratorUserIds(inbox.id)
-      .then(async (userIds) => {
-        let contactLabel =
-          conversation!.contactName || contactPhone || 'Contacto';
-        if (conversation!.recordId) {
-          const record = await this.clientRecordRepo.findOne({
-            where: { id: conversation!.recordId! },
-          });
-          if (record) {
-            contactLabel = record.fullName || record.firstName || contactLabel;
-          }
-        }
-        for (const uid of userIds) {
-          this.notificationsService
-            .findUnreadByConversation(uid, conversation!.id)
-            .then((existing) => {
-              if (!existing) {
-                this.notificationsService
-                  .notify({
-                    tenantId: inbox.tenantId,
-                    userId: uid,
-                    type: 'message_received',
-                    title: `Nuevo mensaje de ${contactLabel}`,
-                    body: (content || `[${messageType}]`).substring(0, 120),
-                    link: `/${inbox.tenantId}/comunicaciones/conversaciones/${conversation!.id}`,
-                    metadata: {
-                      conversationId: conversation!.id,
-                      inboxId: inbox.id,
-                      messageType,
-                    },
-                  })
-                  .catch(() => {});
-              } else {
-                this.notificationsService
-                  .updateBody(
-                    existing.id,
-                    (content || `[${messageType}]`).substring(0, 120),
-                  )
-                  .catch(() => {});
-              }
-            })
-            .catch(() => {});
-        }
-      })
-      .catch(() => {});
+    this.notifyInboundMessage(inbox, conversation, contactPhone, content, messageType);
 
     // Dispatch webhooks
     const contactRecord = conversation.recordId

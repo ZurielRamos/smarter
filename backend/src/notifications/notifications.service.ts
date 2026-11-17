@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Notification } from './notification.entity';
 import { NotificationsGateway } from './notifications.gateway';
 import { User } from '../users/user.entity';
@@ -44,8 +44,10 @@ export class NotificationsService {
   /**
    * Create a notification, persist it, and emit via WebSocket.
    * Respects user notification preferences.
+   * `push: false` la deja solo en la campana de la web (p. ej. mensajes entrantes: su push va
+   * a los asignados del contacto con `pushNewMessage`).
    */
-  async notify(params: NotifyParams): Promise<Notification | null> {
+  async notify(params: NotifyParams, options: { push?: boolean } = {}): Promise<Notification | null> {
     // Check user notification preferences (fail-safe: if check fails, still notify)
     try {
       const user = await this.userRepo.findOne({
@@ -75,9 +77,68 @@ export class NotificationsService {
 
     // Emit via WebSocket
     this.gateway.emitNotification(params.userId, saved);
-    this.push(saved);
+    if (options.push !== false) this.push(saved);
 
     return saved;
+  }
+
+  /**
+   * Usuarios asignados al contacto: el responsable (`assigned_to`) y los miembros del equipo
+   * asignado (`assigned_team_id`). Solo quienes siguen activos en la cuenta del contacto.
+   */
+  async getContactAssigneeUserIds(tenantId: string, recordId: string): Promise<string[]> {
+    const rows: { id: string }[] = await this.notificationRepo.query(
+      `SELECT DISTINCT ut.user_id AS id
+       FROM clients c
+       JOIN user_tenants ut ON ut.tenant_id = c.tenant_id AND ut.status = 'active'
+       WHERE c.id = $1 AND c.tenant_id = $2
+         AND (
+           ut.user_id = c.assigned_to
+           OR ut.user_id IN (SELECT tm.user_id FROM team_members tm WHERE tm.team_id = c.assigned_team_id)
+         )`,
+      [recordId, tenantId],
+    );
+    return rows.map((r) => r.id);
+  }
+
+  /**
+   * Push de un mensaje entrante a los usuarios asignados al contacto que lo envió. Sin contacto
+   * o sin asignados no se envía push. Respeta la preferencia `message_received` de cada usuario.
+   * Nunca lanza.
+   */
+  async pushNewMessage(params: {
+    tenantId: string;
+    recordId: string | null | undefined;
+    conversationId: string;
+    inboxId: string;
+    title: string;
+    body: string;
+  }): Promise<void> {
+    try {
+      if (!params.recordId) return;
+      const userIds = await this.getContactAssigneeUserIds(params.tenantId, params.recordId);
+      if (userIds.length === 0) return;
+
+      const users = await this.userRepo.find({
+        where: { id: In(userIds) },
+        select: { id: true, notificationPreferences: true },
+      });
+      for (const user of users) {
+        if (user.notificationPreferences?.['message_received'] === false) continue;
+        void this.pushService.sendToUser(user.id, {
+          title: params.title,
+          body: params.body,
+          data: {
+            type: 'message_received',
+            tenantId: params.tenantId,
+            conversationId: params.conversationId,
+            inboxId: params.inboxId,
+          },
+        });
+      }
+    } catch {
+      // Un fallo al resolver destinatarios no debe afectar al flujo de mensajes.
+    }
   }
 
   /**
@@ -147,12 +208,12 @@ export class NotificationsService {
    * Update the body of an existing notification (e.g., with the latest message).
    * Also re-emits via WebSocket so the frontend can show a toast.
    */
-  async updateBody(id: string, body: string): Promise<void> {
+  async updateBody(id: string, body: string, options: { push?: boolean } = {}): Promise<void> {
     await this.notificationRepo.update(id, { body, createdAt: new Date() });
     const updated = await this.notificationRepo.findOneBy({ id });
     if (updated) {
       this.gateway.emitNotification(updated.userId, updated);
-      this.push(updated);
+      if (options.push !== false) this.push(updated);
     }
   }
 

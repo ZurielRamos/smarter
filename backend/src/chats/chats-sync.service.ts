@@ -218,8 +218,13 @@ export class ChatsSyncService {
       status: c.status,
       lastMessage: c.lastMessage,
       lastMessageAt: c.lastMessageAt,
+      // 'campaign' | 'api' | 'automation' | null: la app oculta las de campaña, como la web.
+      lastMessageSource: c.lastMessageSource ?? null,
       unreadCount: c.unreadCount,
       botStatus: c.botStatus,
+      // Atribución de pauta: la app marca el avatar igual que el frontend.
+      hasAdTracking: c.hasAdTracking,
+      adPlatform: c.adPlatform,
       labelIds: c.labelIds ?? [],
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
