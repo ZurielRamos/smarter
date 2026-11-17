@@ -13,4 +13,6 @@ export class UpdateTenantFeaturesDto {
   cursos?: boolean;
   /** Activa/desactiva el módulo de Automatizaciones (canvas de flujos e integraciones) */
   automatizaciones?: boolean;
+  /** Activa/desactiva el módulo de Reclutamiento (cuenta reclutadora de encuestadores) */
+  reclutamiento?: boolean;
 }

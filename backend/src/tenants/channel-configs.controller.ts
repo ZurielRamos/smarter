@@ -12,9 +12,10 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { ChannelConfigsService } from './channel-configs.service';
+import { TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 
 @Controller('channel-configs')
-@UseGuards(JwtAuthGuard, TenantAccessGuard)
+@UseGuards(JwtAuthGuard, TenantAccessGuard, TenantResourceGuard)
 export class ChannelConfigsController {
   constructor(private readonly service: ChannelConfigsService) {}
 
@@ -24,6 +25,8 @@ export class ChannelConfigsController {
   }
 
   @Get(':id')
+
+  @TenantResource('channelConfig')
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
   }
@@ -42,6 +45,8 @@ export class ChannelConfigsController {
   }
 
   @Put(':id')
+
+  @TenantResource('channelConfig')
   update(
     @Param('id') id: string,
     @Body()
@@ -55,6 +60,8 @@ export class ChannelConfigsController {
   }
 
   @Delete(':id')
+
+  @TenantResource('channelConfig')
   remove(@Param('id') id: string) {
     return this.service.remove(id);
   }

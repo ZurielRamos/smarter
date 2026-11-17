@@ -6,9 +6,12 @@ import { Survey } from './survey.entity';
 import { SurveyResponse } from './survey-response.entity';
 import { ClientRecord } from '../records/record.entity';
 import { CustomField } from '../records/custom-field.entity';
+import { Tenant } from '../tenants/tenant.entity';
+import { UserTenant } from '../users/user-tenant.entity';
 import { SurveysController } from './surveys.controller';
 import { SurveysService } from './surveys.service';
 import { SurveyCrmService } from './survey-crm.service';
+import { SurveyAccessGuard } from './survey-access.guard';
 
 /**
  * Módulo de Encuestas.
@@ -21,11 +24,11 @@ import { SurveyCrmService } from './survey-crm.service';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Survey, SurveyResponse, ClientRecord, CustomField]),
+    TypeOrmModule.forFeature([Survey, SurveyResponse, ClientRecord, CustomField, Tenant, UserTenant]),
     WhatsAppFlowsModule,
   ],
   controllers: [SurveysController],
-  providers: [SurveysService, SurveyCrmService],
+  providers: [SurveysService, SurveyCrmService, SurveyAccessGuard],
   exports: [SurveysService],
 })
 export class SurveysModule implements OnModuleInit {

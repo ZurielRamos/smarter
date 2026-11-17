@@ -8,7 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tenant } from '../tenants/tenant.entity';
-import { REQUIRES_FEATURE_KEY, TenantFeature } from './requires-feature.decorator';
+import { REQUIRES_FEATURE_KEY, TenantFeature, isFeatureEnabled } from './requires-feature.decorator';
 
 /**
  * Guard que bloquea el acceso a módulos opcionales del CRM cuando el feature flag
@@ -53,7 +53,7 @@ export class ModuleFeatureGuard implements CanActivate {
       throw new ForbiddenException('Cuenta no encontrada');
     }
 
-    if (!tenant.features?.[feature]) {
+    if (!isFeatureEnabled(tenant.features, feature)) {
       throw new ForbiddenException(
         `El módulo "${feature}" no está activo para esta cuenta`,
       );

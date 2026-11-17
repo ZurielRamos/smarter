@@ -13,13 +13,14 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { EvolutionService } from './evolution.service';
 import { ChatsService } from '../chats/chats.service';
+import { AuthOnly, TenantRefs, TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 
 /**
  * Controlador para gestión de instancias Evolution API
  * y recepción de webhooks de mensajes entrantes.
  */
 @Controller('evolution')
-@UseGuards(JwtAuthGuard, TenantAccessGuard)
+@UseGuards(JwtAuthGuard, TenantAccessGuard, TenantResourceGuard)
 export class EvolutionController {
   private readonly logger = new Logger(EvolutionController.name);
 
@@ -36,6 +37,7 @@ export class EvolutionController {
    * El frontend debe llamar esto después de crear el inbox con channel='evolution'.
    */
   @Post('instances')
+  @TenantRefs({ kind: 'inbox', in: 'body', field: 'inboxId' })
   async createInstance(@Body() body: { inboxId: string }) {
     const inbox = await this.chatsService.findInboxById(body.inboxId);
     const baseUrl = this.configService.get<string>('EVOLUTION_WEBHOOK_BASE_URL')
@@ -65,6 +67,7 @@ export class EvolutionController {
    * Obtiene el QR code para conectar WhatsApp a la instancia.
    */
   @Get('instances/:inboxId/qr')
+  @TenantResource('inbox', 'inboxId')
   async getQrCode(@Param('inboxId') inboxId: string) {
     const inbox = await this.chatsService.findInboxById(inboxId);
     const instanceName = inbox.metadata?.evolutionInstanceName;
@@ -88,6 +91,7 @@ export class EvolutionController {
    * Obtiene el estado actual de conexión de la instancia.
    */
   @Get('instances/:inboxId/status')
+  @TenantResource('inbox', 'inboxId')
   async getStatus(@Param('inboxId') inboxId: string) {
     const inbox = await this.chatsService.findInboxById(inboxId);
     const instanceName = inbox.metadata?.evolutionInstanceName;
@@ -117,6 +121,7 @@ export class EvolutionController {
    * Reinicia la instancia (útil para reconexión).
    */
   @Post('instances/:inboxId/restart')
+  @TenantResource('inbox', 'inboxId')
   async restartInstance(@Param('inboxId') inboxId: string) {
     const inbox = await this.chatsService.findInboxById(inboxId);
     const instanceName = inbox.metadata?.evolutionInstanceName;
@@ -133,6 +138,7 @@ export class EvolutionController {
    * Desconecta la instancia (logout de WhatsApp).
    */
   @Post('instances/:inboxId/logout')
+  @TenantResource('inbox', 'inboxId')
   async logout(@Param('inboxId') inboxId: string) {
     const inbox = await this.chatsService.findInboxById(inboxId);
     const instanceName = inbox.metadata?.evolutionInstanceName;
@@ -152,6 +158,7 @@ export class EvolutionController {
    * Elimina la instancia de Evolution y limpia el inbox.
    */
   @Delete('instances/:inboxId')
+  @TenantResource('inbox', 'inboxId')
   async deleteInstance(@Param('inboxId') inboxId: string) {
     const inbox = await this.chatsService.findInboxById(inboxId);
     const instanceName = inbox.metadata?.evolutionInstanceName;
@@ -180,6 +187,7 @@ export class EvolutionController {
    * Health check de la conexión con Evolution API.
    */
   @Get('health')
+  @AuthOnly()
   async health() {
     const ok = await this.evolutionService.healthCheck();
     return { evolution: ok ? 'ok' : 'unreachable' };

@@ -4,8 +4,10 @@ import {
   Post,
   Body,
   Param,
+  Req,
   UseGuards,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -18,7 +20,8 @@ import { UserTenant } from '../users/user-tenant.entity';
 import { Tenant } from './tenant.entity';
 import { MailService } from '../mail/mail.service';
 import { ConfigService } from '@nestjs/config';
-import { TenantRole } from '../users/enums/tenant-role.enum';
+import { TenantRole, isAdminRole } from '../users/enums/tenant-role.enum';
+import { TenantsService } from './tenants.service';
 
 @Controller('tenants')
 @UseGuards(JwtAuthGuard, TenantAccessGuard)
@@ -35,12 +38,21 @@ export class InviteAgentController {
     private readonly authService: AuthService,
   ) {}
 
+  /** Invitar y reenviar invitaciones es de administradores (un agente o viewer no puede invitar admins). */
+  private assertAdmin(user: any, tenantId: string): void {
+    if (user?.isSuperAdmin) return;
+    const membership = user?.tenantRoles?.find((tr: any) => tr.tenantId === tenantId);
+    if (!membership || !isAdminRole(membership.role)) {
+      throw new ForbiddenException('Necesitas permisos de administrador en esta cuenta');
+    }
+  }
+
   /**
    * Get tenant members — accessible by any tenant member (not just super admin).
    */
   @Get(':tenantId/members')
   async getMembers(@Param('tenantId') tenantId: string) {
-    return this.userTenantRepo.find({
+    const members = await this.userTenantRepo.find({
       where: [
         { tenantId, status: 'active' },
         { tenantId, status: 'pending' },
@@ -48,13 +60,17 @@ export class InviteAgentController {
       relations: { user: true },
       order: { createdAt: 'ASC' },
     });
+    // Sin credenciales (apiToken, hash) ni datos de otras cuentas del usuario.
+    return members.map((m) => TenantsService.publicMember(m));
   }
 
   @Post(':tenantId/invite')
   async inviteAgent(
     @Param('tenantId') tenantId: string,
     @Body() body: { name: string; email: string; role: TenantRole },
+    @Req() req: any,
   ) {
+    this.assertAdmin(req.user, tenantId);
     const { name, email, role } = body;
 
     if (!name || !email || !role) {
@@ -157,7 +173,9 @@ export class InviteAgentController {
   async resendInvite(
     @Param('tenantId') tenantId: string,
     @Body() body: { userId: string },
+    @Req() req: any,
   ) {
+    this.assertAdmin(req.user, tenantId);
     const ut = await this.userTenantRepo.findOne({
       where: { userId: body.userId, tenantId, status: 'pending' },
     });

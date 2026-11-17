@@ -1,14 +1,17 @@
 import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { ContactEventsService } from './contact-events.service';
+import { TenantRefs, TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 
 @Controller('contact-events')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantAccessGuard, TenantResourceGuard)
 export class ContactEventsController {
   constructor(private readonly contactEventsService: ContactEventsService) {}
 
   /** Create a contact event (from agent UI) */
   @Post()
+  @TenantRefs({ kind: 'record', in: 'body', field: 'recordId' })
   create(@Body() body: {
     tenantId: string;
     recordId: string;
@@ -28,6 +31,7 @@ export class ContactEventsController {
 
   /** Get events for a specific contact (timeline) */
   @Get()
+  @TenantRefs({ kind: 'record', in: 'query', field: 'recordId' })
   getByRecord(
     @Query('recordId') recordId: string,
     @Query('limit') limit?: string,
@@ -55,6 +59,8 @@ export class ContactEventsController {
   }
 
   @Delete(':id')
+
+  @TenantResource('contactEvent')
   delete(@Param('id') id: string) {
     return this.contactEventsService.delete(id);
   }

@@ -56,6 +56,8 @@ export class Tenant {
     cursos?: boolean;
     /** Módulo Automatizaciones (canvas de flujos con integraciones) */
     automatizaciones?: boolean;
+    /** Módulo Reclutamiento (encuestadores con contrato y pagos; cuenta reclutadora) */
+    reclutamiento?: boolean;
   } | null;
 
   /**

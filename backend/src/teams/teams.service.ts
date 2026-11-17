@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Team } from './team.entity';
@@ -30,7 +30,8 @@ export class TeamsService {
 
   async update(id: string, data: { name?: string; description?: string }): Promise<Team> {
     const team = await this.findOne(id);
-    Object.assign(team, data);
+    if (data.name !== undefined) team.name = data.name;
+    if (data.description !== undefined) team.description = data.description;
     return this.teamRepo.save(team);
   }
 
@@ -48,6 +49,14 @@ export class TeamsService {
   }
 
   async addMember(teamId: string, userId: string): Promise<TeamMember> {
+    // Solo se agregan usuarios que ya pertenecen a la cuenta del equipo.
+    if (typeof userId !== 'string' || !/^[0-9a-f-]{36}$/i.test(userId)) throw new BadRequestException('Usuario inválido');
+    const team = await this.findOne(teamId);
+    const rows = await this.memberRepo.manager.query(
+      "SELECT 1 FROM user_tenants WHERE user_id = $1 AND tenant_id = $2 AND status IN ('active', 'pending')",
+      [userId, team.tenantId],
+    );
+    if (!rows?.length) throw new BadRequestException('El usuario no pertenece a esta cuenta');
     const existing = await this.memberRepo.findOne({ where: { teamId, userId } });
     if (existing) return existing;
     const member = this.memberRepo.create({ teamId, userId });

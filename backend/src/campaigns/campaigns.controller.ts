@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantResourceService } from '../auth/tenant-resource.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { CampaignsService } from './campaigns.service';
 import { WhatsAppService } from './whatsapp.service';
@@ -10,9 +11,10 @@ import { SegmentGroup } from './campaign.entity';
 import { CustomField } from '../records/custom-field.entity';
 import { ATTRIBUTION_FIELDS } from '../records/attribution-fields';
 import { CampaignSendLog } from './campaign-send-log.entity';
+import { AuthOnly, ReadAction, TenantRefs, TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 
 @Controller('campaigns')
-@UseGuards(JwtAuthGuard, TenantAccessGuard)
+@UseGuards(JwtAuthGuard, TenantAccessGuard, TenantResourceGuard)
 export class CampaignsController {
   constructor(
     private readonly campaignsService: CampaignsService,
@@ -21,6 +23,7 @@ export class CampaignsController {
     private readonly customFieldRepo: Repository<CustomField>,
     @InjectRepository(CampaignSendLog)
     private readonly campaignSendLogRepo: Repository<CampaignSendLog>,
+    private readonly tenantResources: TenantResourceService,
   ) {}
 
   @Get()
@@ -31,8 +34,11 @@ export class CampaignsController {
   // === WhatsApp Templates (must be before :id routes) ===
 
   @Get('whatsapp/templates')
-  async getWhatsAppTemplates(@Query('inboxId') inboxId?: string) {
+
+  @AuthOnly()
+  async getWhatsAppTemplates(@Req() req: any, @Query('inboxId') inboxId?: string) {
     if (!inboxId) return [];
+    await this.tenantResources.assertAccess(req.user, 'inbox', inboxId);
     // Get inbox credentials
     const inbox = await this.campaignsService.getInboxById(inboxId);
     if (!inbox || !inbox.accessToken || !inbox.wabaId) return [];
@@ -80,11 +86,15 @@ export class CampaignsController {
   }
 
   @Get(':id')
+
+  @TenantResource('campaign')
   findOne(@Param('id') id: string) {
     return this.campaignsService.findOne(id);
   }
 
   @Post()
+
+  @TenantRefs({ kind: 'inbox', in: 'body', field: 'inboxId' }, { kind: 'recordList', in: 'body', field: 'listId' }, { kind: 'template', in: 'body', field: 'emailTemplateId' })
   create(
     @Body()
     body: {
@@ -100,6 +110,10 @@ export class CampaignsController {
   }
 
   @Put(':id')
+
+  @TenantResource('campaign')
+
+  @TenantRefs({ kind: 'inbox', in: 'body', field: 'inboxId' }, { kind: 'recordList', in: 'body', field: 'listId' }, { kind: 'template', in: 'body', field: 'emailTemplateId' })
   update(
     @Param('id') id: string,
     @Body() body: Partial<{
@@ -132,11 +146,15 @@ export class CampaignsController {
   }
 
   @Delete(':id')
+
+  @TenantResource('campaign')
   delete(@Param('id') id: string) {
     return this.campaignsService.delete(id);
   }
 
   @Post('preview')
+
+  @ReadAction()
   preview(@Body() body: { segments: SegmentGroup[]; tenantId?: string; channel?: string }) {
     return this.campaignsService.preview(body.segments, body.tenantId, body.channel);
   }
@@ -145,12 +163,14 @@ export class CampaignsController {
   // Se exime del rate limiter para que el seguimiento del progreso no genere 429.
   @SkipThrottle()
   @Get(':id/sends')
+  @TenantResource('campaign')
   getSends(@Param('id') id: string) {
     return this.campaignsService.getSends(id);
   }
 
   // Detalle de fallos de una ejecución: teléfono, contacto y motivo del fallo.
   @Get('sends/:sendId/failures')
+  @TenantResource('campaignSend', 'sendId')
   getSendFailures(@Param('sendId') sendId: string) {
     return this.campaignsService.getSendFailures(sendId);
   }
@@ -158,6 +178,7 @@ export class CampaignsController {
   // No entregados de una ejecución (status='undelivered', p. ej. WhatsApp 131026),
   // con resumen agrupado por código de error. ?errorCode filtra el detalle.
   @Get('sends/:sendId/undelivered')
+  @TenantResource('campaignSend', 'sendId')
   getUndelivered(
     @Param('sendId') sendId: string,
     @Query('errorCode') errorCode?: string,
@@ -168,6 +189,7 @@ export class CampaignsController {
   // Reintenta los no entregados de una ejecución creando una nueva ejecución con
   // ese subconjunto. ?errorCode limita el reintento a un código específico.
   @Post('sends/:sendId/retry-undelivered')
+  @TenantResource('campaignSend', 'sendId')
   retryUndelivered(
     @Param('sendId') sendId: string,
     @Query('errorCode') errorCode?: string,
@@ -176,6 +198,8 @@ export class CampaignsController {
   }
 
   @Post(':id/send')
+
+  @TenantResource('campaign')
   sendCampaign(@Param('id') id: string) {
     return this.campaignsService.sendCampaign(id);
   }
@@ -183,12 +207,14 @@ export class CampaignsController {
   // Pausar un envío en curso (pausa cooperativa: el worker se detiene en el
   // siguiente lote y guarda el cursor).
   @Post('sends/:sendId/pause')
+  @TenantResource('campaignSend', 'sendId')
   pauseSend(@Param('sendId') sendId: string) {
     return this.campaignsService.pauseSend(sendId);
   }
 
   // Reanudar un envío pausado (continúa desde donde quedó, sin re-reservar).
   @Post('sends/:sendId/resume')
+  @TenantResource('campaignSend', 'sendId')
   resumeSend(@Param('sendId') sendId: string) {
     return this.campaignsService.resumeSend(sendId);
   }
@@ -200,6 +226,7 @@ export class CampaignsController {
    */
   @SkipThrottle()
   @Get(':id/stats')
+  @TenantResource('campaign')
   async getStats(@Param('id') id: string, @Query('sendId') sendId?: string) {
     const where: any = { campaignId: id };
     if (sendId) where.sendId = sendId;

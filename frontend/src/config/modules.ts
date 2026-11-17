@@ -66,6 +66,13 @@ export const TENANT_MODULES: ModuleDef[] = [
     path: "automatizaciones",
     defaultOn: false,
   },
+  {
+    key: "reclutamiento",
+    label: "Reclutamiento",
+    description: "Cuenta reclutadora: encuestadores con contrato y datos de pago verificados",
+    path: "reclutamiento",
+    defaultOn: false,
+  },
 ];
 
 /** Módulos administrables (se pueden encender/apagar) para el panel de admin. */

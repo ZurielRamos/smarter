@@ -30,7 +30,10 @@ export class WebhooksService {
   }
 
   async update(id: string, data: Partial<{ name: string; url: string; events: string[]; enabled: boolean; secret: string }>): Promise<Webhook> {
-    await this.webhookRepo.update(id, data as any);
+    // Solo estos campos se editan; la cuenta del webhook no cambia.
+    const { name, url, events, enabled, secret } = data;
+    const changes = Object.fromEntries(Object.entries({ name, url, events, enabled, secret }).filter(([, v]) => v !== undefined));
+    if (Object.keys(changes).length) await this.webhookRepo.update(id, changes as any);
     return this.webhookRepo.findOneBy({ id }) as Promise<Webhook>;
   }
 

@@ -64,13 +64,24 @@ export class BotsService {
 
   async update(id: string, dto: UpdateBotDto): Promise<Bot> {
     const bot = await this.findOne(id);
-    Object.assign(bot, dto);
+    // Nunca se acepta del cliente la identidad ni la cuenta del bot.
+    const { id: _id, tenantId: _tenantId, tenant: _tenant, createdAt: _c, updatedAt: _u, ...changes } = dto as Record<string, any>;
+    Object.assign(bot, changes);
     return this.botRepo.save(bot);
   }
 
   async remove(id: string): Promise<void> {
     const bot = await this.findOne(id);
     await this.botRepo.remove(bot);
+  }
+
+  /** La conversación debe ser de la misma cuenta que el bot (por su buzón). 404 si no. */
+  async assertConversationInTenant(conversationId: string, tenantId: string): Promise<void> {
+    const rows = await this.conversationRepo.manager.query(
+      'SELECT 1 FROM conversations c JOIN inboxes i ON i.id = c.inbox_id WHERE c.id = $1 AND i.tenant_id = $2',
+      [conversationId, tenantId],
+    );
+    if (!rows?.length) throw new NotFoundException('Conversación no encontrada');
   }
 
   async getConversation(conversationId: string): Promise<Conversation> {
@@ -218,7 +229,9 @@ export class BotsService {
   async updateTool(id: string, dto: UpdateBotToolDto): Promise<BotTool> {
     const tool = await this.botToolRepo.findOne({ where: { id } });
     if (!tool) throw new NotFoundException('Tool no encontrada');
-    Object.assign(tool, dto);
+    // El bot al que pertenece la herramienta no se cambia desde el cliente.
+    const { id: _id, botId: _botId, bot: _bot, createdAt: _c, updatedAt: _u, ...changes } = dto as Record<string, any>;
+    Object.assign(tool, changes);
     return this.botToolRepo.save(tool);
   }
 

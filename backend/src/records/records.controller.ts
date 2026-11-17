@@ -3,9 +3,10 @@ import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { RecordsService } from './records.service';
+import { ReadAction, TenantRefs, TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 
 @Controller('records')
-@UseGuards(JwtAuthGuard, TenantAccessGuard)
+@UseGuards(JwtAuthGuard, TenantAccessGuard, TenantResourceGuard)
 export class RecordsController {
   constructor(private readonly recordsService: RecordsService) {}
 
@@ -77,6 +78,8 @@ export class RecordsController {
   }
 
   @Post('export')
+
+  @ReadAction()
   async exportCsv(
     @Body() body: {
       tenantId: string;
@@ -121,21 +124,29 @@ export class RecordsController {
   }
 
   @Get('notes')
+
+  @TenantRefs({ kind: 'record', in: 'query', field: 'recordId' })
   getNotes(@Query('recordId') recordId: string, @Query('page') page = '1', @Query('limit') limit = '20') {
     return this.recordsService.getNotes(recordId, +page, +limit);
   }
 
   @Post('notes')
+
+  @TenantRefs({ kind: 'record', in: 'body', field: 'recordId' })
   createNote(@Body() body: { tenantId: string; recordId: string; content: string; authorId?: string; authorName?: string }) {
     return this.recordsService.createNote(body);
   }
 
   @Delete('notes/:noteId')
+
+  @TenantResource('recordNote', 'noteId')
   deleteNote(@Param('noteId') noteId: string) {
     return this.recordsService.deleteNote(noteId);
   }
 
   @Put('bulk')
+
+  @TenantRefs({ kind: 'record', in: 'body', field: 'ids', many: true })
   bulkUpdate(@Body() body: { ids?: string[]; filters?: Array<{ field: string; operator: string; value: string }>; tenantId?: string; assignedTo?: string; assignedTeamId?: string; updates: Partial<{ status: string; assignedTo: string | null; assignedTeamId: string | null; tags: string[]; customData: Record<string, any> }>; actorId?: string; actorName?: string }) {
     if (body.ids && body.ids.length > 0) {
       return this.recordsService.bulkUpdate(body.ids, body.updates, body.actorId, body.actorName);
@@ -145,6 +156,8 @@ export class RecordsController {
   }
 
   @Delete('bulk')
+
+  @TenantRefs({ kind: 'record', in: 'body', field: 'ids', many: true })
   bulkDelete(@Body() body: { ids?: string[]; filters?: Array<{ field: string; operator: string; value: string }>; tenantId?: string; assignedTo?: string; assignedTeamId?: string }) {
     if (body.ids && body.ids.length > 0) {
       return this.recordsService.bulkDelete(body.ids);
@@ -153,6 +166,10 @@ export class RecordsController {
   }
 
   @Post('bulk/delete-preview')
+
+  @ReadAction()
+
+  @TenantRefs({ kind: 'record', in: 'body', field: 'ids', many: true })
   deletePreview(@Body() body: { ids?: string[]; filters?: Array<{ field: string; operator: string; value: string }>; tenantId?: string; assignedTo?: string; assignedTeamId?: string }) {
     if (body.ids && body.ids.length > 0) {
       return this.recordsService.getDeletePreview(body.ids);
@@ -161,17 +178,22 @@ export class RecordsController {
   }
 
   @Post('bulk/restore')
+
+  @TenantRefs({ kind: 'record', in: 'body', field: 'ids', many: true })
   restoreDeleted(@Body() body: { ids: string[] }) {
     return this.recordsService.restoreDeleted(body.ids);
   }
 
   @Delete('bulk/permanent')
+
+  @TenantRefs({ kind: 'record', in: 'body', field: 'ids', many: true })
   permanentDelete(@Body() body: { ids: string[] }) {
     return this.recordsService.permanentDelete(body.ids);
   }
 
   /** Historial de touchpoints (origen/atribución) de un contacto. tenantId es obligatorio. */
   @Get('touchpoints')
+  @TenantRefs({ kind: 'record', in: 'query', field: 'recordId' })
   getTouchpoints(
     @Query('tenantId') tenantId: string,
     @Query('recordId') recordId: string,
@@ -184,11 +206,15 @@ export class RecordsController {
   }
 
   @Get('activities')
+
+  @TenantRefs({ kind: 'record', in: 'query', field: 'recordId' })
   getActivities(@Query('recordId') recordId: string, @Query('page') page = '1', @Query('limit') limit = '30') {
     return this.recordsService.getActivities(recordId, +page, +limit);
   }
 
   @Post('normalize-phones/preview')
+
+  @ReadAction()
   previewPhoneNormalization(
     @Body() body: { tenantId: string; country?: string; cleanFormat?: boolean; custom?: { code?: string; digits?: number[] } },
   ) {
@@ -215,11 +241,15 @@ export class RecordsController {
   }
 
   @Post('duplicates/detect')
+
+  @ReadAction()
   detectDuplicates(@Body() body: { tenantId: string; criteria?: string[] }) {
     return this.recordsService.detectDuplicates(body.tenantId, body.criteria);
   }
 
   @Post('duplicates/merge')
+
+  @TenantRefs({ kind: 'record', in: 'body', field: 'winnerId' }, { kind: 'record', in: 'body', field: 'loserIds', many: true })
   mergeRecords(
     @Body() body: { tenantId: string; winnerId: string; loserIds: string[] },
     @Req() req: any,
@@ -233,18 +263,26 @@ export class RecordsController {
   }
 
   @Get(':id')
+
+  @TenantResource('record')
   findOne(@Param('id') id: string) {
     return this.recordsService.findOneById(id);
   }
 
   @Put(':id')
+
+  @TenantResource('record')
   update(@Param('id') id: string, @Body() body: Partial<{ avatarUrl: string; firstName: string; lastName: string; company: string; jobTitle: string; phone: string; countryCode: string; email: string; website: string; documentType: string; documentNumber: string; gender: string; birthDate: string; city: string; region: string; address: string; status: string; channelSource: string; source: string; score: number; optInWhatsapp: boolean; optInEmail: boolean; assignedTo: string; assignedTeamId: string; tags: string[]; notes: string; customData: Record<string, any> }>, @Req() req: any) {
-    const data: any = { ...body };
+    // La cuenta y la identidad del contacto no se cambian desde el cliente.
+    const { id: _id, tenantId: _tenantId, tenant: _tenant, deletedAt: _deletedAt, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = body as Record<string, any>;
+    const data: any = { ...rest };
     if (data.birthDate) data.birthDate = new Date(data.birthDate);
     return this.recordsService.updateRecord(id, data, { actorId: req.user?.id, actorName: req.user?.name });
   }
 
   @Delete(':id')
+
+  @TenantResource('record')
   remove(@Param('id') id: string) {
     return this.recordsService.deleteRecord(id);
   }

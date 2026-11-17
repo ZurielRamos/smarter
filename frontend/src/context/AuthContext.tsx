@@ -10,6 +10,7 @@ export interface TenantFeatures {
   encuestas?: boolean;
   cursos?: boolean;
   automatizaciones?: boolean;
+  reclutamiento?: boolean;
   [key: string]: unknown;
 }
 

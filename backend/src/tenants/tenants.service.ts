@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tenant } from './tenant.entity';
@@ -142,6 +142,36 @@ export class TenantsService {
     return this.tenantRepo.save(tenant);
   }
 
+  /**
+   * Cambios que un administrador puede hacer a SU cuenta. Solo los campos de la
+   * lista: nunca `id`, `isActive`, `isDev`, `maxAgents`, `features` ni `tableConfig`
+   * (eso lo gestiona un superadmin con `update`).
+   */
+  async updateOwnAccount(id: string, body: Record<string, unknown>): Promise<Tenant> {
+    const tenant = await this.findOne(id);
+    if (body.name !== undefined) {
+      if (typeof body.name !== 'string' || !body.name.trim() || body.name.trim().length > 100) {
+        throw new BadRequestException('El nombre es obligatorio (máximo 100 caracteres)');
+      }
+      tenant.name = body.name.trim();
+    }
+    if (body.slug !== undefined && body.slug !== tenant.slug) {
+      if (typeof body.slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(body.slug) || body.slug.length < 2 || body.slug.length > 50) {
+        throw new BadRequestException('La dirección de la cuenta solo admite minúsculas, números y guiones (2 a 50 caracteres)');
+      }
+      const taken = await this.tenantRepo.findOne({ where: { slug: body.slug }, withDeleted: true });
+      if (taken && taken.id !== id) throw new BadRequestException('Esa dirección ya está en uso');
+      tenant.slug = body.slug;
+    }
+    if (body.trackingConfig !== undefined) {
+      if (body.trackingConfig === null || typeof body.trackingConfig !== 'object' || Array.isArray(body.trackingConfig)) {
+        throw new BadRequestException('La configuración de seguimiento es inválida');
+      }
+      tenant.trackingConfig = body.trackingConfig as Tenant['trackingConfig'];
+    }
+    return this.tenantRepo.save(tenant);
+  }
+
   async remove(id: string): Promise<void> {
     const tenant = await this.findOne(id);
     await this.tenantRepo.softRemove(tenant);
@@ -159,7 +189,19 @@ export class TenantsService {
     return { available: !existing };
   }
 
+  /** Quita de un miembro lo que no debe salir de la API: credenciales y datos de otras cuentas. */
+  static publicMember(m: UserTenant): UserTenant {
+    if (!m.user) return m;
+    const { apiToken: _a, password: _p, tenantRoles: _t, notificationPreferences: _n, ...user } = m.user as unknown as Record<string, unknown>;
+    return { ...m, user: user as unknown as UserTenant['user'] };
+  }
+
   async getMembers(tenantId: string): Promise<UserTenant[]> {
+    const members = await this.getMembersRaw(tenantId);
+    return members.map((m) => TenantsService.publicMember(m));
+  }
+
+  private async getMembersRaw(tenantId: string): Promise<UserTenant[]> {
     return this.userTenantRepo.find({
       where: [
         { tenantId, status: 'active' },

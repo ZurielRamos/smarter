@@ -21,6 +21,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
+    // Los tokens con `purpose` (invitación, reseteo de contraseña, portales) se firman con
+    // este mismo secreto pero NO son sesiones: no pueden autenticar la API.
+    if (payload?.purpose) {
+      throw new UnauthorizedException();
+    }
     const user = await this.authService.validateToken(payload);
     if (!user) {
       throw new UnauthorizedException();

@@ -1,11 +1,13 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WooHook } from './woo-hook.entity';
+import { TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 
 @Controller('woo-hooks')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantAccessGuard, TenantResourceGuard)
 export class WooHooksController {
   constructor(
     @InjectRepository(WooHook)
@@ -39,6 +41,8 @@ export class WooHooksController {
   }
 
   @Put(':id')
+
+  @TenantResource('wooHook')
   async update(@Param('id') id: string, @Body() body: Partial<{
     event: string;
     actionType: string;
@@ -55,6 +59,8 @@ export class WooHooksController {
   }
 
   @Delete(':id')
+
+  @TenantResource('wooHook')
   async remove(@Param('id') id: string) {
     await this.wooHookRepo.delete(id);
     return { deleted: true };

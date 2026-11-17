@@ -24,6 +24,7 @@ import { ConversionsModule } from './conversions/conversions.module';
 import { TemplatesModule } from './templates/templates.module';
 import { BotsModule } from './bots/bots.module';
 import { AuditModule } from './audit/audit.module';
+import { TenantResourceModule } from './auth/tenant-resource.guard';
 import { EvolutionModule } from './evolution/evolution.module';
 import { SendPulseModule } from './sendpulse/sendpulse.module';
 import { WhatsAppFlowsModule } from './whatsapp-flows/whatsapp-flows.module';
@@ -33,6 +34,7 @@ import { BrandingModule } from './branding/branding.module';
 import { CursosModule } from './cursos/cursos.module';
 import { LegalModule } from './legal/legal.module';
 import { AutomatizacionesModule } from './automatizaciones/automatizaciones.module';
+import { ReclutamientoModule } from './reclutamiento/reclutamiento.module';
 
 @Module({
   imports: [
@@ -89,6 +91,7 @@ import { AutomatizacionesModule } from './automatizaciones/automatizaciones.modu
     TemplatesModule,
     BotsModule,
     AuditModule,
+    TenantResourceModule,
     EvolutionModule,
     SendPulseModule,
     WhatsAppFlowsModule,
@@ -98,6 +101,7 @@ import { AutomatizacionesModule } from './automatizaciones/automatizaciones.modu
     CursosModule,
     LegalModule,
     AutomatizacionesModule,
+    ReclutamientoModule,
   ],
   providers: [
     {

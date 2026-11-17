@@ -54,7 +54,10 @@ export class ChannelConfigsService {
     }>,
   ): Promise<ChannelConfig> {
     const config = await this.findOne(id);
-    Object.assign(config, data);
+    // La cuenta y el identificador no se cambian desde el cliente.
+    if (data.provider !== undefined) config.provider = data.provider;
+    if (data.credentials !== undefined) config.credentials = data.credentials;
+    if (data.isActive !== undefined) config.isActive = data.isActive;
     return this.repo.save(config);
   }
 

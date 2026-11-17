@@ -42,6 +42,11 @@ import {
 /** Acción de créditos que se cobra al completar una clase (aprobada o no). */
 const CREDIT_ACTION_LESSON_COMPLETED = 'course_lesson_completed';
 
+/** Quita del cuerpo de una edición los campos que identifican el recurso o los gestiona el servidor. */
+function omitProtected(data: Record<string, any>, keys: string[]): Record<string, any> {
+  return Object.fromEntries(Object.entries(data).filter(([k]) => !keys.includes(k)));
+}
+
 @Injectable()
 export class CursosService {
   private readonly logger = new Logger(CursosService.name);
@@ -116,7 +121,7 @@ export class CursosService {
 
   async update(id: string, dto: UpdateCourseDto): Promise<Course> {
     const course = await this.findOne(id);
-    Object.assign(course, dto);
+    Object.assign(course, omitProtected(dto as Record<string, any>, ['id','tenantId','tenant','slug','enrollmentCount','createdAt','updatedAt','deletedAt']));
     return this.courseRepo.save(course);
   }
 
@@ -264,7 +269,7 @@ export class CursosService {
 
   async updateLesson(id: string, dto: UpdateLessonDto): Promise<CourseLesson> {
     const lesson = await this.getLesson(id);
-    Object.assign(lesson, dto);
+    Object.assign(lesson, omitProtected(dto as Record<string, any>, ['id','tenantId','courseId','createdAt','updatedAt']));
     return this.lessonRepo.save(lesson);
   }
 
@@ -385,7 +390,7 @@ export class CursosService {
 
   async updateQuiz(id: string, dto: UpdateQuizDto): Promise<CourseQuiz> {
     const quiz = await this.getQuiz(id);
-    Object.assign(quiz, dto);
+    Object.assign(quiz, omitProtected(dto as Record<string, any>, ['id','tenantId','courseId','lessonId','createdAt','updatedAt']));
     return this.quizRepo.save(quiz);
   }
 
@@ -426,7 +431,7 @@ export class CursosService {
   async updateQuestion(id: string, dto: UpdateQuestionDto): Promise<CourseQuestion> {
     const q = await this.getQuestion(id);
     if (dto.options) dto.options = this.normalizeOptions(dto.options) as any;
-    Object.assign(q, dto);
+    Object.assign(q, omitProtected(dto as Record<string, any>, ['id','tenantId','courseId','quizId','createdAt','updatedAt']));
     return this.questionRepo.save(q);
   }
 

@@ -75,7 +75,8 @@ export class CampaignsService {
     tenantId?: string;
     listId?: string;
   }): Promise<Campaign> {
-    const campaign = this.campaignRepository.create(data);
+    const { name, description, segments, channel, inboxId, tenantId, listId } = data;
+    const campaign = this.campaignRepository.create({ name, description, segments, channel, inboxId, tenantId, listId });
     const saved = await this.campaignRepository.save(campaign);
 
     // Calcular cuántos clientes matchean
@@ -112,7 +113,10 @@ export class CampaignsService {
       recurrenceDays: Record<string, string> | null;
     }>,
   ): Promise<Campaign> {
-    await this.campaignRepository.update(id, data as any);
+    // Solo se editan estos campos: la cuenta, los contadores y el estado de envío los gestiona el servidor.
+    const EDITABLE = ['name', 'description', 'segments', 'channel', 'status', 'listId', 'messageTemplate', 'emailSubject', 'emailTemplateId', 'inboxId', 'whatsappTemplateName', 'whatsappTemplateLanguage', 'whatsappVariableMapping', 'whatsappTemplateCategory', 'callVoice', 'callRetries', 'callLeaveVoicemail', 'callAudioCode', 'maxSends', 'isRecurring', 'sendDate', 'sendTime', 'recurrenceDays'];
+    const changes = Object.fromEntries(Object.entries(data).filter(([k, v]) => EDITABLE.includes(k) && v !== undefined));
+    if (Object.keys(changes).length) await this.campaignRepository.update(id, changes as any);
     const campaign = await this.findOne(id);
 
     if (data.segments || data.listId !== undefined) {

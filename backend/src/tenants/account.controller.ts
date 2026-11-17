@@ -11,17 +11,28 @@ import {
   UseGuards,
   ForbiddenException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Tenant } from './tenant.entity';
-import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { TenantsService } from './tenants.service';
 import { UserTenant } from '../users/user-tenant.entity';
 import { User } from '../users/user.entity';
-import { isAdminRole } from '../users/enums/tenant-role.enum';
+import { isAdminRole, TenantRole } from '../users/enums/tenant-role.enum';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Roles que un administrador puede asignar. «owner» no se asigna ni se quita desde aquí. */
+const ASSIGNABLE_ROLES: string[] = [TenantRole.ADMIN, TenantRole.AGENT, TenantRole.VIEWER];
+
+function requireAssignableRole(role: unknown): TenantRole {
+  if (typeof role !== 'string' || !ASSIGNABLE_ROLES.includes(role)) {
+    throw new BadRequestException(`Rol inválido. Roles permitidos: ${ASSIGNABLE_ROLES.join(', ')}`);
+  }
+  return role as TenantRole;
+}
 
 /**
  * Endpoints para que owners/admins gestionen su propia cuenta (por slug).
@@ -74,16 +85,17 @@ export class AccountController {
 
   /** Actualizar tenant por slug (PUT) */
   @Put(':slug')
-  async update(@Param('slug') slug: string, @Body() dto: UpdateTenantDto, @Req() req: any) {
+  async update(@Param('slug') slug: string, @Body() body: Record<string, unknown>, @Req() req: any) {
     const tenant = await this.resolveAndAuthorize(slug, req.user);
-    return this.tenantsService.update(tenant.id, dto);
+    // Lista blanca: el cuerpo nunca puede cambiar el id ni la configuración comercial de la cuenta.
+    return this.tenantsService.updateOwnAccount(tenant.id, body ?? {});
   }
 
   /** Actualizar tenant por slug (PATCH) */
   @Patch(':slug')
-  async patchUpdate(@Param('slug') slug: string, @Body() dto: UpdateTenantDto, @Req() req: any) {
+  async patchUpdate(@Param('slug') slug: string, @Body() body: Record<string, unknown>, @Req() req: any) {
     const tenant = await this.resolveAndAuthorize(slug, req.user);
-    return this.tenantsService.update(tenant.id, dto);
+    return this.tenantsService.updateOwnAccount(tenant.id, body ?? {});
   }
 
   /** Obtener miembros del tenant por slug */
@@ -101,18 +113,24 @@ export class AccountController {
     @Req() req: any,
   ) {
     const tenant = await this.resolveAndAuthorize(slug, req.user);
+    const role = requireAssignableRole(body?.role);
+    if (typeof body?.userId !== 'string' || !UUID_RE.test(body.userId)) throw new BadRequestException('Usuario inválido');
+    const target = await this.userRepo.findOne({ where: { id: body.userId } });
+    if (!target) throw new NotFoundException('Usuario no encontrado');
     const existing = await this.userTenantRepo.findOne({
       where: { userId: body.userId, tenantId: tenant.id },
     });
     if (existing) {
-      existing.role = body.role as any;
+      // El propietario no se modifica desde aquí (ni para degradarlo ni para reactivarlo con otro rol).
+      if (existing.role === TenantRole.OWNER) throw new ForbiddenException('No se puede cambiar el rol del propietario de la cuenta');
+      existing.role = role;
       existing.status = 'active';
       return this.userTenantRepo.save(existing);
     }
     const ut = this.userTenantRepo.create({
       userId: body.userId,
       tenantId: tenant.id,
-      role: body.role as any,
+      role,
       status: 'active',
     });
     return this.userTenantRepo.save(ut);
@@ -130,6 +148,7 @@ export class AccountController {
       where: { userId, tenantId: tenant.id },
     });
     if (ut) {
+      if (ut.role === TenantRole.OWNER) throw new ForbiddenException('No se puede quitar al propietario de la cuenta');
       await this.userTenantRepo.remove(ut);
     }
     return { success: true };
@@ -143,14 +162,21 @@ export class AccountController {
     @Req() req: any,
   ) {
     const tenant = await this.resolveAndAuthorize(slug, req.user);
+    const role = requireAssignableRole(body?.role);
+    const email = typeof body?.email === 'string' ? body.email.trim() : '';
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 200) throw new BadRequestException('Correo electrónico inválido');
+    if (typeof body?.name !== 'string' || !body.name.trim() || body.name.length > 150) throw new BadRequestException('El nombre es obligatorio');
 
     // Check if user already exists
-    let user = await this.userRepo.findOne({ where: { email: body.email } });
+    let user = await this.userRepo.findOne({ where: { email } });
     if (!user) {
+      if (typeof body.password !== 'string' || body.password.length < 8 || body.password.length > 128) {
+        throw new BadRequestException('La contraseña debe tener entre 8 y 128 caracteres');
+      }
       const hashedPassword = await bcrypt.hash(body.password, 10);
       user = this.userRepo.create({
-        name: body.name,
-        email: body.email,
+        name: body.name.trim(),
+        email,
         password: hashedPassword,
         isActive: true,
         isSuperAdmin: false,
@@ -166,7 +192,7 @@ export class AccountController {
       const ut = this.userTenantRepo.create({
         userId: user.id,
         tenantId: tenant.id,
-        role: body.role as any,
+        role,
         status: 'active',
       });
       await this.userTenantRepo.save(ut);

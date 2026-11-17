@@ -9,6 +9,8 @@ import { Public } from '../auth/public.decorator';
 import { ChatsService, AssignmentFilter } from './chats.service';
 import { WebhookForwarderService } from './webhook-forwarder.service';
 import { ConversationAccessGuard, ConversationAccessService } from './conversation-access';
+import { TenantResourceService } from '../auth/tenant-resource.guard';
+import { TenantRefs, TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 
 /** Normaliza el query param de asignación a un valor válido. */
 function normalizeAssignment(value?: string): AssignmentFilter {
@@ -36,12 +38,13 @@ function parseRecordFilters(
 }
 
 @Controller('chats')
-@UseGuards(JwtAuthGuard, TenantAccessGuard, ConversationAccessGuard)
+@UseGuards(JwtAuthGuard, TenantAccessGuard, TenantResourceGuard, ConversationAccessGuard)
 export class ChatsController {
   constructor(
     private readonly chatsService: ChatsService,
     private readonly configService: ConfigService,
     private readonly conversationAccess: ConversationAccessService,
+    private readonly tenantResources: TenantResourceService,
   ) {}
 
   // === INBOXES ===
@@ -61,6 +64,8 @@ export class ChatsController {
   }
 
   @Get('inboxes/:id')
+
+  @TenantResource('inbox')
   getInbox(@Param('id') id: string) {
     return this.chatsService.findInboxById(id);
   }
@@ -71,17 +76,24 @@ export class ChatsController {
   }
 
   @Put('inboxes/:id')
+
+  @TenantResource('inbox')
   updateInbox(@Param('id') id: string, @Body() body: Partial<{ name: string; status: string; accessToken: string | null; pageId: string | null; phoneNumberId: string | null; wabaId: string | null; channelName: string | null; botId: string | null; metadata: Record<string, any> }>) {
-    return this.chatsService.updateInbox(id, body);
+    // La cuenta y la identidad del buzón no se cambian desde el cliente.
+    const { id: _id, tenantId: _t, tenant: _tn, createdAt: _c, ...changes } = body as Record<string, any>;
+    return this.chatsService.updateInbox(id, changes);
   }
 
   @Delete('inboxes/:id')
+
+  @TenantResource('inbox')
   deleteInbox(@Param('id') id: string) {
     return this.chatsService.deleteInbox(id);
   }
 
   // Configure keyword automations for a channel
   @Put('inboxes/:id/automations')
+  @TenantResource('inbox')
   updateAutomations(@Param('id') id: string, @Body() body: { rules: any[] }) {
     return this.chatsService.updateAutomations(id, body.rules);
   }
@@ -89,12 +101,14 @@ export class ChatsController {
   // Re-suscribir la WABA al webhook (campo 'messages') y diagnosticar.
   // Útil para números ya conectados que no reciben mensajes entrantes.
   @Post('inboxes/:id/resubscribe-webhook')
+  @TenantResource('inbox')
   resubscribeWebhook(@Param('id') id: string) {
     return this.chatsService.resubscribeInboxWebhook(id);
   }
 
   // Configure the first-message welcome template for a WhatsApp channel
   @Put('inboxes/:id/first-message-template')
+  @TenantResource('inbox')
   updateFirstMessageTemplate(
     @Param('id') id: string,
     @Body()
@@ -113,16 +127,24 @@ export class ChatsController {
   // === INBOX COLLABORATORS ===
 
   @Get('inboxes/:id/collaborators')
+
+  @TenantResource('inbox')
   getCollaborators(@Param('id') id: string) {
     return this.chatsService.getCollaborators(id);
   }
 
   @Post('inboxes/:id/collaborators')
+
+  @TenantResource('inbox')
   addCollaborator(@Param('id') id: string, @Body() body: { type: string; referenceId: string }) {
     return this.chatsService.addCollaborator(id, body.type, body.referenceId);
   }
 
   @Delete('inboxes/:id/collaborators/:collaboratorId')
+
+  @TenantResource('inbox')
+
+  @TenantRefs({ kind: 'collaborator', in: 'params', field: 'collaboratorId' })
   removeCollaborator(@Param('id') id: string, @Param('collaboratorId') collaboratorId: string) {
     return this.chatsService.removeCollaborator(collaboratorId);
   }
@@ -154,12 +176,14 @@ export class ChatsController {
 
   // WhatsApp Embedded Signup — exchange code from frontend SDK
   @Post('whatsapp/embedded-signup')
+  @TenantRefs({ kind: 'inbox', in: 'body', field: 'inboxId' })
   async whatsappEmbeddedSignup(@Body() body: { code: string; inboxId: string }) {
     return this.chatsService.handleWhatsAppEmbeddedSignup(body.code, body.inboxId);
   }
 
   // Manual connect — connect inbox with token and phone number ID directly
   @Post('inboxes/:id/manual-connect')
+  @TenantResource('inbox')
   async manualConnect(
     @Param('id') id: string,
     @Body() body: { accessToken: string; phoneNumberId?: string; wabaId?: string; pageId?: string },
@@ -169,6 +193,7 @@ export class ChatsController {
 
   // Configure SMTP for email inbox
   @Put('inboxes/:id/smtp')
+  @TenantResource('inbox')
   async configureSmtp(
     @Param('id') id: string,
     @Body() body: { host: string; port: number; secure: boolean; user: string; pass: string; fromName: string; fromEmail: string; defaultSubject?: string },
@@ -178,6 +203,7 @@ export class ChatsController {
 
   // Test SMTP connection
   @Post('inboxes/:id/smtp/test')
+  @TenantResource('inbox')
   async testSmtp(
     @Param('id') id: string,
     @Body() body: { host: string; port: number; secure: boolean; user: string; pass: string; fromName: string; fromEmail: string },
@@ -187,6 +213,7 @@ export class ChatsController {
 
   // Send test email template
   @Post('inboxes/:id/email/test')
+  @TenantResource('inbox')
   async sendTestEmail(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { to: string; subject: string; html: string; variables?: Record<string, string>; fromName?: string },
@@ -210,12 +237,14 @@ export class ChatsController {
 
   // Sync WhatsApp phone number from WABA
   @Post('whatsapp/sync-phone')
+  @TenantRefs({ kind: 'inbox', in: 'body', field: 'inboxId' })
   syncPhoneNumber(@Body() body: { inboxId: string }) {
     return this.chatsService.syncWhatsAppPhoneNumber(body.inboxId);
   }
 
   // Register WhatsApp phone number for Cloud API
   @Post('whatsapp/register-phone')
+  @TenantRefs({ kind: 'inbox', in: 'body', field: 'inboxId' })
   registerPhoneNumber(@Body() body: { inboxId: string; pin: string }) {
     return this.chatsService.registerWhatsAppPhoneNumber(body.inboxId, body.pin);
   }
@@ -223,12 +252,14 @@ export class ChatsController {
   // Upload media for WhatsApp template header
   @Post('whatsapp/templates/upload-media')
   @UseInterceptors(FileInterceptor('file'))
-  uploadTemplateMedia(@UploadedFile() file: Express.Multer.File, @Body() body: { inboxId: string }) {
+  async uploadTemplateMedia(@Req() req: any, @UploadedFile() file: Express.Multer.File, @Body() body: { inboxId: string }) {
+    await this.tenantResources.assertAccess(req.user, 'inbox', body.inboxId, { write: true });
     return this.chatsService.uploadTemplateMedia(body.inboxId, file);
   }
 
   // Update WhatsApp business profile
   @Put('whatsapp/profile')
+  @TenantRefs({ kind: 'inbox', in: 'body', field: 'inboxId' })
   updateWhatsAppProfile(@Body() body: { inboxId: string; about?: string; description?: string; address?: string; email?: string; websites?: string[]; vertical?: string; profile_picture_handle?: string }) {
     const { inboxId, ...profileData } = body;
     return this.chatsService.updateWhatsAppBusinessProfile(inboxId, profileData);
@@ -237,24 +268,28 @@ export class ChatsController {
   // Upload WhatsApp profile picture
   @Post('whatsapp/profile/upload-picture')
   @UseInterceptors(FileInterceptor('file'))
-  uploadProfilePicture(@UploadedFile() file: Express.Multer.File, @Body() body: { inboxId: string }) {
+  async uploadProfilePicture(@Req() req: any, @UploadedFile() file: Express.Multer.File, @Body() body: { inboxId: string }) {
+    await this.tenantResources.assertAccess(req.user, 'inbox', body.inboxId, { write: true });
     return this.chatsService.uploadWhatsAppProfilePicture(body.inboxId, file);
   }
 
   // Get WhatsApp account status for an inbox
   @Get('whatsapp/status')
+  @TenantRefs({ kind: 'inbox', in: 'query', field: 'inboxId' })
   getWhatsAppStatus(@Query('inboxId') inboxId: string) {
     return this.chatsService.getWhatsAppAccountStatus(inboxId);
   }
 
   // Get WhatsApp message templates for an inbox
   @Get('whatsapp/templates')
+  @TenantRefs({ kind: 'inbox', in: 'query', field: 'inboxId' })
   getTemplates(@Query('inboxId') inboxId: string) {
     return this.chatsService.getWhatsAppTemplates(inboxId);
   }
 
   // Create a WhatsApp message template
   @Post('whatsapp/templates')
+  @TenantRefs({ kind: 'inbox', in: 'body', field: 'inboxId' })
   createTemplate(@Body() body: { inboxId: string; name: string; category: string; language: string; components: any[] }) {
     const { inboxId, ...templateData } = body;
     return this.chatsService.createWhatsAppTemplate(inboxId, templateData);
@@ -262,6 +297,7 @@ export class ChatsController {
 
   // Update a WhatsApp message template
   @Put('whatsapp/templates/:templateId')
+  @TenantRefs({ kind: 'inbox', in: 'body', field: 'inboxId' })
   updateTemplate(@Param('templateId') templateId: string, @Body() body: { inboxId: string; components: any[]; category?: string }) {
     const { inboxId, ...templateData } = body;
     return this.chatsService.updateWhatsAppTemplate(inboxId, templateId, templateData);
@@ -269,6 +305,7 @@ export class ChatsController {
 
   // Delete a WhatsApp message template
   @Delete('whatsapp/templates/:templateName')
+  @TenantRefs({ kind: 'inbox', in: 'query', field: 'inboxId' })
   deleteTemplate(@Param('templateName') templateName: string, @Query('inboxId') inboxId: string) {
     return this.chatsService.deleteWhatsAppTemplate(inboxId, templateName);
   }
@@ -288,6 +325,7 @@ export class ChatsController {
   // Bootstrap: consolida inboxes + conversations + labels + members en una
   // sola respuesta para reducir el número de peticiones al abrir la vista.
   @Get('bootstrap')
+  @TenantRefs({ kind: 'inbox', in: 'query', field: 'inboxIds', csv: true })
   getBootstrap(
     @Query('tenantId') tenantId: string,
     @Req() req: any,
@@ -315,6 +353,10 @@ export class ChatsController {
   }
 
   @Get('conversations')
+
+  @TenantRefs({ kind: 'inbox', in: 'query', field: 'inboxId' })
+
+  @TenantRefs({ kind: 'inbox', in: 'query', field: 'inboxId' }, { kind: 'inbox', in: 'query', field: 'inboxIds', csv: true })
   getConversations(
     @Req() req: any,
     @Query('tenantId') tenantId?: string,
@@ -354,6 +396,7 @@ export class ChatsController {
   // Busca o crea una conversación para un contacto (record) en un canal (inbox).
   // Se usa desde la ficha del contacto al elegir un canal en el modal de "Mensaje".
   @Post('conversations')
+  @TenantRefs({ kind: 'inbox', in: 'body', field: 'inboxId' }, { kind: 'record', in: 'body', field: 'recordId' })
   findOrCreateConversation(@Body() body: { inboxId: string; recordId: string }) {
     return this.chatsService.findOrCreateConversationForRecord(body.inboxId, body.recordId);
   }
@@ -473,16 +516,24 @@ export class ChatsController {
   }
 
   @Put('labels/:id')
+
+  @TenantResource('label')
   updateLabel(@Param('id') id: string, @Body() body: Partial<{ label: string; description: string; color: string; showInSidebar: boolean }>) {
     return this.chatsService.updateLabel(id, body);
   }
 
   @Delete('labels/:id')
+
+  @TenantResource('label')
   deleteLabel(@Param('id') id: string) {
     return this.chatsService.deleteLabel(id);
   }
 
   @Post('conversations/:id/toggle-label')
+
+  @TenantResource('conversation')
+
+  @TenantRefs({ kind: 'label', in: 'body', field: 'labelId' })
   toggleLabel(@Param('id') id: string, @Body() body: { labelId: string; action: 'add' | 'remove'; userId?: string; userName?: string }) {
     return this.chatsService.toggleConversationLabel(id, body.labelId, body.action, body.userId, body.userName);
   }

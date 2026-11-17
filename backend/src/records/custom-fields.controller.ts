@@ -11,9 +11,10 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { CustomFieldsService } from './custom-fields.service';
+import { TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 
 @Controller('custom-fields')
-@UseGuards(JwtAuthGuard, TenantAccessGuard)
+@UseGuards(JwtAuthGuard, TenantAccessGuard, TenantResourceGuard)
 export class CustomFieldsController {
   constructor(private readonly customFieldsService: CustomFieldsService) {}
 
@@ -41,6 +42,8 @@ export class CustomFieldsController {
   }
 
   @Put(':id')
+
+  @TenantResource('customField')
   update(
     @Param('id') id: string,
     @Body()
@@ -61,11 +64,15 @@ export class CustomFieldsController {
   }
 
   @Post(':id/generate')
+
+  @TenantResource('customField')
   generateValues(@Param('id') id: string) {
     return this.customFieldsService.generateValues(id);
   }
 
   @Delete(':id')
+
+  @TenantResource('customField')
   remove(@Param('id') id: string) {
     return this.customFieldsService.remove(id);
   }

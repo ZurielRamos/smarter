@@ -18,6 +18,7 @@ import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { Public } from '../auth/public.decorator';
 import { CursosService } from './cursos.service';
 import { CursosPortalService } from './cursos-portal.service';
+import { TenantRefs, TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 import {
   CreateCourseDto,
   UpdateCourseDto,
@@ -43,7 +44,7 @@ import {
  * autenticado mediante un token opaco de inscripción.
  */
 @Controller('cursos')
-@UseGuards(JwtAuthGuard, TenantAccessGuard)
+@UseGuards(JwtAuthGuard, TenantAccessGuard, TenantResourceGuard)
 export class CursosController {
   constructor(
     private readonly cursos: CursosService,
@@ -240,42 +241,60 @@ export class CursosController {
   }
 
   @Post()
+
+  @TenantRefs({ kind: 'campaign', in: 'body', field: 'campaignId' })
   create(@Req() req: any, @Body() dto: CreateCourseDto) {
     return this.cursos.create({ ...dto, managedByUserId: req.user?.id ?? null });
   }
 
   @Get(':id')
+
+  @TenantResource('course')
   findOne(@Param('id') id: string) {
     return this.cursos.findOne(id);
   }
 
   @Put(':id')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'campaign', in: 'body', field: 'campaignId' })
   update(@Param('id') id: string, @Body() dto: UpdateCourseDto) {
     return this.cursos.update(id, dto);
   }
 
   @Delete(':id')
+
+  @TenantResource('course')
   remove(@Param('id') id: string) {
     return this.cursos.remove(id);
   }
 
   @Post(':id/publish')
+
+  @TenantResource('course')
   publish(@Param('id') id: string) {
     return this.cursos.publish(id);
   }
 
   @Post(':id/archive')
+
+  @TenantResource('course')
   archive(@Param('id') id: string) {
     return this.cursos.archive(id);
   }
 
   @Post(':id/cover')
+
+  @TenantResource('course')
   @UseInterceptors(FileInterceptor('file'))
   uploadCover(@Param('id') id: string, @UploadedFile() file: any) {
     return this.cursos.uploadCover(id, file);
   }
 
   @Post(':id/certificate-asset')
+
+  @TenantResource('course')
   @UseInterceptors(FileInterceptor('file'))
   uploadCertificateAsset(
     @Param('id') id: string,
@@ -287,6 +306,8 @@ export class CursosController {
   }
 
   @Get(':id/analytics')
+
+  @TenantResource('course')
   analytics(@Param('id') id: string) {
     return this.cursos.analytics(id);
   }
@@ -315,6 +336,7 @@ export class CursosController {
 
   /** Cursos de un contacto (card del detalle del contacto en el CRM). */
   @Get('record/:recordId/courses')
+  @TenantRefs({ kind: 'record', in: 'params', field: 'recordId' })
   getRecordCourses(@Param('recordId') recordId: string, @Query('tenantId') tenantId: string) {
     return this.cursos.getRecordCourses(tenantId, recordId);
   }
@@ -337,6 +359,8 @@ export class CursosController {
   }
 
   @Get(':id/leaderboard')
+
+  @TenantResource('course')
   leaderboard(@Param('id') id: string, @Query('limit') limit?: string) {
     return this.cursos.leaderboard(id, limit ? Number(limit) : 100);
   }
@@ -344,26 +368,42 @@ export class CursosController {
   // ───────── Clases ─────────
 
   @Get(':id/lessons')
+
+  @TenantResource('course')
   listLessons(@Param('id') id: string) {
     return this.cursos.listLessons(id);
   }
 
   @Post(':id/lessons')
+
+  @TenantResource('course')
   createLesson(@Param('id') id: string, @Body() dto: CreateLessonDto) {
     return this.cursos.createLesson(id, dto);
   }
 
   @Put(':id/lessons/reorder')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'lesson', in: 'body', field: 'ids', many: true })
   reorderLessons(@Param('id') id: string, @Body() dto: ReorderDto) {
     return this.cursos.reorderLessons(id, dto.ids);
   }
 
   @Put(':id/lessons/:lessonId')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'lesson', in: 'params', field: 'lessonId' })
   updateLesson(@Param('lessonId') lessonId: string, @Body() dto: UpdateLessonDto) {
     return this.cursos.updateLesson(lessonId, dto);
   }
 
   @Delete(':id/lessons/:lessonId')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'lesson', in: 'params', field: 'lessonId' })
   removeLesson(@Param('lessonId') lessonId: string) {
     return this.cursos.removeLesson(lessonId);
   }
@@ -371,11 +411,19 @@ export class CursosController {
   // ───────── Material ─────────
 
   @Post(':id/lessons/:lessonId/materials')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'lesson', in: 'params', field: 'lessonId' })
   addMaterial(@Param('lessonId') lessonId: string, @Body() dto: AddMaterialDto) {
     return this.cursos.addMaterial(lessonId, dto);
   }
 
   @Post(':id/lessons/:lessonId/materials/upload')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'lesson', in: 'params', field: 'lessonId' })
   @UseInterceptors(FileInterceptor('file'))
   uploadMaterial(
     @Param('lessonId') lessonId: string,
@@ -389,6 +437,10 @@ export class CursosController {
   }
 
   @Delete(':id/lessons/:lessonId/materials/:materialId')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'lesson', in: 'params', field: 'lessonId' })
   removeMaterial(
     @Param('lessonId') lessonId: string,
     @Param('materialId') materialId: string,
@@ -399,16 +451,26 @@ export class CursosController {
   // ───────── Quizzes ─────────
 
   @Get(':id/quizzes')
+
+  @TenantResource('course')
   listQuizzes(@Param('id') id: string) {
     return this.cursos.listQuizzes(id);
   }
 
   @Post(':id/quizzes')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'lesson', in: 'body', field: 'lessonId' })
   createQuiz(@Param('id') id: string, @Body() dto: CreateQuizDto) {
     return this.cursos.createQuiz(id, dto);
   }
 
   @Put(':id/quizzes/:quizId')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'quiz', in: 'params', field: 'quizId' })
   updateQuiz(@Param('quizId') quizId: string, @Body() dto: UpdateQuizDto) {
     return this.cursos.updateQuiz(quizId, dto);
   }
@@ -416,26 +478,46 @@ export class CursosController {
   // ───────── Preguntas ─────────
 
   @Get(':id/questions')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'quiz', in: 'query', field: 'quizId' })
   listQuestions(@Param('id') id: string, @Query('quizId') quizId?: string) {
     return this.cursos.listQuestions(id, quizId);
   }
 
   @Post(':id/questions')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'quiz', in: 'body', field: 'quizId' })
   createQuestion(@Param('id') id: string, @Body() dto: CreateQuestionDto) {
     return this.cursos.createQuestion(id, dto);
   }
 
   @Put(':id/questions/reorder')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'quiz', in: 'body', field: 'quizId' }, { kind: 'question', in: 'body', field: 'ids', many: true })
   reorderQuestions(@Body() body: { quizId: string; ids: string[] }) {
     return this.cursos.reorderQuestions(body.quizId, body.ids);
   }
 
   @Put(':id/questions/:questionId')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'question', in: 'params', field: 'questionId' })
   updateQuestion(@Param('questionId') questionId: string, @Body() dto: UpdateQuestionDto) {
     return this.cursos.updateQuestion(questionId, dto);
   }
 
   @Delete(':id/questions/:questionId')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'question', in: 'params', field: 'questionId' })
   removeQuestion(@Param('questionId') questionId: string) {
     return this.cursos.removeQuestion(questionId);
   }
@@ -443,11 +525,17 @@ export class CursosController {
   // ───────── Inscripciones ─────────
 
   @Get(':id/enrollments')
+
+  @TenantResource('course')
   listEnrollments(@Param('id') id: string) {
     return this.cursos.listEnrollments(id);
   }
 
   @Post(':id/enrollments')
+
+  @TenantResource('course')
+
+  @TenantRefs({ kind: 'record', in: 'body', field: 'recordIds', many: true }, { kind: 'campaign', in: 'body', field: 'campaignId' })
   createEnrollments(@Param('id') id: string, @Body() dto: CreateEnrollmentsDto) {
     return this.cursos.createEnrollments(id, dto.recordIds ?? [], dto.campaignId);
   }

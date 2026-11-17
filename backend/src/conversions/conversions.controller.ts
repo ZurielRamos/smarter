@@ -1,11 +1,13 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { Public } from '../auth/public.decorator';
 import { ConversionsService } from './conversions.service';
 import type { Request } from 'express';
+import { TenantRefs, TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 
 @Controller('conversions')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantAccessGuard, TenantResourceGuard)
 export class ConversionsController {
   constructor(private readonly conversionsService: ConversionsService) {}
 
@@ -42,6 +44,7 @@ export class ConversionsController {
 
   /** Get ad events for a specific record */
   @Get('ad-events')
+  @TenantRefs({ kind: 'record', in: 'query', field: 'recordId' })
   getAdEvents(@Query('recordId') recordId: string, @Query('all') all?: string) {
     if (all === 'true') {
       return this.conversionsService.getAllEventsForRecord(recordId);
@@ -51,6 +54,7 @@ export class ConversionsController {
 
   /** Link orphan events to a record */
   @Post('ad-events/link')
+  @TenantRefs({ kind: 'record', in: 'body', field: 'recordId' })
   linkEvents(@Body() body: { tenantId: string; recordId: string; sessionId?: string }) {
     return this.conversionsService.linkEventsToRecord(body.tenantId, body.recordId, body.sessionId);
   }
@@ -70,11 +74,15 @@ export class ConversionsController {
   }
 
   @Put('events/:id')
+
+  @TenantResource('conversionEvent')
   updateConversionEvent(@Param('id') id: string, @Body() body: any) {
     return this.conversionsService.updateConversionEvent(id, body);
   }
 
   @Delete('events/:id')
+
+  @TenantResource('conversionEvent')
   deleteConversionEvent(@Param('id') id: string) {
     return this.conversionsService.deleteConversionEvent(id);
   }
@@ -94,11 +102,15 @@ export class ConversionsController {
   }
 
   @Put('platforms/:id')
+
+  @TenantResource('adPlatform')
   updateAdPlatform(@Param('id') id: string, @Body() body: any) {
     return this.conversionsService.updateAdPlatform(id, body);
   }
 
   @Delete('platforms/:id')
+
+  @TenantResource('adPlatform')
   deleteAdPlatform(@Param('id') id: string) {
     return this.conversionsService.deleteAdPlatform(id);
   }
@@ -108,6 +120,8 @@ export class ConversionsController {
   // ============================
 
   @Post('dispatch')
+
+  @TenantRefs({ kind: 'record', in: 'body', field: 'recordId' })
   dispatchConversion(@Body() body: {
     tenantId: string;
     recordId: string;
@@ -138,6 +152,8 @@ export class ConversionsController {
   }
 
   @Get('logs/record/:recordId')
+
+  @TenantResource('record', 'recordId')
   getLogsByRecord(@Param('recordId') recordId: string) {
     return this.conversionsService.getConversionLogsByRecord(recordId);
   }

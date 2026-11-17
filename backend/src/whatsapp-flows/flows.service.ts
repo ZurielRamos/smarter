@@ -62,7 +62,10 @@ export class FlowsService {
       metadata: Record<string, any>;
     }>,
   ): Promise<WhatsAppFlow | null> {
-    await this.flowRepo.update(id, data as any);
+    // La cuenta y los datos que gestiona el servidor no se editan desde el cliente.
+    const EDITABLE = ['name', 'inboxId', 'metaFlowId', 'status', 'categories', 'dataApiVersion', 'entryScreen', 'flowJson', 'metadata'];
+    const changes = Object.fromEntries(Object.entries(data).filter(([k, v]) => EDITABLE.includes(k) && v !== undefined));
+    if (Object.keys(changes).length) await this.flowRepo.update(id, changes as any);
     return this.flowRepo.findOne({ where: { id } });
   }
 

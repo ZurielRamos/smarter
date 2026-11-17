@@ -77,7 +77,9 @@ export class FormsService {
     slug: string;
   }>): Promise<Form> {
     const form = await this.findOne(id);
-    Object.assign(form, data);
+    // Solo estos campos se editan; la cuenta del formulario no cambia.
+    const { name, description, fields, style, status, inboxId, slug } = data;
+    Object.assign(form, Object.fromEntries(Object.entries({ name, description, fields, style, status, inboxId, slug }).filter(([, v]) => v !== undefined)));
     return this.formRepo.save(form);
   }
 

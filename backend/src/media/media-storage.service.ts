@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuid } from 'uuid';
 import sharp from 'sharp';
 
@@ -397,6 +397,41 @@ export class MediaStorageService implements OnModuleInit {
       await this.s3Client.send(
         new DeleteObjectCommand({ Bucket: this.bucketName, Key: key }),
       );
+    } catch (error) {
+      console.error('[MediaStorage] Error deleting object:', error);
+    }
+  }
+
+  // ───────────── Objetos privados por clave ─────────────
+  // Para contenido que NO debe servirse por la URL pública del bucket: el
+  // llamador cifra el contenido antes de guardarlo y lo sirve por la API.
+
+  isEnabled(): boolean {
+    return !!this.s3Client;
+  }
+
+  /** Guarda un objeto en la clave indicada. Lanza si el storage no está disponible o falla. */
+  async putObject(key: string, body: Buffer, contentType = 'application/octet-stream'): Promise<void> {
+    if (!this.s3Client) throw new Error('Storage no configurado');
+    await this.s3Client.send(
+      new PutObjectCommand({ Bucket: this.bucketName, Key: key, Body: body, ContentType: contentType }),
+    );
+  }
+
+  /** Lee un objeto completo. Lanza si no existe o el storage no está disponible. */
+  async getObject(key: string): Promise<Buffer> {
+    if (!this.s3Client) throw new Error('Storage no configurado');
+    const res = await this.s3Client.send(new GetObjectCommand({ Bucket: this.bucketName, Key: key }));
+    const bytes = await res.Body?.transformToByteArray();
+    if (!bytes) throw new Error('Objeto vacío');
+    return Buffer.from(bytes);
+  }
+
+  /** Elimina un objeto por clave. Idempotente; los errores se registran. */
+  async deleteObject(key: string): Promise<void> {
+    if (!this.s3Client) return;
+    try {
+      await this.s3Client.send(new DeleteObjectCommand({ Bucket: this.bucketName, Key: key }));
     } catch (error) {
       console.error('[MediaStorage] Error deleting object:', error);
     }

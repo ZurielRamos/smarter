@@ -9,23 +9,30 @@ import {
   Query,
   UploadedFile,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantAccessGuard } from '../auth/tenant-access.guard';
+import { AuthOnly, TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 import { UploadService, MappingConfig } from './upload.service';
 
 /**
  * @deprecated Use /api/etl/* endpoints instead. This controller is kept for backward compatibility.
  */
 @Controller('upload')
+@UseGuards(JwtAuthGuard, TenantAccessGuard, TenantResourceGuard)
 export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
   @Get('target-fields')
+  @AuthOnly()
   getTargetFields() {
     return this.uploadService.getTargetFields();
   }
 
   @Post('parse')
+  @AuthOnly()
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: 50 * 1024 * 1024 },
@@ -70,11 +77,13 @@ export class UploadController {
   }
 
   @Put('templates/:id/default')
-  setDefaultTemplate(@Param('id') id: string, @Query('tenantId') tenantId?: string) {
-    return this.uploadService.setDefaultTemplate(id, tenantId);
+  @TenantResource('mappingTemplate')
+  setDefaultTemplate(@Param('id') id: string) {
+    return this.uploadService.setDefaultTemplate(id);
   }
 
   @Delete('templates/:id')
+  @TenantResource('mappingTemplate')
   deleteTemplate(@Param('id') id: string) {
     return this.uploadService.deleteTemplate(id);
   }

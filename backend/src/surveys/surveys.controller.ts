@@ -13,9 +13,11 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { Public } from '../auth/public.decorator';
+import { SurveyAccessGuard } from './survey-access.guard';
 import { SurveysService } from './surveys.service';
 
 /**
@@ -25,40 +27,54 @@ import { SurveysService } from './surveys.service';
  * el formato Meta Flow JSON, lo que permite (a) rellenarlas por enlace público
  * web y (b) opcionalmente publicarlas como WhatsApp Flow de Meta.
  *
- * Los endpoints de gestión van protegidos con JWT + acceso al tenant; los
- * endpoints del enlace público (ver/rellenar por slug) son @Public.
+ * Los endpoints de gestión van protegidos con JWT + acceso al tenant (ver
+ * SurveyAccessGuard: resuelve el tenant desde la encuesta en las rutas `:id`);
+ * los endpoints del enlace público (ver/rellenar por slug) son @Public.
  */
 @Controller('surveys')
-@UseGuards(JwtAuthGuard, TenantAccessGuard)
+@UseGuards(JwtAuthGuard, TenantAccessGuard, SurveyAccessGuard)
 export class SurveysController {
   constructor(private readonly surveys: SurveysService) {}
 
   // ---- Enlace público (sin autenticación) ----
 
   @Public()
+  @Throttle({
+    short: { limit: 10, ttl: 1000 },
+    medium: { limit: 60, ttl: 60_000 },
+  })
   @Get('public/:slug')
   findPublic(@Param('slug') slug: string) {
     return this.surveys.findPublicBySlug(slug);
   }
 
+  /**
+   * Envío de respuestas desde el enlace público. Límite por IP más estricto que
+   * el global: 3 por segundo, 20 por minuto y 200 por hora.
+   */
   @Public()
+  @Throttle({
+    short: { limit: 3, ttl: 1000 },
+    medium: { limit: 20, ttl: 60_000 },
+    long: { limit: 200, ttl: 3_600_000 },
+  })
   @Post('public/:id/submit')
   submitPublic(
     @Param('id') id: string,
     @Body()
     body: {
-      responseData: Record<string, any>;
-      respondentIdentifier?: string;
-      location?: { lat: number; lng: number; accuracy?: number } | null;
-      agentToken?: string | null;
+      responseData?: unknown;
+      respondentIdentifier?: unknown;
+      location?: unknown;
+      agentToken?: unknown;
     },
   ) {
     return this.surveys.submitPublic(
       id,
-      body.responseData,
-      body.respondentIdentifier,
-      body.location,
-      body.agentToken,
+      body?.responseData,
+      body?.respondentIdentifier,
+      body?.location,
+      body?.agentToken,
     );
   }
 
@@ -102,10 +118,7 @@ export class SurveysController {
 
   /** Actualiza el mapeo de campos al CRM y el campo de match. */
   @Put(':id/crm-mapping')
-  updateCrmMapping(
-    @Param('id') id: string,
-    @Body() body: { fields?: Record<string, string>; matchField?: string | null },
-  ) {
+  updateCrmMapping(@Param('id') id: string, @Body() body: unknown) {
     return this.surveys.updateCrmMapping(id, body);
   }
 
@@ -129,34 +142,23 @@ export class SurveysController {
 
   /** Cambia el usuario gestor (owner) de la encuesta. */
   @Put(':id/manager')
-  setManager(@Param('id') id: string, @Body() body: { managedByUserId: string | null }) {
-    return this.surveys.update(id, { managedByUserId: body.managedByUserId });
+  setManager(@Param('id') id: string, @Body() body: { managedByUserId?: unknown }) {
+    return this.surveys.setManager(id, body?.managedByUserId);
   }
 
-
-
+  /**
+   * Actualiza datos básicos (nombre, título, descripción, tema, ubicación,
+   * metadata). El contenido (flowJson), el estado y el logo tienen sus propios
+   * endpoints; cualquier otro campo del cuerpo se ignora.
+   */
   @Put(':id')
-  update(
-    @Param('id') id: string,
-    @Body()
-    body: Partial<{
-      name: string;
-      displayTitle: string | null;
-      description: string;
-      logoUrl: string | null;
-      theme: { primary?: string; background?: string } | null;
-      requireLocation: boolean;
-      flowJson: Record<string, any>;
-      status: string;
-      metadata: Record<string, any>;
-    }>,
-  ) {
+  update(@Param('id') id: string, @Body() body: unknown) {
     return this.surveys.update(id, body);
   }
 
   /** Sube el logo/imagen de header de la encuesta. */
   @Post(':id/logo')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
   uploadLogo(@Param('id') id: string, @UploadedFile() file: any) {
     return this.surveys.uploadLogo(id, file);
   }

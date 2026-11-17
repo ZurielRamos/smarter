@@ -48,7 +48,10 @@ export class RecordListsService {
 
   async update(id: string, data: Partial<{ name: string; filters: any; color: string }>): Promise<RecordList> {
     const list = await this.findOne(id);
-    Object.assign(list, data);
+    // Solo estos campos se editan; la cuenta y el tipo de la lista no cambian.
+    if (data.name !== undefined) list.name = data.name;
+    if (data.filters !== undefined) list.filters = data.filters;
+    if (data.color !== undefined) list.color = data.color;
     return this.listRepo.save(list);
   }
 

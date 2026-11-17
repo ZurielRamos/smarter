@@ -30,7 +30,9 @@ export class CustomFieldsService {
     if (!field) {
       throw new NotFoundException(`CustomField with id ${id} not found`);
     }
-    Object.assign(field, data);
+    // Nunca se acepta del cliente la cuenta, la clave ni si el campo es del sistema.
+    const { id: _id, tenantId: _t, tenant: _tn, fieldKey: _k, isSystem: _s, createdAt: _c, ...changes } = data as Record<string, any>;
+    Object.assign(field, changes);
     return this.customFieldRepo.save(field);
   }
 

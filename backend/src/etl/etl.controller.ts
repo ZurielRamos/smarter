@@ -9,29 +9,39 @@ import {
   UploadedFile,
   UseInterceptors,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
+import { TenantResourceService } from '../auth/tenant-resource.guard';
 import { EtlService } from './etl.service';
 import { CreateImportDto, ValidatePreviewDto, DeduplicatePreviewDto } from './dto/create-import.dto';
+import { AuthOnly, ReadAction, TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 
 @Controller('etl')
-@UseGuards(JwtAuthGuard, TenantAccessGuard)
+@UseGuards(JwtAuthGuard, TenantAccessGuard, TenantResourceGuard)
 export class EtlController {
-  constructor(private readonly etlService: EtlService) {}
+  constructor(
+    private readonly etlService: EtlService,
+    private readonly tenantResources: TenantResourceService,
+  ) {}
 
   // ===========================
   // FILE PARSING
   // ===========================
 
   @Get('target-fields')
+
+  @AuthOnly()
   getTargetFields() {
     return this.etlService.getTargetFields();
   }
 
   @Post('parse')
+
+  @AuthOnly()
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
@@ -44,13 +54,16 @@ export class EtlController {
 
   /** Async parse: upload file, queue parsing, return job immediately */
   @Post('parse-async')
+  @AuthOnly()
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
       limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
     }),
   )
-  parseFileAsync(@UploadedFile() file: Express.Multer.File, @Body() body: { tenantId?: string }) {
+  parseFileAsync(@Req() req: any, @UploadedFile() file: Express.Multer.File, @Body() body: { tenantId?: string }) {
+    // Multipart: el guard no ve el cuerpo, la cuenta se comprueba aquí.
+    this.tenantResources.assertMember(req.user, body.tenantId, { write: true });
     return this.etlService.parseFileAsync(file, body.tenantId);
   }
 
@@ -65,6 +78,8 @@ export class EtlController {
   // ===========================
 
   @Post('validate-preview')
+
+  @ReadAction()
   validatePreview(@Body() body: ValidatePreviewDto) {
     return this.etlService.validatePreview(
       body.fileId,
@@ -76,6 +91,8 @@ export class EtlController {
   }
 
   @Post('deduplicate-preview')
+
+  @ReadAction()
   deduplicatePreview(@Body() body: DeduplicatePreviewDto) {
     return this.etlService.deduplicatePreview(
       body.fileId,
@@ -138,11 +155,15 @@ export class EtlController {
   // ===========================
 
   @Get('jobs/:id')
+
+  @TenantResource('importJob')
   getJob(@Param('id') id: string) {
     return this.etlService.getJob(id);
   }
 
   @Get('jobs/:id/errors')
+
+  @TenantResource('importJob')
   getJobErrors(
     @Param('id') id: string,
     @Query('page') page = '1',
@@ -161,6 +182,8 @@ export class EtlController {
   }
 
   @Post('jobs/:id/cancel')
+
+  @TenantResource('importJob')
   cancelJob(@Param('id') id: string) {
     return this.etlService.cancelJob(id);
   }
@@ -175,6 +198,8 @@ export class EtlController {
   }
 
   @Post('templates/by-structure')
+
+  @ReadAction()
   getTemplateByStructure(@Body() body: { tenantId: string; headers: string[] }) {
     return this.etlService.getTemplateByStructure(body.tenantId, body.headers);
   }
@@ -185,6 +210,8 @@ export class EtlController {
   }
 
   @Delete('templates/:id')
+
+  @TenantResource('mappingTemplate')
   deleteTemplate(@Param('id') id: string) {
     return this.etlService.deleteTemplate(id);
   }

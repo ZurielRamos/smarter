@@ -381,7 +381,9 @@ export class ConversionsService {
   }
 
   async updateConversionEvent(id: string, data: Partial<ConversionEvent>): Promise<ConversionEvent> {
-    await this.conversionEventRepo.update(id, data as any);
+    // La cuenta del evento no se cambia desde el cliente.
+    const { id: _id, tenantId: _t, createdAt: _c, ...changes } = data as Record<string, any>;
+    if (Object.keys(changes).length) await this.conversionEventRepo.update(id, changes as any);
     return this.conversionEventRepo.findOneByOrFail({ id });
   }
 
@@ -417,7 +419,9 @@ export class ConversionsService {
   }
 
   async updateAdPlatform(id: string, data: Partial<AdPlatform>): Promise<AdPlatform> {
-    await this.adPlatformRepo.update(id, data as any);
+    // La cuenta de la plataforma no se cambia desde el cliente.
+    const { id: _id, tenantId: _t, createdAt: _c, ...changes } = data as Record<string, any>;
+    if (Object.keys(changes).length) await this.adPlatformRepo.update(id, changes as any);
     return this.adPlatformRepo.findOneByOrFail({ id });
   }
 

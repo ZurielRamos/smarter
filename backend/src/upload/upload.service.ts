@@ -358,20 +358,16 @@ export class UploadService {
     return this.templateRepository.save(template as MappingTemplate);
   }
 
-  async setDefaultTemplate(id: string, tenantId?: string): Promise<MappingTemplate> {
-    // Quitar default de todos los del mismo tenant
-    if (tenantId) {
-      await this.templateRepository.update({ tenantId }, { isDefault: false });
-    } else {
-      await this.templateRepository.update({}, { isDefault: false });
-    }
-    // Asignar default al seleccionado
-    await this.templateRepository.update(id, { isDefault: true });
+  async setDefaultTemplate(id: string): Promise<MappingTemplate> {
+    // El tenant es el de la propia plantilla (nunca el que declare el cliente).
+    const template = await this.templateRepository.findOneByOrFail({ id });
+    await this.templateRepository.update({ tenantId: template.tenantId }, { isDefault: false });
+    await this.templateRepository.update({ id, tenantId: template.tenantId }, { isDefault: true });
     return this.templateRepository.findOneByOrFail({ id });
   }
 
   async deleteTemplate(id: string): Promise<{ deleted: boolean }> {
-    await this.templateRepository.delete(id);
+    await this.templateRepository.delete({ id });
     return { deleted: true };
   }
 }

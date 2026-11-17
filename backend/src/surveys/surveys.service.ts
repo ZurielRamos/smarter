@@ -4,9 +4,33 @@ import { Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { Survey } from './survey.entity';
 import { SurveyResponse } from './survey-response.entity';
+import { Tenant } from '../tenants/tenant.entity';
+import { UserTenant } from '../users/user-tenant.entity';
 import { FlowProvisioningService } from '../whatsapp-flows/flow-provisioning.service';
 import { SurveyCrmService } from './survey-crm.service';
 import { MediaStorageService } from '../media/media-storage.service';
+import { isFeatureEnabled } from '../auth/requires-feature.decorator';
+import {
+  CrmMappingInput,
+  SurveyUpdateFields,
+  assertValidFlowJson,
+  parseAgentToken,
+  parseCrmMapping,
+  parseLocation,
+  parseRespondentIdentifier,
+  parseSurveyUpdate,
+  sanitizeResponseData,
+} from './survey-input';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Nunca se consulta por tenant sin tenant: `where: { tenantId: undefined }` listaría todas las cuentas. */
+function requireTenantId(tenantId: unknown): string {
+  if (typeof tenantId !== 'string' || !UUID_RE.test(tenantId)) {
+    throw new BadRequestException('tenantId requerido');
+  }
+  return tenantId;
+}
 
 /**
  * Plantilla mínima de encuesta en formato Meta Flow JSON. Una pantalla terminal
@@ -85,6 +109,10 @@ export class SurveysService {
     private readonly surveyRepo: Repository<Survey>,
     @InjectRepository(SurveyResponse)
     private readonly responseRepo: Repository<SurveyResponse>,
+    @InjectRepository(Tenant)
+    private readonly tenantRepo: Repository<Tenant>,
+    @InjectRepository(UserTenant)
+    private readonly userTenantRepo: Repository<UserTenant>,
     private readonly provisioning: FlowProvisioningService,
     private readonly crm: SurveyCrmService,
     private readonly media: MediaStorageService,
@@ -93,7 +121,10 @@ export class SurveysService {
   // ---- CRUD local ----
 
   findAll(tenantId: string): Promise<Survey[]> {
-    return this.surveyRepo.find({ where: { tenantId }, order: { createdAt: 'DESC' } });
+    return this.surveyRepo.find({
+      where: { tenantId: requireTenantId(tenantId) },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   /**
@@ -106,7 +137,7 @@ export class SurveysService {
     tenantId: string,
   ): Promise<Array<{ id: string; name: string; metaFlowId: string; firstScreen: string | null }>> {
     const surveys = await this.surveyRepo.find({
-      where: { tenantId },
+      where: { tenantId: requireTenantId(tenantId) },
       order: { createdAt: 'DESC' },
     });
 
@@ -174,11 +205,17 @@ export class SurveysService {
     flowJson?: Record<string, any>;
     managedByUserId?: string | null;
   }): Promise<Survey> {
-    if (!input.tenantId) throw new BadRequestException('tenantId requerido');
-    if (!input.name?.trim()) throw new BadRequestException('El nombre es obligatorio');
+    const tenantId = requireTenantId(input.tenantId);
+    if (typeof input.name !== 'string' || !input.name.trim() || input.name.trim().length > 200) {
+      throw new BadRequestException('El nombre es obligatorio (máximo 200 caracteres)');
+    }
+    if (input.description != null && (typeof input.description !== 'string' || input.description.length > 5000)) {
+      throw new BadRequestException('La descripción no puede superar 5000 caracteres');
+    }
+    if (input.flowJson !== undefined && input.flowJson !== null) assertValidFlowJson(input.flowJson);
 
     const survey = this.surveyRepo.create({
-      tenantId: input.tenantId,
+      tenantId,
       name: input.name.trim(),
       description: input.description ?? null,
       status: 'draft',
@@ -189,21 +226,14 @@ export class SurveysService {
     return this.surveyRepo.save(survey);
   }
 
-  async update(
-    id: string,
-    data: Partial<{
-      name: string;
-      displayTitle: string | null;
-      description: string;
-      logoUrl: string | null;
-      theme: { primary?: string; background?: string } | null;
-      requireLocation: boolean;
-      flowJson: Record<string, any>;
-      status: string;
-      metadata: Record<string, any>;
-      managedByUserId: string | null;
-    }>,
-  ): Promise<Survey> {
+  /**
+   * Actualiza los datos básicos de la encuesta. Solo se aplican los campos de la
+   * lista blanca de `parseSurveyUpdate`: el resto del cuerpo se ignora (antes se
+   * hacía Object.assign del cuerpo completo, lo que permitía cambiar tenantId,
+   * slug, metaFlowId, responseCount o logoUrl).
+   */
+  async update(id: string, body: unknown): Promise<Survey> {
+    const data: SurveyUpdateFields = parseSurveyUpdate(body);
     const survey = await this.findOne(id);
     // Regla: requireLocation solo puede activarse si la encuesta NO está en
     // WhatsApp (Meta Flows no soporta geolocalización).
@@ -275,9 +305,7 @@ export class SurveysService {
     metaSynced: boolean;
     metaErrors?: Array<{ code?: string; type?: string; message: string; pointer?: string }>;
   }> {
-    if (!flowJson || !Array.isArray(flowJson.screens) || flowJson.screens.length === 0) {
-      throw new BadRequestException('flowJson inválido: sin pantallas');
-    }
+    assertValidFlowJson(flowJson);
     const survey = await this.findOne(id);
     survey.flowJson = flowJson;
     const saved = await this.surveyRepo.save(survey);
@@ -392,8 +420,11 @@ export class SurveysService {
     requireLocation: boolean;
     flowJson: Record<string, any> | null;
   }> {
+    if (typeof slug !== 'string' || slug.length > 100) {
+      throw new NotFoundException('Encuesta no encontrada o no disponible');
+    }
     const survey = await this.surveyRepo.findOne({ where: { slug } });
-    if (!survey || survey.status === 'archived') {
+    if (!survey || !(await this.isPubliclyAvailable(survey))) {
       throw new NotFoundException('Encuesta no encontrada o no disponible');
     }
     return {
@@ -429,27 +460,53 @@ export class SurveysService {
   /** Registra una respuesta recibida por el enlace público web. */
   async submitPublic(
     surveyId: string,
-    responseData: Record<string, any>,
-    respondentIdentifier?: string,
-    location?: { lat: number; lng: number; accuracy?: number } | null,
-    agentToken?: string | null,
+    responseData: unknown,
+    respondentIdentifier?: unknown,
+    location?: unknown,
+    agentToken?: unknown,
   ): Promise<{ success: boolean }> {
+    if (!UUID_RE.test(String(surveyId))) throw new NotFoundException('Encuesta no disponible');
     const survey = await this.surveyRepo.findOne({ where: { id: surveyId } });
-    if (!survey || survey.status === 'archived') {
+    if (!survey || !(await this.isPubliclyAvailable(survey))) {
       throw new NotFoundException('Encuesta no disponible');
     }
+
+    // Entrada no autenticada: se sanea todo antes de tocar la base de datos.
+    const cleanData = sanitizeResponseData(responseData);
+    const cleanLocation = parseLocation(location);
+    const identifier = parseRespondentIdentifier(respondentIdentifier);
+    const token = parseAgentToken(agentToken);
+
     // Si la encuesta requiere ubicación, debe venir en el envío.
-    if (survey.requireLocation && (!location || typeof location.lat !== 'number')) {
+    if (survey.requireLocation && !cleanLocation) {
       throw new BadRequestException('Esta encuesta requiere compartir tu ubicación.');
     }
-    // Resolver el agente del enlace (si vino por un enlace de agente).
-    const attributedUserId = agentToken ? survey.agentTokens?.[agentToken] || null : null;
-    // La ubicación se guarda junto a la respuesta bajo una clave reservada.
-    const data = location
-      ? { ...responseData, __location__: location }
-      : responseData;
-    await this.recordResponse(survey, data, 'web', respondentIdentifier, attributedUserId);
+    // Resolver el agente del enlace (si vino por un enlace de agente). Se usa
+    // hasOwn para que un token como "constructor" no resuelva a nada heredado.
+    const attributedUserId =
+      token && survey.agentTokens && Object.prototype.hasOwnProperty.call(survey.agentTokens, token)
+        ? survey.agentTokens[token] || null
+        : null;
+    // La ubicación se guarda junto a la respuesta bajo una clave reservada (las
+    // claves `__*` enviadas por el cliente ya fueron descartadas).
+    const data = cleanLocation ? { ...cleanData, __location__: cleanLocation } : cleanData;
+    await this.recordResponse(survey, data, 'web', identifier, attributedUserId);
     return { success: true };
+  }
+
+  /**
+   * Una encuesta recibe respuestas públicas solo si está ACTIVA (antes bastaba
+   * con "no archivada": un borrador con enlace seguía aceptando envíos) y el
+   * módulo Encuestas no fue apagado para la cuenta.
+   */
+  private async isPubliclyAvailable(survey: Survey): Promise<boolean> {
+    if (survey.status !== 'active') return false;
+    const tenant = await this.tenantRepo.findOne({
+      where: { id: survey.tenantId },
+      select: { id: true, features: true, isActive: true },
+    });
+    if (!tenant || tenant.isActive === false) return false;
+    return isFeatureEnabled(tenant.features, 'encuestas');
   }
 
   /**
@@ -522,28 +579,56 @@ export class SurveysService {
       recordId,
       attributedUserId: attributedUserId ?? null,
     });
-    const saved = await this.responseRepo.save(response);
-    await this.surveyRepo.increment({ id: survey.id }, 'responseCount', 1);
-    return saved;
+    // Respuesta y contador en una sola transacción: si una falla, ninguna queda
+    // aplicada (antes un fallo entre ambas dejaba el contador desfasado).
+    return this.surveyRepo.manager.transaction(async (em) => {
+      const saved = await em.getRepository(SurveyResponse).save(response);
+      await em.getRepository(Survey).increment({ id: survey.id }, 'responseCount', 1);
+      return saved;
+    });
   }
 
   /** Actualiza el mapeo de campos al CRM y el campo de match. */
-  async updateCrmMapping(
-    id: string,
-    mapping: { fields?: Record<string, string>; matchField?: string | null },
-  ): Promise<Survey> {
+  async updateCrmMapping(id: string, body: unknown): Promise<Survey> {
     const survey = await this.findOne(id);
+    // Los destinos deben existir en el catálogo de campos del CRM del tenant.
+    const targets = await this.crm.listTargets(survey.tenantId);
+    const allowed = new Set<string>([...targets.system, ...targets.custom].map((t) => t.value));
+    const mapping: CrmMappingInput = parseCrmMapping(body, allowed);
     survey.crmMapping = mapping;
     return this.surveyRepo.save(survey);
   }
 
   /** Catálogo de campos del CRM a los que mapear (sistema + custom). */
   listCrmTargets(tenantId: string) {
-    return this.crm.listTargets(tenantId);
+    return this.crm.listTargets(requireTenantId(tenantId));
   }
 
   findResponses(id: string): Promise<SurveyResponse[]> {
     return this.responseRepo.find({ where: { surveyId: id }, order: { createdAt: 'DESC' } });
+  }
+
+  /**
+   * Cambia el gestor de la encuesta. El usuario debe ser miembro ACTIVO del
+   * mismo tenant (o null para quitarlo): antes se aceptaba cualquier uuid.
+   */
+  async setManager(id: string, managedByUserId: unknown): Promise<Survey> {
+    const survey = await this.findOne(id);
+    if (managedByUserId === null) {
+      survey.managedByUserId = null;
+      return this.surveyRepo.save(survey);
+    }
+    if (typeof managedByUserId !== 'string' || !UUID_RE.test(managedByUserId)) {
+      throw new BadRequestException('Usuario inválido');
+    }
+    const membership = await this.userTenantRepo.findOne({
+      where: { userId: managedByUserId, tenantId: survey.tenantId, status: 'active' },
+    });
+    if (!membership) {
+      throw new BadRequestException('El usuario no pertenece a esta cuenta');
+    }
+    survey.managedByUserId = managedByUserId;
+    return this.surveyRepo.save(survey);
   }
 
   // ---- Conversión OPCIONAL a Flow de Meta ----

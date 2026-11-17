@@ -6,9 +6,10 @@ import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { Public } from '../auth/public.decorator';
 import { FormsService } from './forms.service';
 import { FormField, FormStyle } from './form.entity';
+import { TenantRefs, TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 
 @Controller('forms')
-@UseGuards(JwtAuthGuard, TenantAccessGuard)
+@UseGuards(JwtAuthGuard, TenantAccessGuard, TenantResourceGuard)
 export class FormsController {
   constructor(private readonly service: FormsService) {}
 
@@ -24,11 +25,15 @@ export class FormsController {
   }
 
   @Get(':id')
+
+  @TenantResource('form')
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
   }
 
   @Post()
+
+  @TenantRefs({ kind: 'inbox', in: 'body', field: 'inboxId' })
   create(@Body() body: {
     tenantId: string;
     inboxId?: string;
@@ -41,6 +46,10 @@ export class FormsController {
   }
 
   @Put(':id')
+
+  @TenantResource('form')
+
+  @TenantRefs({ kind: 'inbox', in: 'body', field: 'inboxId' })
   update(@Param('id') id: string, @Body() body: Partial<{
     name: string;
     description: string;
@@ -54,6 +63,8 @@ export class FormsController {
   }
 
   @Delete(':id')
+
+  @TenantResource('form')
   delete(@Param('id') id: string) {
     return this.service.delete(id);
   }

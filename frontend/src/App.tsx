@@ -53,6 +53,13 @@ const Flujos = lazy(() => import("./pages/comunicaciones/Flujos").then((m) => ({
 const FlujoEmpty = lazy(() => import("./pages/comunicaciones/FlujoEmpty").then((m) => ({ default: m.FlujoEmpty })));
 const AutomatizacionesLayout = lazy(() => import("./pages/automatizaciones/AutomatizacionesLayout").then((m) => ({ default: m.AutomatizacionesLayout })));
 const Automatizaciones = lazy(() => import("./pages/automatizaciones/Automatizaciones").then((m) => ({ default: m.Automatizaciones })));
+const ReclutamientoLayout = lazy(() => import("./pages/reclutamiento/ReclutamientoLayout").then((m) => ({ default: m.ReclutamientoLayout })));
+const Reclutamiento = lazy(() => import("./pages/reclutamiento/Reclutamiento").then((m) => ({ default: m.Reclutamiento })));
+const PlantillasContrato = lazy(() => import("./pages/reclutamiento/Plantillas").then((m) => ({ default: m.Plantillas })));
+const PlantillaEditor = lazy(() => import("./pages/reclutamiento/PlantillaEditor").then((m) => ({ default: m.PlantillaEditor })));
+const PortalEncuestador = lazy(() => import("./pages/reclutamiento/PortalConfig").then((m) => ({ default: m.PortalConfig })));
+const EncuestadorPortal = lazy(() => import("./pages/reclutamiento/portal/EncuestadorPortal").then((m) => ({ default: m.EncuestadorPortal })));
+const ReclutamientoDetail = lazy(() => import("./pages/reclutamiento/ReclutamientoDetail").then((m) => ({ default: m.ReclutamientoDetail })));
 const AutomationEditor = lazy(() => import("./pages/automatizaciones/AutomationEditor").then((m) => ({ default: m.AutomationEditor })));
 const AutomationConnections = lazy(() => import("./pages/automatizaciones/AutomationConnections").then((m) => ({ default: m.AutomationConnections })));
 const AutomationRuns = lazy(() => import("./pages/automatizaciones/AutomationRuns").then((m) => ({ default: m.AutomationRuns })));
@@ -151,6 +158,7 @@ function App() {
             <Route path="/s/:surveySlug" element={<PublicSurvey />} />
             <Route path="/c/:slug" element={<PublicCourse />} />
             <Route path="/academy/:tenantSlug/*" element={<AcademyPortal />} />
+            <Route path="/encuestador/:tenantSlug" element={<EncuestadorPortal />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/data-deletion" element={<DataDeletion />} />
@@ -220,6 +228,13 @@ function App() {
                 <Route path="conexiones" element={<AutomationConnections />} />
                 <Route path="ejecuciones" element={<AutomationRuns />} />
                 <Route path=":automationId" element={<AutomationEditor />} />
+              </Route>
+              <Route path="/:slug/reclutamiento" element={<ReclutamientoLayout />}>
+                <Route index element={<Reclutamiento />} />
+                <Route path="plantillas" element={<PlantillasContrato />} />
+                <Route path="portal" element={<PortalEncuestador />} />
+                <Route path="plantillas/:templateId" element={<PlantillaEditor />} />
+                <Route path=":profileId" element={<ReclutamientoDetail />} />
               </Route>
               <Route path="/:slug/inboxes" element={<Inboxes />} />
               <Route path="/:slug/inboxes/new" element={<NewInbox />} />
