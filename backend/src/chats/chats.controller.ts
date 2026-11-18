@@ -10,7 +10,7 @@ import { ChatsService, AssignmentFilter } from './chats.service';
 import { WebhookForwarderService } from './webhook-forwarder.service';
 import { ConversationAccessGuard, ConversationAccessService } from './conversation-access';
 import { TenantResourceService } from '../auth/tenant-resource.guard';
-import { TenantRefs, TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
+import { AuthOnly, TenantRefs, TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 
 /** Normaliza el query param de asignación a un valor válido. */
 function normalizeAssignment(value?: string): AssignmentFilter {
@@ -251,6 +251,8 @@ export class ChatsController {
 
   // Upload media for WhatsApp template header
   @Post('whatsapp/templates/upload-media')
+  // Multipart: el guard no ve el cuerpo; el acceso se valida en el handler.
+  @AuthOnly()
   @UseInterceptors(FileInterceptor('file'))
   async uploadTemplateMedia(@Req() req: any, @UploadedFile() file: Express.Multer.File, @Body() body: { inboxId: string }) {
     await this.tenantResources.assertAccess(req.user, 'inbox', body.inboxId, { write: true });
@@ -267,6 +269,8 @@ export class ChatsController {
 
   // Upload WhatsApp profile picture
   @Post('whatsapp/profile/upload-picture')
+  // Multipart: el guard no ve el cuerpo; el acceso se valida en el handler.
+  @AuthOnly()
   @UseInterceptors(FileInterceptor('file'))
   async uploadProfilePicture(@Req() req: any, @UploadedFile() file: Express.Multer.File, @Body() body: { inboxId: string }) {
     await this.tenantResources.assertAccess(req.user, 'inbox', body.inboxId, { write: true });
@@ -312,6 +316,7 @@ export class ChatsController {
 
   // Send a template message
   @Post('conversations/:id/send-template')
+  @TenantResource('conversation')
   sendTemplate(
     @Param('id') id: string,
     @Body() body: { templateName: string; languageCode: string; category?: string; components?: any[]; senderId?: string; renderedContent?: string; templateComponents?: any[] },
@@ -402,31 +407,37 @@ export class ChatsController {
   }
 
   @Post('conversations/:id/read')
+  @TenantResource('conversation')
   markAsRead(@Param('id') id: string) {
     return this.chatsService.markAsRead(id);
   }
 
   @Post('conversations/:id/bot-reactivate')
+  @TenantResource('conversation')
   reactivateBot(@Param('id') id: string, @Req() req: any) {
     return this.chatsService.reactivateBot(id, req.user?.name || req.user?.email);
   }
 
   @Put('conversations/:id/status')
+  @TenantResource('conversation')
   updateConversationStatus(@Param('id') id: string, @Body() body: { status: string }, @Req() req: any) {
     return this.chatsService.updateConversationStatus(id, body.status, req.user?.name || req.user?.email);
   }
 
   @Post('conversations/:id/bot-pause')
+  @TenantResource('conversation')
   pauseBot(@Param('id') id: string, @Req() req: any) {
     return this.chatsService.pauseBot(id, req.user?.name || req.user?.email);
   }
 
   @Delete('conversations/:id')
+  @TenantResource('conversation')
   deleteConversation(@Param('id') id: string) {
     return this.chatsService.deleteConversation(id);
   }
 
   @Delete('conversations/:id/messages')
+  @TenantResource('conversation')
   clearMessages(@Param('id') id: string) {
     return this.chatsService.clearMessages(id);
   }
@@ -435,6 +446,7 @@ export class ChatsController {
 
   // Búsqueda de texto dentro de una conversación (histórico completo).
   @Get('conversations/:id/messages/search')
+  @TenantResource('conversation')
   searchMessages(
     @Param('id') id: string,
     @Query('q') q?: string,
@@ -444,6 +456,7 @@ export class ChatsController {
   }
 
   @Get('conversations/:id/messages')
+  @TenantResource('conversation')
   getMessages(
     @Param('id') id: string,
     @Query('limit') limit = '50',
@@ -454,11 +467,13 @@ export class ChatsController {
 
   // Archivos/medios compartidos en la conversación (imágenes, videos, audio, docs).
   @Get('conversations/:id/media')
+  @TenantResource('conversation')
   getConversationMedia(@Param('id') id: string, @Query('limit') limit = '100') {
     return this.chatsService.getConversationMedia(id, +limit);
   }
 
   @Post('conversations/:id/send')
+  @TenantResource('conversation')
   sendMessage(
     @Param('id') id: string,
     @Body() body: { content: string; messageType?: string; senderId?: string; replyToExternalId?: string; clientMessageId?: string },
@@ -473,11 +488,16 @@ export class ChatsController {
   }
 
   @Post('conversations/:id/note')
+  @TenantResource('conversation')
   createNote(@Param('id') id: string, @Body() body: { content: string; senderId?: string }) {
     return this.chatsService.createNote(id, body.content, body.senderId);
   }
 
   @Post('conversations/upload')
+
+  // Multipart: el guard no ve el cuerpo; el acceso se valida en el handler.
+
+  @AuthOnly()
   @UseInterceptors(FileInterceptor('file'))
   async uploadMedia(
     @Req() req: any,
@@ -493,6 +513,10 @@ export class ChatsController {
   }
 
   @Post('media/upload')
+
+  // Multipart: el guard no ve el cuerpo; el acceso se valida en el handler.
+
+  @AuthOnly()
   @UseInterceptors(FileInterceptor('file'))
   async uploadMediaOnly(
     @Req() req: any,
@@ -530,7 +554,6 @@ export class ChatsController {
   }
 
   @Post('conversations/:id/toggle-label')
-
   @TenantResource('conversation')
 
   @TenantRefs({ kind: 'label', in: 'body', field: 'labelId' })
