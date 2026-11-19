@@ -41,7 +41,7 @@ export class ApiTokenGuard implements CanActivate {
     }
 
     // Attach user with active tenant roles
-    const activeRoles = user.tenantRoles?.filter((tr) => tr.status === 'active') || [];
+    const activeRoles = user.tenantRoles?.filter((tr) => tr.status === 'active' && tr.tenant) || [];
     request.user = {
       id: user.id,
       name: user.name,
