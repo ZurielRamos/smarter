@@ -7,6 +7,7 @@ import {
   FlowNodeData,
   FlowHeaderMedia,
   FlowConditionRule,
+  FlowTemplateRecipients,
 } from './conversation-flow.entity';
 import { isHttpUrl, normalizePhone } from './flow-buttons.util';
 import {
@@ -92,6 +93,23 @@ export interface FlowEffects {
   removeLabelIds: string[];
   /** Acciones sobre proyectos de reclutamiento, en orden. Las aplica ChatsService. */
   projectActions: FlowProjectAction[];
+  /** Plantillas de WhatsApp por enviar («Enviar plantilla»), en orden. Las envía ChatsService. */
+  templateSends: FlowTemplateSend[];
+}
+/**
+ * Plantilla por enviar. Los valores de las variables van sin resolver y con una
+ * copia de las variables del flujo: ChatsService las resuelve para cada
+ * destinatario (así {{firstName}} es el del contacto que la recibe).
+ */
+export interface FlowTemplateSend {
+  inboxId: string;
+  templateName: string;
+  templateLanguage: string;
+  templateCategory?: string;
+  templateComponents?: any[];
+  templateVariables: Record<string, string>;
+  variables: Record<string, string>;
+  recipients: FlowTemplateRecipients;
 }
 
 /** Agregar al contacto a un proyecto, cambiar su estado o guardar respuestas de su formulario. */
@@ -898,6 +916,23 @@ export class ConversationFlowEngine {
               // Las acciones de proyecto se aplican al terminar el turno. Para que una
               // Condición posterior del mismo turno las vea, se reflejan ya en el contexto
               // (si al aplicarlas algo no se puede hacer, la nota de la conversación lo dice).
+              case 'send_template': {
+                const recipients = action.recipients ?? { mode: 'current' as const };
+                // Sin canal, plantilla o contacto al que enviar no hay nada que hacer.
+                if (!action.inboxId || !action.templateName) break;
+                if (recipients.mode === 'current' && !context.hasContact) break;
+                result.effects.templateSends.push({
+                  inboxId: action.inboxId,
+                  templateName: action.templateName,
+                  templateLanguage: action.templateLanguage || 'es',
+                  ...(action.templateCategory ? { templateCategory: action.templateCategory } : {}),
+                  ...(action.templateComponents ? { templateComponents: action.templateComponents } : {}),
+                  templateVariables: action.templateVariables ?? {},
+                  variables: { ...variables },
+                  recipients,
+                });
+                break;
+              }
               case 'add_to_project':
                 if (action.projectId) {
                   result.effects.projectActions.push({
@@ -1038,6 +1073,7 @@ export class ConversationFlowEngine {
         addLabelIds: [],
         removeLabelIds: [],
         projectActions: [],
+        templateSends: [],
       },
       startedFlowIds: [],
       contactUpdates: {},

@@ -9,7 +9,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan, SelectQueryBuilder, In, Not } from 'typeorm';
+import { Repository, MoreThan, SelectQueryBuilder, In, Not, IsNull } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { FlowSubmissionsService } from '../whatsapp-flows/flow-submissions.service';
@@ -65,10 +65,12 @@ import type {
 } from '../conversation-flows/flow-triggers.util';
 import type { ConversationFlow } from '../conversation-flows/conversation-flow.entity';
 import { Campaign } from '../campaigns/campaign.entity';
+import { RecordListsService } from '../records/record-lists.service';
 import {
   ConversationFlowEngine,
   FlowContext,
   FlowRunResult,
+  FlowTemplateSend,
   parseButtonPayload,
 } from '../conversation-flows/conversation-flow.engine';
 import {
@@ -321,6 +323,8 @@ export class ChatsService {
     private readonly campaignRepo: Repository<Campaign>,
     @Optional()
     private readonly projectProspects?: ProjectProspectsService,
+    @Optional()
+    private readonly recordLists?: RecordListsService,
   ) {}
 
   /**
@@ -3802,6 +3806,110 @@ export class ChatsService {
   }
 
   /**
+   * Acción «Enviar plantilla» de un flujo. Resuelve los destinatarios (el
+   * contacto de la conversación, contactos elegidos o los de una lista), rellena
+   * las variables de la plantilla para cada uno (variables del flujo y, si no
+   * hay, los datos de ese contacto en el CRM) y la envía por el canal elegido.
+   * El resultado, incluidos los fallos, queda en una nota de la conversación.
+   */
+  private async runFlowTemplateSend(
+    origin: Inbox,
+    conversation: Conversation,
+    send: FlowTemplateSend,
+  ): Promise<void> {
+    const MAX_RECIPIENTS = 200;
+    const note = (text: string) =>
+      this.createSystemNote(conversation.id, text, origin.tenantId).catch(() => undefined);
+    const label = `«${send.templateName}»`;
+
+    const target = await this.inboxRepo.findOne({
+      where: { id: send.inboxId, tenantId: origin.tenantId },
+    });
+    if (!target || target.channel !== 'whatsapp') {
+      await note(`⚠ Flujo: no se envió la plantilla ${label} porque el canal de WhatsApp ya no existe.`);
+      return;
+    }
+
+    // ── Destinatarios (siempre de la cuenta del flujo) ──
+    let records: ClientRecord[] = [];
+    const { mode, recordIds, listId } = send.recipients;
+    if (mode === 'current') {
+      const r = conversation.recordId
+        ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId, tenantId: origin.tenantId } })
+        : null;
+      if (r) records = [r];
+    } else if (mode === 'contacts') {
+      records = (recordIds ?? []).length
+        ? await this.clientRecordRepo.find({
+            where: { id: In(recordIds!), tenantId: origin.tenantId, deletedAt: IsNull() },
+          })
+        : [];
+    } else if (mode === 'list' && listId && this.recordLists) {
+      const list = await this.recordLists.findOne(listId).catch(() => null);
+      if (list && list.tenantId === origin.tenantId) {
+        const page = await this.recordLists.getRecords(listId, 1, MAX_RECIPIENTS + 1);
+        if (page.total > MAX_RECIPIENTS) {
+          await note(`⚠ Flujo: la lista tiene ${page.total} contactos; la plantilla ${label} se envió solo a los primeros ${MAX_RECIPIENTS}.`);
+        }
+        records = page.data.slice(0, MAX_RECIPIENTS).filter((r) => !r.deletedAt);
+      }
+    }
+    if (!records.length) {
+      await note(`⚠ Flujo: no se envió la plantilla ${label}: no hay contactos a quienes enviarla.`);
+      return;
+    }
+
+    let sent = 0;
+    const failures: string[] = [];
+    for (const record of records) {
+      const who = record.fullName || record.phone || record.email || record.id;
+      try {
+        // Los valores se resuelven con las variables del flujo y los datos de ESTE contacto.
+        const ctx: FlowContext = {
+          contactName: record.fullName || undefined,
+          contact: buildContactVariables(record),
+        };
+        const values: Record<string, string> = {};
+        let empty: string | null = null;
+        for (const [key, raw] of Object.entries(send.templateVariables)) {
+          const v = this.conversationFlowEngine.interpolate(raw, send.variables, ctx).trim();
+          // Una variable que queda vacía no se manda: la plantilla usaría su texto de ejemplo.
+          if (!v && key !== 'header_media') empty = key;
+          values[key] = v;
+        }
+        if (empty) throw new Error('una variable de la plantilla quedó vacía para este contacto');
+
+        const conv =
+          conversation.recordId === record.id && conversation.inboxId === target.id
+            ? conversation
+            : await this.findOrCreateConversationForRecord(target.id, record.id);
+        await this.sendTemplateMessage(
+          conv.id,
+          send.templateName,
+          send.templateLanguage,
+          this.buildAutomationTemplateComponents(send.templateComponents, record, values),
+          undefined,
+          `[Plantilla: ${send.templateName}]`,
+          send.templateComponents,
+          send.templateCategory,
+        );
+        sent++;
+      } catch (err: any) {
+        failures.push(`${who} (${err?.message || 'error'})`);
+      }
+    }
+
+    if (sent) {
+      await note(`📨 Flujo envió la plantilla ${label} a ${sent} ${sent === 1 ? 'contacto' : 'contactos'}.`);
+    }
+    if (failures.length) {
+      const shown = failures.slice(0, 5).join('; ');
+      const more = failures.length > 5 ? ` y ${failures.length - 5} más` : '';
+      await note(`⚠ Flujo: no se pudo enviar la plantilla ${label} a ${failures.length}: ${shown}${more}.`);
+    }
+  }
+
+  /**
    * Contexto con el que el motor resuelve las {{variables}}: nombre del chat,
    * canal y los campos del CRM del contacto vinculado (sistema y personalizados).
    */
@@ -3990,6 +4098,20 @@ export class ChatsService {
           inbox.tenantId,
         );
         break;
+      }
+    }
+
+    // «Enviar plantilla»: después de los mensajes del turno. Al contacto de la
+    // conversación se le envía ya; a otros contactos o listas, en segundo plano.
+    for (const send of effects.templateSends ?? []) {
+      if (send.recipients.mode === 'current') {
+        await this.runFlowTemplateSend(inbox, conversation, send).catch((err) =>
+          console.warn('[ConversationFlow] Template send failed:', err?.message || err),
+        );
+      } else {
+        void this.runFlowTemplateSend(inbox, conversation, send).catch((err) =>
+          console.warn('[ConversationFlow] Template send failed:', err?.message || err),
+        );
       }
     }
 

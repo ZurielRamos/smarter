@@ -148,6 +148,7 @@ const ACTION_TYPES = new Set<FlowAction['type']>([
   'add_to_project',
   'set_project_status',
   'set_project_answers',
+  'send_template',
 ]);
 const OPERATORS = new Set([
   'equals',
@@ -662,6 +663,10 @@ export class ConversationFlowsService {
               });
               continue;
             }
+            if (a.type === 'send_template') {
+              actions.push(await this.sanitizeSendTemplate(a, flow.tenantId));
+              continue;
+            }
             if (a.type === 'add_to_project' || a.type === 'set_project_status') {
               // El proyecto debe ser de la cuenta del flujo; si no, queda vacío (y la acción no hace nada).
               const projectId = await this.cleanProjectId(a.projectId, flow.tenantId);
@@ -1025,6 +1030,52 @@ export class ConversationFlowsService {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null;
     const rows: unknown[] = await this.flowRepo.manager.query(`SELECT 1 FROM recruitment_projects WHERE id = $1 AND tenant_id = $2`, [id, tenantId]);
     return rows.length ? id : null;
+  }
+
+  /**
+   * «Enviar plantilla»: el canal debe ser un WhatsApp de la cuenta, y los
+   * contactos o la lista elegidos, de la misma cuenta. Lo que no cumple queda
+   * vacío (la acción no envía nada y el editor lo marca como incompleta).
+   */
+  private async sanitizeSendTemplate(a: any, tenantId: string): Promise<FlowAction> {
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const q = <T>(sql: string, params: unknown[]): Promise<T[]> => this.flowRepo.manager.query(sql, params);
+    const inboxId = UUID.test(String(a.inboxId ?? ''))
+      ? ((await q<{ id: string }>(`SELECT id FROM inboxes WHERE id = $1 AND tenant_id = $2 AND channel = 'whatsapp'`, [a.inboxId, tenantId]))[0]?.id ?? '')
+      : '';
+    const out: FlowAction = {
+      type: 'send_template',
+      inboxId,
+      templateName: String(a.templateName ?? '').trim().slice(0, 512),
+      templateLanguage: String(a.templateLanguage ?? '').trim().slice(0, 20),
+    };
+    const category = String(a.templateCategory ?? '').trim().toLowerCase();
+    if (['utility', 'marketing', 'authentication'].includes(category)) out.templateCategory = category;
+    // Definición de la plantilla (de Meta): solo se guarda si es una lista de objetos de tamaño razonable.
+    if (Array.isArray(a.templateComponents) && a.templateComponents.every((c: unknown) => c && typeof c === 'object') && JSON.stringify(a.templateComponents).length <= 30000) {
+      out.templateComponents = a.templateComponents;
+    }
+    const vars: Record<string, string> = {};
+    for (const [k, v] of Object.entries(a.templateVariables && typeof a.templateVariables === 'object' ? a.templateVariables : {})) {
+      if (/^(body_\d{1,2}|header_\d{1,2}|button_\d{1,2}|header_media)$/.test(k) && typeof v === 'string' && v) vars[k] = v.slice(0, 2000);
+    }
+    out.templateVariables = vars;
+    const mode = a.recipients?.mode;
+    if (mode === 'contacts') {
+      const ids = [...new Set((Array.isArray(a.recipients.recordIds) ? a.recipients.recordIds : []).map(String).filter((id: string) => UUID.test(id)))].slice(0, 25) as string[];
+      const rows = ids.length
+        ? await q<{ id: string }>(`SELECT id FROM clients WHERE id = ANY($1::uuid[]) AND tenant_id = $2 AND deleted_at IS NULL`, [ids, tenantId])
+        : [];
+      out.recipients = { mode, recordIds: rows.map((r) => r.id) };
+    } else if (mode === 'list') {
+      const listId = UUID.test(String(a.recipients.listId ?? ''))
+        ? ((await q<{ id: string }>(`SELECT id FROM record_lists WHERE id = $1 AND tenant_id = $2`, [a.recipients.listId, tenantId]))[0]?.id ?? '')
+        : '';
+      out.recipients = { mode, listId };
+    } else {
+      out.recipients = { mode: 'current' };
+    }
+    return out;
   }
 
   private async writableCustomKeys(tenantId: string): Promise<Set<string>> {

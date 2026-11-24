@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ACTION_LABELS, VALIDATION_LABELS, type FlowNodeData } from "./types";
+import { sendTemplateIssue } from "./sendTemplate";
 import { FlowEditorContext, FlowVariablesContext } from "./editorContext";
 import { conditionIssues, describeBranch } from "./conditions";
 import { AI_MODE_OPTIONS, inputIssue } from "./inputs";
@@ -353,7 +354,9 @@ export function ActionNode({ data, selected }: NodeProps<FlowNode>) {
                   (a.type === "set_project_answers" && (!a.projectId || !(a.answers ?? []).some((x) => x.item && x.value.trim()))),
               )
             ? "Acción de proyecto incompleta"
-            : null
+            : actions.some((a) => a.type === "send_template" && sendTemplateIssue(a))
+              ? "Plantilla incompleta"
+              : null
       }
     >
       {actions.length === 0 ? (
@@ -389,6 +392,15 @@ export function ActionNode({ data, selected }: NodeProps<FlowNode>) {
                 <>
                   <span className="rounded bg-muted px-1">{projectName(a.projectId)}</span> →{" "}
                   <span className="rounded bg-muted px-1">{a.status ? stateName(a.status) : "?"}</span>
+                </>
+              ) : a.type === "send_template" ? (
+                <>
+                  Plantilla <span className="rounded bg-muted px-1">{a.templateName || "?"}</span> →{" "}
+                  {(a.recipients?.mode ?? "current") === "current"
+                    ? "este contacto"
+                    : a.recipients?.mode === "contacts"
+                      ? `${a.recipients.recordIds?.length ?? 0} contactos`
+                      : "una lista"}
                 </>
               ) : a.type === "add_label" || a.type === "remove_label" ? (
                 <>

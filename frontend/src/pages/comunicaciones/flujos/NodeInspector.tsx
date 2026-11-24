@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { VariableInput, VariableTextarea } from "./VariableField";
 import { ConditionEditor } from "./ConditionEditor";
 import { InputEditor } from "./InputEditor";
+import { SendTemplateFields } from "./SendTemplateFields";
 import { NoMatchEditor } from "./NoMatchEditor";
 import { TimeoutEditor } from "./TimeoutEditor";
 import { supportsTimeout } from "./timeout";
@@ -922,6 +923,9 @@ function ActionFields({
               />
               <p className="text-[11px] text-muted-foreground">Reemplaza el valor que el contacto tenga en el CRM.</p>
             </div>
+          )}
+          {a.type === "send_template" && (
+            <SendTemplateFields action={a} tenantId={tenantId} onChange={(patch) => update(i, patch)} />
           )}
           {(a.type === "add_label" || a.type === "remove_label") && (
             <FlowSelect

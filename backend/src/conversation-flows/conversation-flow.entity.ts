@@ -293,7 +293,17 @@ export type FlowActionType =
   // Reclutamiento (solo con el módulo activo):
   | 'add_to_project'
   | 'set_project_status'
-  | 'set_project_answers';
+  | 'set_project_answers'
+  | 'send_template';
+
+/** A quién se envía la plantilla de la acción «Enviar plantilla». */
+export interface FlowTemplateRecipients {
+  /** current: el contacto de la conversación · contacts: contactos elegidos · list: los de una lista */
+  mode: 'current' | 'contacts' | 'list';
+  recordIds?: string[];
+  listId?: string;
+}
+
 export interface FlowAction {
   type: FlowActionType;
   /** set_variable: nombre de la variable */
@@ -318,6 +328,17 @@ export interface FlowAction {
    * Con `onlyIfEmpty` no reemplaza lo que ya tenía.
    */
   answers?: FlowProjectAnswer[];
+  /** send_template: canal de WhatsApp desde el que se envía */
+  inboxId?: string;
+  /** send_template: plantilla aprobada (con su definición de Meta, para armar los parámetros) */
+  templateName?: string;
+  templateLanguage?: string;
+  templateCategory?: string;
+  templateComponents?: any[];
+  /** send_template: valores de las variables (body_1, header_1, button_0, header_media); admiten {{variables}} */
+  templateVariables?: Record<string, string>;
+  /** send_template: destinatarios */
+  recipients?: FlowTemplateRecipients;
 }
 
 export interface FlowProjectAnswer {

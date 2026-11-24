@@ -1,4 +1,5 @@
 import { ReclutamientoModule } from '../reclutamiento/reclutamiento.module';
+import { RecordsModule } from '../records/records.module';
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Inbox } from './inbox.entity';
@@ -64,6 +65,8 @@ import { ApiFlowsController } from './api-flows.controller';
     ConversationFlowsModule,
     // Acciones de proyecto de los flujos (agregar a proyecto, cambiar estado).
     ReclutamientoModule,
+    // Listas de contactos (destinatarios de «Enviar plantilla»).
+    RecordsModule,
   ],
   providers: [ChatsService, FlowTimersWorker, ChatsGateway, ChatWidgetGateway, WebhookForwarderService, ChatsSyncService, ConversationAccessService, ConversationAccessGuard],
   controllers: [ChatsController, ChatsSyncController, ApiConversationsController, ApiMessagesController, ApiInboxesController, ApiFlowsController, ChatWidgetController, WebhookController, MailgunWebhookController, ApiEmailController, ApiWhatsappAuthController, FlowLinkController],

@@ -195,7 +195,17 @@ export type FlowActionType =
   // Reclutamiento (solo con el módulo activo)
   | "add_to_project"
   | "set_project_status"
-  | "set_project_answers";
+  | "set_project_answers"
+  // Plantilla de WhatsApp
+  | "send_template";
+
+/** A quién se envía la plantilla. */
+export interface FlowTemplateRecipients {
+  /** current: el contacto de la conversación · contacts: contactos elegidos · list: los de una lista */
+  mode: "current" | "contacts" | "list";
+  recordIds?: string[];
+  listId?: string;
+}
 /** Operadores de condición (espejo del backend: flow-conditions.util.ts). */
 export type FlowConditionOperator =
   // Texto
@@ -290,6 +300,14 @@ export interface FlowAction {
   status?: string;
   /** set_project_answers: `item` = `question:<id>` o `field:<clave>`; `value` admite {{variables}} */
   answers?: Array<{ item: string; value: string }>;
+  /** send_template: canal de WhatsApp, plantilla (con su definición de Meta), valores de sus variables y destinatarios */
+  inboxId?: string;
+  templateName?: string;
+  templateLanguage?: string;
+  templateCategory?: string;
+  templateComponents?: any[];
+  templateVariables?: Record<string, string>;
+  recipients?: FlowTemplateRecipients;
 }
 
 export interface FlowNodeData {
@@ -503,6 +521,7 @@ export const ACTION_LABELS: Record<FlowActionType, string> = {
   add_to_project: "Agregar a proyecto",
   set_project_status: "Cambiar estado en proyecto",
   set_project_answers: "Guardar respuestas en proyecto",
+  send_template: "Enviar plantilla",
 };
 
 /** Acciones que solo existen con Reclutamiento activo. */
