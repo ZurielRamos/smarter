@@ -94,12 +94,15 @@ export interface FlowEffects {
   projectActions: FlowProjectAction[];
 }
 
-/** Agregar al contacto a un proyecto o cambiar su estado en él. */
+/** Agregar al contacto a un proyecto, cambiar su estado o guardar respuestas de su formulario. */
 export interface FlowProjectAction {
-  type: 'add' | 'status';
+  type: 'add' | 'status' | 'answers';
   projectId: string;
   role?: string;
   status?: string;
+  /** answers: valores ya con las {{variables}} resueltas */
+  answers?: Array<{ item: string; value: string }>;
+  onlyIfEmpty?: boolean;
 }
 
 export interface FlowRunResult {
@@ -916,6 +919,20 @@ export class ConversationFlowEngine {
                   if (current) current.status = action.status;
                 }
                 break;
+              case 'set_project_answers': {
+                if (!action.projectId) break;
+                const answers = (action.answers || [])
+                  .map((x) => ({ item: x.item, value: this.interpolate(x.value || '', variables, context).trim() }))
+                  .filter((x) => x.item && x.value);
+                if (answers.length)
+                  result.effects.projectActions.push({
+                    type: 'answers',
+                    projectId: action.projectId,
+                    answers,
+                    ...(action.onlyIfEmpty ? { onlyIfEmpty: true } : {}),
+                  });
+                break;
+              }
               case 'handoff':
                 result.effects.handoff = true;
                 terminal = true;

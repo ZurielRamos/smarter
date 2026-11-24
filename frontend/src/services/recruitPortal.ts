@@ -28,6 +28,8 @@ export interface PortalInfo {
     defaultRole: "participant" | "surveyor" | "moderator";
     fields: ProjectField[];
     questions: FormQuestion[];
+    /** Pantallas después de la de contacto: `field:<clave>` o `question:<id>`. */
+    steps?: Array<{ title: string; description: string; items: string[] }>;
   };
 }
 

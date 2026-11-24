@@ -1,60 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ClipboardList, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
-import { reclutamientoApi, type FormQuestion, type PersonalField, type PortalFieldDef, type ProjectVerification, type QuestionType } from "@/services/reclutamiento";
-import { Field, Segmented, Spinner, inputClass, primaryButton, secondaryButton } from "../shared";
+import { reclutamientoApi, type FormLayout, type PersonalField, type PortalFieldDef, type ProjectVerification } from "@/services/reclutamiento";
+import { FormLayoutEditor } from "./FormLayoutEditor";
+import { Spinner, primaryButton } from "../shared";
+import { QuestionBuilder } from "./QuestionBuilder";
+import { draftIssues, toDraft, toPayload, type Draft } from "./questionDrafts";
 import { WhatsappPicker } from "../PortalConfig";
-
-const MAX_QUESTIONS = 15;
-
-const TYPE_OPTIONS: Array<{ value: QuestionType; label: string }> = [
-  { value: "short", label: "Texto" },
-  { value: "long", label: "Párrafo" },
-  { value: "single", label: "Una opción" },
-  { value: "multi", label: "Varias" },
-  { value: "yesno", label: "Sí / No" },
-  { value: "number", label: "Número" },
-];
-
-/** Pregunta en edición: las opciones viajan como texto (una por línea) mientras se escriben. */
-interface Draft {
-  key: string;
-  id: string;
-  type: QuestionType;
-  label: string;
-  help: string;
-  required: boolean;
-  optionsText: string;
-  min: string;
-  max: string;
-}
-
-let seq = 0;
-const newKey = () => `k${++seq}`;
-
-const toDraft = (q: FormQuestion): Draft => ({
-  key: newKey(),
-  id: q.id,
-  type: q.type,
-  label: q.label,
-  help: q.help,
-  required: q.required,
-  optionsText: q.options.join("\n"),
-  min: q.min === null ? "" : String(q.min),
-  max: q.max === null ? "" : String(q.max),
-});
-
-/** Cuerpo para la API. Las preguntas nuevas viajan sin id: el servidor les asigna uno estable. */
-const toPayload = (d: Draft): Partial<FormQuestion> => ({
-  id: d.id,
-  type: d.type,
-  label: d.label.trim(),
-  help: d.help.trim(),
-  required: d.required,
-  options: d.type === "single" || d.type === "multi" ? d.optionsText.split("\n").map((o) => o.trim()).filter(Boolean) : [],
-  min: d.type === "number" && d.min.trim() !== "" ? Number(d.min) : null,
-  max: d.type === "number" && d.max.trim() !== "" ? Number(d.max) : null,
-});
 
 const apiMessage = (err: unknown, fallback: string): string => {
   const m = (err as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
@@ -75,9 +27,13 @@ export function ProjectFormEditor({ tenantId, projectId, readOnly }: { tenantId:
   /** Nulo: el proyecto usa la verificación de la cuenta. */
   const [verification, setVerification] = useState<ProjectVerification | null>(null);
   const [accountVerification, setAccountVerification] = useState<ProjectVerification | null>(null);
+  /** Pantallas del formulario. Nulo: automáticas. */
+  const [layout, setLayout] = useState<FormLayout | null>(null);
   const [catalog, setCatalog] = useState<PortalFieldDef[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  /** Pregunta a abrir porque tiene algo por corregir. */
+  const [focusKey, setFocusKey] = useState<string | null>(null);
 
   useEffect(() => {
     reclutamientoApi
@@ -87,7 +43,8 @@ export function ProjectFormEditor({ tenantId, projectId, readOnly }: { tenantId:
         setDrafts(list);
         setFields(f.form.fields ?? []);
         setVerification(f.form.verification ?? null);
-        setSaved(JSON.stringify({ q: list.map(toPayload), f: f.form.fields ?? [], v: f.form.verification ?? null }));
+        setLayout(f.form.layout ?? null);
+        setSaved(JSON.stringify({ q: list.map(toPayload), f: f.form.fields ?? [], v: f.form.verification ?? null, l: f.form.layout ?? null }));
       })
       .catch(() => toast.error("No se pudo cargar el formulario"));
     reclutamientoApi
@@ -99,15 +56,19 @@ export function ProjectFormEditor({ tenantId, projectId, readOnly }: { tenantId:
       })
       .catch(() => toast.error("No se pudieron cargar los datos personales disponibles"));
   }, [tenantId, projectId]);
-  const payload = useMemo(() => JSON.stringify({ q: (drafts ?? []).map(toPayload), f: fields, v: verification }), [drafts, fields, verification]);
+  const payload = useMemo(() => JSON.stringify({ q: (drafts ?? []).map(toPayload), f: fields, v: verification, l: layout }), [drafts, fields, verification, layout]);
   const dirty = drafts !== null && payload !== saved;
+
+  // Avisar antes de cerrar la pestaña con cambios sin guardar.
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
   if (!drafts) return <div className="flex-1"><Spinner /></div>;
 
-  const edit = (key: string, patch: Partial<Draft>) => {
-    setDrafts((list) => (list ? list.map((d) => (d.key === key ? { ...d, ...patch } : d)) : list));
-    setError("");
-  };
   /** Lo que rige hoy: lo del proyecto, o lo de la cuenta mientras no lo cambie. */
   const effective: ProjectVerification | null = verification ?? accountVerification;
   const editVerification = (fn: (v: ProjectVerification) => ProjectVerification) => {
@@ -126,26 +87,30 @@ export function ProjectFormEditor({ tenantId, projectId, readOnly }: { tenantId:
     setError("");
   };
   const requireField = (key: string, required: boolean) => setFields((list) => list.map((f) => (f.key === key ? { ...f, required } : f)));
-  const move = (i: number, dir: -1 | 1) =>
-    setDrafts((list) => {
-      if (!list) return list;
-      const j = i + dir;
-      if (j < 0 || j >= list.length) return list;
-      const next = [...list];
-      [next[i], next[j]] = [next[j], next[i]];
-      return next;
-    });
+  const updateDrafts = (fn: (list: Draft[]) => Draft[]) => {
+    setDrafts((list) => (list ? fn(list) : list));
+    setError("");
+  };
 
   const save = async () => {
+    // Lo que el servidor rechazaría se señala antes, en la pregunta que hay que corregir.
+    const broken = drafts.findIndex((d) => draftIssues(d).length > 0);
+    if (broken !== -1) {
+      setError(`Pregunta ${broken + 1}: ${draftIssues(drafts[broken])[0]}`);
+      setFocusKey(null);
+      requestAnimationFrame(() => setFocusKey(drafts[broken].key));
+      return;
+    }
     setSaving(true);
     setError("");
     try {
-      const form = await reclutamientoApi.saveProjectForm(tenantId, projectId, { questions: drafts.map(toPayload) as FormQuestion[], fields, verification });
+      const form = await reclutamientoApi.saveProjectForm(tenantId, projectId, { questions: drafts.map(toPayload), fields, verification, layout });
       const list = form.questions.map(toDraft);
       setDrafts(list);
       setFields(form.fields);
       setVerification(form.verification);
-      setSaved(JSON.stringify({ q: list.map(toPayload), f: form.fields, v: form.verification }));
+      setLayout(form.layout ?? null);
+      setSaved(JSON.stringify({ q: list.map(toPayload), f: form.fields, v: form.verification, l: form.layout ?? null }));
       toast.success("Formulario guardado");
     } catch (err) {
       setError(apiMessage(err, "No se pudo guardar el formulario"));
@@ -161,8 +126,9 @@ export function ProjectFormEditor({ tenantId, projectId, readOnly }: { tenantId:
           <h3 className="text-sm font-semibold text-foreground">Formulario de registro</h3>
           <p className="text-xs text-muted-foreground">Lo que se pide al registrarse. La persona queda como contacto del CRM y como prospecto de este proyecto.</p>
         </div>
+        {!readOnly && dirty && <span className="ml-auto text-[11px] font-medium text-amber-600 dark:text-amber-400">Cambios sin guardar</span>}
         {!readOnly && (
-          <button type="button" onClick={save} disabled={!dirty || saving} className={`${primaryButton} ml-auto`}>
+          <button type="button" onClick={save} disabled={!dirty || saving} className={`${primaryButton} ${dirty ? "" : "ml-auto"}`}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Guardar
           </button>
         )}
@@ -240,80 +206,22 @@ export function ProjectFormEditor({ tenantId, projectId, readOnly }: { tenantId:
               </button>
             )}
           </section>
-          <p className="rounded-lg bg-muted/60 px-3 py-2 text-[11px] text-muted-foreground">
-            Pide solo lo necesario para decidir. No se admiten preguntas de datos sensibles (salud, religión, origen étnico, orientación sexual, opiniones políticas o sindicales, datos biométricos o antecedentes judiciales). Las respuestas solo las ve tu cuenta.
-          </p>
-          {drafts.length === 0 && (
-            <div className="mx-auto mt-8 max-w-sm text-center">
-              <ClipboardList className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
-              <p className="text-sm font-medium text-foreground">Sin preguntas propias</p>
-              <p className="mt-1 text-xs text-muted-foreground">Quien se registre dejará sus datos de contacto, los datos personales que elijas arriba y lo que preguntes aquí.</p>
-            </div>
-          )}
-          {drafts.map((d, i) => (
-            <section key={d.key} className="rounded-xl border border-border bg-background p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <span className="text-xs font-semibold text-muted-foreground">Pregunta {i + 1}</span>
-                {!readOnly && (
-                  <div className="ml-auto flex items-center gap-1">
-                    <button type="button" aria-label={`Subir la pregunta ${i + 1}`} disabled={i === 0} onClick={() => move(i, -1)} className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-30">
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </button>
-                    <button type="button" aria-label={`Bajar la pregunta ${i + 1}`} disabled={i === drafts.length - 1} onClick={() => move(i, 1)} className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-30">
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
-                    <button type="button" aria-label={`Quitar la pregunta ${i + 1}`} onClick={() => setDrafts((list) => (list ? list.filter((x) => x.key !== d.key) : list))} className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-rose-500">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <fieldset disabled={readOnly} className="space-y-3">
-                <Segmented<QuestionType> label="Tipo de respuesta" value={d.type} onChange={(type) => edit(d.key, { type })} options={TYPE_OPTIONS} disabled={readOnly} />
-                <Field label="Pregunta">
-                  <input value={d.label} maxLength={200} onChange={(e) => edit(d.key, { label: e.target.value })} placeholder="¿En qué ciudad vives?" className={inputClass} />
-                </Field>
-                <Field label="Ayuda (opcional)">
-                  <input value={d.help} maxLength={300} onChange={(e) => edit(d.key, { help: e.target.value })} className={inputClass} />
-                </Field>
-                {(d.type === "single" || d.type === "multi") && (
-                  <Field label="Opciones" hint="Una por línea, de 2 a 12.">
-                    <textarea rows={4} value={d.optionsText} onChange={(e) => edit(d.key, { optionsText: e.target.value })} className={inputClass} />
-                  </Field>
-                )}
-                {d.type === "number" && (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Mínimo (opcional)">
-                      <input type="number" value={d.min} onChange={(e) => edit(d.key, { min: e.target.value })} className={inputClass} />
-                    </Field>
-                    <Field label="Máximo (opcional)">
-                      <input type="number" value={d.max} onChange={(e) => edit(d.key, { max: e.target.value })} className={inputClass} />
-                    </Field>
-                  </div>
-                )}
-                <label className="flex items-center gap-2 text-xs text-foreground">
-                  <input type="checkbox" checked={d.required} onChange={(e) => edit(d.key, { required: e.target.checked })} />
-                  Respuesta obligatoria
-                </label>
-              </fieldset>
-            </section>
-          ))}
-          {!readOnly && (
-            <button
-              type="button"
-              disabled={drafts.length >= MAX_QUESTIONS}
-              onClick={() =>
-                setDrafts((list) => [
-                  ...(list ?? []),
-                  { key: newKey(), id: "", type: "short", label: "", help: "", required: false, optionsText: "", min: "", max: "" },
-                ])
-              }
-              className={secondaryButton}
-            >
-              <Plus className="h-3.5 w-3.5" /> Agregar pregunta {drafts.length >= MAX_QUESTIONS ? `(máximo ${MAX_QUESTIONS})` : ""}
-            </button>
-          )}
-          {readOnly && <p className="text-center text-[11px] text-muted-foreground">El proyecto terminó: el formulario ya no se puede editar.</p>}
+          <QuestionBuilder drafts={drafts} onChange={updateDrafts} readOnly={readOnly} focusKey={focusKey} />
+          <FormLayoutEditor
+            tenantId={tenantId}
+            projectId={projectId}
+            drafts={drafts}
+            fields={fields}
+            catalog={catalog}
+            verification={verification}
+            effective={effective}
+            layout={layout}
+            onChange={(l) => {
+              setLayout(l);
+              setError("");
+            }}
+            readOnly={readOnly}
+          />
         </div>
       </div>
     </div>

@@ -11,6 +11,7 @@ import { TimeoutEditor } from "./TimeoutEditor";
 import { supportsTimeout } from "./timeout";
 import { CommaListInput } from "./CommaListInput";
 import { AgentEditor } from "./AgentEditor";
+import { ProjectAnswersFields } from "./ProjectAnswersFields";
 import { GenerateEditor } from "./GenerateEditor";
 import { FlowSelect } from "./FlowSelect";
 import { Toggle } from "./Toggle";
@@ -137,6 +138,7 @@ export function NodeInspector({
           <ActionFields
             data={data}
             set={set}
+            tenantId={tenantId}
             labels={labels}
             variableListId={variableListId}
             options={variableOptions}
@@ -810,12 +812,14 @@ function UpdateContactValue({
 function ActionFields({
   data,
   set,
+  tenantId,
   labels,
   variableListId,
   options,
 }: {
   data: FlowNodeData;
   set: (p: Partial<FlowNodeData>) => void;
+  tenantId?: string;
   labels: LabelOption[];
   variableListId: string;
   options: VariableOption[];
@@ -845,7 +849,14 @@ function ActionFields({
               compact
               aria-label={`Tipo de acción ${i + 1}`}
               value={a.type}
-              onChange={(v) => update(i, { type: v as FlowActionType, ...(PROJECT_ACTIONS.has(v as FlowActionType) ? {} : { projectId: undefined, role: undefined, status: undefined }) })}
+              onChange={(v) =>
+                update(i, {
+                  type: v as FlowActionType,
+                  ...(PROJECT_ACTIONS.has(v as FlowActionType) ? {} : { projectId: undefined, role: undefined, status: undefined }),
+                  // Cada acción de proyecto tiene sus propios datos.
+                  ...(v !== "set_project_answers" ? { answers: undefined } : { role: undefined, status: undefined }),
+                })
+              }
               options={typeOptions(a.type)}
             />
             <button
@@ -919,7 +930,13 @@ function ActionFields({
             />
           )}
 
-          {PROJECT_ACTIONS.has(a.type) && (
+          {a.type === "set_project_answers" &&
+            (recruitment ? (
+              <ProjectAnswersFields action={a} tenantId={tenantId} projects={recruitment.projects} onChange={(patch) => update(i, patch)} />
+            ) : (
+              <p className="text-[11px] text-amber-700 dark:text-amber-300">Para editar esta acción, la cuenta necesita Reclutamiento activo y tu rol debe ser propietario o administrador.</p>
+            ))}
+          {(a.type === "add_to_project" || a.type === "set_project_status") && (
             <ProjectActionFields
               action={a}
               recruitment={recruitment ?? null}

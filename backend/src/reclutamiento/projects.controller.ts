@@ -151,6 +151,18 @@ export class ProjectsController {
     return { form: await this.publicFace.updateForm(tenantId, actorOf(req), id, body ?? {}) };
   }
 
+  /** «Organizar con IA»: propone pantallas para el formulario en edición (no guarda). */
+  @Post(':id/public/form/layout-suggestion')
+  @Throttle({ medium: { limit: 10, ttl: 60_000 } })
+  async suggestFormLayout(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req: any,
+  ) {
+    return { layout: await this.publicFace.suggestLayout(tenantId, actorOf(req), id, body ?? {}) };
+  }
+
   // ── Prospectos ──
 
   @Get(':id/prospects')

@@ -9,10 +9,10 @@ import { ProjectProspect, ProspectLinkMethod } from './entities/project-prospect
 import { ProspectStatusEvent } from './entities/prospect-status-event.entity';
 import { ALL_STATUSES, INITIAL_STATUS, PARTICIPATED_STATUSES, ProspectRole, ROLE_LABELS, isRole, publicStatusOf, stateOf } from './prospect-states';
 import { RecruitmentProject } from './entities/recruitment-project.entity';
-import { AnswerSnapshot } from './project-form';
+import { AnswerSnapshot, answerFromText, mergeAnswers, readForm } from './project-form';
 import { digitsOf, findRecordsByContact } from './record-match';
 import { PortalConfigService } from './portal/portal-config.service';
-import { buildRecordPatch } from './portal/portal-fields';
+import { buildRecordPatch, normalizeFieldValue } from './portal/portal-fields';
 import { Actor, clampInt, escapeLike, optionalString, requireUuid } from './validation';
 
 /** Resultado de registrarse por la landing. `closed` es el único que no deja prospecto. */
@@ -537,7 +537,11 @@ export class ProjectProspectsService {
    *   terminados ni perfiles que el proyecto no acepta.
    * - Cambiar estado: solo si ya está en el proyecto.
    */
-  async applyFlowActions(tenantId: string, recordId: string | null, actions: Array<{ type: 'add' | 'status'; projectId: string; role?: string; status?: string }>): Promise<string[]> {
+  async applyFlowActions(
+    tenantId: string,
+    recordId: string | null,
+    actions: Array<{ type: 'add' | 'status' | 'answers'; projectId: string; role?: string; status?: string; answers?: Array<{ item: string; value: string }>; onlyIfEmpty?: boolean }>,
+  ): Promise<string[]> {
     if (actions.length === 0) return [];
     const tenant = await this.dataSource.getRepository(Tenant).findOne({ where: { id: tenantId }, select: { id: true, features: true } });
     if (!tenant || !isFeatureEnabled(tenant.features, 'reclutamiento')) return ['Flujo: las acciones de proyecto no se aplicaron porque Reclutamiento no está activo en la cuenta.'];
@@ -547,7 +551,7 @@ export class ProjectProspectsService {
     const notes: string[] = [];
     for (const a of actions) {
       try {
-        notes.push(a.type === 'add' ? await this.flowAdd(tenantId, record, a) : await this.flowStatus(tenantId, record, a));
+        notes.push(a.type === 'add' ? await this.flowAdd(tenantId, record, a) : a.type === 'answers' ? await this.flowAnswers(tenantId, record, a) : await this.flowStatus(tenantId, record, a));
       } catch (err: any) {
         notes.push(`Flujo: no se pudo aplicar una acción de proyecto (${err?.message || 'error'}).`);
       }
@@ -597,6 +601,100 @@ export class ProjectProspectsService {
         if (err?.code === '23505') return 'Flujo: ya estaba en el proyecto; no se cambió nada.';
         throw err;
       });
+  }
+
+  /**
+   * «Guardar respuestas en proyecto»: llena preguntas del formulario del
+   * proyecto (en el prospecto) y datos personales del formulario (en el
+   * contacto). Cada valor se valida como en el registro; lo que no sirve se
+   * omite y la nota lo explica. Solo si el contacto ya está en el proyecto.
+   */
+  private async flowAnswers(tenantId: string, record: ClientRecord, a: { projectId: string; answers?: Array<{ item: string; value: string }>; onlyIfEmpty?: boolean }): Promise<string> {
+    const project = await this.projects.findOne({ where: { id: a.projectId, tenantId } });
+    if (!project) return 'Flujo: el proyecto de la acción «Guardar respuestas en proyecto» ya no existe.';
+    if (project.status === 'ended') return `Flujo: no se guardaron respuestas en «${project.name}» porque el proyecto terminó.`;
+    const prospect = await this.prospects.findOne({ where: { tenantId, projectId: project.id, recordId: record.id } });
+    if (!prospect) return `Flujo: no se guardaron respuestas porque el contacto no está en «${project.name}».`;
+    const form = readForm(project.form);
+    const defs = new Map((await this.portalConfig.fieldCatalog(tenantId)).map((f) => [f.key, f]));
+    const current: AnswerSnapshot[] = Array.isArray(prospect.answers) ? (prospect.answers as AnswerSnapshot[]) : [];
+
+    const saved: string[] = [];
+    const skipped: string[] = [];
+    const updates: AnswerSnapshot[] = [];
+    const values: Record<string, string> = {};
+    for (const { item, value } of a.answers ?? []) {
+      const [kind, key] = [item.slice(0, item.indexOf(':')), item.slice(item.indexOf(':') + 1)];
+      if (kind === 'question') {
+        const q = form.questions.find((x) => x.id === key);
+        if (!q) {
+          skipped.push('una pregunta que ya no está en el formulario');
+          continue;
+        }
+        if (a.onlyIfEmpty && current.some((x) => x.id === q.id)) {
+          skipped.push(`«${q.label}» (ya tenía respuesta)`);
+          continue;
+        }
+        try {
+          updates.push(answerFromText(q, value));
+          saved.push(`«${q.label}»`);
+        } catch {
+          skipped.push(`«${q.label}» (el valor «${value.slice(0, 40)}» no es válido)`);
+        }
+      } else {
+        const def = defs.get(key);
+        if (!def || !form.fields.some((f) => f.key === key)) {
+          skipped.push(`un dato personal que ya no está en el formulario`);
+          continue;
+        }
+        try {
+          // Fechas escritas como dd/mm/aaaa también sirven.
+          const dmy = def.type === 'date' ? /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(value.trim()) : null;
+          const v = normalizeFieldValue(def, dmy ? `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}` : value);
+          if (v) values[key] = v;
+        } catch {
+          skipped.push(`«${def.label}» (el valor «${value.slice(0, 40)}» no es válido)`);
+        }
+      }
+    }
+
+    const patch = buildRecordPatch(record as any, values, defs, !!a.onlyIfEmpty);
+    // Los datos personales que no cambiaron (o ya tenían valor con «solo si está vacío») no se cuentan como guardados.
+    for (const key of Object.keys(values)) {
+      const def = defs.get(key)!;
+      const changed = def.source === 'fixed' ? def.prop! in patch : !!(patch.customData && (patch.customData as Record<string, unknown>)[key] !== (record.customData ?? {})[key]);
+      if (!changed && a.onlyIfEmpty) skipped.push(`«${def.label}» (ya tenía valor)`);
+      else saved.push(`«${def.label}»`);
+    }
+    if (updates.length === 0 && Object.keys(patch).length === 0) {
+      return `Flujo: no se guardaron respuestas en «${project.name}»${skipped.length ? `: ${skipped.join(', ')}` : ''}.`;
+    }
+
+    let merged: AnswerSnapshot[];
+    try {
+      merged = updates.length ? mergeAnswers(current, updates) : current;
+    } catch (err: any) {
+      return `Flujo: no se guardaron respuestas en «${project.name}» (${err?.message || 'error'}).`;
+    }
+    await this.dataSource.transaction(async (em) => {
+      if (updates.length) await em.getRepository(ProjectProspect).update({ id: prospect.id }, { answers: merged });
+      if (Object.keys(patch).length) await em.getRepository(ClientRecord).update({ id: record.id, tenantId }, patch as any);
+      await this.audit.log(
+        {
+          tenantId,
+          actorType: 'system',
+          actorId: null,
+          action: 'reclutamiento.prospect.answers',
+          targetType: 'project_prospect',
+          targetId: prospect.id,
+          scopeId: project.id,
+          metadata: { source: 'flow', questions: updates.map((u) => u.id), fields: Object.keys(values) },
+        },
+        em,
+      );
+    });
+    Object.assign(record, patch);
+    return `Flujo: en «${project.name}» se guardó ${saved.join(', ')}${skipped.length ? `. No se guardó: ${skipped.join(', ')}` : ''}.`;
   }
 
   private async flowStatus(tenantId: string, record: ClientRecord, a: { projectId: string; status?: string }): Promise<string> {

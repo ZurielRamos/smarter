@@ -336,7 +336,11 @@ export function ActionNode({ data, selected }: NodeProps<FlowNode>) {
       warning={
         actions.length === 0
           ? "Sin acciones"
-          : actions.some((a) => (a.type === "add_to_project" || a.type === "set_project_status") && (!a.projectId || (a.type === "set_project_status" && !a.status)))
+          : actions.some(
+                (a) =>
+                  ((a.type === "add_to_project" || a.type === "set_project_status") && (!a.projectId || (a.type === "set_project_status" && !a.status))) ||
+                  (a.type === "set_project_answers" && (!a.projectId || !(a.answers ?? []).some((x) => x.item && x.value.trim()))),
+              )
             ? "Acción de proyecto incompleta"
             : null
       }
@@ -361,6 +365,14 @@ export function ActionNode({ data, selected }: NodeProps<FlowNode>) {
                 <>
                   Agregar a <span className="rounded bg-muted px-1">{projectName(a.projectId)}</span>
                   {a.status ? <> en <span className="rounded bg-muted px-1">{stateName(a.status)}</span></> : null}
+                </>
+              ) : a.type === "set_project_answers" ? (
+                <>
+                  Respuestas en <span className="rounded bg-muted px-1">{projectName(a.projectId)}</span>
+                  {(() => {
+                    const n = (a.answers ?? []).filter((x) => x.item).length;
+                    return n ? ` (${n} ${n === 1 ? "campo" : "campos"})` : "";
+                  })()}
                 </>
               ) : a.type === "set_project_status" ? (
                 <>

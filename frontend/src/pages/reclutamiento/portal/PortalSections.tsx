@@ -65,8 +65,10 @@ export function FieldInput({ f, value, onChange }: { f: Pick<PortalField, "key" 
     case "select":
       return (
         <select {...common} value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value="">—</option>
+          <option value="">Elige una opción…</option>
           {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {/* Un valor que ya tenía el CRM y no está en la lista se conserva. */}
+          {value && !f.options?.some((o) => o.value === value) && <option value={value}>{value}</option>}
         </select>
       );
     default:

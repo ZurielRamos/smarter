@@ -10,8 +10,9 @@ import type { ClientRecord, RecordListItem, CustomField } from "@/services/api";
 import { ATTRIBUTION_FIELDS, platformLabel, isUuid } from "@/lib/attribution-fields";
 import { useAuth } from "@/context/AuthContext";
 import { KanbanView } from "./KanbanView";
-import { FilterPanel } from "./FilterPanel";
-import type { FilterCondition } from "./FilterPanel";
+import { FilterPanel, isFilterComplete, PROJECT_FILTER, PROJECT_STATUS_FILTER } from "./FilterPanel";
+import type { FilterCondition, FilterRecruitment } from "./FilterPanel";
+import { reclutamientoApi } from "@/services/reclutamiento";
 import { AddNoteModal } from "./AddNoteModal";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { BulkActionBar } from "./BulkActionBar";
@@ -139,7 +140,8 @@ export function Clients() {
   const [viewMode, setViewMode] = useState<"list" | "kanban">(() => {
     return (localStorage.getItem(`viewMode_${slug}`) as "list" | "kanban") || "list";
   });
-  const [kanbanField, setKanbanField] = useState<string>(() => {
+  // Campo elegido para agrupar el tablero. `project:<id>` agrupa por el estado en ese proyecto.
+  const [kanbanFieldPref, setKanbanField] = useState<string>(() => {
     return localStorage.getItem(`kanbanField_${slug}`) || "status";
   });
   const [kanbanFieldOpen, setKanbanFieldOpen] = useState(false);
@@ -157,7 +159,94 @@ export function Clients() {
   const [ownerFilter, setOwnerFilter] = useState<"all" | "mine" | "myTeam">(() => {
     return (localStorage.getItem(`ownerFilter_${slug}`) as any) || "all";
   });
-  const [advancedFilters, setAdvancedFilters] = useState<FilterCondition[]>([]);
+  // Reclutamiento: proyectos y estados para agrupar y filtrar (owner/admin con el módulo activo).
+  const canUseRecruitment =
+    !!user && (!!user.isSuperAdmin || (!!tenantRole?.tenant.features?.reclutamiento && (tenantRole?.role === "owner" || tenantRole?.role === "admin")));
+  const [recruitment, setRecruitment] = useState<FilterRecruitment | null>(null);
+  const [recruitmentReady, setRecruitmentReady] = useState(false);
+  useEffect(() => {
+    if (!tenantId || !canUseRecruitment) {
+      setRecruitment(null);
+      setRecruitmentReady(true);
+      return;
+    }
+    let alive = true;
+    setRecruitmentReady(false);
+    Promise.all([reclutamientoApi.projects(tenantId, { limit: 100 }), reclutamientoApi.prospectCatalog(tenantId)])
+      .then(([projects, catalog]) => {
+        if (!alive) return;
+        setRecruitment({
+          projects: projects.data.map((p) => ({ id: p.id, name: p.name })),
+          states: catalog.states.map((st) => ({ key: st.key, label: st.label })),
+        });
+      })
+      .catch(() => alive && setRecruitment(null))
+      .finally(() => alive && setRecruitmentReady(true));
+    return () => {
+      alive = false;
+    };
+  }, [tenantId, canUseRecruitment]);
+
+  // Agrupación efectiva: si el proyecto ya no existe o no hay acceso a Reclutamiento, se vuelve a Estado.
+  const prefProjectId = kanbanFieldPref.startsWith("project:") ? kanbanFieldPref.slice("project:".length) : null;
+  const kanbanField =
+    prefProjectId && recruitmentReady && !recruitment?.projects.some((p) => p.id === prefProjectId) ? "status" : kanbanFieldPref;
+  const groupProjectId = kanbanField.startsWith("project:") ? kanbanField.slice("project:".length) : null;
+  const projectStateKeys = useMemo(() => (recruitment?.states ?? []).map((st) => st.key), [recruitment]);
+  const projectStateLabels = useMemo(
+    () => Object.fromEntries((recruitment?.states ?? []).map((st) => [st.key, st.label])),
+    [recruitment],
+  );
+
+  // Filtros avanzados: se conservan al cambiar de vista y al volver a la página.
+  const [advancedFilters, setAdvancedFiltersState] = useState<FilterCondition[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`contactFilters_${slug}`) || "[]");
+      return Array.isArray(saved)
+        ? saved.filter((f: any) => f && typeof f.id === "string" && typeof f.field === "string" && typeof f.operator === "string" && typeof f.value === "string")
+        : [];
+    } catch {
+      return [];
+    }
+  });
+  const setAdvancedFilters = useCallback(
+    (filters: FilterCondition[]) => {
+      setAdvancedFiltersState(filters);
+      try {
+        localStorage.setItem(`contactFilters_${slug}`, JSON.stringify(filters));
+      } catch {
+        /* sin almacenamiento: solo dura la sesión */
+      }
+    },
+    [slug],
+  );
+  // Lo que se envía al servidor: solo filtros completos (y los de proyecto solo con acceso a Reclutamiento).
+  const apiFiltersKey = JSON.stringify(
+    advancedFilters
+      .filter(isFilterComplete)
+      .filter((f) => canUseRecruitment || (f.field !== PROJECT_FILTER && f.field !== PROJECT_STATUS_FILTER))
+      .map(({ field, operator, value }) => ({ field, operator, value })),
+  );
+  const apiFilters = useMemo(() => {
+    const list = JSON.parse(apiFiltersKey) as Array<{ field: string; operator: string; value: string }>;
+    return list.length > 0 ? list : undefined;
+  }, [apiFiltersKey]);
+  // Al cambiar los filtros se vuelve a la primera página.
+  const firstFiltersRun = useRef(true);
+  useEffect(() => {
+    if (firstFiltersRun.current) {
+      firstFiltersRun.current = false;
+      return;
+    }
+    if (page !== 1) {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("page", "1");
+        return next;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiFiltersKey]);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [, startTransition] = useTransition();
 
@@ -217,9 +306,9 @@ export function Clients() {
 
   useEffect(() => {
     if (mounted) loadClients();
-  }, [tenantId, page, limit, sortBy, sortOrder, mounted, activeList, ownerFilter, advancedFilters]);
+  }, [tenantId, page, limit, sortBy, sortOrder, mounted, activeList, ownerFilter, apiFiltersKey]);
 
-  useEffect(() => { setSelectedIds(new Set()); setBulkSelectAll(false); }, [page, ownerFilter, advancedFilters, activeList]);
+  useEffect(() => { setSelectedIds(new Set()); setBulkSelectAll(false); }, [page, ownerFilter, apiFiltersKey, activeList]);
 
   // Keyboard shortcut: "N" to open new contact form
   useEffect(() => {
@@ -292,8 +381,7 @@ export function Clients() {
       } else {
         const assignedTo = ownerFilter === "mine" ? user?.id : undefined;
         const assignedTeamId = ownerFilter === "myTeam" ? getUserTeamId() : undefined;
-        const filterParams = advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined;
-        const res = await getClients(tenantId, page, limit, sortBy, sortOrder, assignedTo, assignedTeamId, filterParams);
+        const res = await getClients(tenantId, page, limit, sortBy, sortOrder, assignedTo, assignedTeamId, apiFilters);
         setClients(res.data);
         setTotal(res.total);
       }
@@ -302,7 +390,7 @@ export function Clients() {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, page, limit, sortBy, sortOrder, activeList, ownerFilter, advancedFilters]);
+  }, [tenantId, page, limit, sortBy, sortOrder, activeList, ownerFilter, apiFilters]);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -362,12 +450,17 @@ export function Clients() {
 
   // Helper: get label for current kanban field
   const getKanbanFieldLabel = () => {
+    if (groupProjectId) {
+      const name = recruitment?.projects.find((p) => p.id === groupProjectId)?.name;
+      return name ? `Estado en ${name}` : "Estado en proyecto";
+    }
     const fields = getSelectFields();
     return fields.find((f) => f.key === kanbanField)?.label || kanbanField;
   };
 
   // Helper: get options for current kanban field
   const getKanbanFieldOptions = (): string[] => {
+    if (groupProjectId) return projectStateKeys;
     if (kanbanField === "status") {
       const statusField = customFields.find((f) => f.fieldKey === "status");
       return statusField?.options || ["lead", "contactado", "interesado", "oportunidad", "cliente", "premium", "fidelizado", "inactivo", "perdido"];
@@ -385,8 +478,32 @@ export function Clients() {
     return field?.options || [];
   };
 
+  // Opciones estables: el tablero se recarga cuando cambian, no en cada render.
+  const kanbanAllOptionsKey = JSON.stringify(getKanbanFieldOptions());
+  const kanbanAllOptions = useMemo(() => JSON.parse(kanbanAllOptionsKey) as string[], [kanbanAllOptionsKey]);
+  const kanbanFieldOptions = useMemo(
+    () => kanbanVisibleColumns[kanbanField] || kanbanAllOptions,
+    [kanbanVisibleColumns, kanbanField, kanbanAllOptions],
+  );
+
   // Handler: move a client in kanban (update the field value)
-  const handleKanbanMove = async (clientId: string, newValue: string) => {
+  const handleKanbanMove = async (clientId: string, newValue: string, card?: ClientRecord): Promise<boolean | void> => {
+    // Por proyecto, mover la tarjeta cambia el estado del contacto en ese proyecto.
+    if (groupProjectId) {
+      const prospectId = (card as any)?.projectProspectId as string | undefined;
+      if (!prospectId) {
+        toast.error("No se encontró al contacto en el proyecto");
+        return false;
+      }
+      try {
+        await reclutamientoApi.setProspectStatus(tenantId, groupProjectId, prospectId, newValue);
+        toast.success(`Movido a «${projectStateLabels[newValue] ?? newValue}»`);
+        return true;
+      } catch (err: any) {
+        toast.error(err?.response?.data?.message || "No se pudo cambiar el estado en el proyecto");
+        return false;
+      }
+    }
     const fieldKey = kanbanField.startsWith("custom_") ? kanbanField.replace("custom_", "") : kanbanField;
     const isCustom = kanbanField.startsWith("custom_");
 
@@ -409,8 +526,11 @@ export function Clients() {
         await tenantApi.put(`/records/${clientId}`, { [fieldKey]: newValue });
       }
       toast.success(`Contacto movido a "${newValue}"`);
+      return true;
     } catch {
+      toast.error("No se pudo mover el contacto");
       loadClients(); // Revert on error
+      return false;
     }
   };
 
@@ -549,6 +669,8 @@ export function Clients() {
                     fields={getSelectFields()}
                     activeField={kanbanField}
                     allOptions={getKanbanFieldOptions}
+                    projects={canUseRecruitment ? recruitment?.projects ?? [] : null}
+                    optionLabel={(o) => (groupProjectId ? projectStateLabels[o] ?? o : o)}
                     visibleColumns={kanbanVisibleColumns}
                     onSelectField={(key) => { setKanbanField(key); localStorage.setItem(`kanbanField_${slug}`, key); }}
                     onToggleColumn={(fieldKey, option, visible) => {
@@ -769,6 +891,7 @@ export function Clients() {
           filters={advancedFilters}
           onChange={setAdvancedFilters}
           fields={customFields}
+          recruitment={canUseRecruitment ? recruitment : null}
         />
 
         {(!mounted || (loading && viewMode === "list")) ? (
@@ -801,13 +924,21 @@ export function Clients() {
           </div>
         ) : (
           <>
-          {viewMode === "kanban" ? (
+          {viewMode === "kanban" && groupProjectId && !recruitmentReady ? (
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : viewMode === "kanban" ? (
             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
               <KanbanView
                 tenantId={tenantId}
+                key={kanbanField}
                 groupByField={kanbanField}
-                fieldOptions={kanbanVisibleColumns[kanbanField] || getKanbanFieldOptions()}
-                allOptions={getKanbanFieldOptions()}
+                filters={apiFilters}
+                optionLabels={groupProjectId ? projectStateLabels : undefined}
+                optionColors={groupProjectId ? PROJECT_STATE_COLORS : undefined}
+                fieldOptions={kanbanFieldOptions}
+                allOptions={kanbanAllOptions}
                 isCustomized={!!kanbanVisibleColumns[kanbanField]}
                 fieldLabel={getKanbanFieldLabel()}
                 assignedTo={ownerFilter === "mine" ? user?.id : undefined}
@@ -1196,7 +1327,7 @@ export function Clients() {
           onSelectAll={() => setBulkSelectAll(true)}
           onBulkUpdate={async (updates) => {
             const payload = bulkSelectAll
-              ? { tenantId, filters: advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined, updates, actorId: user?.id, actorName: user?.name || user?.email }
+              ? { tenantId, filters: apiFilters, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined, updates, actorId: user?.id, actorName: user?.name || user?.email }
               : { ids: [...selectedIds], updates, actorId: user?.id, actorName: user?.name || user?.email };
             await tenantApi.put("/records/bulk", payload);
             const topKey = Object.keys(updates)[0] || "campo";
@@ -1211,7 +1342,7 @@ export function Clients() {
             // Tags need special handling: append to existing tags
             if (bulkSelectAll) {
               // For filter-based, we can't easily append — just set the tag
-              const payload = { tenantId, filters: advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined, updates: { tags: [tag] } };
+              const payload = { tenantId, filters: apiFilters, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined, updates: { tags: [tag] } };
               await tenantApi.put("/records/bulk", payload);
             } else {
               // For ID-based, append tag to each contact's existing tags
@@ -1238,7 +1369,7 @@ export function Clients() {
         payload={singleDeleteId
           ? { ids: [singleDeleteId] }
           : bulkSelectAll
-            ? { tenantId, filters: advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined }
+            ? { tenantId, filters: apiFilters, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined }
             : { ids: [...selectedIds] }
         }
         onConfirm={async () => {
@@ -1248,7 +1379,7 @@ export function Clients() {
             setSingleDeleteId(null);
           } else {
             const payload = bulkSelectAll
-              ? { tenantId, filters: advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined }
+              ? { tenantId, filters: apiFilters, assignedTo: ownerFilter === "mine" ? user?.id : undefined, assignedTeamId: ownerFilter === "myTeam" ? getUserTeamId() : undefined }
               : { ids: [...selectedIds] };
             await tenantApi.delete("/records/bulk", { data: payload });
             toast.success("Contactos eliminados");
@@ -1264,7 +1395,7 @@ export function Clients() {
           <ExportModal
             open={exportModalOpen}
             onClose={() => setExportModalOpen(false)}
-            filters={advancedFilters.length > 0 ? advancedFilters.map(({ field, operator, value }) => ({ field, operator, value })) : undefined}
+            filters={apiFilters}
             assignedTo={ownerFilter === "mine" ? user?.id : undefined}
             assignedTeamId={ownerFilter === "myTeam" ? getUserTeamId() : undefined}
             total={total}
@@ -1398,12 +1529,27 @@ function AssignAgentSubmenu({ agents, teams, currentAssignee, currentTeam, onAss
 }
 
 // === Kanban Field Menu with Submenu ===
+/** Colores de las columnas al agrupar por el estado en un proyecto. */
+const PROJECT_STATE_COLORS: Record<string, string> = {
+  nuevo: "#3b82f6",
+  en_contacto: "#0ea5e9",
+  en_evaluacion: "#6366f1",
+  en_espera: "#f59e0b",
+  seleccionado: "#10b981",
+  participo: "#059669",
+  no_seleccionado: "#ef4444",
+  no_participo: "#9ca3af",
+};
+
 function KanbanFieldMenu({
-  fields, activeField, allOptions, visibleColumns, onSelectField, onToggleColumn, onClose,
+  fields, activeField, allOptions, projects, optionLabel, visibleColumns, onSelectField, onToggleColumn, onClose,
 }: {
   fields: { key: string; label: string }[];
   activeField: string;
   allOptions: () => string[];
+  /** Proyectos de reclutamiento (null = sin acceso al módulo) */
+  projects: Array<{ id: string; name: string }> | null;
+  optionLabel: (option: string) => string;
   visibleColumns: Record<string, string[]>;
   onSelectField: (key: string) => void;
   onToggleColumn: (fieldKey: string, option: string, visible: boolean) => void;
@@ -1429,6 +1575,32 @@ function KanbanFieldMenu({
     return [];
   }
 
+  const activeProject = activeField.startsWith("project:");
+  const columnToggles = (
+    <>
+      <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase">Columnas</p>
+      {allOptions().map((option) => {
+        const currentVisible = visibleColumns[activeField];
+        const isVisible = !currentVisible || currentVisible.includes(option);
+        return (
+          <label key={option} className="flex items-center justify-between px-3 py-1.5 hover:bg-muted cursor-pointer">
+            <span className={`text-sm text-foreground ${optionLabel(option) === option ? "capitalize" : ""}`}>{optionLabel(option)}</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isVisible}
+              aria-label={`Mostrar ${optionLabel(option)}`}
+              onClick={(e) => { e.preventDefault(); onToggleColumn(activeField, option, !isVisible); }}
+              className={`relative w-8 h-[18px] rounded-full transition-colors ${isVisible ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"}`}
+            >
+              <span className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] rounded-full bg-white shadow transition-transform ${isVisible ? "translate-x-[14px]" : ""}`} />
+            </button>
+          </label>
+        );
+      })}
+    </>
+  );
+
   return (
     <div ref={menuRef} className="absolute right-0 top-full mt-2 w-52 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 z-50">
       {fields.map((f) => (
@@ -1451,27 +1623,56 @@ function KanbanFieldMenu({
           {/* Submenu with toggles - only for active field */}
           {hoveredField === f.key && activeField === f.key && (
             <div className="absolute left-full top-0 ml-1 w-52 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 max-h-64 overflow-auto">
-              <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase">Columnas</p>
-              {allOptions().map((option) => {
-                const currentVisible = visibleColumns[activeField];
-                const isVisible = !currentVisible || currentVisible.includes(option);
-                return (
-                  <label key={option} className="flex items-center justify-between px-3 py-1.5 hover:bg-muted cursor-pointer">
-                    <span className="text-sm text-foreground capitalize">{option}</span>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.preventDefault(); onToggleColumn(activeField, option, !isVisible); }}
-                      className={`relative w-8 h-[18px] rounded-full transition-colors ${isVisible ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"}`}
-                    >
-                      <span className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] rounded-full bg-white shadow transition-transform ${isVisible ? "translate-x-[14px]" : ""}`} />
-                    </button>
-                  </label>
-                );
-              })}
+              {columnToggles}
             </div>
           )}
         </div>
       ))}
+
+      {/* Reclutamiento: agrupar por el estado del contacto en un proyecto */}
+      {projects && (
+        <div
+          className="relative border-t border-border mt-1 pt-1"
+          onMouseEnter={() => setHoveredField("__projects")}
+          onMouseLeave={() => setHoveredField(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setHoveredField("__projects")}
+            className={`w-full px-3 py-2 text-sm text-left transition-colors flex items-center justify-between ${
+              activeProject ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 font-medium" : "text-foreground hover:bg-muted"
+            }`}
+          >
+            <span>Estado en proyecto</span>
+            <ChevronDown className="h-3 w-3 -rotate-90" />
+          </button>
+          {hoveredField === "__projects" && (
+            <div className="absolute left-full top-0 ml-1 w-60 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-1 max-h-80 overflow-auto">
+              <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase">Proyectos</p>
+              {projects.length === 0 ? (
+                <p className="px-3 py-1.5 text-xs text-muted-foreground">No hay proyectos en la cuenta.</p>
+              ) : (
+                projects.map((p) => {
+                  const key = `project:${p.id}`;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => onSelectField(key)}
+                      className={`w-full px-3 py-1.5 text-sm text-left truncate transition-colors ${
+                        activeField === key ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 font-medium" : "text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {p.name}
+                    </button>
+                  );
+                })
+              )}
+              {activeProject && <div className="border-t border-border mt-1 pt-1">{columnToggles}</div>}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

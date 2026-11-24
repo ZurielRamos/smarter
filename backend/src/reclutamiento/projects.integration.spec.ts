@@ -93,7 +93,7 @@ suite('Proyectos de reclutamiento y prospectos (PostgreSQL)', () => {
     projects = new ProjectsService(ds.getRepository(RecruitmentProject), ds.getRepository(ProjectProspect), ds, audit);
     const portalConfig = makePortalConfig(ds, audit);
     prospects = new ProjectProspectsService(ds.getRepository(ProjectProspect), ds.getRepository(RecruitmentProject), ds.getRepository(ClientRecord), ds, audit, portalConfig);
-    publicFace = new ProjectPublicService(ds.getRepository(RecruitmentProject), audit, {} as any, portalConfig);
+    publicFace = new ProjectPublicService(ds.getRepository(RecruitmentProject), audit, {} as any, portalConfig, {} as any);
     const tenants = ds.getRepository(Tenant);
     const mk = (name: string, slug: string) => tenants.save(tenants.create({ name, slug, isActive: true, features: { reclutamiento: true } } as any) as unknown as Tenant);
     tenantA = await mk('Reclutadora A', 'reclutadora-a');
@@ -513,6 +513,50 @@ suite('Proyectos de reclutamiento y prospectos (PostgreSQL)', () => {
         ['nuevo', 'seleccionado', 'flow'],
         [null, 'nuevo', 'flow'],
       ]);
+    });
+
+    it('guarda respuestas del formulario: preguntas en el prospecto y datos personales en el contacto', async () => {
+      const contact = await record(tenantA, { fullName: 'Respuestas Flujo', city: 'Cali' });
+      const p = await openProject(tenantA, 'Flujo respuestas');
+      await publicFace.updateForm(tenantA.id, actor, p.id, {
+        questions: [
+          { id: 'medio', type: 'single', label: '¿Cómo te enteraste?', options: ['Redes sociales', 'Un amigo'] },
+          { id: 'horario', type: 'multi', label: 'Horario', options: ['Mañana', 'Tarde', 'Noche'] },
+          { id: 'moto', type: 'yesno', label: '¿Tienes moto?' },
+          { id: 'edad', type: 'number', label: 'Edad', min: 18, max: 99 },
+          { id: 'dia', type: 'date', label: 'Día disponible' },
+        ],
+        fields: [{ key: 'ciudad' }, { key: 'direccion' }],
+      });
+      const answers = [
+        { item: 'question:medio', value: 'redes SOCIALES' },
+        { item: 'question:horario', value: 'mañana, noche' },
+        { item: 'question:moto', value: 'Sí' },
+        { item: 'question:edad', value: '12' },
+        { item: 'question:dia', value: '5/3/2026' },
+        { item: 'question:borrada', value: 'x' },
+        { item: 'field:ciudad', value: 'Bogotá' },
+        { item: 'field:direccion', value: 'Calle 1 # 2-3' },
+      ];
+      expect(await flow(tenantA, contact.id, [{ type: 'answers', projectId: p.id, answers }])).toEqual(['Flujo: no se guardaron respuestas porque el contacto no está en «Flujo respuestas».']);
+      await flow(tenantA, contact.id, [{ type: 'add', projectId: p.id }]);
+      const [note] = await flow(tenantA, contact.id, [{ type: 'answers', projectId: p.id, answers }]);
+      expect(note).toContain('se guardó «¿Cómo te enteraste?», «Horario», «¿Tienes moto?», «Día disponible», «Ciudad», «Dirección»');
+      expect(note).toContain('«Edad» (el valor «12» no es válido)');
+      expect(note).toContain('una pregunta que ya no está en el formulario');
+      const row = await ds.getRepository(ProjectProspect).findOneByOrFail({ projectId: p.id, recordId: contact.id });
+      expect(row.answers).toEqual([
+        { id: 'medio', label: '¿Cómo te enteraste?', type: 'single', value: 'Redes sociales' },
+        { id: 'horario', label: 'Horario', type: 'multi', value: ['Mañana', 'Noche'] },
+        { id: 'moto', label: '¿Tienes moto?', type: 'yesno', value: true },
+        { id: 'dia', label: 'Día disponible', type: 'date', value: '2026-03-05' },
+      ]);
+      const updated = await ds.getRepository(ClientRecord).findOneByOrFail({ id: contact.id });
+      expect(updated).toMatchObject({ city: 'Bogotá', address: 'Calle 1 # 2-3' });
+      // «Solo si está vacío» no reemplaza respuestas ni datos que ya existen.
+      const [again] = await flow(tenantA, contact.id, [{ type: 'answers', projectId: p.id, onlyIfEmpty: true, answers: [{ item: 'question:medio', value: 'Un amigo' }, { item: 'field:ciudad', value: 'Medellín' }] }]);
+      expect(again).toBe('Flujo: no se guardaron respuestas en «Flujo respuestas»: «¿Cómo te enteraste?» (ya tenía respuesta), «Ciudad» (ya tenía valor).');
+      expect((await ds.getRepository(ClientRecord).findOneByOrFail({ id: contact.id })).city).toBe('Bogotá');
     });
 
     it('respeta las reglas del proyecto y nunca toca otra cuenta', async () => {

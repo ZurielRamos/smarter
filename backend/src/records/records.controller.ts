@@ -3,6 +3,7 @@ import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { RecordsService } from './records.service';
+import { parseRecordFilters } from './record-filters';
 import { ReadAction, TenantRefs, TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
 
 @Controller('records')
@@ -26,7 +27,7 @@ export class RecordsController {
     @Query('assignedTeamId') assignedTeamId?: string,
     @Query('filters') filters?: string,
   ) {
-    const parsedFilters = filters ? JSON.parse(filters) : undefined;
+    const parsedFilters = parseRecordFilters(filters);
     return this.recordsService.findAll(+page, +limit, tenantId, sortBy, sortOrder, assignedTo, assignedTeamId, parsedFilters);
   }
 
@@ -52,8 +53,9 @@ export class RecordsController {
     @Query('limit') limit = '20',
     @Query('assignedTo') assignedTo?: string,
     @Query('assignedTeamId') assignedTeamId?: string,
+    @Query('filters') filters?: string,
   ) {
-    return this.recordsService.getKanbanColumn(tenantId, groupBy, columnValue, search, sortBy, sortOrder, +page, +limit, assignedTo, assignedTeamId);
+    return this.recordsService.getKanbanColumn(tenantId, groupBy, columnValue, search, sortBy, sortOrder, +page || 1, +limit || 20, assignedTo, assignedTeamId, parseRecordFilters(filters));
   }
 
   @Get('kanban/counts')
@@ -62,8 +64,9 @@ export class RecordsController {
     @Query('groupBy') groupBy: string,
     @Query('assignedTo') assignedTo?: string,
     @Query('assignedTeamId') assignedTeamId?: string,
+    @Query('filters') filters?: string,
   ) {
-    return this.recordsService.getKanbanCounts(tenantId, groupBy, assignedTo, assignedTeamId);
+    return this.recordsService.getKanbanCounts(tenantId, groupBy, assignedTo, assignedTeamId, parseRecordFilters(filters));
   }
 
   @Get('kanban/initial')
@@ -73,8 +76,9 @@ export class RecordsController {
     @Query('limit') limit = '20',
     @Query('assignedTo') assignedTo?: string,
     @Query('assignedTeamId') assignedTeamId?: string,
+    @Query('filters') filters?: string,
   ) {
-    return this.recordsService.getKanbanInitial(tenantId, groupBy, +limit, assignedTo, assignedTeamId);
+    return this.recordsService.getKanbanInitial(tenantId, groupBy, +limit || 20, assignedTo, assignedTeamId, parseRecordFilters(filters));
   }
 
   @Post('export')

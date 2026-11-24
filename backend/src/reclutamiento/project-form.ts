@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { formItems, parseLayout, resolveSteps, type FormLayout } from './form-layout';
 
 /**
  * Formulario de inscripción de un proyecto: preguntas de selección propias, además
@@ -7,11 +8,16 @@ import { BadRequestException } from '@nestjs/common';
  * momento), así que editar el formulario después no desfigura lo ya recibido.
  */
 
-export const QUESTION_TYPES = ['short', 'long', 'single', 'multi', 'yesno', 'number'] as const;
+export const QUESTION_TYPES = ['short', 'long', 'single', 'multi', 'yesno', 'number', 'scale', 'date'] as const;
 export type QuestionType = (typeof QUESTION_TYPES)[number];
 
 export const MAX_QUESTIONS = 15;
-const MAX_OPTIONS = 12;
+export const MAX_OPTIONS = 20;
+/** Escala lineal: de 0 o 1 hasta 2–10. */
+const SCALE_MAX = 10;
+/** Prefijo con que se guarda la respuesta libre de «Otra». */
+export const OTHER_PREFIX = 'Otra: ';
+const OTHER_MAX = 100;
 const MAX_ANSWERS_BYTES = 8 * 1024;
 const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
 
@@ -23,9 +29,16 @@ export interface FormQuestion {
   required: boolean;
   /** Solo para `single` y `multi`. */
   options: string[];
-  /** Solo para `number`. */
+  /** `single` / `multi`: además de las opciones, la persona puede escribir otra. */
+  allowOther: boolean;
+  /** `number`: rango opcional · `scale`: extremos de la escala (obligatorios). */
   min: number | null;
   max: number | null;
+  /** `scale`: qué significa cada extremo («Nada probable», «Muy probable»). */
+  minLabel: string;
+  maxLabel: string;
+  /** `short` / `long` / `number`: texto de ejemplo dentro del campo. */
+  placeholder: string;
 }
 
 /** Dato personal del contacto que se pide al registrarse (clave del catálogo del portal). */
@@ -52,6 +65,8 @@ export interface ProjectForm {
   fields: PersonalField[];
   /** Nulo: hereda la verificación del portal de la cuenta. */
   verification: ProjectVerification | null;
+  /** Pantallas del formulario. Nulo: organización automática. */
+  layout: FormLayout | null;
 }
 
 export type AnswerValue = string | number | boolean | string[];
@@ -63,7 +78,7 @@ export interface AnswerSnapshot {
   value: AnswerValue;
 }
 
-export const EMPTY_FORM: ProjectForm = { questions: [], fields: [], verification: null };
+export const EMPTY_FORM: ProjectForm = { questions: [], fields: [], verification: null, layout: null };
 
 const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
@@ -135,8 +150,13 @@ export function parseForm(raw: unknown): ProjectForm {
     seen.add(id);
 
     const label = str(q.label, `El texto de la pregunta ${i + 1}`, 3, 200);
-    const help = q.help === undefined || q.help === null || q.help === '' ? '' : str(q.help, `La ayuda de la pregunta ${i + 1}`, 1, 300);
-    for (const text of [label, help]) {
+    const optional = (v: unknown, what: string, max: number) => (v === undefined || v === null || v === '' ? '' : str(v, `${what} de la pregunta ${i + 1}`, 1, max));
+    const help = optional(q.help, 'La ayuda', 300);
+    const placeholder = type === 'short' || type === 'long' || type === 'number' ? optional(q.placeholder, 'El texto de ejemplo', 100) : '';
+    const scaleLabels = type === 'scale';
+    const minLabel = scaleLabels ? optional(q.minLabel, 'La etiqueta del mínimo', 40) : '';
+    const maxLabel = scaleLabels ? optional(q.maxLabel, 'La etiqueta del máximo', 40) : '';
+    for (const text of [label, help, placeholder, minLabel, maxLabel]) {
       const topic = text ? findSensitiveTopic(text) : null;
       if (topic) {
         throw new BadRequestException(
@@ -164,11 +184,37 @@ export function parseForm(raw: unknown): ProjectForm {
       max = optionalNumber(q.max, `El máximo de la pregunta ${i + 1}`);
       if (min !== null && max !== null && max < min) throw new BadRequestException(`${where}: el máximo no puede ser menor que el mínimo`);
     }
+    if (type === 'scale') {
+      min = optionalNumber(q.min, `El mínimo de la pregunta ${i + 1}`) ?? 1;
+      max = optionalNumber(q.max, `El máximo de la pregunta ${i + 1}`) ?? 5;
+      if ((min !== 0 && min !== 1) || !Number.isInteger(max) || max < 2 || max > SCALE_MAX)
+        throw new BadRequestException(`${where}: la escala va de 0 o 1 hasta un número entre 2 y ${SCALE_MAX}`);
+    }
+    const allowOther = (type === 'single' || type === 'multi') && q.allowOther === true;
 
-    return { id, type, label, help, required: q.required === true, options, min, max } satisfies FormQuestion;
+    return { id, type, label, help, required: q.required === true, options, allowOther, min, max, minLabel, maxLabel, placeholder } satisfies FormQuestion;
   });
 
-  return { questions, fields: parsePersonalFields((raw as { fields?: unknown }).fields), verification: parseVerification((raw as { verification?: unknown }).verification) };
+  const fields = parsePersonalFields((raw as { fields?: unknown }).fields);
+  // El diseño se guarda ya reconciliado con las preguntas y los datos de este formulario.
+  const parsed = parseLayout((raw as { layout?: unknown }).layout);
+  const layout = parsed && parsed.steps.length ? { steps: resolveSteps(parsed, formItems({ fields, questions })), source: parsed.source } : null;
+  return { questions, fields, verification: parseVerification((raw as { verification?: unknown }).verification), layout };
+}
+
+/** Respuesta libre de «Otra»: se guarda con prefijo para distinguirla de las opciones. */
+function otherAnswer(raw: string, bad: () => BadRequestException): string {
+  const t = raw.replace(/\s+/g, ' ').trim();
+  if (!t || t.length > OTHER_MAX || CONTROL_CHARS.test(t)) throw bad();
+  return `${OTHER_PREFIX}${t}`;
+}
+
+/** Fecha real en formato AAAA-MM-DD (rechaza 2026-02-31). */
+function isIsoDate(v: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (!m) return false;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3] && +m[1] >= 1900 && +m[1] <= 2100;
 }
 
 /** Valida la forma de la verificación; que el número y la plantilla sean de la cuenta lo comprueba quien los guarda. */
@@ -220,7 +266,7 @@ export function readForm(saved: unknown): ProjectForm {
   try {
     return parseForm(saved);
   } catch {
-    return { questions: [], fields: [], verification: null };
+    return { ...EMPTY_FORM };
   }
 }
 
@@ -254,13 +300,31 @@ export function validateAnswers(form: ProjectForm, raw: unknown): AnswerSnapshot
         value = t;
         break;
       }
-      case 'single':
-        if (typeof v !== 'string' || !q.options.includes(v)) throw bad();
-        value = v;
+      case 'single': {
+        if (typeof v !== 'string') throw bad();
+        if (q.options.includes(v)) value = v;
+        else if (q.allowOther) value = otherAnswer(v, bad);
+        else throw bad();
         break;
+      }
       case 'multi': {
-        if (!Array.isArray(v) || v.some((x) => typeof x !== 'string' || !q.options.includes(x))) throw bad();
-        value = Array.from(new Set(v as string[]));
+        if (!Array.isArray(v) || v.some((x) => typeof x !== 'string')) throw bad();
+        const picked = Array.from(new Set(v as string[]));
+        const others = picked.filter((x) => !q.options.includes(x));
+        // Una sola respuesta libre, y solo si la pregunta la admite.
+        if (others.length > (q.allowOther ? 1 : 0)) throw bad();
+        value = picked.map((x) => (q.options.includes(x) ? x : otherAnswer(x, bad)));
+        break;
+      }
+      case 'scale': {
+        const n = typeof v === 'string' ? Number(v) : v;
+        if (typeof n !== 'number' || !Number.isInteger(n) || n < (q.min ?? 1) || n > (q.max ?? 5)) throw bad();
+        value = n;
+        break;
+      }
+      case 'date': {
+        if (typeof v !== 'string' || !isIsoDate(v)) throw bad();
+        value = v;
         break;
       }
       case 'yesno':
@@ -282,4 +346,52 @@ export function validateAnswers(form: ProjectForm, raw: unknown): AnswerSnapshot
   }
   if (Buffer.byteLength(JSON.stringify(out)) > MAX_ANSWERS_BYTES) throw new BadRequestException('Las respuestas son demasiado largas');
   return out;
+}
+
+/**
+ * Convierte un texto (p. ej. lo que guardó un flujo en una variable) en la
+ * respuesta de una pregunta, y la valida con las mismas reglas del registro.
+ * Las opciones se reconocen sin distinguir mayúsculas ni tildes; «sí/no»,
+ * números con coma y fechas dd/mm/aaaa también. Lanza un error si no sirve.
+ */
+export function answerFromText(q: FormQuestion, text: string): AnswerSnapshot {
+  const t = text.trim();
+  const matchOption = (v: string) => q.options.find((o) => normalize(o) === normalize(v.trim())) ?? v.trim();
+  let value: unknown = t;
+  switch (q.type) {
+    case 'single':
+      // «Otra: …» guardado antes vuelve a ser la respuesta libre.
+      value = matchOption(t.startsWith(OTHER_PREFIX) ? t.slice(OTHER_PREFIX.length) : t);
+      break;
+    case 'multi':
+      value = Array.from(new Set(t.split(/[,;\n]/).map((x) => x.trim()).filter(Boolean).map((x) => matchOption(x.startsWith(OTHER_PREFIX) ? x.slice(OTHER_PREFIX.length) : x))));
+      break;
+    case 'yesno': {
+      const n = normalize(t);
+      value = ['si', 'yes', 'true', '1', 'verdadero'].includes(n) ? true : ['no', 'false', '0', 'falso'].includes(n) ? false : t;
+      break;
+    }
+    case 'number':
+    case 'scale': {
+      const n = Number(t.replace(/\s/g, '').replace(',', '.'));
+      value = Number.isFinite(n) ? n : t;
+      break;
+    }
+    case 'date': {
+      const m = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(t);
+      value = m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : t.slice(0, 10);
+      break;
+    }
+  }
+  const [snapshot] = validateAnswers({ ...EMPTY_FORM, questions: [{ ...q, required: true }] }, { [q.id]: value });
+  return snapshot;
+}
+
+/** Une respuestas nuevas a las guardadas (por id) y comprueba el tamaño total. */
+export function mergeAnswers(current: AnswerSnapshot[], updates: AnswerSnapshot[]): AnswerSnapshot[] {
+  const byId = new Map(current.map((a) => [a.id, a]));
+  for (const u of updates) byId.set(u.id, u);
+  const merged = [...byId.values()];
+  if (Buffer.byteLength(JSON.stringify(merged)) > MAX_ANSWERS_BYTES) throw new BadRequestException('Las respuestas son demasiado largas');
+  return merged;
 }

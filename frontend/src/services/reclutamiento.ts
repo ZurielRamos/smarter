@@ -335,7 +335,7 @@ export interface ProjectInput {
   moderatorSignup?: boolean;
 }
 // Cara pública del proyecto: nombre, landing, formulario y registro.
-export type QuestionType = "short" | "long" | "single" | "multi" | "yesno" | "number";
+export type QuestionType = "short" | "long" | "single" | "multi" | "yesno" | "number" | "scale" | "date";
 
 export interface FormQuestion {
   id: string;
@@ -345,9 +345,16 @@ export interface FormQuestion {
   required: boolean;
   /** Solo para `single` y `multi`. */
   options: string[];
-  /** Solo para `number`. */
+  /** `single` / `multi`: la persona puede escribir otra respuesta (se guarda como «Otra: …»). */
+  allowOther?: boolean;
+  /** `number`: rango opcional · `scale`: extremos de la escala. */
   min: number | null;
   max: number | null;
+  /** `scale`: qué significa cada extremo. */
+  minLabel?: string;
+  maxLabel?: string;
+  /** `short` / `long` / `number`: texto de ejemplo. */
+  placeholder?: string;
 }
 
 /** Dato personal del contacto que se pide al registrarse (clave del catálogo de campos del CRM). */
@@ -360,11 +367,27 @@ export interface ProjectVerification {
   channels: Array<"email" | "phone">;
   whatsapp: { inboxId: string | null; templateName: string; language: string };
 }
+/** Pantalla del formulario de registro (después de la de contacto). */
+export interface FormStep {
+  id: string;
+  title: string;
+  description: string;
+  /** `field:<clave>` (dato personal) o `question:<id>` (pregunta). */
+  items: string[];
+}
+
+export interface FormLayout {
+  steps: FormStep[];
+  source: "ai" | "manual";
+}
+
 export interface ProjectForm {
   questions: FormQuestion[];
   fields: PersonalField[];
   /** Nulo: usa la verificación del portal de la cuenta. */
   verification: ProjectVerification | null;
+  /** Pantallas del formulario. Nulo: organización automática. */
+  layout?: FormLayout | null;
 }
 
 export interface ProjectPublicSettings {
@@ -764,6 +787,11 @@ export const reclutamientoApi = {
   async saveProjectForm(tenantId: string, id: string, form: ProjectForm) {
     const { data } = await api.put<{ form: ProjectForm }>(`${base(tenantId)}/projects/${id}/public/form`, form);
     return data.form;
+  },
+  /** «Organizar con IA»: propone pantallas para el formulario en edición (no lo guarda). */
+  async suggestFormLayout(tenantId: string, id: string, form: Omit<ProjectForm, "layout">) {
+    const { data } = await api.post<{ layout: FormLayout }>(`${base(tenantId)}/projects/${id}/public/form/layout-suggestion`, form);
+    return data.layout;
   },
   // Prospectos
   async prospects(tenantId: string, id: string, params: { search?: string; linked?: "yes" | "no"; status?: string; role?: ProspectRole; page?: number; limit?: number } = {}) {

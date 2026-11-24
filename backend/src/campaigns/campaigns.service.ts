@@ -5,6 +5,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { Campaign, SegmentGroup } from './campaign.entity';
+import { buildProjectConditionSql, isProjectField, parseProjectContactField, projectMembershipSql } from './segment-project-conditions';
 import { CampaignSend } from './campaign-send.entity';
 import { CampaignSendLog } from './campaign-send-log.entity';
 import { ClientRecord } from '../records/record.entity';
@@ -292,6 +293,26 @@ export class CampaignsService {
       for (let j = 0; j < group.conditions.length; j++) {
         const cond = group.conditions[j];
         const paramKey = `p_${i}_${j}`;
+        if (isProjectField(cond.field)) {
+          const contact = parseProjectContactField(cond.field);
+          if (contact) {
+            // Dato personal del formulario: vive en el contacto, que además debe estar en el proyecto.
+            const noValue = ['is_true', 'is_false', 'is_null', 'is_not_null'].includes(cond.operator);
+            if (!noValue && String(cond.value ?? '').trim() === '') continue;
+            const inner = this.buildConditionSql(this.fieldToColumn(contact.key), cond.operator, paramKey, contact.key);
+            if (!inner) continue;
+            const member = projectMembershipSql(paramKey, contact.projectId);
+            groupConditions.push(`(${member.sql} AND ${inner})`);
+            Object.assign(params, member.params, { [paramKey]: cond.value });
+            continue;
+          }
+          const projectCond = buildProjectConditionSql(cond.field, cond.operator, cond.value, paramKey);
+          if (projectCond) {
+            groupConditions.push(projectCond.sql);
+            Object.assign(params, projectCond.params);
+          }
+          continue;
+        }
         const col = this.fieldToColumn(cond.field);
 
         // Skip any condition with empty/null value (except boolean operators)

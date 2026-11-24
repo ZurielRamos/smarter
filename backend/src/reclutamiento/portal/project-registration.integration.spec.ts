@@ -60,7 +60,7 @@ suite('Registro e ingreso por la landing de un proyecto (PostgreSQL)', () => {
     const audit = new TenantAuditService(ds.getRepository(TenantAuditLog));
     const portalConfig = makePortalConfig(ds, audit);
     const prospects = new ProjectProspectsService(ds.getRepository(ProjectProspect), ds.getRepository(RecruitmentProject), records(), ds, audit, portalConfig);
-    publicFace = new ProjectPublicService(ds.getRepository(RecruitmentProject), audit, {} as any, portalConfig);
+    publicFace = new ProjectPublicService(ds.getRepository(RecruitmentProject), audit, {} as any, portalConfig, {} as any);
     projects = new ProjectsService(ds.getRepository(RecruitmentProject), ds.getRepository(ProjectProspect), ds, audit);
     // La bandeja de salida: el código llega en el cuerpo del correo o en la variable de WhatsApp.
     const messenger: any = {

@@ -191,7 +191,8 @@ export type FlowActionType =
   | "resolve"
   // Reclutamiento (solo con el módulo activo)
   | "add_to_project"
-  | "set_project_status";
+  | "set_project_status"
+  | "set_project_answers";
 /** Operadores de condición (espejo del backend: flow-conditions.util.ts). */
 export type FlowConditionOperator =
   // Texto
@@ -284,6 +285,8 @@ export interface FlowAction {
   role?: "participant" | "surveyor" | "moderator";
   /** add_to_project: estado de entrada (vacío = «Nuevo»); set_project_status: estado nuevo */
   status?: string;
+  /** set_project_answers: `item` = `question:<id>` o `field:<clave>`; `value` admite {{variables}} */
+  answers?: Array<{ item: string; value: string }>;
 }
 
 export interface FlowNodeData {
@@ -496,10 +499,11 @@ export const ACTION_LABELS: Record<FlowActionType, string> = {
   resolve: "Marcar como resuelta",
   add_to_project: "Agregar a proyecto",
   set_project_status: "Cambiar estado en proyecto",
+  set_project_answers: "Guardar respuestas en proyecto",
 };
 
 /** Acciones que solo existen con Reclutamiento activo. */
-export const PROJECT_ACTIONS = new Set<FlowActionType>(["add_to_project", "set_project_status"]);
+export const PROJECT_ACTIONS = new Set<FlowActionType>(["add_to_project", "set_project_status", "set_project_answers"]);
 
 export const NODE_LABELS: Record<FlowNodeType, string> = {
   start: "Inicio",

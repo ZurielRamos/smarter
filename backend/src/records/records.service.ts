@@ -17,6 +17,17 @@ import {
   stripReadOnlyRecordFields,
 } from './attribution-fields';
 import { customDataText } from './sql-safe';
+import {
+  PROJECT_FILTER,
+  PROJECT_STATUS_FILTER,
+  isUuid,
+  parseProjectStatusValue,
+  parseRecordFilters,
+  projectGroupId,
+  projectMembershipSql,
+  projectStatusSql,
+  type RecordFilter,
+} from './record-filters';
 import { PhoneValidator } from '../etl/validators/phone.validator';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -53,6 +64,11 @@ export class RecordsService {
     'createdAt', 'updatedAt',
     ...ATTRIBUTION_FIELD_KEYS,
   ]);
+  /** Columnas reales que se pueden filtrar y agrupar (las del sistema más las de texto que no se importan como tales). */
+  private readonly QUERY_COLUMNS = new Set([...this.SYSTEM_COLUMNS, 'company', 'jobTitle', 'whatsappId', 'website', 'address', 'language', 'notes']);
+  private readonly NUMERIC_COLUMNS = new Set(['score']);
+  private readonly BOOLEAN_COLUMNS = new Set(['optInWhatsapp', 'optInEmail']);
+  private readonly UUID_COLUMNS = new Set(['id', 'assignedTo']);
 
   async createRecord(data: { tenantId: string; firstName?: string; lastName?: string; phone?: string; email?: string; status?: string; channelSource?: string; source?: string; attribution?: AttributionInput; tags?: string[]; customData?: Record<string, any> }): Promise<ClientRecord> {
     const record = this.recordRepository.create({
@@ -468,6 +484,19 @@ export class RecordsService {
     };
   }
 
+  /** Expresión SQL del valor por el que se agrupa el tablero (columna, campo personalizado o estado en un proyecto). */
+  private kanbanGroupExpr(groupBy: string): string {
+    const projectId = projectGroupId(groupBy);
+    if (projectId) return projectStatusSql('groupProjectId');
+    if (this.QUERY_COLUMNS.has(groupBy)) return `client.${this.toSnakeCase(groupBy)}`;
+    return customDataText('client', this.customDataKey(groupBy));
+  }
+
+  private kanbanGroupParams(groupBy: string): Record<string, string> {
+    const projectId = projectGroupId(groupBy);
+    return projectId ? { groupProjectId: projectId } : {};
+  }
+
   async getKanbanColumn(
     tenantId: string,
     groupBy: string,
@@ -479,30 +508,20 @@ export class RecordsService {
     limit = 20,
     assignedTo?: string,
     assignedTeamId?: string,
+    filters?: RecordFilter[],
   ): Promise<{ data: ClientRecord[]; total: number }> {
-    const qb = this.recordRepository.createQueryBuilder('client')
-      .where('client.tenant_id = :tenantId', { tenantId })
-      .andWhere('client.deleted_at IS NULL');
+    // Mismos filtros que la tabla (dueño y filtros avanzados).
+    const qb = this.buildFilterQuery(tenantId, filters, assignedTo, assignedTeamId);
+    const expr = this.kanbanGroupExpr(groupBy);
+    const projectId = projectGroupId(groupBy);
+    qb.setParameters(this.kanbanGroupParams(groupBy));
 
-    // Owner filters
-    if (assignedTo) qb.andWhere('client.assigned_to = :assignedTo', { assignedTo });
-    if (assignedTeamId) qb.andWhere('client.assigned_team_id = :assignedTeamId', { assignedTeamId });
-
-    // Filter by column value
+    // Columna: valor exacto o «Sin valor». Por proyecto solo aparecen quienes están en él.
     if (columnValue === '__unassigned__') {
-      if (this.SYSTEM_COLUMNS.has(groupBy)) {
-        qb.andWhere(`(client.${this.toSnakeCase(groupBy)} IS NULL OR client.${this.toSnakeCase(groupBy)} = '')`);
-      } else {
-        const groupKey = this.customDataKey(groupBy);
-        qb.andWhere(`(client.custom_data ->> :groupKey IS NULL OR client.custom_data ->> :groupKey = '')`, { groupKey });
-      }
+      if (projectId) qb.andWhere('1 = 0');
+      else qb.andWhere(`(${expr} IS NULL OR ${expr} = '')`);
     } else {
-      if (this.SYSTEM_COLUMNS.has(groupBy)) {
-        qb.andWhere(`client.${this.toSnakeCase(groupBy)} = :columnValue`, { columnValue });
-      } else {
-        const groupKey = this.customDataKey(groupBy);
-        qb.andWhere(`client.custom_data ->> :groupKey = :columnValue`, { groupKey, columnValue });
-      }
+      qb.andWhere(`${expr} = :columnValue`, { columnValue });
     }
 
     // Search filter
@@ -518,61 +537,56 @@ export class RecordsService {
 
     // Sort
     const orderField = this.getOrderField(sortBy || 'createdAt');
-    qb.orderBy(`client.${orderField}`, sortOrder || 'DESC');
+    qb.orderBy(`client.${orderField}`, sortOrder === 'ASC' ? 'ASC' : 'DESC');
 
-    // Pagination
     const [data, total] = await qb
-      .skip((page - 1) * limit)
-      .take(limit)
+      .skip((Math.max(page, 1) - 1) * limit)
+      .take(Math.min(Math.max(limit, 1), 100))
       .getManyAndCount();
+
+    // Por proyecto, cada tarjeta lleva su prospecto para poder moverla de estado.
+    if (projectId && data.length) {
+      const rows: Array<{ id: string; record_id: string }> = await this.recordRepository.query(
+        `SELECT id, record_id FROM project_prospects WHERE tenant_id = $1 AND project_id = $2 AND record_id = ANY($3::uuid[])`,
+        [tenantId, projectId, data.map((r) => r.id)],
+      );
+      const byRecord = new Map(rows.map((r) => [r.record_id, r.id]));
+      for (const r of data) (r as any).projectProspectId = byRecord.get(r.id) ?? null;
+    }
 
     return { data, total };
   }
 
-  async getKanbanCounts(tenantId: string, groupBy: string, assignedTo?: string, assignedTeamId?: string): Promise<Record<string, number>> {
-    let results: Array<{ value: string | null; count: string }>;
-
-    const extraConditions: string[] = [];
-    const params: any[] = [tenantId];
-    let paramIdx = 2;
-
-    if (assignedTo) { extraConditions.push(`assigned_to = $${paramIdx}`); params.push(assignedTo); paramIdx++; }
-    if (assignedTeamId) { extraConditions.push(`assigned_team_id = $${paramIdx}`); params.push(assignedTeamId); paramIdx++; }
-    const extraWhere = extraConditions.length > 0 ? ` AND ${extraConditions.join(' AND ')}` : '';
-
-    if (this.SYSTEM_COLUMNS.has(groupBy)) {
-      const col = this.toSnakeCase(groupBy);
-      results = await this.recordRepository.query(
-        `SELECT ${col} as value, COUNT(*) as count FROM clients WHERE tenant_id = $1${extraWhere} GROUP BY ${col}`,
-        params,
-      );
-    } else {
-      const groupKey = this.customDataKey(groupBy);
-      results = await this.recordRepository.query(
-        `SELECT custom_data ->> $2 as value, COUNT(*) as count FROM clients WHERE tenant_id = $1${extraWhere} GROUP BY custom_data ->> $2`,
-        [tenantId, groupKey, ...params.slice(1)],
-      );
-    }
+  async getKanbanCounts(tenantId: string, groupBy: string, assignedTo?: string, assignedTeamId?: string, filters?: RecordFilter[]): Promise<Record<string, number>> {
+    const qb = this.buildFilterQuery(tenantId, filters, assignedTo, assignedTeamId);
+    const expr = this.kanbanGroupExpr(groupBy);
+    qb.setParameters(this.kanbanGroupParams(groupBy));
+    if (projectGroupId(groupBy)) qb.andWhere(`${expr} IS NOT NULL`);
+    const results: Array<{ value: string | null; count: string }> = await qb
+      .select(expr, 'value')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy(expr)
+      .getRawMany();
 
     const counts: Record<string, number> = {};
     for (const r of results) {
       const key = r.value || '__unassigned__';
-      counts[key] = parseInt(r.count);
+      counts[key] = (counts[key] || 0) + parseInt(r.count);
     }
     return counts;
   }
 
-  async getKanbanInitial(tenantId: string, groupBy: string, limit = 20, assignedTo?: string, assignedTeamId?: string): Promise<{
+  async getKanbanInitial(tenantId: string, groupBy: string, limit = 20, assignedTo?: string, assignedTeamId?: string, filters?: RecordFilter[]): Promise<{
     counts: Record<string, number>;
     columns: Record<string, { data: ClientRecord[]; total: number }>;
   }> {
     // 1. Get counts per column
-    const counts = await this.getKanbanCounts(tenantId, groupBy, assignedTo, assignedTeamId);
+    const counts = await this.getKanbanCounts(tenantId, groupBy, assignedTo, assignedTeamId, filters);
 
     // 2. For each column with data, get the first N records (in parallel)
     const columnKeys = Object.keys(counts);
     const columnPromises = columnKeys.map(async (colValue) => {
-      const result = await this.getKanbanColumn(tenantId, groupBy, colValue, undefined, 'createdAt', 'DESC', 1, limit, assignedTo, assignedTeamId);
+      const result = await this.getKanbanColumn(tenantId, groupBy, colValue, undefined, 'createdAt', 'DESC', 1, limit, assignedTo, assignedTeamId, filters);
       return { key: colValue, ...result };
     });
 
@@ -594,6 +608,7 @@ export class RecordsService {
       optInEmail: 'opt_in_email', assignedTo: 'assigned_to',
       lastContactAt: 'last_contact_at', lastActivityAt: 'last_activity_at',
       createdAt: 'created_at', updatedAt: 'updated_at', avatarUrl: 'avatar_url',
+      jobTitle: 'job_title', whatsappId: 'whatsapp_id',
     };
     return map[field] || ATTRIBUTION_COLUMN_MAP[field] || field;
   }
@@ -615,86 +630,144 @@ export class RecordsService {
     return /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
   }
 
-  private applyFilters(qb: any, filters: Array<{ field: string; operator: string; value: string }>): void {
+  /**
+   * Filtros avanzados. Cada columna se compara según su tipo real (texto,
+   * número, sí/no, uuid, fecha o lista de etiquetas) para que ningún operador
+   * produzca un error de SQL; los campos personalizados son texto dentro de
+   * custom_data. `__project` y `__project_status` son los filtros de Reclutamiento.
+   */
+  private applyFilters(qb: any, rawFilters: Array<{ field: string; operator: string; value: string }>): void {
+    const filters = parseRecordFilters(rawFilters) ?? [];
     filters.forEach((f, idx) => {
       const paramKey = `fv_${idx}`;
-      const isCustom = !this.SYSTEM_COLUMNS.has(f.field);
-      const col = isCustom ? customDataText('client', f.field) : `client.${this.toSnakeCase(f.field)}`;
-      const isTimestamp = this.TIMESTAMP_FIELDS.has(f.field);
+      const value = (f.value ?? '').trim();
 
-      // For date comparisons we need a timestamp-typed expression. A real
-      // column is already a timestamp, but a JSONB value (`->>`) is text and
-      // must be cast. The cast is guarded so rows holding non-date text don't
-      // blow up the whole query.
+      if (f.field === PROJECT_FILTER) {
+        if (!value) return;
+        if (!isUuid(value)) throw new BadRequestException('Proyecto inválido en el filtro');
+        const inProject = projectMembershipSql(paramKey);
+        if (f.operator === 'in_project' || f.operator === 'equals') qb.andWhere(inProject, { [paramKey]: value });
+        else if (f.operator === 'not_in_project' || f.operator === 'not_equals') qb.andWhere(`NOT ${inProject}`, { [paramKey]: value });
+        return;
+      }
+      if (f.field === PROJECT_STATUS_FILTER) {
+        if (!value) return;
+        const { projectId, statuses } = parseProjectStatusValue(value);
+        const params = { [paramKey]: projectId, [`${paramKey}_s`]: statuses };
+        // «No está en»: está en el proyecto pero en otro estado.
+        if (f.operator === 'equals') qb.andWhere(projectMembershipSql(paramKey, `${paramKey}_s`), params);
+        else if (f.operator === 'not_equals')
+          qb.andWhere(`(${projectMembershipSql(paramKey)} AND NOT ${projectMembershipSql(paramKey, `${paramKey}_s`)})`, params);
+        return;
+      }
+
+      const isCustom = !this.QUERY_COLUMNS.has(f.field);
+      const col = isCustom ? customDataText('client', f.field) : `client.${this.toSnakeCase(f.field)}`;
+      const kind: 'text' | 'number' | 'boolean' | 'uuid' | 'json' | 'timestamp' = isCustom
+        ? 'text'
+        : this.TIMESTAMP_FIELDS.has(f.field)
+          ? 'timestamp'
+          : this.NUMERIC_COLUMNS.has(f.field)
+            ? 'number'
+            : this.BOOLEAN_COLUMNS.has(f.field)
+              ? 'boolean'
+              : this.UUID_COLUMNS.has(f.field)
+                ? 'uuid'
+                : f.field === 'tags'
+                  ? 'json'
+                  : 'text';
+      const isTimestamp = kind === 'timestamp' || (isCustom && this.isDateOnly(value));
+
+      // Para comparar fechas hace falta un timestamp. Una columna real ya lo es;
+      // un valor de custom_data es texto y se convierte solo si parece fecha.
       const tsCol = isCustom
         ? `CASE WHEN (${col}) ~ '^\\d{4}-\\d{2}-\\d{2}' THEN (${col})::timestamp ELSE NULL END`
         : col;
+      // Número dentro de un texto (campos personalizados): solo si lo es.
+      const numCol = kind === 'number' ? col : `CASE WHEN (${col}) ~ '^\\s*-?\\d+(\\.\\d+)?\\s*$' THEN (${col})::numeric ELSE NULL END`;
+      const textCol = kind === 'text' ? col : `${col}::text`;
+      const bool = (v: string) => (/^(true|s[ií]|1|yes)$/i.test(v) ? true : /^(false|no|0)$/i.test(v) ? false : null);
+      const num = (v: string) => {
+        const n = Number(v.replace(',', '.'));
+        if (!Number.isFinite(n)) throw new BadRequestException('El valor del filtro debe ser un número');
+        return n;
+      };
 
       switch (f.operator) {
         case 'equals':
-          if (!f.value || f.value.trim() === '') {
-            qb.andWhere(`${col} IS NULL`);
-          } else if (isTimestamp && this.isDateOnly(f.value)) {
-            // The value is a plain date (YYYY-MM-DD) but the column is a
-            // timestamp, so an exact `=` would only match rows created at
-            // 00:00:00. Match the whole calendar day instead.
-            qb.andWhere(`${tsCol} >= :${paramKey}::date AND ${tsCol} < (:${paramKey}::date + INTERVAL '1 day')`, { [paramKey]: f.value });
+        case 'not_equals': {
+          const negate = f.operator === 'not_equals';
+          if (!value) {
+            qb.andWhere(negate ? `${col} IS NOT NULL` : `${col} IS NULL`);
+          } else if (kind === 'json') {
+            // Etiquetas: la lista contiene (o no) esa etiqueta.
+            const has = `${col} @> jsonb_build_array(:${paramKey}::text)`;
+            qb.andWhere(negate ? `(${col} IS NULL OR NOT ${has})` : has, { [paramKey]: value });
+          } else if (kind === 'boolean') {
+            const b = bool(value);
+            if (b === null) throw new BadRequestException('El valor del filtro debe ser Sí o No');
+            qb.andWhere(negate ? `${col} IS DISTINCT FROM :${paramKey}` : `${col} = :${paramKey}`, { [paramKey]: b });
+          } else if (kind === 'number') {
+            qb.andWhere(negate ? `${col} IS DISTINCT FROM :${paramKey}` : `${col} = :${paramKey}`, { [paramKey]: num(value) });
+          } else if (kind === 'uuid') {
+            if (!isUuid(value)) qb.andWhere(negate ? '1 = 1' : '1 = 0');
+            else qb.andWhere(negate ? `${col} IS DISTINCT FROM :${paramKey}` : `${col} = :${paramKey}`, { [paramKey]: value });
+          } else if (isTimestamp && this.isDateOnly(value)) {
+            // Un día sin hora: se compara el día completo, no solo las 00:00:00.
+            qb.andWhere(
+              negate
+                ? `(${tsCol} IS NULL OR ${tsCol} < :${paramKey}::date OR ${tsCol} >= (:${paramKey}::date + INTERVAL '1 day'))`
+                : `${tsCol} >= :${paramKey}::date AND ${tsCol} < (:${paramKey}::date + INTERVAL '1 day')`,
+              { [paramKey]: value },
+            );
+          } else if (kind === 'timestamp') {
+            qb.andWhere(negate ? `${col} IS DISTINCT FROM :${paramKey}::timestamp` : `${col} = :${paramKey}::timestamp`, { [paramKey]: value });
           } else {
-            qb.andWhere(`${col} = :${paramKey}`, { [paramKey]: f.value });
+            // Texto: sin distinguir mayúsculas (las opciones de listas se guardan con mayúsculas variables).
+            qb.andWhere(
+              negate ? `(${col} IS NULL OR LOWER(${col}) != LOWER(:${paramKey}))` : `LOWER(${col}) = LOWER(:${paramKey})`,
+              { [paramKey]: value },
+            );
           }
           break;
-        case 'not_equals':
-          if (!f.value || f.value.trim() === '') {
-            qb.andWhere(`${col} IS NOT NULL`);
-          } else if (isTimestamp && this.isDateOnly(f.value)) {
-            qb.andWhere(`(${tsCol} < :${paramKey}::date OR ${tsCol} >= (:${paramKey}::date + INTERVAL '1 day'))`, { [paramKey]: f.value });
-          } else {
-            qb.andWhere(`${col} != :${paramKey}`, { [paramKey]: f.value });
-          }
-          break;
+        }
         case 'contains':
-          qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `%${f.value.toLowerCase()}%` });
+        case 'starts_with': {
+          if (!value) break;
+          const pattern = f.operator === 'contains' ? `%${value.toLowerCase()}%` : `${value.toLowerCase()}%`;
+          if (kind === 'json') {
+            qb.andWhere(`EXISTS (SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(${col}) = 'array' THEN ${col} ELSE '[]'::jsonb END) tag WHERE LOWER(tag) LIKE :${paramKey})`, { [paramKey]: pattern });
+          } else {
+            qb.andWhere(`LOWER(${textCol}) LIKE :${paramKey}`, { [paramKey]: pattern });
+          }
           break;
-        case 'starts_with':
-          qb.andWhere(`LOWER(${col}::text) LIKE :${paramKey}`, { [paramKey]: `${f.value.toLowerCase()}%` });
-          break;
+        }
         case 'greater_than':
-          if (!f.value || f.value.trim() === '') break;
-          if (isTimestamp && this.isDateOnly(f.value)) {
-            // "mayor que <día>" means strictly after that calendar day.
-            qb.andWhere(`${tsCol} >= (:${paramKey}::date + INTERVAL '1 day')`, { [paramKey]: f.value });
-          } else if (isTimestamp) {
-            qb.andWhere(`${tsCol} > :${paramKey}::timestamp`, { [paramKey]: f.value });
+        case 'less_than': {
+          if (!value) break;
+          const gt = f.operator === 'greater_than';
+          if (isTimestamp && this.isDateOnly(value)) {
+            // «Mayor que <día>» es después de ese día; «menor que <día>» excluye el día.
+            qb.andWhere(gt ? `${tsCol} >= (:${paramKey}::date + INTERVAL '1 day')` : `${tsCol} < :${paramKey}::date`, { [paramKey]: value });
+          } else if (kind === 'timestamp') {
+            if (Number.isNaN(Date.parse(value))) throw new BadRequestException('El valor del filtro debe ser una fecha');
+            qb.andWhere(`${tsCol} ${gt ? '>' : '<'} :${paramKey}::timestamp`, { [paramKey]: value });
           } else {
-            qb.andWhere(`${col}::numeric > :${paramKey}`, { [paramKey]: Number(f.value) });
+            qb.andWhere(`${numCol} ${gt ? '>' : '<'} :${paramKey}`, { [paramKey]: num(value) });
           }
           break;
-        case 'less_than':
-          if (!f.value || f.value.trim() === '') break;
-          if (isTimestamp && this.isDateOnly(f.value)) {
-            // Date-only value is the start of the day, so "menor que <día>"
-            // correctly excludes the whole target day.
-            qb.andWhere(`${tsCol} < :${paramKey}::date`, { [paramKey]: f.value });
-          } else if (isTimestamp) {
-            qb.andWhere(`${tsCol} < :${paramKey}::timestamp`, { [paramKey]: f.value });
-          } else {
-            qb.andWhere(`${col}::numeric < :${paramKey}`, { [paramKey]: Number(f.value) });
-          }
-          break;
+        }
         case 'is_empty':
-          if (isTimestamp) {
-            qb.andWhere(`${col} IS NULL`);
-          } else {
-            qb.andWhere(`(${col} IS NULL OR ${col} = '')`);
-          }
+        case 'is_not_empty': {
+          const empty =
+            kind === 'json'
+              ? `(${col} IS NULL OR ${col} = '[]'::jsonb)`
+              : kind === 'text'
+                ? `(${col} IS NULL OR ${col} = '')`
+                : `${col} IS NULL`;
+          qb.andWhere(f.operator === 'is_empty' ? empty : `NOT ${empty}`);
           break;
-        case 'is_not_empty':
-          if (isTimestamp) {
-            qb.andWhere(`${col} IS NOT NULL`);
-          } else {
-            qb.andWhere(`(${col} IS NOT NULL AND ${col} != '')`);
-          }
-          break;
+        }
       }
     });
   }

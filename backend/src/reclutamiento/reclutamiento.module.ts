@@ -16,6 +16,8 @@ import { RewardLedgerService } from './reward-ledger.service';
 import { RewardLedgerEntry } from './entities/reward-ledger.entity';
 import { PayoutsController } from './payouts.controller';
 import { ProjectPublicService } from './project-public.service';
+import { FormLayoutAiService } from './form-layout-ai.service';
+import { BillingModule } from '../billing/billing.module';
 import { ProjectsService } from './projects.service';
 import { ProjectsController } from './projects.controller';
 import { SurveyorContract } from './entities/surveyor-contract.entity';
@@ -75,6 +77,8 @@ import { PortalAdminController } from './portal/portal-admin.controller';
       Tenant,
     ]),
     MailModule,
+    // Créditos de IA de «Organizar con IA» del formulario.
+    BillingModule,
     // Sin secreto por defecto: el portal firma con su propia clave derivada (ver PortalAuthService).
     JwtModule.register({}),
   ],
@@ -83,6 +87,7 @@ import { PortalAdminController } from './portal/portal-admin.controller';
     ProfilesService,
     ProjectsService,
     ProjectPublicService,
+    FormLayoutAiService,
     ProjectProspectsService,
     RewardLedgerService,
     ContractsService,

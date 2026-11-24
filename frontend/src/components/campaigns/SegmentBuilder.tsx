@@ -17,6 +17,7 @@ import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { api } from "@/services/api";
 import { cn } from "@/lib/utils";
 import { ATTRIBUTION_LIST_KEYS } from "@/lib/attribution-fields";
+import { PROJECT_ANSWER_FIELD, PROJECT_FIELD, ProjectConditionRow, isProjectField, useRecruitmentSegment } from "./ProjectSegment";
 
 export interface SegmentCondition {
   id: string;
@@ -36,7 +37,15 @@ interface FieldDef {
   label: string;
   type: "text" | "number" | "date" | "boolean" | "list";
   operators: { value: string; label: string }[];
+  /** Campos de Reclutamiento: solo existen si la cuenta tiene el módulo. */
+  defaultValue?: string;
 }
+
+// Campos fijos de Reclutamiento: al soltarlos se elige el proyecto (y la pregunta) en la condición.
+const RECRUITMENT_FIELDS: FieldDef[] = [
+  { field: PROJECT_FIELD, label: "Proyecto", type: "text", operators: [{ value: "in_project", label: "está en" }], defaultValue: "any" },
+  { field: PROJECT_ANSWER_FIELD, label: "Respuestas de proyecto", type: "text", operators: [{ value: "equals", label: "es" }] },
+];
 
 const OPERATORS_BY_TYPE: Record<string, { value: string; label: string }[]> = {
   text: [
@@ -229,6 +238,8 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
   const [fieldOptionsCache, setFieldOptionsCache] = useState<Record<string, string[]>>({});
   const [availableFields, setAvailableFields] = useState<FieldDef[]>([]);
   const [fieldSearch, setFieldSearch] = useState("");
+  const recruitment = useRecruitmentSegment(tenantId);
+  const allFields = recruitment ? [...RECRUITMENT_FIELDS, ...availableFields] : availableFields;
 
   // Load fields from tenant custom fields
   useEffect(() => {
@@ -314,7 +325,7 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
       id: `cond_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       field: fieldData.field,
       operator: fieldData.operators[0].value,
-      value: fieldData.type === "number" ? 0 : "",
+      value: fieldData.defaultValue ?? (fieldData.type === "number" ? 0 : ""),
     };
 
     const newGroups = groups.map((g) =>
@@ -325,7 +336,7 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
     onChange(newGroups);
 
     // Load options for non-numeric fields
-    if (fieldData.type !== "number") {
+    if (fieldData.type !== "number" && !isProjectField(fieldData.field)) {
       loadFieldOptions(fieldData.field);
     }
   };
@@ -373,7 +384,7 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
   };
 
   const activeField = activeId
-    ? availableFields.find((f) => `field_${f.field}` === activeId)
+    ? allFields.find((f) => `field_${f.field}` === activeId)
     : null;
 
   return (
@@ -394,7 +405,7 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
             />
           </div>
           <div className="space-y-1 overflow-y-auto flex-1 p-2 max-h-[400px]">
-            {availableFields
+            {allFields
               .filter((f) => !fieldSearch || f.label.toLowerCase().includes(fieldSearch.toLowerCase()) || f.field.toLowerCase().includes(fieldSearch.toLowerCase()))
               .map((field) => (
                 <DraggableFieldChip key={field.field} field={field} />
@@ -484,7 +495,16 @@ export function SegmentBuilder({ groups, onChange, matchedCount, previewSample, 
 
                 {/* Existing conditions */}
                 <div className="space-y-2 mb-2">
-                  {group.conditions.map((cond) => (
+                  {group.conditions.map((cond) => isProjectField(cond.field) && recruitment ? (
+                    <ProjectConditionRow
+                      key={cond.id}
+                      condition={cond}
+                      tenantId={tenantId}
+                      recruitment={recruitment}
+                      onUpdate={(updates) => updateCondition(group.id, cond.id, updates)}
+                      onRemove={() => removeCondition(group.id, cond.id)}
+                    />
+                  ) : (
                     <ConditionRow
                       key={cond.id}
                       condition={cond}

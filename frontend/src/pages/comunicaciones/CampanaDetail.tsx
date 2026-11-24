@@ -511,7 +511,7 @@ export function CampanaDetail() {
       const segments = source.map((g) => ({
         logic: g.logic,
         conditions: g.conditions
-          .filter((c) => validFields.has(c.field) && c.value !== null && c.value !== undefined && String(c.value).trim() !== '')
+          .filter((c) => (validFields.has(c.field) || c.field.startsWith('project')) && c.value !== null && c.value !== undefined && String(c.value).trim() !== '')
           .map((c) => ({
             field: c.field,
             operator: c.operator,

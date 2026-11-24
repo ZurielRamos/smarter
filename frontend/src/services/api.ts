@@ -661,8 +661,12 @@ export async function getKanbanColumn(params: {
   limit?: number;
   assignedTo?: string;
   assignedTeamId?: string;
+  filters?: Array<{ field: string; operator: string; value: string }>;
 }): Promise<ClientsResponse> {
-  const { data } = await api.get<ClientsResponse>('/records/kanban', { params });
+  const { filters, ...rest } = params;
+  const { data } = await api.get<ClientsResponse>('/records/kanban', {
+    params: { ...rest, ...(filters && filters.length > 0 ? { filters: JSON.stringify(filters) } : {}) },
+  });
   return data;
 }
 
@@ -676,10 +680,11 @@ export interface KanbanInitialResponse {
   columns: Record<string, { data: ClientRecord[]; total: number }>;
 }
 
-export async function getKanbanInitial(tenantId: string, groupBy: string, limit = 20, assignedTo?: string, assignedTeamId?: string): Promise<KanbanInitialResponse> {
+export async function getKanbanInitial(tenantId: string, groupBy: string, limit = 20, assignedTo?: string, assignedTeamId?: string, filters?: Array<{ field: string; operator: string; value: string }>): Promise<KanbanInitialResponse> {
   const params: any = { tenantId, groupBy, limit };
   if (assignedTo) params.assignedTo = assignedTo;
   if (assignedTeamId) params.assignedTeamId = assignedTeamId;
+  if (filters && filters.length > 0) params.filters = JSON.stringify(filters);
   const { data } = await api.get<KanbanInitialResponse>('/records/kanban/initial', { params });
   return data;
 }

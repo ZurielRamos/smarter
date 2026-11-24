@@ -147,6 +147,7 @@ const ACTION_TYPES = new Set<FlowAction['type']>([
   'resolve',
   'add_to_project',
   'set_project_status',
+  'set_project_answers',
 ]);
 const OPERATORS = new Set([
   'equals',
@@ -649,6 +650,23 @@ export class ConversationFlowsService {
                 type: 'update_contact',
                 field: field ?? '',
                 value: String(a.value ?? '').slice(0, 1000),
+                ...(a.onlyIfEmpty === true ? { onlyIfEmpty: true } : {}),
+              });
+              continue;
+            }
+            if (a.type === 'set_project_answers') {
+              // Lista blanca: qué pregunta o dato y su valor. Si ya no existe en el
+              // formulario del proyecto, se omite al aplicarla (y la nota lo dice).
+              const projectId = await this.cleanProjectId(a.projectId, flow.tenantId);
+              const seenItems = new Set<string>();
+              const answers = (Array.isArray(a.answers) ? a.answers : [])
+                .slice(0, 30)
+                .map((x: any) => ({ item: String(x?.item ?? '').trim(), value: String(x?.value ?? '').slice(0, 1000) }))
+                .filter((x) => /^(question|field):[a-z][a-z0-9_]{0,38}$/.test(x.item) && !seenItems.has(x.item) && (seenItems.add(x.item), true));
+              actions.push({
+                type: 'set_project_answers',
+                projectId: projectId ?? '',
+                answers,
                 ...(a.onlyIfEmpty === true ? { onlyIfEmpty: true } : {}),
               });
               continue;

@@ -283,7 +283,8 @@ export type FlowActionType =
   | 'resolve'
   // Reclutamiento (solo con el módulo activo):
   | 'add_to_project'
-  | 'set_project_status';
+  | 'set_project_status'
+  | 'set_project_answers';
 export interface FlowAction {
   type: FlowActionType;
   /** set_variable: nombre de la variable */
@@ -302,6 +303,17 @@ export interface FlowAction {
   role?: string;
   /** add_to_project: estado de entrada (por defecto «Nuevo»); set_project_status: estado nuevo */
   status?: string;
+  /**
+   * set_project_answers: valores para el formulario del proyecto (admiten
+   * {{variables}}). `item` = `question:<id>` (pregunta) o `field:<clave>` (dato personal).
+   * Con `onlyIfEmpty` no reemplaza lo que ya tenía.
+   */
+  answers?: FlowProjectAnswer[];
+}
+
+export interface FlowProjectAnswer {
+  item: string;
+  value: string;
 }
 
 /**

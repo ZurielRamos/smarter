@@ -22,9 +22,13 @@ const PAGE_SIZE = 25;
 type LinkFilter = "" | "yes" | "no";
 type Pending = { kind: "unlink" | "delete"; prospect: Prospect } | { kind: "role"; prospect: Prospect; role: ProspectRole } | null;
 
-const formatAnswer = (value: unknown): string => {
+const formatAnswer = (value: unknown, type?: string): string => {
   if (Array.isArray(value)) return value.join(", ");
   if (typeof value === "boolean") return value ? "Sí" : "No";
+  if (type === "date" && typeof value === "string") {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  }
   return String(value ?? "");
 };
 
@@ -589,7 +593,7 @@ function ProspectDetail({
         {p.answers.map((a) => (
           <div key={a.id}>
             <dt className="text-muted-foreground">{a.label}</dt>
-            <dd className="whitespace-pre-wrap text-foreground">{formatAnswer(a.value) || "—"}</dd>
+            <dd className="whitespace-pre-wrap text-foreground">{formatAnswer(a.value, a.type) || "—"}</dd>
           </div>
         ))}
       </dl>

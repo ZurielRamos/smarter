@@ -12,6 +12,7 @@ export function PhonePortalInput({
   onChange,
   onEnter,
   primary = "#0f766e",
+  dial,
 }: {
   /** Número nacional (sin indicativo). */
   value: string;
@@ -19,8 +20,10 @@ export function PhonePortalInput({
   onChange: (v: { national: string; e164: string; dial: string }) => void;
   onEnter?: () => void;
   primary?: string;
+  /** Indicativo inicial (p. ej. al restaurar un borrador); sin él, el país predeterminado. */
+  dial?: string;
 }) {
-  const [country, setCountry] = useState<CountryCode>(DEFAULT_COUNTRY);
+  const [country, setCountry] = useState<CountryCode>(() => (dial && COUNTRY_CODES.find((c) => c.dial === dial)) || DEFAULT_COUNTRY);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);

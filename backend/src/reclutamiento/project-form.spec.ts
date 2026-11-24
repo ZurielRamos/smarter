@@ -39,9 +39,9 @@ describe('parseForm', () => {
     expect(parseForm({ questions: [] }).questions).toEqual([]);
   });
 
-  it('las preguntas de opciones piden de 2 a 12 distintas', () => {
+  it('las preguntas de opciones piden de 2 a 20 distintas', () => {
     expect(() => form(q({ type: 'single', options: ['Solo una'] }))).toThrow(BadRequestException);
-    expect(() => form(q({ type: 'multi', options: Array.from({ length: 13 }, (_, i) => `o${i}`) }))).toThrow(BadRequestException);
+    expect(() => form(q({ type: 'multi', options: Array.from({ length: 21 }, (_, i) => `o${i}`) }))).toThrow(BadRequestException);
     expect(() => form(q({ type: 'single', options: ['Sí', 'sí'] }))).toThrow(BadRequestException);
     expect(() => form(q({ type: 'single', options: ['A', ''] }))).toThrow(BadRequestException);
     expect(form(q({ type: 'single', options: ['Moto', 'Bicicleta'] })).questions[0].options).toEqual(['Moto', 'Bicicleta']);
@@ -126,15 +126,15 @@ describe('validateAnswers', () => {
   });
 
   it('un formulario sin preguntas acepta cualquier cuerpo vacío', () => {
-    expect(validateAnswers({ questions: [], fields: [], verification: null }, undefined)).toEqual([]);
-    expect(validateAnswers({ questions: [], fields: [], verification: null }, { x: 1 })).toEqual([]);
+    expect(validateAnswers({ questions: [], fields: [], verification: null, layout: null }, undefined)).toEqual([]);
+    expect(validateAnswers({ questions: [], fields: [], verification: null, layout: null }, { x: 1 })).toEqual([]);
   });
 });
 
 describe('readForm', () => {
   it('lo guardado inválido se lee como un formulario vacío', () => {
-    expect(readForm(undefined)).toEqual({ questions: [], fields: [], verification: null });
-    expect(readForm({ questions: [{ type: 'x' }] })).toEqual({ questions: [], fields: [], verification: null });
+    expect(readForm(undefined)).toEqual({ questions: [], fields: [], verification: null, layout: null });
+    expect(readForm({ questions: [{ type: 'x' }] })).toEqual({ questions: [], fields: [], verification: null, layout: null });
   });
 });
 
@@ -172,10 +172,45 @@ describe('verificación del proyecto', () => {
   it('normaliza canales y plantilla, y calcula el canal efectivo', () => {
     const one = parseVerification({ channels: ['phone'], whatsapp: { inboxId: ' abc ', templateName: ' codigo ', language: '' } })!;
     expect(one).toEqual({ channels: ['phone'], whatsapp: { inboxId: 'abc', templateName: 'codigo', language: 'es' } });
-    expect(effectiveVerification({ questions: [], fields: [], verification: one }, tenant).channel).toBe('phone');
+    expect(effectiveVerification({ questions: [], fields: [], verification: one, layout: null }, tenant).channel).toBe('phone');
     const both = parseVerification({ channels: ['email', 'phone'] })!;
     expect(both.whatsapp).toEqual({ inboxId: null, templateName: '', language: 'es' });
-    expect(effectiveVerification({ questions: [], fields: [], verification: both }, tenant).channel).toBe('both');
-    expect(effectiveVerification({ questions: [], fields: [], verification: parseVerification({ channels: ['email'] }) }, tenant).channel).toBe('email');
+    expect(effectiveVerification({ questions: [], fields: [], verification: both, layout: null }, tenant).channel).toBe('both');
+    expect(effectiveVerification({ questions: [], fields: [], verification: parseVerification({ channels: ['email'] }), layout: null }, tenant).channel).toBe('email');
+  });
+});
+
+describe('tipos escala, fecha y opción «Otra»', () => {
+  it('la escala va de 0 o 1 hasta 2–10, con etiquetas opcionales', () => {
+    const f = form(q({ type: 'scale', label: '¿Qué tan probable es?', minLabel: 'Nada', maxLabel: 'Mucho' }));
+    expect(f.questions[0]).toMatchObject({ min: 1, max: 5, minLabel: 'Nada', maxLabel: 'Mucho' });
+    expect(form(q({ type: 'scale', min: 0, max: 10 })).questions[0]).toMatchObject({ min: 0, max: 10 });
+    for (const range of [{ min: 2, max: 5 }, { min: 1, max: 11 }, { min: 1, max: 1 }, { min: 1, max: 4.5 }])
+      expect(() => form(q({ type: 'scale', ...range }))).toThrow(BadRequestException);
+    // Las etiquetas y el texto de ejemplo solo se guardan donde aplican.
+    expect(form(q({ minLabel: 'x', placeholder: 'Ej.: Cali' })).questions[0]).toMatchObject({ minLabel: '', placeholder: 'Ej.: Cali' });
+    expect(form(q({ type: 'yesno', placeholder: 'x', allowOther: true })).questions[0]).toMatchObject({ placeholder: '', allowOther: false });
+  });
+
+  it('valida las respuestas de escala, fecha y «Otra»', () => {
+    const f = form(
+      q({ id: 'nps', type: 'scale', label: 'Recomendarías', min: 0, max: 10 }),
+      q({ id: 'dia', type: 'date', label: 'Día disponible' }),
+      q({ id: 'medio', type: 'single', label: '¿Cómo te enteraste?', options: ['Redes', 'Amigos'], allowOther: true }),
+      q({ id: 'redes', type: 'multi', label: 'Redes que usas', options: ['Instagram', 'TikTok'], allowOther: true }),
+      q({ id: 'fijo', type: 'single', label: 'Sin otra', options: ['A', 'B'] }),
+    );
+    expect(validateAnswers(f, { nps: 0, dia: '2026-03-01', medio: '  La   radio ', redes: ['TikTok', 'X'] })).toEqual([
+      { id: 'nps', label: 'Recomendarías', type: 'scale', value: 0 },
+      { id: 'dia', label: 'Día disponible', type: 'date', value: '2026-03-01' },
+      { id: 'medio', label: '¿Cómo te enteraste?', type: 'single', value: 'Otra: La radio' },
+      { id: 'redes', label: 'Redes que usas', type: 'multi', value: ['TikTok', 'Otra: X'] },
+    ]);
+    expect(() => validateAnswers(f, { nps: 11 })).toThrow(BadRequestException);
+    expect(() => validateAnswers(f, { nps: 2.5 })).toThrow(BadRequestException);
+    expect(() => validateAnswers(f, { dia: '2026-02-31' })).toThrow(BadRequestException);
+    expect(() => validateAnswers(f, { redes: ['X', 'Y'] })).toThrow(BadRequestException);
+    expect(() => validateAnswers(f, { fijo: 'C' })).toThrow(BadRequestException);
+    expect(() => validateAnswers(f, { medio: 'x'.repeat(101) })).toThrow(BadRequestException);
   });
 });

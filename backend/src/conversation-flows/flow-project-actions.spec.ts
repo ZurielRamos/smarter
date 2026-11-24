@@ -38,6 +38,25 @@ describe('acciones de proyecto en el nodo Acción', () => {
     expect(r.messages.map((m) => m.text)).toEqual(['Listo']);
   });
 
+  it('respuestas de formulario: resuelve las {{variables}} y omite las vacías', async () => {
+    const flow = flowWith([
+      {
+        type: 'set_project_answers',
+        projectId: 'p1',
+        onlyIfEmpty: true,
+        answers: [
+          { item: 'question:medio', value: '{{medio}}' },
+          { item: 'field:ciudad', value: '{{city}}' },
+          { item: 'question:vacia', value: '{{nada}}' },
+        ],
+      },
+    ]);
+    const r = await engine.start(flow, { medio: 'Redes' }, async () => null, { hasContact: true, contact: { city: 'Cali' } });
+    expect(r.effects.projectActions).toEqual([
+      { type: 'answers', projectId: 'p1', onlyIfEmpty: true, answers: [{ item: 'question:medio', value: 'Redes' }, { item: 'field:ciudad', value: 'Cali' }] },
+    ]);
+  });
+
   it('omite las acciones incompletas (sin proyecto, o cambio de estado sin estado)', async () => {
     const r = await run([
       { type: 'add_to_project', projectId: '' },

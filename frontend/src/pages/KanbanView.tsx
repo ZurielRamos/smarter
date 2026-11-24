@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Phone, Mail, Tag, GripVertical, Search, SlidersHorizontal, X, Loader2 } from "lucide-react";
 import { getKanbanInitial, getKanbanColumn } from "@/services/api";
 import type { ClientRecord } from "@/services/api";
@@ -15,7 +15,14 @@ interface KanbanViewProps {
   fieldLabel: string;
   assignedTo?: string;
   assignedTeamId?: string;
-  onMoveClient: (clientId: string, newValue: string) => void;
+  /** Filtros avanzados ya completos (los mismos de la tabla). */
+  filters?: Array<{ field: string; operator: string; value: string }>;
+  /** Nombre a mostrar de cada columna (p. ej. estados de un proyecto); sin él se muestra el valor. */
+  optionLabels?: Record<string, string>;
+  /** Color de cada columna además de los de Estado. */
+  optionColors?: Record<string, string>;
+  /** Mover una tarjeta. Si devuelve false (no se pudo), el tablero se recarga. */
+  onMoveClient: (clientId: string, newValue: string, client?: ClientRecord) => void | boolean | Promise<void | boolean>;
   onClientClick: (client: ClientRecord) => void;
   onContextMenu: (e: React.MouseEvent, client: ClientRecord) => void;
 }
@@ -54,7 +61,11 @@ interface ColumnState {
   isFiltered: boolean; // true when search/sort differs from initial load
 }
 
-export function KanbanView({ tenantId, groupByField, fieldOptions, allOptions, isCustomized, fieldLabel, assignedTo, assignedTeamId, onMoveClient, onClientClick, onContextMenu }: KanbanViewProps) {
+export function KanbanView({ tenantId, groupByField, fieldOptions, allOptions, isCustomized, fieldLabel, assignedTo, assignedTeamId, filters, optionLabels, optionColors, onMoveClient, onClientClick, onContextMenu }: KanbanViewProps) {
+  // Clave estable de los filtros: el tablero se recarga solo cuando cambian de verdad.
+  const filtersKey = JSON.stringify(filters ?? []);
+  const activeFilters = useMemo(() => JSON.parse(filtersKey) as Array<{ field: string; operator: string; value: string }>, [filtersKey]);
+  const [reloadToken, setReloadToken] = useState(0);
   // Persisted custom order of columns, keyed by tenant + grouping field.
   const orderStorageKey = `kanbanColOrder_${tenantId}_${groupByField}`;
   const loadSavedOrder = useCallback((): string[] | null => {
@@ -162,7 +173,9 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, allOptions, i
     if (!tenantId) return;
     setInitialLoading(true);
 
-    getKanbanInitial(tenantId, groupByField, PAGE_SIZE, assignedTo, assignedTeamId).then((res) => {
+    let cancelled = false;
+    getKanbanInitial(tenantId, groupByField, PAGE_SIZE, assignedTo, assignedTeamId, activeFilters).then((res) => {
+      if (cancelled) return;
       const newState: Record<string, ColumnState> = {};
       const keys = [...fieldOptions];
 
@@ -231,8 +244,11 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, allOptions, i
         const merged = [...kept, ...added];
         return applySavedOrder(merged);
       });
-    }).catch(() => {}).finally(() => setInitialLoading(false));
-  }, [tenantId, groupByField, fieldOptions, allOptions, isCustomized, assignedTo, assignedTeamId, applySavedOrder]);
+    }).catch(() => {
+      if (!cancelled) setColumnsState({});
+    }).finally(() => !cancelled && setInitialLoading(false));
+    return () => { cancelled = true; };
+  }, [tenantId, groupByField, fieldOptions, allOptions, isCustomized, assignedTo, assignedTeamId, applySavedOrder, activeFilters, reloadToken]);
 
   // Load more for a specific column
   const loadMore = useCallback(async (colKey: string) => {
@@ -248,7 +264,7 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, allOptions, i
         search: col.search || undefined,
         sortBy: col.sortBy, sortOrder: col.sortBy === "name" ? "ASC" : "DESC",
         page: nextPage, limit: PAGE_SIZE,
-        assignedTo, assignedTeamId,
+        assignedTo, assignedTeamId, filters: activeFilters,
       });
       setColumnsState((prev) => ({
         ...prev,
@@ -257,7 +273,7 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, allOptions, i
     } catch {
       setColumnsState((prev) => ({ ...prev, [colKey]: { ...prev[colKey], loadingMore: false } }));
     }
-  }, [tenantId, groupByField, columnsState, assignedTo, assignedTeamId]);
+  }, [tenantId, groupByField, columnsState, assignedTo, assignedTeamId, activeFilters]);
 
   // Reload a column with new search/sort (makes a server request)
   const reloadColumn = useCallback(async (colKey: string, search: string, sortBy: SortOption) => {
@@ -269,7 +285,7 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, allOptions, i
         search: search || undefined,
         sortBy, sortOrder: sortBy === "name" ? "ASC" : "DESC",
         page: 1, limit: PAGE_SIZE,
-        assignedTo, assignedTeamId,
+        assignedTo, assignedTeamId, filters: activeFilters,
       });
       setColumnsState((prev) => ({
         ...prev,
@@ -278,7 +294,7 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, allOptions, i
     } catch {
       setColumnsState((prev) => ({ ...prev, [colKey]: { ...prev[colKey], loading: false } }));
     }
-  }, [tenantId, groupByField, assignedTo, assignedTeamId]);
+  }, [tenantId, groupByField, assignedTo, assignedTeamId, activeFilters]);
 
   // Card drag handlers
   function handleDragStart(e: React.DragEvent, clientId: string) {
@@ -359,6 +375,19 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, allOptions, i
     if (dragCtx.current.type === "column") { handleColumnDrop(); return; }
     const clientId = e.dataTransfer.getData("clientId");
     if (clientId && colKey !== "__unassigned__") {
+      let moved: ClientRecord | undefined;
+      let fromKey: string | undefined;
+      for (const key of Object.keys(columnsState)) {
+        const found = columnsState[key].clients.find((c) => c.id === clientId);
+        if (found) { moved = found; fromKey = key; break; }
+      }
+      if (fromKey === colKey) {
+        dragCtx.current = { type: null, key: null };
+        setDragOverColumn(null);
+        setDraggingClient(null);
+        stopAutoScroll();
+        return;
+      }
       // Find source column and remove client optimistically
       setColumnsState((prev) => {
         const updated = { ...prev };
@@ -373,7 +402,9 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, allOptions, i
         }
         return updated;
       });
-      onMoveClient(clientId, colKey);
+      Promise.resolve(onMoveClient(clientId, colKey, moved))
+        .then((ok) => { if (ok === false) setReloadToken((n) => n + 1); })
+        .catch(() => setReloadToken((n) => n + 1));
     }
     dragCtx.current = { type: null, key: null };
     setDragOverColumn(null);
@@ -407,7 +438,8 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, allOptions, i
               <KanbanColumn
                 key={colKey}
                 colKey={colKey}
-                label={colKey === "__unassigned__" ? "Sin valor" : colKey}
+                label={colKey === "__unassigned__" ? "Sin valor" : optionLabels?.[colKey] ?? colKey}
+                color={optionColors?.[colKey]}
                 state={col}
                 isDragOver={dragOverColumn === colKey}
                 draggingClient={draggingClient}
@@ -438,7 +470,7 @@ export function KanbanView({ tenantId, groupByField, fieldOptions, allOptions, i
 
 // === Column ===
 function KanbanColumn({
-  colKey, label, state, isDragOver, draggingClient, isColumnDragOver, isColumnDragging,
+  colKey, label, color, state, isDragOver, draggingClient, isColumnDragOver, isColumnDragging,
   onReload, onLoadMore,
   onAreaDragOver, onDragLeave, onDrop, onDragStart, onDragEnd,
   onColumnDragStart, onColumnDragEnd,
@@ -446,6 +478,7 @@ function KanbanColumn({
 }: {
   colKey: string;
   label: string;
+  color?: string;
   state: ColumnState;
   isDragOver: boolean;
   draggingClient: string | null;
@@ -531,8 +564,8 @@ function KanbanColumn({
         >
           <GripVertical className="h-4 w-4" />
         </span>
-        <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: COLUMN_COLORS[colKey] || "#9ca3af" }} />
-        <span className="text-sm font-medium text-foreground capitalize truncate">{label}</span>
+        <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: color || COLUMN_COLORS[colKey] || "#9ca3af" }} />
+        <span className={`text-sm font-medium text-foreground truncate ${label === colKey ? "capitalize" : ""}`}>{label}</span>
         <span className="text-xs text-muted-foreground font-medium bg-muted px-1.5 py-0.5 rounded-full">{state.total}</span>
 
         <div className="ml-auto relative" ref={menuRef}>

@@ -8,6 +8,8 @@ import { RecruitmentProject } from './entities/recruitment-project.entity';
 import { landingImageFolder, storeLandingImage } from './portal/landing-images';
 import { DEFAULT_PROJECT_LANDING, LandingConfig, landingImageUrls, mergeLanding, parseLanding } from './portal/portal-landing';
 import { ProjectForm, parseForm, readForm } from './project-form';
+import { formItems, resolveSteps, type FormLayout } from './form-layout';
+import { FormLayoutAiService } from './form-layout-ai.service';
 import { PortalConfigService } from './portal/portal-config.service';
 import { ROLE_LABELS } from './prospect-states';
 import { signupRoles } from './projects.service';
@@ -34,6 +36,7 @@ export class ProjectPublicService {
     private readonly audit: TenantAuditService,
     private readonly media: MediaStorageService,
     private readonly portalConfig: PortalConfigService,
+    private readonly layoutAi: FormLayoutAiService,
   ) {}
 
   /** Proyecto de la reclutadora o 404. */
@@ -168,6 +171,25 @@ export class ProjectPublicService {
     return form;
   }
 
+  /**
+   * «Organizar con IA»: propone las pantallas del formulario que se está
+   * editando (aún sin guardar). No guarda nada.
+   */
+  async suggestLayout(tenantId: string, actor: Actor, id: string, body: Record<string, unknown>): Promise<FormLayout> {
+    const form = parseForm({ ...requireObject(body, 'El formulario'), layout: null });
+    const project = await this.editable(tenantId, id);
+    const catalog = await this.portalConfig.fieldCatalog(tenantId);
+    const layout = await this.layoutAi.suggest({
+      tenantId,
+      projectId: id,
+      projectName: project.publicName || project.name,
+      form,
+      fieldDefs: new Map(catalog.map((f) => [f.key, { label: f.label, type: f.type }])),
+    });
+    await this.log(tenantId, actor, id, 'form_layout_ai', { steps: layout.steps.length });
+    return layout;
+  }
+
   // ───────────────────────────── Público ─────────────────────────────
 
   /**
@@ -205,8 +227,18 @@ export class ProjectPublicService {
           help: q.help,
           required: q.required,
           options: q.options,
+          allowOther: q.allowOther,
           min: q.min,
           max: q.max,
+          minLabel: q.minLabel,
+          maxLabel: q.maxLabel,
+          placeholder: q.placeholder,
+        })),
+        // Pantallas del formulario (después de la de contacto), solo con lo que se sirve.
+        steps: resolveSteps(form.layout, formItems({ fields: form.fields.filter((f) => catalog.has(f.key)), questions: form.questions })).map((st) => ({
+          title: st.title,
+          description: st.description,
+          items: st.items,
         })),
       },
       registrationOpen: project.registrationOpen,

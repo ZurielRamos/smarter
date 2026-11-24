@@ -25,13 +25,38 @@ export interface PortalFieldDef {
   lockedWhenSigned?: boolean;
   /** Valores sugeridos (no restrictivos). */
   suggestions?: string[];
+  /** `select`: acepta también valores fuera de la lista (los que ya tenía el CRM). */
+  lenient?: boolean;
 }
 
 const FIXED: PortalFieldDef[] = [
   { key: 'nombre_completo', label: 'Nombre completo', type: 'text', source: 'fixed', prop: 'fullName', maxLength: 200, lockedWhenSigned: true },
   { key: 'nombre', label: 'Nombre', type: 'text', source: 'fixed', prop: 'firstName', maxLength: 100, lockedWhenSigned: true },
   { key: 'apellido', label: 'Apellido', type: 'text', source: 'fixed', prop: 'lastName', maxLength: 100, lockedWhenSigned: true },
-  { key: 'tipo_documento', label: 'Tipo de documento', type: 'text', source: 'fixed', prop: 'documentType', maxLength: 20, lockedWhenSigned: true, suggestions: ['CC', 'CE', 'TI', 'PA', 'PEP', 'PPT', 'NIT', 'DNI', 'RUC', 'RUT', 'CURP'] },
+  {
+    key: 'tipo_documento',
+    label: 'Tipo de documento',
+    type: 'select',
+    source: 'fixed',
+    prop: 'documentType',
+    maxLength: 20,
+    lockedWhenSigned: true,
+    // Se guarda la sigla (la usan los contratos). Valores anteriores fuera de la lista se conservan.
+    lenient: true,
+    options: [
+      { value: 'CC', label: 'Cédula de ciudadanía (CC)' },
+      { value: 'CE', label: 'Cédula de extranjería (CE)' },
+      { value: 'TI', label: 'Tarjeta de identidad (TI)' },
+      { value: 'PA', label: 'Pasaporte (PA)' },
+      { value: 'PPT', label: 'Permiso por protección temporal (PPT)' },
+      { value: 'PEP', label: 'Permiso especial de permanencia (PEP)' },
+      { value: 'NIT', label: 'NIT' },
+      { value: 'DNI', label: 'DNI' },
+      { value: 'RUC', label: 'RUC' },
+      { value: 'RUT', label: 'RUT' },
+      { value: 'CURP', label: 'CURP' },
+    ],
+  },
   { key: 'numero_documento', label: 'Número de documento', type: 'text', source: 'fixed', prop: 'documentNumber', maxLength: 50, lockedWhenSigned: true },
   { key: 'fecha_nacimiento', label: 'Fecha de nacimiento', type: 'date', source: 'fixed', prop: 'birthDate', maxLength: 10, lockedWhenSigned: true },
   {
@@ -131,7 +156,7 @@ export function normalizeFieldValue(def: PortalFieldDef, raw: unknown): string {
       if (value !== 'true' && value !== 'false') throw new Error(`«${def.label}» debe ser Sí o No`);
       return value;
     case 'select':
-      if (def.options && !def.options.some((o) => o.value === value)) throw new Error(`«${def.label}» tiene una opción no válida`);
+      if (def.options && !def.lenient && !def.options.some((o) => o.value === value)) throw new Error(`«${def.label}» tiene una opción no válida`);
       return value;
     default:
       return value;
