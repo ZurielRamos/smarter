@@ -72,7 +72,6 @@ import {
   parseButtonPayload,
 } from '../conversation-flows/conversation-flow.engine';
 import {
-  CONTACT_SYSTEM_FIELDS,
   WRITABLE_CONTACT_KEYS,
   ACTION_ONLY_CONTACT_KEYS,
   VARIABLE_KEY_RE,
@@ -4078,7 +4077,8 @@ export class ChatsService {
       inbox.tenantId,
     );
     const customByKey = new Map(catalog.custom.map((f) => [f.key, f]));
-    const systemByKey = new Map(CONTACT_SYSTEM_FIELDS.map((f) => [f.key, f]));
+    // Con las opciones de la cuenta (estado, canal…), no con la lista fija del código.
+    const systemByKey = new Map(catalog.crm.map((f) => [f.key, f]));
     const isPhoneChannel =
       inbox.channel === 'whatsapp' || inbox.channel === 'evolution';
     const r = record as unknown as Record<string, unknown>;

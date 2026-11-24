@@ -304,7 +304,7 @@ export interface FlowAction {
   labelId?: string;
   /** update_contact: clave del campo del CRM (el valor va en `value`, admite {{variables}}) */
   field?: string;
-  /** update_contact: solo escribir si el campo está vacío (por defecto sobrescribe) */
+  /** set_project_answers: no reemplazar lo que ya tenga (update_contact siempre reemplaza) */
   onlyIfEmpty?: boolean;
   /** add_to_project / set_project_status: proyecto de reclutamiento de la cuenta */
   projectId?: string;

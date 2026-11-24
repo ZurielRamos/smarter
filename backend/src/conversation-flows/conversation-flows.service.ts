@@ -642,7 +642,6 @@ export class ConversationFlowsService {
                 type: 'update_contact',
                 field: field ?? '',
                 value: String(a.value ?? '').slice(0, 1000),
-                ...(a.onlyIfEmpty === true ? { onlyIfEmpty: true } : {}),
               });
               continue;
             }

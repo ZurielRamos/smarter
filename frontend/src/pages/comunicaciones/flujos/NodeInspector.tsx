@@ -14,7 +14,6 @@ import { AgentEditor } from "./AgentEditor";
 import { ProjectAnswersFields } from "./ProjectAnswersFields";
 import { GenerateEditor } from "./GenerateEditor";
 import { FlowSelect } from "./FlowSelect";
-import { Toggle } from "./Toggle";
 import { optionLabel } from "./conditions";
 import {
   ACTION_LABELS,
@@ -921,12 +920,7 @@ function ActionFields({
                 value={a.value || ""}
                 onChange={(v) => update(i, { value: v })}
               />
-              <Toggle
-                checked={!!a.onlyIfEmpty}
-                onChange={(v) => update(i, { onlyIfEmpty: v || undefined })}
-                label="Solo si el campo está vacío"
-                description="Si no, reemplaza el valor actual del contacto."
-              />
+              <p className="text-[11px] text-muted-foreground">Reemplaza el valor que el contacto tenga en el CRM.</p>
             </div>
           )}
           {(a.type === "add_label" || a.type === "remove_label") && (

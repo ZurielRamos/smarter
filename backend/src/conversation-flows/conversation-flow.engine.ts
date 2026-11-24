@@ -885,11 +885,7 @@ export class ConversationFlowEngine {
                 break;
               case 'update_contact': {
                 if (!action.field) break;
-                if (
-                  action.onlyIfEmpty &&
-                  (context.contact?.[action.field] ?? '').trim()
-                )
-                  break;
+                // Siempre reemplaza lo que ya tenga el contacto.
                 const value = this.interpolate(
                   action.value || '',
                   variables,
