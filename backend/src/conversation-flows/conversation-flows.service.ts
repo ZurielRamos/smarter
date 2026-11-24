@@ -238,9 +238,24 @@ export class ConversationFlowsService {
           : {}),
       }));
 
+    // Los campos de lista del sistema (estado, canal, idioma…) usan las opciones
+    // que la cuenta configuró; la lista fija solo vale si no definió ninguna.
+    const tenantOptions = new Map(
+      customFields
+        .filter(
+          (f) => f.isSystem && Array.isArray(f.options) && f.options.length,
+        )
+        .map((f) => [f.fieldKey, f.options as string[]]),
+    );
+    const crm = CONTACT_SYSTEM_FIELDS.map((f) =>
+      f.options && tenantOptions.has(f.key)
+        ? { ...f, options: tenantOptions.get(f.key) }
+        : f,
+    );
+
     return {
       special: FLOW_SPECIAL_VARIABLES,
-      crm: CONTACT_SYSTEM_FIELDS,
+      crm,
       custom,
     };
   }

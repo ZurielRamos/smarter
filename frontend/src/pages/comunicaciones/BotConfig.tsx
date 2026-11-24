@@ -811,6 +811,14 @@ export function BotConfig() {
   const [handoffMessage, setHandoffMessage] = useState("");
   const [newKeyword, setNewKeyword] = useState("");
   const [onResolvedStatus, setOnResolvedStatus] = useState("");
+  // Estados del contacto: los que la cuenta configuró en el campo de sistema "status".
+  const [contactStatuses, setContactStatuses] = useState<string[]>([]);
+  useEffect(() => {
+    if (!tenantId) return;
+    api.get<Array<{ fieldKey: string; options: string[] | null }>>(`/custom-fields/${tenantId}`)
+      .then(({ data }) => setContactStatuses((data || []).find((f) => f.fieldKey === "status")?.options ?? []))
+      .catch(() => {});
+  }, [tenantId]);
   const [onResolvedLabelIds, setOnResolvedLabelIds] = useState<string[]>([]);
   const [availableLabels, setAvailableLabels] = useState<{ id: string; label: string; color: string }[]>([]);
 
@@ -1730,7 +1738,7 @@ export function BotConfig() {
               <div className="space-y-3">
                 <div>
                   <label className="block text-[10px] text-muted-foreground mb-1">Cambiar estado del contacto a:</label>
-                  <MiniSelect value={onResolvedStatus} onChange={setOnResolvedStatus} options={["", "lead", "contactado", "interesado", "oportunidad", "cliente", "premium", "fidelizado", "inactivo", "perdido"]} labels={{ "": "Sin cambio", lead: "Lead", contactado: "Contactado", interesado: "Interesado", oportunidad: "Oportunidad", cliente: "Cliente", premium: "Premium", fidelizado: "Fidelizado", inactivo: "Inactivo", perdido: "Perdido" }} />
+                  <MiniSelect value={onResolvedStatus} onChange={setOnResolvedStatus} options={["", ...contactStatuses]} labels={{ "": "Sin cambio" }} />
                 </div>
                 <div>
                   <label className="block text-[10px] text-muted-foreground mb-1">Agregar etiquetas a la conversación:</label>

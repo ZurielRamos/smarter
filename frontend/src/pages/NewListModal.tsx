@@ -158,7 +158,10 @@ export function NewListModal({ tenantId, onClose, onCreated, editData }: Props) 
           type: (f.fieldType === "computed" ? "text" : f.fieldType) as FieldOption["type"],
           options: f.options || undefined,
         }));
-      setAllFields([...SYSTEM_FIELDS, ...customOpts]);
+      // Los campos de lista del sistema (estado, canal, género…) usan las opciones de la cuenta.
+      const tenantOptions = new Map(fields.filter((f) => f.isSystem && f.options?.length).map((f) => [f.fieldKey, f.options as string[]]));
+      const systemOpts = SYSTEM_FIELDS.map((f) => (f.options && tenantOptions.has(f.value) ? { ...f, options: tenantOptions.get(f.value) } : f));
+      setAllFields([...systemOpts, ...customOpts]);
     }).catch(() => {});
   }, [tenantId]);
 
