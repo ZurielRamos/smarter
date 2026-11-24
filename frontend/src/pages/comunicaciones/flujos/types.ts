@@ -113,6 +113,9 @@ export interface FlowAgentConfig {
   botId?: string;
   instructions?: string;
   firstMessage?: string;
+  /** Mensaje al cumplir el objetivo: la IA lo escribe (predeterminado), uno fijo o ninguno. */
+  closing?: "ai" | "fixed" | "none";
+  closingMessage?: string;
   outcomes: FlowAgentOutcome[];
   collect?: FlowAgentCollect[];
   maxTurns?: number;

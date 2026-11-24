@@ -1406,9 +1406,18 @@ export class ConversationFlowEngine {
         this.queueContactUpdate(c.saveToField, value, context, result);
     }
     let next = history;
-    if (turn.reply) {
-      result.messages.push({ text: turn.reply });
-      next = pushHistory(history, 'assistant', turn.reply);
+    // Al cumplir el objetivo el cierre puede ser el de la IA, uno fijo o ninguno.
+    let reply = turn.reply;
+    if (turn.finish && config.closing === 'none') reply = '';
+    else if (turn.finish && config.closing === 'fixed')
+      reply = this.interpolate(
+        config.closingMessage || '',
+        variables,
+        context,
+      ).trim();
+    if (reply) {
+      result.messages.push({ text: reply });
+      next = pushHistory(history, 'assistant', reply);
     }
 
     if (turn.finish) {

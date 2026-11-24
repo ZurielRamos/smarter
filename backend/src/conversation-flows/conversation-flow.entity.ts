@@ -170,6 +170,8 @@ export interface FlowAgentCollect {
  * Salidas: `out:<id>` por resultado, `handoff`, `limit` (máximo de mensajes) y
  * `error` (la IA no está disponible).
  */
+export type FlowAgentClosing = 'ai' | 'fixed' | 'none';
+
 export interface FlowAgentConfig {
   /** 'bot': usa un bot existente (prompt, conocimiento, herramientas); 'custom': solo las instrucciones */
   source: 'bot' | 'custom';
@@ -178,6 +180,13 @@ export interface FlowAgentConfig {
   instructions?: string;
   /** Primer mensaje al entrar; vacío = lo escribe la IA */
   firstMessage?: string;
+  /**
+   * Mensaje al cumplir el objetivo (salir por un resultado): 'ai' lo escribe la
+   * IA (predeterminado), 'fixed' envía `closingMessage`, 'none' no envía nada y
+   * pasa al siguiente nodo. No aplica a «Transferir» ni al límite.
+   */
+  closing?: FlowAgentClosing;
+  closingMessage?: string;
   outcomes: FlowAgentOutcome[];
   collect?: FlowAgentCollect[];
   /** Mensajes del contacto antes de salir por `limit` (1–30, predeterminado 10) */

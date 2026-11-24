@@ -58,7 +58,11 @@ export function buildAgentPrompt(
   }
   lines.push(
     '',
-    `CÓMO TERMINAR: cuando la conversación llegue a uno de estos resultados, llama a la herramienta ${FINISH_TOOL} con su id. No sigas conversando después de llamarla; si quieres despedirte o dar un último mensaje, ponlo en el campo "message".`,
+    `CÓMO TERMINAR: cuando la conversación llegue a uno de estos resultados, llama a la herramienta ${FINISH_TOOL} con su id. No sigas conversando después de llamarla; ${
+      config.closing === 'ai' || !config.closing
+        ? 'si quieres despedirte o dar un último mensaje, ponlo en el campo "message".'
+        : 'no escribas despedida ni mensaje final (ni en el texto ni en "message"): el flujo se encarga del cierre. Rellena solo "outcome" y "summary".'
+    }`,
   );
   for (const o of outcomes) {
     lines.push(

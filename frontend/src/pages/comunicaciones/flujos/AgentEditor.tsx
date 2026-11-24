@@ -17,6 +17,17 @@ const smallInput =
 const labelClass = "block text-xs font-medium text-foreground mb-1";
 const hintClass = "text-[11px] text-muted-foreground mt-1";
 
+const CLOSING_OPTIONS: Array<{ value: NonNullable<FlowAgentConfig["closing"]>; label: string }> = [
+  { value: "ai", label: "La IA lo escribe" },
+  { value: "fixed", label: "Mensaje fijo" },
+  { value: "none", label: "Sin mensaje" },
+];
+const CLOSING_HINTS: Record<NonNullable<FlowAgentConfig["closing"]>, string> = {
+  ai: "La IA se despide o confirma según la conversación.",
+  fixed: "Se envía este texto (admite variables) y el flujo sigue por el resultado elegido.",
+  none: "No se responde nada: el flujo pasa directo al siguiente nodo del resultado elegido.",
+};
+
 interface BotSummary {
   id: string;
   name: string;
@@ -154,6 +165,41 @@ export function AgentEditor({ nodeId, data, set, options, tenantId }: Props) {
           />
           <p className={hintClass}>Si lo dejas vacío, la IA escribe el saludo según el objetivo.</p>
         </div>
+      </Section>
+
+      <Section title="Al cumplir el objetivo">
+        <div role="radiogroup" aria-label="Mensaje de cierre" className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-0.5">
+          {CLOSING_OPTIONS.map((o) => {
+            const on = (agent.closing ?? "ai") === o.value;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => setAgent({ closing: o.value === "ai" ? undefined : o.value })}
+                className={cn(
+                  "rounded-md px-1.5 py-1.5 text-[11px] font-medium transition-colors",
+                  on ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+        {agent.closing === "fixed" && (
+          <VariableTextarea
+            id={`${nodeId}-closing`}
+            aria-label="Mensaje de cierre"
+            rows={3}
+            value={agent.closingMessage || ""}
+            onChange={(v) => setAgent({ closingMessage: v || undefined })}
+            placeholder="¡Gracias! Con esto un asesor te contactará pronto."
+            className={cn(inputClass, "resize-y")}
+          />
+        )}
+        <p className={hintClass}>{CLOSING_HINTS[agent.closing ?? "ai"]}</p>
       </Section>
 
       <Section title="Resultados">

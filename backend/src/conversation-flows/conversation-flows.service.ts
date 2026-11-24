@@ -1249,6 +1249,12 @@ export class ConversationFlowsService {
     if (instructions) out.instructions = instructions.slice(0, 4000);
     const first = String(a.firstMessage || '').trim();
     if (first) out.firstMessage = first.slice(0, 2000);
+    if (a.closing === 'fixed' || a.closing === 'none') {
+      out.closing = a.closing;
+      const closingMessage = String(a.closingMessage || '').trim();
+      if (a.closing === 'fixed' && closingMessage)
+        out.closingMessage = closingMessage.slice(0, 2000);
+    }
 
     const ids = new Set<string>();
     for (const o of (Array.isArray(a.outcomes) ? a.outcomes : []).slice(

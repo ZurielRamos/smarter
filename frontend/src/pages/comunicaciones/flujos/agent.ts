@@ -12,6 +12,7 @@ export function agentIssue(agent: FlowAgentConfig | undefined): string | null {
   if (agent.source === "bot" && !agent.botId) return "Elige un bot";
   if (agent.source === "custom" && !agent.instructions?.trim()) return "Escribe el objetivo";
   if (!agent.outcomes.some((o) => o.name.trim())) return "Agrega al menos un resultado";
+  if (agent.closing === "fixed" && !agent.closingMessage?.trim()) return "Escribe el mensaje de cierre";
   if ((agent.collect || []).some((c) => !c.variable || !c.description.trim())) return "Completa los datos a averiguar";
   return null;
 }
