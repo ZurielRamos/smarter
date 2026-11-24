@@ -23,7 +23,9 @@ import {
   Bot,
   GitFork,
   Loader2,
+  Maximize2,
   MessageSquare,
+  Minimize2,
   Pause,
   Play,
   Save,
@@ -236,6 +238,8 @@ function FlujoEditorInner() {
   const [linkTracking, setLinkTracking] = useState<boolean | null>(null);
   const [showTriggers, setShowTriggers] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  // Pantalla completa: el editor cubre toda la ventana (sin menú ni lista de flujos).
+  const [fullscreen, setFullscreen] = useState(false);
   const [showActivateWarning, setShowActivateWarning] = useState(false);
 
   // ─── Carga ───
@@ -515,6 +519,24 @@ function FlujoEditorInner() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  // Al entrar o salir de pantalla completa el lienzo cambia de tamaño: se reencuadra.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => fitView({ padding: 0.3, maxZoom: 1 }));
+    return () => cancelAnimationFrame(id);
+  }, [fullscreen, fitView]);
+  // Esc sale de pantalla completa (salvo con un diálogo abierto o escribiendo en un campo).
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) return;
+      if (showTriggers || showDelete || showActivateWarning) return;
+      setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen, showTriggers, showDelete, showActivateWarning]);
   const hasTriggers = hasAutoTriggers(triggers);
 
   const activate = async () => {
@@ -580,7 +602,7 @@ function FlujoEditorInner() {
   return (
     <FlowEditorContext.Provider value={{ flows, labels, inboxes, currentFlowId: flow.id, recruitment }}>
      <FlowVariablesContext.Provider value={variableOptions}>
-      <div className="flex-1 min-w-0 flex flex-col bg-background">
+      <div className={cn("flex flex-col bg-background", fullscreen ? "fixed inset-0 z-40" : "flex-1 min-w-0")}>
         {/* Header */}
         <div className="bg-card border-b border-border px-4 py-2.5 flex items-center gap-3 flex-wrap">
           <div className="h-8 w-8 rounded-lg bg-brand-50 dark:bg-brand-700/40 flex items-center justify-center shrink-0">
@@ -601,6 +623,16 @@ function FlujoEditorInner() {
           {dirty && <span className="text-[11px] text-amber-600 dark:text-amber-400">Cambios sin guardar</span>}
 
           <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFullscreen((v) => !v)}
+              aria-label={fullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+              aria-pressed={fullscreen}
+              title={fullscreen ? "Salir de pantalla completa (Esc)" : "Pantalla completa"}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
             <button
               type="button"
               onClick={() => setShowTriggers(true)}
