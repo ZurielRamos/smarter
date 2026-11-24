@@ -47,8 +47,9 @@ export function useRecruitmentSegment(tenantId?: string): RecruitmentSegmentData
   const [data, setData] = useState<RecruitmentSegmentData | null>(null);
   const tenantRole = user?.tenantRoles.find((tr) => tr.tenant.id === tenantId);
   // Igual que en Flujos: módulo activo y owner/admin (la API de Reclutamiento lo exige).
+  // El módulo debe estar activo en la cuenta, también para un superadmin (si no, la API responde 403).
   const allowed =
-    !!tenantId && !!user && (user.isSuperAdmin || (!!tenantRole?.tenant.features?.reclutamiento && (tenantRole.role === "owner" || tenantRole.role === "admin")));
+    !!tenantId && !!user && !!tenantRole?.tenant.features?.reclutamiento && (user.isSuperAdmin || tenantRole.role === "owner" || tenantRole.role === "admin");
 
   useEffect(() => {
     if (!allowed || !tenantId) {

@@ -24,7 +24,7 @@ export function Conversaciones() {
   // «Agregar a proyecto» solo con Reclutamiento activo y para owner/admin (los mismos permisos que exige el servidor).
   const tenantRole = user?.tenantRoles.find((tr) => tr.tenant.slug === ctx.slug);
   const canAddToProject =
-    !!user && (user.isSuperAdmin || (!!tenantRole?.tenant.features?.reclutamiento && (tenantRole.role === "owner" || tenantRole.role === "admin")));
+    !!user && !!tenantRole?.tenant.features?.reclutamiento && (user.isSuperAdmin || tenantRole.role === "owner" || tenantRole.role === "admin");
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, conv: Conversation) => {

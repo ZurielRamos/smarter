@@ -229,8 +229,9 @@ function FlujoEditorInner() {
   const [recruitment, setRecruitment] = useState<FlowEditorContextValue["recruitment"]>(null);
   const tenantRole = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
   // Las acciones de proyecto usan la API de Reclutamiento: módulo activo y owner/admin.
+  // El módulo debe estar activo en la cuenta, también para un superadmin (si no, la API responde 403).
   const canUseRecruitment =
-    !!user && (user.isSuperAdmin || (!!tenantRole?.tenant.features?.reclutamiento && (tenantRole.role === "owner" || tenantRole.role === "admin")));
+    !!user && !!tenantRole?.tenant.features?.reclutamiento && (user.isSuperAdmin || tenantRole.role === "owner" || tenantRole.role === "admin");
   const [inboxes, setInboxes] = useState<InboxOption[]>([]);
   const [linkTracking, setLinkTracking] = useState<boolean | null>(null);
   const [showTriggers, setShowTriggers] = useState(false);

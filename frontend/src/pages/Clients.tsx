@@ -161,7 +161,7 @@ export function Clients() {
   });
   // Reclutamiento: proyectos y estados para agrupar y filtrar (owner/admin con el módulo activo).
   const canUseRecruitment =
-    !!user && (!!user.isSuperAdmin || (!!tenantRole?.tenant.features?.reclutamiento && (tenantRole?.role === "owner" || tenantRole?.role === "admin")));
+    !!user && !!tenantRole?.tenant.features?.reclutamiento && (!!user.isSuperAdmin || tenantRole.role === "owner" || tenantRole.role === "admin");
   const [recruitment, setRecruitment] = useState<FilterRecruitment | null>(null);
   const [recruitmentReady, setRecruitmentReady] = useState(false);
   useEffect(() => {
