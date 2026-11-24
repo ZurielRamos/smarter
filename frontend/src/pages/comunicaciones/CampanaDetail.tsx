@@ -5,6 +5,7 @@ import { Users, Send, Calendar, Clock, RefreshCw, Pencil, List, Settings2, Filte
 import { Button } from "@/components/ui/button";
 import { MessageEditor } from "@/components/campaigns/MessageEditor";
 import { WhatsAppTemplateSelector } from "@/components/campaigns/WhatsAppTemplateSelector";
+import { ReplyFlowSelector } from "@/components/campaigns/ReplyFlowSelector";
 import { CallEditor } from "@/components/campaigns/CallEditor";
 import { EmailEditor } from "@/components/campaigns/EmailEditor";
 import { EmailCampaignEditor } from "@/components/campaigns/EmailCampaignEditor";
@@ -39,6 +40,7 @@ interface Campaign {
   whatsappTemplateLanguage: string | null;
   whatsappVariableMapping: Record<string, string> | null;
   whatsappTemplateCategory: string | null;
+  replyFlowId: string | null;
   callVoice: string | null;
   callRetries: string | null;
   callLeaveVoicemail: boolean | null;
@@ -692,6 +694,14 @@ export function CampanaDetail() {
                 saving={savingWhatsApp}
                 tenantId={campaign.tenantId}
                 inboxId={campaign.inboxId}
+              />
+            )}
+            {campaign.channel === "whatsapp" && (
+              <ReplyFlowSelector
+                campaignId={campaign.id}
+                tenantId={campaign.tenantId}
+                value={campaign.replyFlowId ?? null}
+                onSaved={(replyFlowId) => setCampaign((prev) => (prev ? { ...prev, replyFlowId } : prev))}
               />
             )}
 

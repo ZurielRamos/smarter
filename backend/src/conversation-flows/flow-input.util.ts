@@ -71,7 +71,8 @@ export interface FlowInputMedia {
 
 const DAY_MS = 86_400_000;
 
-function isoFromDay(day: number): string {
+/** Día (días desde 1970 en Bogotá) en formato AAAA-MM-DD. */
+export function isoFromDay(day: number): string {
   return new Date(day * DAY_MS).toISOString().slice(0, 10);
 }
 

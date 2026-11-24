@@ -18,12 +18,14 @@ export interface VariableOption {
   options?: string[];
   /** Un nodo Entrada puede guardar la respuesta en este campo del CRM */
   writable?: boolean;
+  /** Solo la acción «Actualizar contacto» puede escribir este campo (p. ej. Estado) */
+  actionWritable?: boolean;
 }
 
 /** Respuesta de GET /conversation-flows/variables */
 export interface VariableCatalog {
   special: { key: string; label: string; description: string }[];
-  crm: { key: string; label: string; group: string; type?: string; options?: string[]; writable?: boolean }[];
+  crm: { key: string; label: string; group: string; type?: string; options?: string[]; writable?: boolean; actionWritable?: boolean }[];
   custom: { key: string; label: string; fieldType: string; options?: string[]; writable?: boolean }[];
 }
 
@@ -46,6 +48,7 @@ const FALLBACK_SPECIAL: VariableCatalog["special"] = [
   { key: "timeout_count", label: "Veces sin respuesta", description: "Cuántas veces el contacto no respondió a tiempo en este flujo" },
   { key: "ai_outcome", label: "Resultado de la conversación con IA", description: "Resultado al que llegó el último nodo Conversación con IA" },
   { key: "ai_summary", label: "Resumen de la conversación con IA", description: "Resumen que escribió la IA al terminar el tramo" },
+  { key: "ai_error", label: "Motivo del fallo de la generación con IA", description: "Por qué el último nodo Generación IA salió por «Si falla»" },
 ];
 
 /** Tipo y valores posibles de una variable del flujo o especial, deducidos del propio flujo. */
@@ -90,7 +93,7 @@ export function buildVariableOptions(
       ...meta[key],
     });
   }
-  for (const f of catalog?.crm ?? []) add({ key: f.key, label: f.label, group: "crm", type: normalizeType(f.type), options: f.options, writable: !!f.writable });
+  for (const f of catalog?.crm ?? []) add({ key: f.key, label: f.label, group: "crm", type: normalizeType(f.type), options: f.options, writable: !!f.writable, actionWritable: !!f.actionWritable });
   for (const f of catalog?.custom ?? []) add({
       key: f.key,
       label: f.label,

@@ -8,6 +8,16 @@ import { Tenant } from '../tenants/tenant.entity';
 import { ClientRecord } from '../records/record.entity';
 import { CustomField } from '../records/custom-field.entity';
 import { ContactProfile } from './entities/contact-profile.entity';
+import { RecruitmentProject } from './entities/recruitment-project.entity';
+import { ProjectProspect } from './entities/project-prospect.entity';
+import { ProspectStatusEvent } from './entities/prospect-status-event.entity';
+import { ProjectProspectsService } from './project-prospects.service';
+import { RewardLedgerService } from './reward-ledger.service';
+import { RewardLedgerEntry } from './entities/reward-ledger.entity';
+import { PayoutsController } from './payouts.controller';
+import { ProjectPublicService } from './project-public.service';
+import { ProjectsService } from './projects.service';
+import { ProjectsController } from './projects.controller';
 import { SurveyorContract } from './entities/surveyor-contract.entity';
 import { SurveyorPaymentMethod } from './entities/surveyor-payment-method.entity';
 import { ContractTemplate } from './entities/contract-template.entity';
@@ -31,7 +41,7 @@ import { PortalService } from './portal/portal.service';
 import { PortalInvitationsService } from './portal/portal-invitations.service';
 import { PrivateFileService } from './portal/private-file.service';
 import { ProfileDocumentsService } from './portal/profile-documents.service';
-import { PortalSessionGuard } from './portal/portal-session.guard';
+import { PortalSessionGuard, ProjectSessionGuard } from './portal/portal-session.guard';
 import { PortalController } from './portal/portal.controller';
 import { PortalAdminController } from './portal/portal-admin.controller';
 
@@ -47,6 +57,10 @@ import { PortalAdminController } from './portal/portal-admin.controller';
     // Tenant: lo necesita ModuleFeatureGuard.
     TypeOrmModule.forFeature([
       ContactProfile,
+      RecruitmentProject,
+      ProjectProspect,
+      ProspectStatusEvent,
+      RewardLedgerEntry,
       SurveyorContract,
       SurveyorPaymentMethod,
       ContractTemplate,
@@ -64,9 +78,13 @@ import { PortalAdminController } from './portal/portal-admin.controller';
     // Sin secreto por defecto: el portal firma con su propia clave derivada (ver PortalAuthService).
     JwtModule.register({}),
   ],
-  controllers: [ReclutamientoController, PortalAdminController, PortalController],
+  controllers: [ReclutamientoController, PortalAdminController, PortalController, ProjectsController, PayoutsController],
   providers: [
     ProfilesService,
+    ProjectsService,
+    ProjectPublicService,
+    ProjectProspectsService,
+    RewardLedgerService,
     ContractsService,
     PaymentMethodsService,
     PaymentCryptoService,
@@ -82,6 +100,9 @@ import { PortalAdminController } from './portal/portal-admin.controller';
     PrivateFileService,
     ProfileDocumentsService,
     PortalSessionGuard,
+    ProjectSessionGuard,
   ],
+  // Los flujos de conversación (ChatsModule) agregan contactos a proyectos y cambian su estado.
+  exports: [ProjectProspectsService],
 })
 export class ReclutamientoModule {}

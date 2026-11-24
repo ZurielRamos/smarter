@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import type { ConversationFlowSummary, FlowTriggers, InboxOption, LabelOption } from "./types";
+import type { ConversationFlowSummary, InboxOption, LabelOption } from "./types";
 import type { VariableOption } from "./variables";
 
 /**
@@ -9,16 +9,25 @@ import type { VariableOption } from "./variables";
 export const FlowVariablesContext = createContext<VariableOption[]>([]);
 
 /** Datos compartidos que los nodos necesitan para mostrar nombres (flujos, etiquetas). */
+/** Proyecto de reclutamiento que se puede elegir en las acciones de proyecto. */
+export interface FlowProjectOption {
+  id: string;
+  name: string;
+  status: string;
+  roles: Array<"participant" | "surveyor" | "moderator">;
+  defaultRole: "participant" | "surveyor" | "moderator";
+}
 export interface FlowEditorContextValue {
   flows: ConversationFlowSummary[];
   labels: LabelOption[];
   inboxes: InboxOption[];
   currentFlowId: string;
+  /** Con Reclutamiento activo (y permiso para verlo): proyectos y estados para las acciones de proyecto. */
+  recruitment?: { projects: FlowProjectOption[]; states: Array<{ key: string; label: string; help: string }> } | null;
 }
-
-export const FlowEditorContext = createContext<FlowEditorContextValue>({ flows: [], labels: [], inboxes: [], currentFlowId: "" });
+export const FlowEditorContext = createContext<FlowEditorContextValue>({ flows: [], labels: [], inboxes: [], currentFlowId: "", recruitment: null });
 
 /** Canales donde se ejecutan los flujos (mismo criterio que el backend). */
 export const FLOW_CHANNELS = new Set(["whatsapp", "messenger", "instagram", "chat", "evolution"]);
 
-export const EMPTY_TRIGGERS: FlowTriggers = { keywords: [], matchType: "exact", onNewConversation: false, inboxIds: [] };
+export { EMPTY_TRIGGERS } from "./triggers";

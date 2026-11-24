@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { ContractDocument, DocumentStatus, VerificationChannel } from "./reclutamiento";
+import type { ContractDocument, DocumentStatus, FormQuestion, LandingConfig, VerificationChannel } from "./reclutamiento";
 
 /**
  * Cliente del portal público del encuestador. Es independiente del cliente del
@@ -17,7 +17,55 @@ export interface PortalInfo {
   tenant: { name: string; slug: string; iconPath: string | null };
   verificationChannel: VerificationChannel;
   welcomeMessage: string;
+  registration: { open: boolean; consentText: string };
+  /** Null si la cuenta no publicó su landing: el portal muestra solo el acceso. */
+  landing: LandingConfig | null;
+  /** Solo en la dirección de un proyecto. */
+  project?: {
+    name: string;
+    /** Perfiles entre los que elige quien se registra. */
+    roles: Array<{ key: "participant" | "surveyor" | "moderator"; label: string; needsApproval: boolean }>;
+    defaultRole: "participant" | "surveyor" | "moderator";
+    fields: ProjectField[];
+    questions: FormQuestion[];
+  };
 }
+
+/** Dato personal que pide el proyecto al registrarse. */
+export interface ProjectField {
+  key: string;
+  label: string;
+  type: "text" | "longtext" | "date" | "select" | "number" | "boolean";
+  options?: Array<{ value: string; label: string }>;
+  suggestions?: string[];
+  maxLength: number;
+  required: boolean;
+}
+/** Lo que la persona ve de su estado (nunca el estado interno). */
+export type ProspectStatus = "received" | "in_process" | "selected" | "not_selected" | "finished";
+/** Proyecto en el que la persona está registrada, con su estado. */
+export interface MyProject {
+  slug: string;
+  name: string;
+  projectStatus: "active" | "paused" | "ended";
+  role: "participant" | "surveyor" | "moderator";
+  status: ProspectStatus;
+  registeredAt: string;
+}
+/** Lo que ve la persona dentro de la landing de un proyecto. */
+export interface ProjectMe {
+  project: { name: string; slug: string; status: string };
+  person: { name: string; email: string | null; phone: string | null };
+  role: "participant" | "surveyor" | "moderator";
+  roleLabel: string | null;
+  status: ProspectStatus;
+  registeredAt: string;
+}
+export interface ProjectSessionToken {
+  sessionToken: string;
+  expiresInSec: number;
+}
+export const projectTokenKey = (slug: string, projectSlug: string) => `recruit_pp_${slug}_${projectSlug}`;
 
 export interface InvitationInfo {
   name: string | null;
@@ -78,8 +126,10 @@ export interface PortalContractItem {
 export interface PortalMe {
   tenant: { name: string; slug: string };
   welcomeMessage: string;
-  profile: { status: string; name: string | null; email: string | null; phone: string | null };
+  /** `status` nulo: es un contacto registrado en proyectos que aún no tiene perfil en la cuenta. */
+  profile: { status: string | null; name: string | null; email: string | null; phone: string | null };
   verificationChannel: VerificationChannel;
+  projects: MyProject[];
   fields: PortalField[];
   documents: PortalDocumentItem[];
   contracts: PortalContractItem[];
@@ -96,8 +146,48 @@ export const recruitPortalApi = {
   async requestCode(slug: string, body: { inviteToken?: string; channel: "email" | "phone"; destination?: string }) {
     return (await http.post<CodeRequested>(`${root(slug)}/otp/request`, body)).data;
   },
+  async projectInfo(slug: string, projectSlug: string) {
+    return (await http.get<PortalInfo>(`${root(slug)}/projects/${encodeURIComponent(projectSlug)}`)).data;
+  },
+  async requestRegistration(slug: string, body: { fullName: string; channel: "email" | "phone"; destination: string; consent: boolean }) {
+    return (await http.post<CodeRequested>(`${root(slug)}/register/request`, body)).data;
+  },
   async verifyCode(slug: string, otpId: string, code: string) {
     return (await http.post<{ portalToken: string; expiresInSec: number }>(`${root(slug)}/otp/verify`, { otpId, code })).data;
+  },
+  /** Registro por la landing de un proyecto: crea el contacto y el prospecto, y abre sesión solo en esa landing. */
+  async requestProjectRegistration(
+    slug: string,
+    projectSlug: string,
+    body: {
+      fullName: string;
+      channel: "email" | "phone";
+      destination: string;
+      /** El otro dato de contacto: el teléfono si se verifica el correo; el correo (opcional) si se verifica el teléfono. */
+      phone?: string;
+      email?: string;
+      consent: boolean;
+      values: Record<string, string>;
+      answers: Record<string, unknown>;
+      role?: "participant" | "surveyor" | "moderator";
+    },
+  ) {
+    return (await http.post<CodeRequested>(`${root(slug)}/projects/${encodeURIComponent(projectSlug)}/register/request`, body)).data;
+  },
+  async verifyProjectRegistration(slug: string, projectSlug: string, otpId: string, code: string) {
+    return (await http.post<{ status: "applied" | "existing" | "closed" } & Partial<ProjectSessionToken>>(`${root(slug)}/projects/${encodeURIComponent(projectSlug)}/register/verify`, { otpId, code })).data;
+  },
+  async requestProjectLogin(slug: string, projectSlug: string, body: { channel: "email" | "phone"; destination: string }) {
+    return (await http.post<CodeRequested>(`${root(slug)}/projects/${encodeURIComponent(projectSlug)}/login/request`, body)).data;
+  },
+  async verifyProjectLogin(slug: string, projectSlug: string, otpId: string, code: string) {
+    return (await http.post<ProjectSessionToken>(`${root(slug)}/projects/${encodeURIComponent(projectSlug)}/login/verify`, { otpId, code })).data;
+  },
+  async projectMe(slug: string, projectSlug: string, token: string) {
+    return (await http.get<ProjectMe>(`${root(slug)}/projects/${encodeURIComponent(projectSlug)}/me`, auth(token))).data;
+  },
+  async earnings(slug: string, token: string) {
+    return (await http.get<import("./reclutamiento").LedgerPage>(`${root(slug)}/me/earnings`, auth(token))).data;
   },
   async me(slug: string, token: string) {
     return (await http.get<PortalMe>(`${root(slug)}/me`, auth(token))).data;

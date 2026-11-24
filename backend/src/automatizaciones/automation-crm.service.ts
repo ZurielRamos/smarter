@@ -251,6 +251,54 @@ export class AutomationCrmService {
     }
   }
 
+  /**
+   * Inicia un flujo conversacional para un contacto en un canal. Si la ventana
+   * de 24 h está cerrada, envía la plantilla del nodo y el flujo empieza
+   * cuando el contacto responda.
+   */
+  async startConversationFlow(tenantId: string, d: Data, ctx: TemplateContext) {
+    const inboxId = String(d.inboxId || '');
+    if (!inboxId) throw new Error('Selecciona un canal');
+    const inbox = await this.inboxRepo.findOne({ where: { id: inboxId, tenantId } });
+    if (!inbox) throw new Error('El canal ya no existe');
+    const flowId = String(d.flowId || '');
+    if (!flowId) throw new Error('Selecciona el flujo');
+
+    const recordIdTpl = renderText(d.recordId, ctx).trim();
+    const phone = renderText(d.phone, ctx);
+    let record: ClientRecord | null = null;
+    if (recordIdTpl) {
+      record = await this.recordRepo.findOne({ where: { id: recordIdTpl, tenantId } });
+    } else {
+      if (!phone) throw new Error('Indica un destinatario (teléfono o id de contacto)');
+      record = await this.findRecord(tenantId, { phone });
+      if (!record && d.createIfMissing !== false) {
+        record = await this.records.createRecord({
+          tenantId,
+          phone: digits(phone),
+          channelSource: 'automatizacion',
+        });
+      }
+    }
+    if (!record) throw new Error('No se encontró el contacto destinatario');
+
+    const conv = await this.chats.findOrCreateConversationForRecord(inbox.id, record.id);
+    const templateName = renderText(d.templateName, ctx).trim();
+    const params = Array.isArray(d.templateParams)
+      ? (d.templateParams as { key: string; value: string }[]).map((p) => renderText(p.value, ctx))
+      : [];
+    const variables = this.kv(d.variables, ctx);
+    const input = { inboxId, flowId, recordId: record.id, variables, templateName: templateName || undefined };
+    const result = await this.chats.startFlowInConversation(conv.id, flowId, {
+      source: 'automation',
+      variables,
+      template: templateName
+        ? { name: templateName, language: renderText(d.templateLanguage, ctx).trim() || 'es', params }
+        : null,
+    });
+    return { input, output: { ...result, recordId: record.id } };
+  }
+
   async listInboxes(tenantId: string) {
     const list = await this.inboxRepo.find({ where: { tenantId }, order: { createdAt: 'ASC' } });
     return list.map((i) => ({ id: i.id, name: i.name, channel: i.channel }));

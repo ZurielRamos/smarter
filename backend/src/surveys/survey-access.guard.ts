@@ -30,7 +30,8 @@ const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
  *    TenantAccessGuard dejaba pasar y los servicios listaban TODAS las cuentas.
  *    Si el tenantId llega en más de un lugar (query y body), deben coincidir:
  *    el guard autoriza uno y el servicio podría usar otro.
- * 3. Feature flag `encuestas` (activo por defecto; solo `false` lo apaga).
+ * 3. Feature flag `encuestas` (apagado por defecto). Las encuestas de un estudio
+ *    exigen en cambio el flag `estudios` y rol propietario o administrador.
  * 4. Rol `viewer` (solo lectura): no puede modificar.
  *
  * SuperAdmin pasa los controles de membresía, flag y rol. Las rutas @Public
@@ -58,15 +59,17 @@ export class SurveyAccessGuard implements CanActivate {
     const surveyId: string | undefined = request.params?.id;
     let tenantId: string;
     const byId = surveyId !== undefined;
+    let studySurvey = false;
 
     if (byId) {
       if (!UUID_RE.test(surveyId)) throw new BadRequestException('Id de encuesta inválido');
       const survey = await this.surveyRepo.findOne({
         where: { id: surveyId },
-        select: { id: true, tenantId: true },
+        select: { id: true, tenantId: true, clientStudyId: true },
       });
       if (!survey) throw new NotFoundException('Encuesta no encontrada');
       tenantId = survey.tenantId;
+      studySurvey = !!survey.clientStudyId;
     } else {
       tenantId = this.resolveCollectionTenant(request);
     }
@@ -80,6 +83,16 @@ export class SurveyAccessGuard implements CanActivate {
       throw new ForbiddenException('No tienes acceso a esta cuenta');
     }
 
+    if (studySurvey) {
+      // La encuesta de un estudio se gestiona desde Estudios: mismo módulo y mismos roles que el estudio.
+      if (!isFeatureEnabled(membership.tenant?.features, 'estudios')) {
+        throw new ForbiddenException('El módulo "estudios" no está activo para esta cuenta');
+      }
+      if (membership.role !== TenantRole.OWNER && membership.role !== TenantRole.ADMIN) {
+        throw new ForbiddenException('Solo propietarios y administradores gestionan los estudios');
+      }
+      return true;
+    }
     if (!isFeatureEnabled(membership.tenant?.features, 'encuestas')) {
       throw new ForbiddenException('El módulo "encuestas" no está activo para esta cuenta');
     }

@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { ImportJob, ImportJobStatus, DeduplicateConfig, ValidationRule } from './entities/import-job.entity';
+import { ImportJob, ImportJobStatus, ImportEntity, DeduplicateConfig, ValidationRule } from './entities/import-job.entity';
 import { ImportError } from './entities/import-error.entity';
 import { MappingTemplate } from '../upload/mapping-template.entity';
 import { FileStoreService } from './file-store.service';
@@ -13,8 +13,19 @@ import { ValidateProcessor } from './processors/validate.processor';
 import { DeduplicateProcessor, DuplicateMatch } from './processors/deduplicate.processor';
 import { LoadProcessor } from './processors/load.processor';
 
+/**
+ * Quien sabe ejecutar la importación de un tipo distinto de contactos (por
+ * ejemplo, Empresas). Se registra desde su propio módulo para no crear una
+ * dependencia circular con el ETL.
+ */
+export interface ImportEntityHandler {
+  execute(jobId: string, fileId: string): Promise<void>;
+}
+
 @Injectable()
 export class EtlService {
+  private readonly handlers = new Map<ImportEntity, ImportEntityHandler>();
+
   constructor(
     @InjectRepository(ImportJob)
     private readonly jobRepo: Repository<ImportJob>,
@@ -31,6 +42,15 @@ export class EtlService {
     private readonly deduplicateProcessor: DeduplicateProcessor,
     private readonly loadProcessor: LoadProcessor,
   ) {}
+
+  registerEntityHandler(entity: ImportEntity, handler: ImportEntityHandler): void {
+    this.handlers.set(entity, handler);
+  }
+
+  /** Encola la ejecución de un trabajo ya creado (lo procesa el worker). */
+  async enqueueImport(jobId: string, fileId: string): Promise<void> {
+    await this.etlQueue.add('process-import', { jobId, fileId }, { attempts: 1, removeOnComplete: true, removeOnFail: false });
+  }
 
   // ===========================
   // FILE MANAGEMENT
@@ -56,7 +76,7 @@ export class EtlService {
   }
 
   /** Async parse: saves raw file to disk, creates a job, and queues parsing */
-  async parseFileAsync(file: Express.Multer.File, tenantId?: string): Promise<ImportJob> {
+  async parseFileAsync(file: Express.Multer.File, tenantId?: string, entity: ImportEntity = 'contacts'): Promise<ImportJob> {
     if (!file || !file.buffer) {
       throw new BadRequestException('No se recibió el archivo o excede el tamaño máximo permitido (50MB)');
     }
@@ -69,6 +89,7 @@ export class EtlService {
     // Create job in 'parsing' state
     const job = this.jobRepo.create({
       tenantId: tenantId || '',
+      entity,
       status: 'parsing' as any,
       currentPhase: 'parsing',
       progress: 0,
@@ -106,11 +127,12 @@ export class EtlService {
   }
 
   /** Get the active (parsing or awaiting_mapping) job for a tenant — only recent (last 6 hours) */
-  async getActiveJob(tenantId: string): Promise<ImportJob | null> {
+  async getActiveJob(tenantId: string, entity: ImportEntity = 'contacts'): Promise<ImportJob | null> {
     const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
     const job = await this.jobRepo
       .createQueryBuilder('job')
       .where('job.tenant_id = :tenantId', { tenantId })
+      .andWhere('job.entity = :entity', { entity })
       .andWhere('job.status IN (:...statuses)', {
         statuses: ['parsing', 'awaiting_mapping', 'pending', 'transforming', 'validating', 'deduplicating', 'loading'],
       })
@@ -331,6 +353,18 @@ export class EtlService {
     const job = await this.jobRepo.findOneBy({ id: jobId });
     if (!job) throw new NotFoundException(`Job ${jobId} not found`);
 
+    // Importaciones que no son de contactos las ejecuta su propio módulo.
+    if (job.entity && job.entity !== 'contacts') {
+      const handler = this.handlers.get(job.entity);
+      if (!handler) {
+        await this.failJob(job, `No hay un importador registrado para "${job.entity}"`);
+        this.fileStore.delete(fileId);
+        return;
+      }
+      await handler.execute(jobId, fileId);
+      return;
+    }
+
     // === GUARDA DE IDEMPOTENCIA ===
     // BullMQ puede volver a entregar un job que quedó "stalled" (p. ej. si el
     // worker se reinició mientras cargaba). Sin esta guarda, el pipeline
@@ -547,9 +581,9 @@ export class EtlService {
     return { data, total };
   }
 
-  async getJobHistory(tenantId: string, page = 1, limit = 20): Promise<{ data: ImportJob[]; total: number }> {
+  async getJobHistory(tenantId: string, page = 1, limit = 20, entity: ImportEntity = 'contacts'): Promise<{ data: ImportJob[]; total: number }> {
     const [data, total] = await this.jobRepo.findAndCount({
-      where: { tenantId },
+      where: { tenantId, entity },
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -578,8 +612,8 @@ export class EtlService {
     return this.templateRepo.find({ where, order: { isDefault: 'DESC', updatedAt: 'DESC' } });
   }
 
-  async getTemplateByStructure(tenantId: string, headers: string[]): Promise<MappingTemplate | null> {
-    const structureHash = this.generateStructureHash(headers);
+  async getTemplateByStructure(tenantId: string, headers: string[], entity: ImportEntity = 'contacts'): Promise<MappingTemplate | null> {
+    const structureHash = this.generateStructureHash(headers, entity);
     return this.templateRepo.findOne({ where: { tenantId, structureHash }, order: { updatedAt: 'DESC' } });
   }
 
@@ -589,8 +623,9 @@ export class EtlService {
     tenantId?: string,
     headers?: string[],
     transforms?: Record<string, any>,
+    entity: ImportEntity = 'contacts',
   ): Promise<MappingTemplate> {
-    const structureHash = headers ? this.generateStructureHash(headers) : null;
+    const structureHash = headers ? this.generateStructureHash(headers, entity) : null;
 
     if (structureHash && tenantId) {
       const existing = await this.templateRepo.findOne({ where: { tenantId, structureHash } });
@@ -631,8 +666,14 @@ export class EtlService {
     await this.jobRepo.save(job);
   }
 
-  private generateStructureHash(headers: string[]): string {
-    const sorted = [...headers].sort().join('|');
+  /**
+   * Huella de las columnas del archivo. Para contactos se mantiene igual que
+   * siempre (así las plantillas existentes siguen valiendo); para otros tipos se
+   * le antepone el tipo, de modo que un mapeo de empresas nunca se ofrezca a
+   * contactos ni al revés.
+   */
+  private generateStructureHash(headers: string[], entity: ImportEntity = 'contacts'): string {
+    const sorted = (entity === 'contacts' ? '' : `${entity}:`) + [...headers].sort().join('|');
     let hash = 0;
     for (let i = 0; i < sorted.length; i++) {
       const char = sorted.charCodeAt(i);

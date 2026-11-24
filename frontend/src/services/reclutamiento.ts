@@ -97,6 +97,37 @@ export interface SurveyorContract {
   signatureEvidence: SignatureEvidence | null;
 }
 
+export type LedgerType = "accrual" | "reversal" | "payout" | "adjustment";
+/** Movimiento del saldo de un encuestador (de solo agregar). */
+export interface LedgerEntry {
+  id: string;
+  type: LedgerType;
+  amount: number;
+  currency: string;
+  createdAt: string;
+  paidAt: string | null;
+  reference: string | null;
+  note: string | null;
+  study: string | null;
+  point: string | null;
+}
+export interface LedgerPage {
+  balances: Array<{ currency: string; balance: number }>;
+  data: LedgerEntry[];
+  total: number;
+  page: number;
+  limit: number;
+}
+export interface BalanceRow {
+  profileId: string;
+  name: string | null;
+  email: string | null;
+  status: ProfileStatus | null;
+  currency: string;
+  balance: number;
+  lastMovement: string;
+}
+
 export interface SurveyorPaymentMethod {
   id: string;
   profileId: string;
@@ -249,6 +280,178 @@ export interface ContractDocument {
   signature: { status: "unsigned" | "signed"; signedAt: string | null; evidence: SignatureEvidence | null };
 }
 
+// ───────────────────────── Proyectos de reclutamiento ─────────────────────────
+export type ProjectStatus = "draft" | "active" | "paused" | "ended";
+export type ProjectAction = "activate" | "pause" | "resume" | "end";
+/** Perfil de la persona dentro de un proyecto. */
+export type ProspectRole = "participant" | "surveyor" | "moderator";
+/** Cómo se le cuenta a la persona su estado (nunca ve el estado interno). */
+export type PublicStatus = "received" | "in_process" | "selected" | "not_selected" | "finished";
+/** Estado de un prospecto. El catálogo es el mismo para todos los perfiles. */
+export interface ProspectState {
+  key: string;
+  label: string;
+  help: string;
+  public: PublicStatus;
+  negative?: boolean;
+  participated?: boolean;
+}
+export interface ProspectCatalog {
+  roles: Array<{ key: ProspectRole; label: string }>;
+  states: ProspectState[];
+  initial: string;
+}
+/** Proyecto genérico: una convocatoria con su landing, su formulario y sus prospectos. */
+export interface Project {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  /** Informativo: las personas del proyecto necesitan contrato firmado. */
+  requiresSignedContract: boolean;
+  /** Perfiles que acepta el proyecto. */
+  roles: ProspectRole[];
+  /** Perfil con que entra quien se registra por la landing. */
+  defaultRole: ProspectRole;
+  /** Quien se registra puede postularse como moderador. */
+  moderatorSignup: boolean;
+  status: ProjectStatus;
+  publicName: string | null;
+  registrationOpen: boolean;
+  landingEnabled: boolean;
+  questionCount: number;
+  prospectCount?: number;
+  endedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface ProjectInput {
+  name?: string;
+  slug?: string;
+  description?: string | null;
+  requiresSignedContract?: boolean;
+  roles?: ProspectRole[];
+  defaultRole?: ProspectRole;
+  moderatorSignup?: boolean;
+}
+// Cara pública del proyecto: nombre, landing, formulario y registro.
+export type QuestionType = "short" | "long" | "single" | "multi" | "yesno" | "number";
+
+export interface FormQuestion {
+  id: string;
+  type: QuestionType;
+  label: string;
+  help: string;
+  required: boolean;
+  /** Solo para `single` y `multi`. */
+  options: string[];
+  /** Solo para `number`. */
+  min: number | null;
+  max: number | null;
+}
+
+/** Dato personal del contacto que se pide al registrarse (clave del catálogo de campos del CRM). */
+export interface PersonalField {
+  key: string;
+  required: boolean;
+}
+/** Cómo se verifica a quien se registra: canales con código y, si es WhatsApp, el número y la plantilla. */
+export interface ProjectVerification {
+  channels: Array<"email" | "phone">;
+  whatsapp: { inboxId: string | null; templateName: string; language: string };
+}
+export interface ProjectForm {
+  questions: FormQuestion[];
+  fields: PersonalField[];
+  /** Nulo: usa la verificación del portal de la cuenta. */
+  verification: ProjectVerification | null;
+}
+
+export interface ProjectPublicSettings {
+  publicName: string | null;
+  registrationOpen: boolean;
+}
+
+export interface ProjectFace {
+  settings: ProjectPublicSettings;
+  landing: LandingConfig;
+  form: ProjectForm;
+}
+
+// Prospectos: personas que se registraron por la landing de un proyecto.
+export interface ProspectAnswer {
+  id: string;
+  label: string;
+  type: QuestionType;
+  value: string | number | boolean | string[];
+}
+export interface ContactSummary {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+}
+/** Resumen de la persona en toda la cuenta. */
+export interface PersonSummary {
+  ratingAverage: number | null;
+  ratingCount: number;
+  participations: number;
+  lastParticipationAt: string | null;
+}
+export interface Prospect {
+  id: string;
+  role: ProspectRole;
+  /** Estado (ver el catálogo de estados). */
+  status: string;
+  rating: number | null;
+  ratingNote: string | null;
+  ratedAt: string | null;
+  /** Solo en el listado. */
+  person?: PersonSummary | null;
+  /** Motivo interno del rechazo: la persona no lo ve. */
+  statusReason: string | null;
+  decidedAt: string | null;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  answers: ProspectAnswer[];
+  /** Cómo llegó: por la landing o agregado por el equipo (p. ej. desde un chat). */
+  source: "landing" | "manual";
+  /** Nulo si lo agregó el equipo. */
+  consentAt: string | null;
+  createdAt: string;
+  /** Contacto del CRM vinculado; `record` es nulo si el contacto ya no existe. */
+  link: { method: "auto" | "manual" | null; linkedAt: string | null; record: ContactSummary | null } | null;
+}
+export interface LinkCandidate extends ContactSummary {
+  /** Coincide en correo o teléfono con el prospecto. */
+  matchesData: boolean;
+}
+export interface ProspectEvent {
+  id: string;
+  role: ProspectRole;
+  fromRole: ProspectRole | null;
+  fromStatus: string | null;
+  toStatus: string;
+  reason: string | null;
+  byTeam: boolean;
+  /** Quién hizo el cambio: el equipo, un flujo de conversación o el registro por la landing. */
+  by: "team" | "flow" | "landing";
+  createdAt: string;
+}
+export interface ContactProjectLink {
+  prospectId: string;
+  projectId: string;
+  projectName: string;
+  projectSlug: string;
+  projectStatus: ProjectStatus;
+  role: ProspectRole;
+  status: string;
+  rating: number | null;
+  linkMethod: "auto" | "manual";
+  linkedAt: string;
+  registeredAt: string;
+}
 // ───────────────────────── Portal del encuestador ─────────────────────────
 
 export type InvitationChannel = "email" | "whatsapp" | "both" | "manual";
@@ -271,6 +474,46 @@ export interface PortalConfig {
   documents: Array<{ key: string; label: string; required: boolean; help: string }>;
   sessionHours: number;
   welcomeMessage: string;
+  registration: { mode: RegistrationMode; consentText: string };
+  landing: LandingConfig;
+}
+
+export type RegistrationMode = "invite" | "open";
+export type LandingSectionId = "hero" | "about" | "benefits" | "steps" | "requirements" | "faq" | "cta";
+export type LandingImageSlot = "logo" | "hero" | "background" | "about";
+export type HeroBackgroundType = "none" | "image" | "preset";
+
+export interface HeroBackground {
+  type: HeroBackgroundType;
+  imageUrl: string;
+  preset: string;
+  /** Oscurecimiento de la imagen, de 0 a 80 %. */
+  overlay: number;
+}
+export type LandingAppearance = "light" | "dark" | "auto";
+
+export interface LandingItem {
+  title: string;
+  text: string;
+  /** Identificador del icono (p. ej. «clock»); vacío usa el predeterminado. */
+  icon: string;
+}
+
+/** Landing pública del portal: secciones fijas que la cuenta activa, ordena y edita. `{{empresa}}` se reemplaza por el nombre de la cuenta. */
+export interface LandingConfig {
+  enabled: boolean;
+  brand: { primaryColor: string; font: "sans" | "serif"; appearance: LandingAppearance; logoUrl: string; showName: boolean };
+  sections: Array<{ id: LandingSectionId; enabled: boolean }>;
+  content: {
+    hero: { title: string; subtitle: string; ctaLabel: string; imageUrl: string; background: HeroBackground };
+    about: { title: string; body: string; imageUrl: string };
+    benefits: { title: string; items: LandingItem[] };
+    steps: { title: string; items: LandingItem[] };
+    requirements: { title: string; items: string[] };
+    faq: { title: string; items: Array<{ question: string; answer: string }> };
+    cta: { title: string; text: string; buttonLabel: string };
+    footer: { text: string; email: string; phone: string; links: Array<{ label: string; url: string }> };
+  };
 }
 
 export interface PortalFieldDef {
@@ -475,6 +718,128 @@ export const reclutamientoApi = {
     return data;
   },
 
+  // Proyectos
+  async projects(tenantId: string, params: { status?: ProjectStatus; search?: string; page?: number; limit?: number } = {}) {
+    const { data } = await api.get<{ data: Project[]; total: number; page: number; limit: number }>(`${base(tenantId)}/projects`, { params });
+    return data;
+  },
+  async project(tenantId: string, id: string) {
+    const { data } = await api.get<Project>(`${base(tenantId)}/projects/${id}`);
+    return data;
+  },
+  async createProject(tenantId: string, input: ProjectInput & { name: string }) {
+    const { data } = await api.post<Project>(`${base(tenantId)}/projects`, input);
+    return data;
+  },
+  async updateProject(tenantId: string, id: string, input: ProjectInput) {
+    const { data } = await api.patch<Project>(`${base(tenantId)}/projects/${id}`, input);
+    return data;
+  },
+  async deleteProject(tenantId: string, id: string) {
+    await api.delete(`${base(tenantId)}/projects/${id}`);
+  },
+  async projectAction(tenantId: string, id: string, action: ProjectAction) {
+    const { data } = await api.post<Project>(`${base(tenantId)}/projects/${id}/${action}`);
+    return data;
+  },
+  // Cara pública del proyecto
+  async projectFace(tenantId: string, id: string) {
+    const { data } = await api.get<ProjectFace>(`${base(tenantId)}/projects/${id}/public`);
+    return data;
+  },
+  async saveProjectSettings(tenantId: string, id: string, input: Partial<ProjectPublicSettings>) {
+    const { data } = await api.put<ProjectPublicSettings>(`${base(tenantId)}/projects/${id}/public/settings`, input);
+    return data;
+  },
+  async saveProjectLanding(tenantId: string, id: string, landing: LandingConfig) {
+    const { data } = await api.put<{ landing: LandingConfig }>(`${base(tenantId)}/projects/${id}/public/landing`, landing);
+    return data.landing;
+  },
+  async uploadProjectLandingImage(tenantId: string, id: string, slot: LandingImageSlot, file: File) {
+    const form = new FormData();
+    form.append("file", file);
+    const { data } = await api.post<{ url: string }>(`${base(tenantId)}/projects/${id}/public/landing/images/${slot}`, form);
+    return data.url;
+  },
+  async saveProjectForm(tenantId: string, id: string, form: ProjectForm) {
+    const { data } = await api.put<{ form: ProjectForm }>(`${base(tenantId)}/projects/${id}/public/form`, form);
+    return data.form;
+  },
+  // Prospectos
+  async prospects(tenantId: string, id: string, params: { search?: string; linked?: "yes" | "no"; status?: string; role?: ProspectRole; page?: number; limit?: number } = {}) {
+    const { data } = await api.get<{ data: Prospect[]; total: number; page: number; limit: number; roleCounts: Partial<Record<ProspectRole, number>> }>(`${base(tenantId)}/projects/${id}/prospects`, { params });
+    return data;
+  },
+  /** Agrega un contacto del CRM al proyecto con un perfil y un estado de entrada (por defecto, los del proyecto y «Nuevo»). */
+  async addProspect(tenantId: string, id: string, recordId: string, role?: ProspectRole, status?: string) {
+    const { data } = await api.post<Prospect>(`${base(tenantId)}/projects/${id}/prospects`, { recordId, role, status });
+    return data;
+  },
+  /** Perfiles y estados de los prospectos (catálogo fijo). */
+  async prospectCatalog(tenantId: string) {
+    const { data } = await api.get<ProspectCatalog>(`${base(tenantId)}/projects/prospect-states`);
+    return data;
+  },
+  async setProspectRole(tenantId: string, id: string, prospectId: string, role: ProspectRole) {
+    const { data } = await api.put<Prospect>(`${base(tenantId)}/projects/${id}/prospects/${prospectId}/role`, { role });
+    return data;
+  },
+  async rateProspect(tenantId: string, id: string, prospectId: string, rating: number | null, note?: string) {
+    const { data } = await api.put<Prospect>(`${base(tenantId)}/projects/${id}/prospects/${prospectId}/rating`, { rating, note: note || undefined });
+    return data;
+  },
+  async prospectHistory(tenantId: string, id: string, prospectId: string) {
+    const { data } = await api.get<{ data: ProspectEvent[] }>(`${base(tenantId)}/projects/${id}/prospects/${prospectId}/history`);
+    return data.data;
+  },
+  async setProspectStatus(tenantId: string, id: string, prospectId: string, status: string, reason?: string) {
+    const { data } = await api.put<Prospect>(`${base(tenantId)}/projects/${id}/prospects/${prospectId}/status`, { status, reason: reason || undefined });
+    return data;
+  },
+  async prospectCandidates(tenantId: string, id: string, prospectId: string, search?: string) {
+    const { data } = await api.get<{ data: LinkCandidate[] }>(`${base(tenantId)}/projects/${id}/prospects/${prospectId}/candidates`, { params: { search: search || undefined } });
+    return data.data;
+  },
+  async linkProspect(tenantId: string, id: string, prospectId: string, recordId: string) {
+    const { data } = await api.put<Prospect>(`${base(tenantId)}/projects/${id}/prospects/${prospectId}/link`, { recordId });
+    return data;
+  },
+  async unlinkProspect(tenantId: string, id: string, prospectId: string) {
+    const { data } = await api.delete<Prospect>(`${base(tenantId)}/projects/${id}/prospects/${prospectId}/link`);
+    return data;
+  },
+  async autoLinkProspects(tenantId: string, id: string) {
+    const { data } = await api.post<{ linked: number; ambiguous: number; unmatched: number }>(`${base(tenantId)}/projects/${id}/prospects/auto-link`);
+    return data;
+  },
+  async deleteProspect(tenantId: string, id: string, prospectId: string) {
+    await api.delete(`${base(tenantId)}/projects/${id}/prospects/${prospectId}`);
+  },
+  /** Proyectos en los que un contacto del CRM tiene prospectos vinculados. */
+  async contactProjects(tenantId: string, recordId: string) {
+    const { data } = await api.get<{ data: ContactProjectLink[]; summary: PersonSummary }>(`${base(tenantId)}/projects/by-record/${recordId}`);
+    return data;
+  },
+  // Cara pública del proyecto
+  // Postulantes y encuestadores del proyecto
+  // Estudios del proyecto
+  async ledger(tenantId: string, profileId: string, page = 1) {
+    const { data } = await api.get<LedgerPage>(`${base(tenantId)}/profiles/${profileId}/ledger`, { params: { page } });
+    return data;
+  },
+  async registerPayout(tenantId: string, profileId: string, input: { amount: number; currency: string; paidAt?: string; reference?: string | null; note?: string | null; paymentMethodId?: string | null }) {
+    const { data } = await api.post<{ id: string; balance: number; currency: string }>(`${base(tenantId)}/profiles/${profileId}/payouts`, input);
+    return data;
+  },
+  async registerAdjustment(tenantId: string, profileId: string, input: { amount: number; currency: string; note: string }) {
+    const { data } = await api.post<{ id: string }>(`${base(tenantId)}/profiles/${profileId}/adjustments`, input);
+    return data;
+  },
+  async balances(tenantId: string, search?: string) {
+    const { data } = await api.get<{ data: BalanceRow[]; totals: Array<{ currency: string; total: number }> }>(`${base(tenantId)}/payouts/balances`, { params: { search: search || undefined } });
+    return data;
+  },
+  /** Lotes programados del estudio en este proyecto (solo lectura). */
   // Portal del encuestador
   async portalConfig(tenantId: string) {
     const { data } = await api.get<{ config: PortalConfig; fields: PortalFieldDef[] }>(`${base(tenantId)}/portal-config`);
@@ -483,6 +848,16 @@ export const reclutamientoApi = {
   async savePortalConfig(tenantId: string, config: PortalConfig) {
     const { data } = await api.put<{ config: PortalConfig }>(`${base(tenantId)}/portal-config`, config);
     return data.config;
+  },
+  async saveLanding(tenantId: string, landing: LandingConfig) {
+    const { data } = await api.put<{ landing: LandingConfig }>(`${base(tenantId)}/portal-landing`, landing);
+    return data.landing;
+  },
+  async uploadLandingImage(tenantId: string, slot: LandingImageSlot, file: File) {
+    const form = new FormData();
+    form.append("file", file);
+    const { data } = await api.post<{ url: string }>(`${base(tenantId)}/portal-landing/images/${slot}`, form);
+    return data.url;
   },
   async whatsappInboxes(tenantId: string) {
     const { data } = await api.get<WhatsappInbox[]>(`${base(tenantId)}/portal-config/whatsapp-inboxes`);

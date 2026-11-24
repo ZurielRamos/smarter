@@ -37,7 +37,7 @@ export default defineConfig({
     allowedHosts: ['smarter.strategee.us'],
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3009',
         changeOrigin: true,
         // Don't proxy /api-reference (it's a frontend route)
         bypass(req) {
@@ -45,11 +45,11 @@ export default defineConfig({
         },
       },
       '/uploads': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3009',
         changeOrigin: true,
       },
       '/webhooks': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3009',
         changeOrigin: true,
       },
     },

@@ -15,4 +15,6 @@ export class UpdateTenantFeaturesDto {
   automatizaciones?: boolean;
   /** Activa/desactiva el módulo de Reclutamiento (cuenta reclutadora de encuestadores) */
   reclutamiento?: boolean;
+  /** Activa/desactiva el módulo de Estudios (cuenta cliente: socios reclutadores y estudios publicados) */
+  estudios?: boolean;
 }

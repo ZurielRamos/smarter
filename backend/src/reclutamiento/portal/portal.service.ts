@@ -5,7 +5,9 @@ import { ClientRecord } from '../../records/record.entity';
 import { TenantAuditService } from '../../audit/tenant-audit.service';
 import { ContractsService } from '../contracts.service';
 import { SurveyorContract } from '../entities/surveyor-contract.entity';
-import { PortalAuthService, PortalSession, OtpChannel, maskDestination } from './portal-auth.service';
+import { PortalAnySession, PortalAuthService, PortalSession, ProjectSession, OtpChannel, maskDestination } from './portal-auth.service';
+import { ProjectProspectsService } from '../project-prospects.service';
+import { ROLE_LABELS, publicStatusOf } from '../prospect-states';
 import { PortalConfigService } from './portal-config.service';
 import { PortalFieldDef, normalizeFieldValue, readFieldValue } from './portal-fields';
 import { ProfileDocumentsService } from './profile-documents.service';
@@ -21,6 +23,7 @@ export class PortalService {
     private readonly documents: ProfileDocumentsService,
     private readonly contracts: ContractsService,
     private readonly audit: TenantAuditService,
+    private readonly prospects: ProjectProspectsService,
   ) {}
 
   private async requireRecord(session: PortalSession): Promise<ClientRecord> {
@@ -36,13 +39,14 @@ export class PortalService {
   /** Datos que el encuestador debe revisar o completar, documentos y contratos. */
   async me(session: PortalSession) {
     const { tenant, profile } = session;
-    const [cfg, catalog, record, docs, contracts, signed] = await Promise.all([
+    const [cfg, catalog, record, docs, contracts, signed, projects] = await Promise.all([
       this.portalConfig.get(tenant.id),
       this.portalConfig.fieldCatalog(tenant.id),
       this.requireRecord(session),
       this.documents.list(tenant.id, profile.id),
       this.contracts.listForPortal(tenant.id, profile.id),
       this.hasSignedContract(tenant.id, profile.id),
+      this.prospects.forPortal(tenant.id, profile.recordId),
     ]);
     const byKey = new Map(catalog.map((f) => [f.key, f]));
 
@@ -87,6 +91,7 @@ export class PortalService {
         phone: record.phone || null,
       },
       verificationChannel: cfg.verification.channel,
+      projects,
       fields,
       documents: documentItems,
       contracts,
@@ -95,6 +100,42 @@ export class PortalService {
         missingDocuments: documentItems.filter((d) => d.required && (!d.current || d.current.status === 'rejected')).length,
         contractsToSign: contracts.filter((c) => c.canSign).length,
       },
+    };
+  }
+
+  /** Portal de un contacto sin perfil: solo sus proyectos y el estado de cada uno. */
+  async meContact(session: PortalAnySession) {
+    const { tenant, record } = session;
+    const [cfg, projects] = await Promise.all([this.portalConfig.get(tenant.id), this.prospects.forPortal(tenant.id, record.id)]);
+    return {
+      tenant: { name: tenant.name, slug: tenant.slug },
+      welcomeMessage: cfg.welcomeMessage,
+      profile: {
+        status: null,
+        name: record.fullName || [record.firstName, record.lastName].filter(Boolean).join(' ') || null,
+        email: record.email || null,
+        phone: record.phone || null,
+      },
+      verificationChannel: cfg.verification.channel,
+      projects,
+      fields: [],
+      documents: [],
+      contracts: [],
+      progress: { missingFields: 0, missingDocuments: 0, contractsToSign: 0 },
+    };
+  }
+
+  /** Lo que ve la persona en la landing de un proyecto: su nombre, su estado y cuándo se registró. Sin notas internas. */
+  projectMe(session: ProjectSession) {
+    const { project, record, prospect } = session;
+    return {
+      project: { name: project.publicName || project.name, slug: project.slug, status: project.status },
+      person: { name: record.fullName || prospect.fullName, email: record.email || null, phone: record.phone || null },
+      // Solo la versión pública del estado: la persona no ve el estado interno ni el motivo.
+      role: prospect.role,
+      roleLabel: ROLE_LABELS[prospect.role] ?? null,
+      status: publicStatusOf(prospect.status),
+      registeredAt: prospect.createdAt,
     };
   }
 

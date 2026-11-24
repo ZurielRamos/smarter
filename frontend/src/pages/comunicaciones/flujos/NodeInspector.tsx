@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
+import { FlowEditorContext } from "./editorContext";
 import { ExternalLink, FileText, Loader2, Phone, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -10,9 +11,13 @@ import { TimeoutEditor } from "./TimeoutEditor";
 import { supportsTimeout } from "./timeout";
 import { CommaListInput } from "./CommaListInput";
 import { AgentEditor } from "./AgentEditor";
+import { GenerateEditor } from "./GenerateEditor";
 import { FlowSelect } from "./FlowSelect";
+import { Toggle } from "./Toggle";
+import { optionLabel } from "./conditions";
 import {
   ACTION_LABELS,
+  PROJECT_ACTIONS,
   HEADER_ACCEPT,
   HEADER_TYPE_LABELS,
   MAX_ACTION_BUTTONS,
@@ -35,7 +40,7 @@ import {
   type InboxOption,
   type LabelOption,
 } from "./types";
-import type { VariableOption } from "./variables";
+import { VARIABLE_GROUP_LABELS, type VariableOption } from "./variables";
 
 const inputClass =
   "w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200";
@@ -107,7 +112,16 @@ export function NodeInspector({
           </p>
         )}
 
-        {type === "message" && <MessageFields data={data} set={set} tenantId={tenantId} linkTracking={linkTracking} />}
+        {type === "message" && (
+          <MessageFields
+            data={data}
+            set={set}
+            tenantId={tenantId}
+            linkTracking={linkTracking}
+            variableListId={variableListId}
+            options={variableOptions}
+          />
+        )}
 
         {type === "user_input" && (
           <InputEditor
@@ -120,12 +134,19 @@ export function NodeInspector({
         )}
 
         {type === "action" && (
-          <ActionFields data={data} set={set} labels={labels} variableListId={variableListId} />
+          <ActionFields
+            data={data}
+            set={set}
+            labels={labels}
+            variableListId={variableListId}
+            options={variableOptions}
+          />
         )}
 
         {type === "ai_agent" && (
           <AgentEditor nodeId={nodeId} data={data} set={set} options={variableOptions} tenantId={tenantId} />
         )}
+        {type === "ai_generate" && <GenerateEditor nodeId={nodeId} data={data} set={set} options={variableOptions} />}
         {type === "condition" && <ConditionEditor data={data} set={set} options={variableOptions} labels={labels} inboxes={inboxes} />}
         {supportsTimeout(type, data) && <TimeoutEditor nodeType={type} data={data} set={set} />}
         {type === "start_flow" && (
@@ -394,13 +415,20 @@ function MessageFields({
   set,
   tenantId,
   linkTracking,
+  variableListId,
+  options,
 }: {
   data: FlowNodeData;
   set: (p: Partial<FlowNodeData>) => void;
   tenantId?: string;
   linkTracking: boolean | null;
+  variableListId: string;
+  options: VariableOption[];
 }) {
   const replyCount = (data.buttons || []).filter(isReplyButton).length;
+  const crmOptions = options
+    .filter((o) => o.writable && (o.group === "crm" || o.group === "custom"))
+    .map((o) => ({ value: o.key, label: o.label, hint: o.key, group: VARIABLE_GROUP_LABELS[o.group] }));
 
   return (
     <>
@@ -430,6 +458,50 @@ function MessageFields({
       />
 
       <ButtonsEditor data={data} set={set} linkTracking={linkTracking} />
+      {replyCount > 0 && (
+        <div className="space-y-2">
+          <p className={labelClass}>Guardar la respuesta (opcional)</p>
+          <div>
+            <label className="text-[11px] text-muted-foreground" htmlFor="msg-var">
+              En la variable
+            </label>
+            <input
+              id="msg-var"
+              list={variableListId}
+              value={data.variable || ""}
+              onChange={(e) => set({ variable: e.target.value.replace(/[^\w]/g, "").slice(0, 50) || undefined })}
+              placeholder="horario"
+              className={cn(inputClass, "font-mono")}
+            />
+          </div>
+          <div>
+            <label className="text-[11px] text-muted-foreground" htmlFor="msg-crm">
+              También en el campo del CRM
+            </label>
+            <FlowSelect
+              id="msg-crm"
+              searchable
+              value={data.saveToField || ""}
+              onChange={(key) =>
+                // Sin variable aún: se usa la clave del campo, así queda disponible como {{campo}}.
+                set({ saveToField: key || undefined, ...(key && !data.variable ? { variable: key } : {}) })
+              }
+              placeholder="No guardar en el CRM"
+              options={[
+                { value: "", label: "No guardar en el CRM" },
+                ...(data.saveToField && !crmOptions.some((o) => o.value === data.saveToField)
+                  ? [{ value: data.saveToField, label: data.saveToField, group: "Otros" }]
+                  : []),
+                ...crmOptions,
+              ]}
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Se guarda el título del botón que elija el contacto (también si lo escribe y se reconoce). Úsala luego como{" "}
+            {"{{variable}}"}.
+          </p>
+        </div>
+      )}
       {replyCount > 0 && <NoMatchEditor data={data} set={set} />}
     </>
   );
@@ -697,20 +769,72 @@ function ButtonsEditor({
   );
 }
 
+/** Valor de «Actualizar contacto»: lista de opciones si el campo es de lista; si no, texto con {{variables}}. */
+function UpdateContactValue({
+  field,
+  value,
+  onChange,
+}: {
+  field?: VariableOption;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const choices = field?.options?.filter((o) => o.trim()) ?? [];
+  if (field && choices.length) {
+    return (
+      <FlowSelect
+        compact
+        searchable={choices.length > 8}
+        aria-label="Valor"
+        value={value}
+        onChange={onChange}
+        placeholder="Selecciona un valor…"
+        options={[
+          ...(value && !choices.includes(value) ? [{ value, label: value }] : []),
+          ...choices.map((o) => ({ value: o, label: optionLabel(field.key, o) })),
+        ]}
+      />
+    );
+  }
+  return (
+    <VariableInput
+      aria-label="Valor"
+      value={value}
+      onChange={onChange}
+      placeholder="valor o {{variable}}"
+      className={cn(inputClass, "py-1.5")}
+    />
+  );
+}
+
 function ActionFields({
   data,
   set,
   labels,
   variableListId,
+  options,
 }: {
   data: FlowNodeData;
   set: (p: Partial<FlowNodeData>) => void;
   labels: LabelOption[];
   variableListId: string;
+  options: VariableOption[];
 }) {
   const actions = data.actions || [];
+  const crmFields = options.filter(
+    (o) => (o.writable || o.actionWritable) && (o.group === "crm" || o.group === "custom"),
+  );
+  const crmOptions = crmFields
+    .map((o) => ({ value: o.key, label: o.label, hint: o.key, group: VARIABLE_GROUP_LABELS[o.group] }));
   const update = (i: number, patch: Partial<FlowAction>) =>
     set({ actions: actions.map((a, idx) => (idx === i ? { ...a, ...patch } : a)) });
+  const { recruitment } = useContext(FlowEditorContext);
+  // Las acciones de proyecto solo se ofrecen con Reclutamiento; una ya guardada se sigue mostrando.
+  const typeOptions = (current: FlowActionType) =>
+    Object.entries(ACTION_LABELS)
+      .filter(([v]) => !PROJECT_ACTIONS.has(v as FlowActionType) || !!recruitment || v === current)
+      .map(([v, l]) => ({ value: v, label: l }));
+  const ROLE_LABELS: Record<string, string> = { participant: "Participante", surveyor: "Encuestador", moderator: "Moderador" };
 
   return (
     <div className="space-y-3">
@@ -721,8 +845,8 @@ function ActionFields({
               compact
               aria-label={`Tipo de acción ${i + 1}`}
               value={a.type}
-              onChange={(v) => update(i, { type: v as FlowActionType })}
-              options={Object.entries(ACTION_LABELS).map(([v, l]) => ({ value: v, label: l }))}
+              onChange={(v) => update(i, { type: v as FlowActionType, ...(PROJECT_ACTIONS.has(v as FlowActionType) ? {} : { projectId: undefined, role: undefined, status: undefined }) })}
+              options={typeOptions(a.type)}
             />
             <button
               type="button"
@@ -754,6 +878,35 @@ function ActionFields({
             </div>
           )}
 
+          {a.type === "update_contact" && (
+            <div className="space-y-2">
+              <FlowSelect
+                compact
+                searchable
+                aria-label="Campo del contacto"
+                value={a.field || ""}
+                onChange={(v) => update(i, { field: v, ...(v !== a.field ? { value: "" } : {}) })}
+                placeholder="Selecciona un campo del CRM…"
+                options={[
+                  ...(a.field && !crmOptions.some((o) => o.value === a.field)
+                    ? [{ value: a.field, label: a.field, group: "Otros" }]
+                    : []),
+                  ...crmOptions,
+                ]}
+              />
+              <UpdateContactValue
+                field={crmFields.find((o) => o.key === a.field)}
+                value={a.value || ""}
+                onChange={(v) => update(i, { value: v })}
+              />
+              <Toggle
+                checked={!!a.onlyIfEmpty}
+                onChange={(v) => update(i, { onlyIfEmpty: v || undefined })}
+                label="Solo si el campo está vacío"
+                description="Si no, reemplaza el valor actual del contacto."
+              />
+            </div>
+          )}
           {(a.type === "add_label" || a.type === "remove_label") && (
             <FlowSelect
               compact
@@ -766,6 +919,14 @@ function ActionFields({
             />
           )}
 
+          {PROJECT_ACTIONS.has(a.type) && (
+            <ProjectActionFields
+              action={a}
+              recruitment={recruitment ?? null}
+              roleLabels={ROLE_LABELS}
+              onChange={(patch) => update(i, patch)}
+            />
+          )}
           {(a.type === "handoff" || a.type === "resolve") && (
             <p className="text-[11px] text-muted-foreground">
               {a.type === "handoff"
@@ -784,6 +945,73 @@ function ActionFields({
       >
         <Plus className="h-3 w-3" /> Agregar acción
       </button>
+    </div>
+  );
+}
+
+/** Campos de «Agregar a proyecto» y «Cambiar estado en proyecto». */
+function ProjectActionFields({
+  action: a,
+  recruitment,
+  roleLabels,
+  onChange,
+}: {
+  action: FlowAction;
+  recruitment: { projects: Array<{ id: string; name: string; status: string; roles: string[]; defaultRole: string }>; states: Array<{ key: string; label: string; help: string }> } | null;
+  roleLabels: Record<string, string>;
+  onChange: (patch: Partial<FlowAction>) => void;
+}) {
+  if (!recruitment) {
+    return <p className="text-[11px] text-amber-700 dark:text-amber-300">Para editar esta acción, la cuenta necesita Reclutamiento activo y tu rol debe ser propietario o administrador.</p>;
+  }
+  const isAdd = a.type === "add_to_project";
+  const project = recruitment.projects.find((p) => p.id === a.projectId);
+  const projectOptions = recruitment.projects
+    .filter((p) => p.status !== "ended" || p.id === a.projectId)
+    .map((p) => ({ value: p.id, label: p.name, hint: p.status === "active" ? undefined : p.status === "paused" ? "Pausado" : p.status === "draft" ? "Borrador" : "Terminado" }));
+  const state = recruitment.states.find((s) => s.key === a.status);
+  return (
+    <div className="space-y-2">
+      <FlowSelect
+        compact
+        searchable={projectOptions.length > 8}
+        aria-label="Proyecto"
+        value={a.projectId || ""}
+        onChange={(v) => {
+          const next = recruitment.projects.find((p) => p.id === v);
+          // Al cambiar de proyecto, un perfil que el nuevo no acepta vuelve al de entrada.
+          onChange({ projectId: v, ...(a.role && next && !next.roles.includes(a.role) ? { role: undefined } : {}) });
+        }}
+        placeholder={projectOptions.length ? "Selecciona un proyecto…" : "La cuenta no tiene proyectos"}
+        options={[...(a.projectId && !project ? [{ value: a.projectId, label: "(proyecto eliminado)" }] : []), ...projectOptions]}
+      />
+      {isAdd && project && project.roles.length > 1 && (
+        <FlowSelect
+          compact
+          aria-label="Perfil"
+          value={a.role || ""}
+          onChange={(v) => onChange({ role: (v || undefined) as FlowAction["role"] })}
+          options={[
+            { value: "", label: `Perfil de entrada del proyecto (${roleLabels[project.defaultRole]})` },
+            ...project.roles.map((r) => ({ value: r, label: roleLabels[r] })),
+          ]}
+        />
+      )}
+      <FlowSelect
+        compact
+        aria-label={isAdd ? "Estado de entrada" : "Estado nuevo"}
+        value={a.status || ""}
+        onChange={(v) => onChange({ status: v || undefined })}
+        placeholder={isAdd ? undefined : "Selecciona el estado…"}
+        options={[...(isAdd ? [{ value: "", label: "Nuevo (por defecto)" }] : []), ...recruitment.states.map((s) => ({ value: s.key, label: s.label }))]}
+      />
+      <p className="text-[11px] text-muted-foreground">
+        {state?.help ? `${state.help} ` : ""}
+        {isAdd
+          ? "Usa el contacto de la conversación. Si ya está en el proyecto, no cambia nada."
+          : "Solo cambia el estado si el contacto ya está en el proyecto; si no, no hace nada."}{" "}
+        Cada resultado queda como nota interna en la conversación.
+      </p>
     </div>
   );
 }

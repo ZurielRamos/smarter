@@ -454,9 +454,10 @@ function SyncErrorsModal({
 
 // === Constructor (editor visual, 100% local) ===
 
-function ConstructorTab({ survey, onSaved }: { survey: SurveyItem; onSaved: () => void }) {
+/** Constructor visual. `locked`: las preguntas de la encuesta de un estudio ya no se pueden cambiar. */
+export function ConstructorTab({ survey, onSaved, locked = false }: { survey: SurveyItem; onSaved: () => void; locked?: boolean }) {
   const screens = (survey.flowJson?.screens as any[]) || [];
-  const canEdit = survey.status !== "archived";
+  const canEdit = survey.status !== "archived" && !locked;
 
   if (!survey.flowJson || screens.length === 0) {
     return (
@@ -468,6 +469,11 @@ function ConstructorTab({ survey, onSaved }: { survey: SurveyItem; onSaved: () =
 
   return (
     <div className="h-full flex flex-col">
+      {locked && (
+        <p role="status" className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-500/15 dark:text-amber-100">
+          Las preguntas ya no se pueden cambiar porque el estudio tiene respuestas, encuestadores asignados o está cerrado; así no se mezclan versiones del cuestionario. Los textos y la apariencia sí se pueden editar. Para otra versión, crea un estudio nuevo.
+        </p>
+      )}
       <div className="flex-1 min-h-0">
         <FlowBuilder
           flowJson={survey.flowJson}
@@ -820,7 +826,7 @@ function WhatsAppPublishPanel({
 
 // === Resultados (analíticas agregadas) ===
 
-function ResultadosTab({ surveyId }: { surveyId: string }) {
+export function ResultadosTab({ surveyId }: { surveyId: string }) {
   const [analytics, setAnalytics] = useState<SurveyAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -1097,7 +1103,7 @@ function MetricCard({ label, value }: { label: string; value: string | number })
 
 // === Respuestas individuales ===
 
-function RespuestasTab({ survey }: { survey: SurveyItem }) {
+export function RespuestasTab({ survey }: { survey: SurveyItem }) {
   const { slug } = useParams();
   const [responses, setResponses] = useState<SurveyResponseItem[]>([]);
   const [loading, setLoading] = useState(true);

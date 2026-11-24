@@ -1,6 +1,6 @@
 import { memo, useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { MoreVertical, Eye, Edit3, Zap, ArrowRightLeft, ChevronLeft, UserPlus, X, CheckCheck, Bot, Trash2, ShoppingCart, CalendarCheck, Presentation, Star, FileText, Inbox, UserPlus as UserPlusIcon, Search, ChevronUp, ChevronDown } from "lucide-react";
+import { Workflow, MoreVertical, Eye, Edit3, Zap, ArrowRightLeft, ChevronLeft, UserPlus, X, CheckCheck, Bot, Trash2, ShoppingCart, CalendarCheck, Presentation, Star, FileText, Inbox, UserPlus as UserPlusIcon, Search, ChevronUp, ChevronDown } from "lucide-react";
 import { TemplateConfigModal } from "@/components/TemplateModal";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { EditContactModal } from "@/components/EditContactModal";
@@ -8,6 +8,7 @@ import { ContactInfoModal } from "@/components/ContactInfoModal";
 import { ChatEmpty } from "../ChatEmpty";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
+import { StartFlowModal } from "./StartFlowModal";
 import { chatApi } from "./api";
 import { getDisplayName, STATUS_OPTIONS, CONVERSATION_STATUS_OPTIONS, normalizeConvStatus } from "./types";
 import type { Conversation, Message, Label, TenantMember } from "./types";
@@ -64,6 +65,7 @@ export const ChatPanel = memo(function ChatPanel({
   const [showConvStatusSubmenu, setShowConvStatusSubmenu] = useState(false);
   const [showAssignSubmenu, setShowAssignSubmenu] = useState(false);
   const [showClearChatConfirm, setShowClearChatConfirm] = useState(false);
+  const [showStartFlow, setShowStartFlow] = useState(false);
   const [showContactInfo, setShowContactInfo] = useState(false);
   const [showEventForm, setShowEventForm] = useState(false);
   const [eventForm, setEventForm] = useState({ type: "purchase", name: "", value: "", currency: "COP" });
@@ -652,6 +654,12 @@ export const ChatPanel = memo(function ChatPanel({
                 )}
               </div>
               <div className="border-t border-border my-1" />
+              <button
+                onClick={() => { setChatHeaderMenuOpen(false); setShowStartFlow(true); }}
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-foreground hover:bg-muted transition-colors"
+              >
+                <Workflow className="h-4 w-4 shrink-0 text-muted-foreground" /> <span className="flex-1">Iniciar flujo…</span>
+              </button>
               <button onClick={handleToggleBot} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-foreground hover:bg-muted transition-colors">
                 <Bot className={`h-4 w-4 shrink-0 ${activeConversation.botStatus === "active" ? "text-green-500" : "text-muted-foreground"}`} />
                 <span className="flex-1">{activeConversation.botStatus === "active" ? "Pausar bot" : "Activar bot"}</span>
@@ -719,6 +727,16 @@ export const ChatPanel = memo(function ChatPanel({
         />
       )}
 
+      <StartFlowModal
+        open={showStartFlow}
+        tenantId={tenantId}
+        conversationId={activeConversation.id}
+        inboxId={activeConversation.inboxId}
+        channel={activeConversation.inbox?.channel}
+        isWindowClosed={isWindowClosed}
+        onClose={() => setShowStartFlow(false)}
+        onStarted={() => { loadMessages(activeConversation.id); loadConversations(); }}
+      />
       {/* Clear chat confirm */}
       <ConfirmModal
         open={showClearChatConfirm}

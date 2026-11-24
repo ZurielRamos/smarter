@@ -16,6 +16,8 @@ export interface EditorContextValue {
   issueNodeIds: Set<string>;
   connections: AutomationConnection[];
   inboxes: InboxOption[];
+  /** Flujos conversacionales del tenant (nodo «Iniciar flujo conversacional») */
+  conversationFlows: { id: string; name: string; status: string }[];
   reloadConnections: () => void;
   /** Nodos actuales, para sugerir variables `{{steps.<id>...}}`. */
   nodes: AutomationNode[];

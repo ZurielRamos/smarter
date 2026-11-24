@@ -113,7 +113,7 @@ export class CampaignsController {
 
   @TenantResource('campaign')
 
-  @TenantRefs({ kind: 'inbox', in: 'body', field: 'inboxId' }, { kind: 'recordList', in: 'body', field: 'listId' }, { kind: 'template', in: 'body', field: 'emailTemplateId' })
+  @TenantRefs({ kind: 'inbox', in: 'body', field: 'inboxId' }, { kind: 'recordList', in: 'body', field: 'listId' }, { kind: 'template', in: 'body', field: 'emailTemplateId' }, { kind: 'conversationFlow', in: 'body', field: 'replyFlowId' })
   update(
     @Param('id') id: string,
     @Body() body: Partial<{
@@ -140,6 +140,7 @@ export class CampaignsController {
       sendDate: string | null;
       sendTime: string | null;
       recurrenceDays: Record<string, string> | null;
+      replyFlowId: string | null;
     }>,
   ) {
     return this.campaignsService.update(id, body);

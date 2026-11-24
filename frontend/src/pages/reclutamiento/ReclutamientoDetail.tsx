@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { reclutamientoApi, type AuditEntry, type SurveyorDetail } from "@/services/reclutamiento";
 import { ContractsPanel } from "./ContractsPanel";
 import { PaymentMethodsPanel } from "./PaymentMethodsPanel";
+import { LedgerPanel } from "./LedgerPanel";
 import { PortalPanel } from "./PortalPanel";
 import {
   ProfileStatusBadge,
@@ -189,6 +190,7 @@ export function ReclutamientoDetail() {
         <PortalPanel tenantId={tenantId} profileId={profile.id} locked={locked || profile.status === "suspended"} />
         <ContractsPanel tenantId={tenantId} profileId={profile.id} contracts={contracts} locked={locked} onChanged={load} />
         <PaymentMethodsPanel tenantId={tenantId} profileId={profile.id} methods={paymentMethods} locked={locked} onChanged={load} />
+        <LedgerPanel tenantId={tenantId} profileId={profile.id} methods={paymentMethods} />
 
         <section className="rounded-xl border border-border bg-background">
           <header className="flex items-center gap-2 border-b border-border px-4 py-3">

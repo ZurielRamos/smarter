@@ -43,7 +43,8 @@ const formatSize = (bytes: number) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 /
 
 // ───────────────────────────── Datos ─────────────────────────────
 
-function FieldInput({ f, value, onChange }: { f: PortalField; value: string; onChange: (v: string) => void }) {
+/** Campo de un dato personal. Lo usan el portal y el registro de un proyecto. */
+export function FieldInput({ f, value, onChange }: { f: Pick<PortalField, "key" | "type" | "options" | "suggestions" | "maxLength" | "required"> & { locked?: boolean }; value: string; onChange: (v: string) => void }) {
   const listId = `sug-${f.key}`;
   const common = { disabled: f.locked, "aria-required": f.required, className: inputClass };
   switch (f.type) {

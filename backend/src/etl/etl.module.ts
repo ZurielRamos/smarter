@@ -33,7 +33,7 @@ import { createEtlIndexes } from './etl-indexes.migration';
     DeduplicateProcessor,
     LoadProcessor,
   ],
-  exports: [EtlService],
+  exports: [EtlService, FileStoreService, TransformProcessor],
 })
 export class EtlModule implements OnModuleInit {
   constructor(private readonly dataSource: DataSource) {}

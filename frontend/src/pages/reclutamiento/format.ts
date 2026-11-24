@@ -8,7 +8,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
 
 export function formatMoney(amount: number, currency: string): string {
   try {
-    return new Intl.NumberFormat("es", { style: "currency", currency, maximumFractionDigits: 2 }).format(amount);
+    return new Intl.NumberFormat("es-CO", { style: "currency", currency, maximumFractionDigits: 2 }).format(amount);
   } catch {
     return `${amount} ${currency}`;
   }

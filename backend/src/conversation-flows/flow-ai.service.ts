@@ -12,6 +12,7 @@ import {
   type AgentKnownData,
   type AgentTurn,
 } from './flow-agent.util';
+import type { GeneratePrompt } from './flow-generate.util';
 import {
   AI_MODES,
   buildExtractionPrompt,
@@ -24,6 +25,8 @@ const FALLBACK_MODEL = 'openai/gpt-4o-mini';
 /** Un flujo no puede dejar al contacto esperando: pasado este tiempo se sigue sin IA. */
 const AI_TIMEOUT_MS = 15_000;
 const BILLING_SOURCE = 'flow_ai';
+/** Generar un texto largo o muchos datos tarda más que una extracción. */
+const GENERATE_TIMEOUT_MS = 25_000;
 /** Un turno de conversación puede incluir herramientas del bot (webhooks, conocimiento). */
 const AGENT_TIMEOUT_MS = 25_000;
 /** Mensaje interno para que la IA abra el tramo cuando no hay primer mensaje. */
@@ -164,6 +167,65 @@ export class FlowAiService {
     } catch (err) {
       this.logger.warn(
         `Conversación con IA no disponible en el flujo ${params.flowId}: ${(err as Error)?.message || err}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Nodo «Generación IA»: una sola llamada con el prompt ya armado. Devuelve el
+   * texto de la respuesta, o null si la IA no está disponible (sin clave, sin
+   * créditos, error, respuesta vacía o tiempo agotado).
+   */
+  async generate(params: {
+    tenantId: string;
+    flowId: string;
+    prompt: GeneratePrompt;
+    mode?: string;
+  }): Promise<string | null> {
+    const apiKey = this.apiKey();
+    if (!apiKey || !(await this.canSpend(params.tenantId))) return null;
+    const { prompt } = params;
+    try {
+      const model = await this.resolveModel(params.tenantId, params.mode);
+      const res = await fetch(OPENROUTER_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: prompt.system },
+            { role: 'user', content: prompt.user },
+          ],
+          temperature: prompt.temperature,
+          max_tokens: prompt.maxTokens,
+        }),
+        signal: AbortSignal.timeout(GENERATE_TIMEOUT_MS),
+      });
+      if (!res.ok) {
+        this.logger.warn(
+          `OpenRouter ${res.status} en generación de flujo ${params.flowId}`,
+        );
+        return null;
+      }
+      const json = (await res.json()) as {
+        choices?: { message?: { content?: string } }[];
+        usage?: Usage;
+      };
+      await this.charge(
+        params.tenantId,
+        params.flowId,
+        json.usage,
+        'generación',
+      );
+      const content = (json.choices?.[0]?.message?.content || '').trim();
+      return content || null;
+    } catch (err) {
+      this.logger.warn(
+        `IA no disponible en generación de flujo ${params.flowId}: ${(err as Error)?.message || err}`,
       );
       return null;
     }

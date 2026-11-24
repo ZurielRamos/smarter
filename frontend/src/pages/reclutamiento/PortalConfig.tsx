@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
-import { Copy, ExternalLink, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { Copy, ExternalLink, Loader2, Mail, MessageCircle, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   reclutamientoApi,
   type InvitationChannel,
   type PortalConfig as PortalConfigType,
+  type RegistrationMode,
   type PortalFieldDef,
   type VerificationChannel,
   type WhatsappInbox,
   type WhatsappTemplate,
 } from "@/services/reclutamiento";
-import { Field, Spinner, inputClass, primaryButton, secondaryButton } from "./shared";
+import { Field, Segmented, Spinner, inputClass, primaryButton, secondaryButton } from "./shared";
 import { useTenantId } from "./useTenantId";
 
 const VARIABLE_LABELS: Record<string, string> = { nombre: "Nombre", empresa: "Nombre de la empresa", enlace: "Enlace al portal" };
@@ -27,7 +28,7 @@ function Section({ title, description, children }: { title: string; description?
 }
 
 /** Número de WhatsApp y plantilla aprobada de Meta con la que se envía el mensaje. */
-function WhatsappPicker({
+export function WhatsappPicker({
   tenantId,
   value,
   onChange,
@@ -127,7 +128,7 @@ function WhatsappPicker({
   );
 }
 
-/** Configuración del portal del encuestador: canales de invitación y de verificación, datos y documentos que se piden. */
+/** Configuración del portal: acceso, canales de invitación y de verificación, datos y documentos que se piden. */
 export function PortalConfig() {
   const { slug } = useParams();
   const tenantId = useTenantId();
@@ -176,7 +177,7 @@ export function PortalConfig() {
 
   if (loading || !cfg) return <div className="flex-1"><Spinner /></div>;
 
-  const portalUrl = `${window.location.origin}/encuestador/${slug}`;
+  const portalUrl = `${window.location.origin}/r/${slug}`;
   const useWhatsappInvitation = cfg.invitation.channel === "whatsapp" || cfg.invitation.channel === "both";
   const useEmailInvitation = cfg.invitation.channel === "email" || cfg.invitation.channel === "both";
   const useWhatsappCode = cfg.verification.channel === "phone" || cfg.verification.channel === "both";
@@ -186,8 +187,8 @@ export function PortalConfig() {
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Portal del encuestador</h2>
-          <p className="text-xs text-muted-foreground">Los encuestadores invitados completan sus datos, suben sus documentos y firman sus contratos.</p>
+          <h2 className="text-sm font-semibold text-foreground">Portal de registro</h2>
+          <p className="text-xs text-muted-foreground">Las personas se registran, completan sus datos, suben sus documentos y firman sus contratos.</p>
         </div>
         <button type="button" onClick={save} disabled={!dirty || saving} className={`${primaryButton} ml-auto`}>
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Guardar
@@ -198,7 +199,7 @@ export function PortalConfig() {
         <div className="mx-auto max-w-3xl space-y-4">
           {error && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:bg-rose-500/15 dark:text-rose-200">{error}</p>}
 
-          <Section title="Dirección del portal" description="Es la misma para todos tus encuestadores. Cada invitación lleva además un enlace personal.">
+          <Section title="Dirección del portal" description="Es la misma para todas las personas. Cada invitación lleva además un enlace personal. La landing se edita en la sección «Landing».">
             <div className="flex items-center gap-2">
               <code className="min-w-0 flex-1 truncate rounded-lg bg-muted px-3 py-2 text-xs text-foreground">{portalUrl}</code>
               <button type="button" aria-label="Copiar dirección" className={secondaryButton} onClick={() => navigator.clipboard.writeText(portalUrl).then(() => toast.success("Dirección copiada"))}>
@@ -210,16 +211,45 @@ export function PortalConfig() {
             </div>
           </Section>
 
+          <Section title="Acceso" description="Quién puede crear su perfil en el portal. En ambos casos la persona verifica su correo o WhatsApp con un código antes de que se cree nada.">
+            <Segmented<RegistrationMode>
+              label="Modo de acceso"
+              value={cfg.registration.mode}
+              onChange={(mode) => edit((c) => ({ ...c, registration: { ...c.registration, mode } }))}
+              options={[
+                { value: "invite", label: "Solo por invitación", description: "Entran quienes ya tienen un perfil en Reclutamiento y reciben una invitación." },
+                { value: "open", label: "Registro abierto", description: "Cualquiera puede registrarse y queda como candidato. Si su correo o teléfono ya está en tu CRM, se vincula a ese contacto." },
+              ]}
+              hint={cfg.registration.mode === "open" ? "Revisa a los candidatos antes de activarlos." : undefined}
+            />
+            {cfg.registration.mode === "open" && (
+              <div className="mt-3">
+                <Field label="Texto de consentimiento" hint="La persona debe aceptarlo para registrarse. Puedes usar {{empresa}}.">
+                  <textarea
+                    rows={3}
+                    value={cfg.registration.consentText}
+                    maxLength={500}
+                    onChange={(e) => edit((c) => ({ ...c, registration: { ...c.registration, consentText: e.target.value } }))}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+            )}
+          </Section>
           <Section title="Invitación" description="Cómo le llega al encuestador el enlace para entrar al portal.">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Canal de la invitación">
-                <select value={cfg.invitation.channel} onChange={(e) => edit((c) => ({ ...c, invitation: { ...c.invitation, channel: e.target.value as InvitationChannel } }))} className={inputClass}>
-                  <option value="email">Correo electrónico</option>
-                  <option value="whatsapp">WhatsApp</option>
-                  <option value="both">Correo y WhatsApp</option>
-                  <option value="manual">Solo copiar el enlace (yo lo envío)</option>
-                </select>
-              </Field>
+              <Segmented<InvitationChannel>
+                label="Canal de la invitación"
+                value={cfg.invitation.channel}
+                onChange={(channel) => edit((c) => ({ ...c, invitation: { ...c.invitation, channel } }))}
+                options={[
+                  { value: "email", label: "Correo", icon: <Mail className="h-3.5 w-3.5" /> },
+                  { value: "whatsapp", label: "WhatsApp", icon: <MessageCircle className="h-3.5 w-3.5" /> },
+                  { value: "both", label: "Ambos" },
+                  { value: "manual", label: "Manual" },
+                ]}
+                hint={cfg.invitation.channel === "manual" ? "Copias el enlace y lo envías tú." : undefined}
+              />
               <Field label="Vigencia del enlace (días)">
                 <input type="number" min={1} max={60} value={cfg.invitation.expiresDays} onChange={(e) => edit((c) => ({ ...c, invitation: { ...c.invitation, expiresDays: Number(e.target.value) } }))} className={inputClass} />
               </Field>
@@ -249,13 +279,16 @@ export function PortalConfig() {
           </Section>
 
           <Section title="Verificación de identidad" description="El encuestador recibe un código de un solo uso para entrar al portal y para firmar cada contrato. Vence en 10 minutos.">
-            <Field label="Canal del código">
-              <select value={cfg.verification.channel} onChange={(e) => edit((c) => ({ ...c, verification: { ...c.verification, channel: e.target.value as VerificationChannel } }))} className={inputClass}>
-                <option value="email">Correo electrónico</option>
-                <option value="phone">WhatsApp</option>
-                <option value="both">El encuestador elige: correo o WhatsApp</option>
-              </select>
-            </Field>
+            <Segmented<VerificationChannel>
+              label="Canal del código"
+              value={cfg.verification.channel}
+              onChange={(channel) => edit((c) => ({ ...c, verification: { ...c.verification, channel } }))}
+              options={[
+                { value: "email", label: "Correo", icon: <Mail className="h-3.5 w-3.5" /> },
+                { value: "phone", label: "WhatsApp", icon: <MessageCircle className="h-3.5 w-3.5" /> },
+                { value: "both", label: "La persona elige" },
+              ]}
+            />
             {useEmailCode && (
               <div className="mt-3 space-y-3">
                 <Field label="Asunto del correo con el código" hint="Puedes usar {{empresa}}.">

@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { LayoutDashboard, MessagesSquare, Users, ClipboardList, GraduationCap, Workflow, UserCheck, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, MessagesSquare, Users, ClipboardList, GraduationCap, Workflow, UserCheck, Building2, type LucideIcon } from "lucide-react";
 import { Sidebar, type SidebarItem } from "./Sidebar";
 import { useAuth } from "@/context/AuthContext";
 import { TENANT_MODULES, isModuleEnabled } from "@/config/modules";
@@ -8,6 +8,7 @@ const MODULE_ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
   comunicaciones: MessagesSquare,
   contactos: Users,
+  companies: Building2,
   encuestas: ClipboardList,
   cursos: GraduationCap,
   automatizaciones: Workflow,

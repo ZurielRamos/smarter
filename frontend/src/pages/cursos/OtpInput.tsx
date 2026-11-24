@@ -64,7 +64,8 @@ export function OtpInput({
   };
 
   const maybeComplete = (code: string) => {
-    if (code.length === length && !code.includes("")) onComplete?.(code);
+    // Todas las casillas con un dígito. (`code.includes("")` siempre es verdadero, por eso no se usa.)
+    if (code.length === length && /^\d+$/.test(code)) onComplete?.(code);
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {

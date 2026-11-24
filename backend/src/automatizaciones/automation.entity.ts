@@ -36,7 +36,8 @@ export type AutomationNodeType =
   // CRM
   | 'send_message'
   | 'contact_upsert'
-  | 'contact_find';
+  | 'contact_find'
+  | 'start_conversation_flow';
 
 export interface AutomationNodeData {
   label?: string;

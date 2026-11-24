@@ -18,7 +18,13 @@ import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { TenantResourceService } from '../auth/tenant-resource.guard';
 import { EtlService } from './etl.service';
 import { CreateImportDto, ValidatePreviewDto, DeduplicatePreviewDto } from './dto/create-import.dto';
+import type { ImportEntity } from './entities/import-job.entity';
 import { AuthOnly, ReadAction, TenantResource, TenantResourceGuard } from '../auth/tenant-resource.guard';
+
+/** Tipo de importación pedido por el cliente; cualquier valor desconocido es contactos. */
+function toEntity(value?: string): ImportEntity {
+  return value === 'companies' ? 'companies' : 'contacts';
+}
 
 @Controller('etl')
 @UseGuards(JwtAuthGuard, TenantAccessGuard, TenantResourceGuard)
@@ -61,16 +67,16 @@ export class EtlController {
       limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
     }),
   )
-  parseFileAsync(@Req() req: any, @UploadedFile() file: Express.Multer.File, @Body() body: { tenantId?: string }) {
+  parseFileAsync(@Req() req: any, @UploadedFile() file: Express.Multer.File, @Body() body: { tenantId?: string; entity?: string }) {
     // Multipart: el guard no ve el cuerpo, la cuenta se comprueba aquí.
     this.tenantResources.assertMember(req.user, body.tenantId, { write: true });
-    return this.etlService.parseFileAsync(file, body.tenantId);
+    return this.etlService.parseFileAsync(file, body.tenantId, toEntity(body.entity));
   }
 
   /** Get the current pending/parsing job for a tenant (for resuming) */
   @Get('active-job')
-  getActiveJob(@Query('tenantId') tenantId: string) {
-    return this.etlService.getActiveJob(tenantId);
+  getActiveJob(@Query('tenantId') tenantId: string, @Query('entity') entity?: string) {
+    return this.etlService.getActiveJob(tenantId, toEntity(entity));
   }
 
   // ===========================
@@ -177,8 +183,9 @@ export class EtlController {
     @Query('tenantId') tenantId: string,
     @Query('page') page = '1',
     @Query('limit') limit = '20',
+    @Query('entity') entity?: string,
   ) {
-    return this.etlService.getJobHistory(tenantId, +page, +limit);
+    return this.etlService.getJobHistory(tenantId, +page, +limit, toEntity(entity));
   }
 
   @Post('jobs/:id/cancel')
@@ -200,8 +207,8 @@ export class EtlController {
   @Post('templates/by-structure')
 
   @ReadAction()
-  getTemplateByStructure(@Body() body: { tenantId: string; headers: string[] }) {
-    return this.etlService.getTemplateByStructure(body.tenantId, body.headers);
+  getTemplateByStructure(@Body() body: { tenantId: string; headers: string[]; entity?: string }) {
+    return this.etlService.getTemplateByStructure(body.tenantId, body.headers, toEntity(body.entity));
   }
 
   @Post('templates')

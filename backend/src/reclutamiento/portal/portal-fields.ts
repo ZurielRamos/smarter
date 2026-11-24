@@ -137,3 +137,34 @@ export function normalizeFieldValue(def: PortalFieldDef, raw: unknown): string {
       return value;
   }
 }
+
+/**
+ * Cambios que aplican unos valores (ya normalizados) sobre un contacto. Con
+ * `onlyEmpty` solo se llenan los campos vacíos: así un registro público no pisa
+ * lo que el CRM ya tenía. Devuelve solo lo que cambia (vacío si no hay nada).
+ */
+export function buildRecordPatch(
+  record: Partial<Pick<ClientRecord, 'customData'>> & Record<string, any>,
+  values: Record<string, string>,
+  defs: Map<string, PortalFieldDef>,
+  onlyEmpty: boolean,
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  const custom: Record<string, unknown> = { ...(record.customData ?? {}) };
+  let customChanged = false;
+  for (const [key, value] of Object.entries(values)) {
+    const def = defs.get(key);
+    if (!def || !value) continue;
+    if (def.source === 'fixed') {
+      const current = record[def.prop as string];
+      if (onlyEmpty && current !== undefined && current !== null && current !== '') continue;
+      patch[def.prop as string] = value;
+    } else {
+      if (onlyEmpty && custom[key] !== undefined && custom[key] !== null && custom[key] !== '') continue;
+      custom[key] = def.type === 'number' ? Number(value) : def.type === 'boolean' ? value === 'true' : value;
+      customChanged = true;
+    }
+  }
+  if (customChanged) patch.customData = custom;
+  return patch;
+}

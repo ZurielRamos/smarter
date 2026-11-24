@@ -6,6 +6,7 @@ import {
   FlowNode,
   FlowNodeData,
   FlowHeaderMedia,
+  FlowConditionRule,
 } from './conversation-flow.entity';
 import { isHttpUrl, normalizePhone } from './flow-buttons.util';
 import {
@@ -37,6 +38,16 @@ import {
   matchReplyOption,
 } from './flow-reply-match.util';
 import { matchChoice } from './flow-input.util';
+import {
+  GENERATE_DEFAULT_VARIABLE,
+  GENERATE_MAX_MESSAGES,
+  buildGeneratePrompt,
+  parseGeneratedText,
+  parseStructuredResponse,
+  type GenerateHistoryMessage,
+  type GenerateInput,
+} from './flow-generate.util';
+import { ROLE_LABELS, stateOf, type ProspectRole } from '../reclutamiento/prospect-states';
 import {
   AGENT_DEFAULT_TURNS,
   AGENT_MAX_TURNS,
@@ -79,6 +90,16 @@ export interface FlowEffects {
   resolve: boolean;
   addLabelIds: string[];
   removeLabelIds: string[];
+  /** Acciones sobre proyectos de reclutamiento, en orden. Las aplica ChatsService. */
+  projectActions: FlowProjectAction[];
+}
+
+/** Agregar al contacto a un proyecto o cambiar su estado en él. */
+export interface FlowProjectAction {
+  type: 'add' | 'status';
+  projectId: string;
+  role?: string;
+  status?: string;
 }
 
 export interface FlowRunResult {
@@ -140,6 +161,15 @@ export interface FlowContext {
   /** Mensajes que ha enviado el contacto en la conversación. */
   inboundCount?: number;
   hasContact?: boolean;
+  /** Proyectos de reclutamiento del contacto (id → estado y perfil), para las condiciones de proyecto. */
+  projects?: Record<string, { status: string; role: string }>;
+  /**
+   * Cargas bajo demanda del nodo «Generación IA» (solo se consultan si el nodo
+   * las pide): últimos mensajes de la conversación, en orden cronológico y sin
+   * notas internas, y nombres de los proyectos de la cuenta por id.
+   */
+  recentMessages?: (limit: number) => Promise<GenerateHistoryMessage[]>;
+  projectNames?: (ids: string[]) => Promise<Record<string, string>>;
   /** Reloj y azar inyectables para poder probar las reglas de hora y reparto. */
   now?: Date;
   random?: () => number;
@@ -737,6 +767,15 @@ export class ConversationFlowEngine {
     result.handled = true;
     result.state = null;
     variables.last_button = button.title;
+    // «Guardar la respuesta» del nodo Mensaje: el título del botón elegido.
+    if (node.data.variable) variables[node.data.variable] = button.title;
+    if (node.data.saveToField)
+      this.queueContactUpdate(
+        node.data.saveToField,
+        button.title,
+        context,
+        result,
+      );
     const next = this.nextNodeId(flow, node.id, `btn:${button.id}`);
     if (next)
       await this.runFrom(flow, next, variables, loader, context, result);
@@ -833,6 +872,50 @@ export class ConversationFlowEngine {
                 if (action.labelId)
                   result.effects.removeLabelIds.push(action.labelId);
                 break;
+              case 'update_contact': {
+                if (!action.field) break;
+                if (
+                  action.onlyIfEmpty &&
+                  (context.contact?.[action.field] ?? '').trim()
+                )
+                  break;
+                const value = this.interpolate(
+                  action.value || '',
+                  variables,
+                  context,
+                ).trim();
+                if (value)
+                  this.queueContactUpdate(action.field, value, context, result);
+                break;
+              }
+              // Las acciones de proyecto se aplican al terminar el turno. Para que una
+              // Condición posterior del mismo turno las vea, se reflejan ya en el contexto
+              // (si al aplicarlas algo no se puede hacer, la nota de la conversación lo dice).
+              case 'add_to_project':
+                if (action.projectId) {
+                  result.effects.projectActions.push({
+                    type: 'add',
+                    projectId: action.projectId,
+                    ...(action.role ? { role: action.role } : {}),
+                    ...(action.status ? { status: action.status } : {}),
+                  });
+                  if (context.hasContact) {
+                    const projects = (context.projects ??= {});
+                    projects[action.projectId] ??= { status: action.status || 'nuevo', role: action.role || '' };
+                  }
+                }
+                break;
+              case 'set_project_status':
+                if (action.projectId && action.status) {
+                  result.effects.projectActions.push({
+                    type: 'status',
+                    projectId: action.projectId,
+                    status: action.status,
+                  });
+                  const current = context.projects?.[action.projectId];
+                  if (current) current.status = action.status;
+                }
+                break;
               case 'handoff':
                 result.effects.handoff = true;
                 terminal = true;
@@ -887,6 +970,16 @@ export class ConversationFlowEngine {
           break;
         }
 
+        case 'ai_generate':
+          nodeId = await this.runGenerate(
+            flow,
+            node,
+            variables,
+            context,
+            result,
+          );
+          break;
+
         case 'start_flow': {
           const targetId = node.data.targetFlowId;
           const target = targetId ? await loader(targetId) : null;
@@ -923,6 +1016,7 @@ export class ConversationFlowEngine {
         resolve: false,
         addLabelIds: [],
         removeLabelIds: [],
+        projectActions: [],
       },
       startedFlowIds: [],
       contactUpdates: {},
@@ -1335,6 +1429,148 @@ export class ConversationFlowEngine {
     };
   }
 
+  // ─── Nodo Generación IA ───────────────────────────────────────
+
+  /**
+   * Genera el texto o los datos del nodo y devuelve el siguiente. Nunca detiene
+   * el flujo: si la IA falla o falta un dato obligatorio, sigue por «Si falla»
+   * y, sin esa salida, por «Siguiente». El motivo queda en {{ai_error}}.
+   */
+  private async runGenerate(
+    flow: ConversationFlow,
+    node: FlowNode,
+    variables: Record<string, string>,
+    context: FlowContext,
+    result: FlowRunResult,
+  ): Promise<string | null> {
+    const config = node.data.generate;
+    const failed = (reason: string) => {
+      variables.ai_error = reason;
+      return (
+        this.nextNodeId(flow, node.id, 'error') ??
+        this.nextNodeId(flow, node.id, 'next')
+      );
+    };
+    const instructions = config
+      ? this.interpolate(config.instructions || '', variables, context).trim()
+      : '';
+    if (!config || !instructions)
+      return failed('El nodo no tiene instrucciones');
+    const fields = config.fields || [];
+    if (config.output === 'structured' && !fields.length)
+      return failed('El nodo no tiene datos a generar');
+    if (!this.ai) return failed('La IA no está disponible');
+
+    const now = context.now ?? new Date();
+    const input = await this.generateInput(
+      config.context,
+      instructions,
+      now,
+      variables,
+      context,
+      result,
+    );
+    const content = await this.ai.generate({
+      tenantId: flow.tenantId,
+      flowId: flow.id,
+      prompt: buildGeneratePrompt(config, input),
+      mode: config.mode,
+    });
+    if (!content) return failed('La IA no está disponible');
+
+    if (config.output === 'structured') {
+      const outcome = parseStructuredResponse(fields, content, now);
+      for (const f of fields) {
+        const value = outcome.values[f.variable];
+        // Un dato que no llegó no debe conservar el valor de una ejecución anterior.
+        if (value === undefined) {
+          delete variables[f.variable];
+          continue;
+        }
+        variables[f.variable] = value;
+        if (f.saveToField)
+          this.queueContactUpdate(f.saveToField, value, context, result);
+      }
+      if (!outcome.ok) return failed(outcome.reason);
+    } else {
+      const text = parseGeneratedText(content);
+      if (!text) return failed('La IA no devolvió texto');
+      variables[config.variable || GENERATE_DEFAULT_VARIABLE] = text;
+      if (config.saveToField)
+        this.queueContactUpdate(config.saveToField, text, context, result);
+      if (config.send) result.messages.push({ text });
+    }
+    delete variables.ai_error;
+    return this.nextNodeId(flow, node.id, 'next');
+  }
+
+  /** Información elegida en el nodo, resuelta en este momento del flujo. */
+  private async generateInput(
+    ctx: NonNullable<FlowNodeData['generate']>['context'],
+    instructions: string,
+    now: Date,
+    variables: Record<string, string>,
+    context: FlowContext,
+    result: FlowRunResult,
+  ): Promise<GenerateInput> {
+    const c = ctx ?? {};
+    const data: Record<string, string> = {};
+    const put = (key: string, value: string | undefined) => {
+      const v = (value ?? '').trim();
+      if (v && key !== 'contact_name') data[key] = v;
+    };
+    if (c.allContact)
+      for (const [k, v] of Object.entries(context.contact || {})) put(k, v);
+    if (c.allVariables)
+      for (const [k, v] of Object.entries(variables)) put(k, v);
+    for (const key of c.keys || [])
+      put(key, this.lookup(key, variables, context));
+
+    let history: GenerateHistoryMessage[] = [];
+    const limit = Math.min(
+      Math.max(Math.floor(c.messages ?? 0), 0),
+      GENERATE_MAX_MESSAGES,
+    );
+    if (limit) {
+      const stored = context.recentMessages
+        ? await context.recentMessages(limit).catch(() => [])
+        : [];
+      // Lo que el flujo ya escribió en este turno aún no está guardado.
+      const pending = result.messages
+        .filter((m) => m.text?.trim())
+        .map((m) => ({ from: 'negocio' as const, text: m.text }));
+      history = [...stored, ...pending].slice(-limit);
+    }
+
+    let projects: GenerateInput['projects'] = [];
+    const memberships = context.projects ?? {};
+    const ids = Object.keys(memberships);
+    if (c.projects && ids.length && context.projectNames) {
+      const names = await context.projectNames(ids).catch(
+        () => ({}) as Record<string, string>,
+      );
+      projects = ids
+        .filter((id) => names[id])
+        .map((id) => ({
+          proyecto: names[id],
+          estado: stateOf(memberships[id].status)?.label ?? memberships[id].status,
+          perfil:
+            ROLE_LABELS[memberships[id].role as ProspectRole] ??
+            memberships[id].role,
+        }));
+    }
+
+    return {
+      instructions,
+      now,
+      contactName: context.contactName || undefined,
+      channel: context.channel,
+      data,
+      history,
+      projects,
+    };
+  }
+
   // ─── Nodo Entrada ─────────────────────────────────────────────
 
   /**
@@ -1477,6 +1713,18 @@ export class ConversationFlowEngine {
     };
   }
 
+  /** ¿Se cumple la audiencia de los disparadores? (mismas reglas que el nodo Condición) */
+  matchesAudience(
+    audience: { match: 'all' | 'any'; rules: FlowConditionRule[] },
+    variables: Record<string, string>,
+    context: FlowContext,
+  ): boolean {
+    return evaluateBranch(
+      { id: 'audience', name: 'Audiencia', ...audience },
+      this.conditionEnv(variables, context),
+    );
+  }
+
   /** Datos con los que se evalúan las reglas de un nodo Condición. */
   private conditionEnv(
     variables: Record<string, string>,
@@ -1491,6 +1739,7 @@ export class ConversationFlowEngine {
       conversationStatus: context.conversationStatus ?? '',
       inboundCount: context.inboundCount ?? 0,
       hasContact: context.hasContact ?? false,
+      projects: context.projects ?? {},
       lookup: (key) => this.lookup(key, variables, context),
       interpolate: (text) => this.interpolate(text, variables, context),
       random: context.random ?? Math.random,

@@ -1,3 +1,4 @@
+import { ALL_STATUSES, isRole } from '../reclutamiento/prospect-states';
 import {
   BadRequestException,
   Injectable,
@@ -18,10 +19,13 @@ import {
   FlowConditionOperator,
   FlowConditionRule,
   FlowConditionSource,
+  FlowTrigger,
   FlowTriggers,
   FlowNodeData,
   FlowAiExtra,
   FlowAgentCollect,
+  FlowAiGenerateConfig,
+  FlowAiGenerateField,
   FlowTimeUnit,
   FlowTimeoutConfig,
   FlowTimeoutReminder,
@@ -59,10 +63,39 @@ import {
   isValidRegex,
 } from './flow-conditions.util';
 import {
+  AdReferralInfo,
+  EMPTY_TRIGGERS,
+  MAX_AUDIENCE_RULES,
+  TemplateReplyInfo,
+  inSchedule,
+  matchAdClick,
+  matchKeyword,
+  matchTemplateReply,
+  normalizeTriggers,
+} from './flow-triggers.util';
+import { FlowStartsService } from './flow-starts.service';
+import { Campaign } from '../campaigns/campaign.entity';
+
+/** Lo que pasó en la conversación y puede iniciar un flujo. */
+export type FlowTriggerEvent =
+  | { kind: 'keyword'; text: string }
+  | { kind: 'new_conversation' }
+  | { kind: 'template_reply'; reply: TemplateReplyInfo }
+  | { kind: 'ad_click'; ad: AdReferralInfo };
+
+/** Un flujo cuyo disparador coincide, con las variables de entrada que aporta. */
+export interface FlowTriggerCandidate {
+  flow: ConversationFlow;
+  triggers: FlowTriggers;
+  trigger: FlowTrigger;
+  variables: Record<string, string>;
+}
+import {
   CONTACT_SYSTEM_FIELDS,
   FLOW_SPECIAL_VARIABLES,
   VARIABLE_KEY_RE,
   WRITABLE_CONTACT_KEYS,
+  ACTION_ONLY_CONTACT_KEYS,
   type ContactFieldDef,
 } from './contact-fields.util';
 import {
@@ -78,6 +111,14 @@ import {
   MEDIA_KINDS,
 } from './flow-input.util';
 import { isValidButtonUrl, normalizePhone } from './flow-buttons.util';
+import {
+  GENERATE_FIELD_TYPES,
+  GENERATE_MAX_FIELDS,
+  GENERATE_MAX_INSTRUCTIONS,
+  GENERATE_MAX_KEYS,
+  GENERATE_MAX_MESSAGES,
+  GENERATE_MAX_OPTIONS,
+} from './flow-generate.util';
 import {
   compressVideoForWhatsApp,
   WA_VIDEO_LIMIT,
@@ -95,13 +136,17 @@ const NODE_TYPES = new Set<FlowNodeType>([
   'condition',
   'start_flow',
   'ai_agent',
+  'ai_generate',
 ]);
 const ACTION_TYPES = new Set<FlowAction['type']>([
   'set_variable',
   'add_label',
   'remove_label',
+  'update_contact',
   'handoff',
   'resolve',
+  'add_to_project',
+  'set_project_status',
 ]);
 const OPERATORS = new Set([
   'equals',
@@ -148,6 +193,9 @@ export class ConversationFlowsService {
     private readonly customFieldRepo: Repository<CustomField>,
     @InjectRepository(Bot)
     private readonly botRepo: Repository<Bot>,
+    @InjectRepository(Campaign)
+    private readonly campaignRepo: Repository<Campaign>,
+    private readonly flowStarts: FlowStartsService,
   ) {}
 
   /**
@@ -198,9 +246,9 @@ export class ConversationFlowsService {
 
   // ─── CRUD ─────────────────────────────────────────────────────
 
-  findAll(tenantId: string): Promise<ConversationFlow[]> {
+  async findAll(tenantId: string): Promise<ConversationFlow[]> {
     if (!tenantId) throw new BadRequestException('tenantId es requerido');
-    return this.flowRepo.find({
+    const flows = await this.flowRepo.find({
       where: { tenantId },
       order: { updatedAt: 'DESC' },
       // El listado no necesita el grafo completo.
@@ -216,12 +264,16 @@ export class ConversationFlowsService {
         updatedAt: true,
       },
     });
+    // Los flujos antiguos se entregan ya en el formato nuevo de disparadores.
+    for (const f of flows) f.triggers = normalizeTriggers(f.triggers);
+    return flows;
   }
 
   async findOne(id: string, tenantId: string): Promise<ConversationFlow> {
     if (!tenantId) throw new BadRequestException('tenantId es requerido');
     const flow = await this.flowRepo.findOne({ where: { id, tenantId } });
     if (!flow) throw new NotFoundException('Flujo no encontrado');
+    flow.triggers = normalizeTriggers(flow.triggers);
     return flow;
   }
 
@@ -237,12 +289,7 @@ export class ConversationFlowsService {
         { id: 'start', type: 'start', position: { x: 0, y: 0 }, data: {} },
       ],
       edges: [],
-      triggers: {
-        keywords: [],
-        matchType: 'exact',
-        onNewConversation: false,
-        inboxIds: [],
-      },
+      triggers: { ...EMPTY_TRIGGERS, items: [] },
     });
     return this.flowRepo.save(flow);
   }
@@ -386,42 +433,113 @@ export class ConversationFlowsService {
   }
 
   /**
-   * Busca el flujo activo que debe iniciarse con este mensaje:
-   *   1) por palabra clave (prioridad), 2) por conversación nueva.
+   * Flujos activos cuyo disparador coincide con el evento, ordenados por
+   * prioridad (mayor primero) y luego por el último editado. Aplica aquí las
+   * reglas que no necesitan datos de la conversación: bandeja, «solo como
+   * subflujo» y horario. Audiencia, frecuencia y «si está en otro flujo» las
+   * revisa ChatsService, que tiene el contacto y la conversación.
    */
-  async findTriggeredFlow(
+  async findTriggerCandidates(
     tenantId: string,
     inboxId: string,
-    text: string | null,
-    isNewConversation: boolean,
-  ): Promise<ConversationFlow | null> {
+    event: FlowTriggerEvent,
+    now = new Date(),
+  ): Promise<FlowTriggerCandidate[]> {
     const flows = await this.flowRepo.find({
       where: { tenantId, status: 'active' },
       order: { updatedAt: 'DESC' },
     });
-    const applicable = flows.filter((f) => {
-      const inboxIds = f.triggers?.inboxIds || [];
-      return inboxIds.length === 0 || inboxIds.includes(inboxId);
-    });
-
-    const norm = normalize(text || '');
-    if (norm) {
-      const byKeyword = applicable.find((f) => {
-        const t = f.triggers;
-        if (!t?.keywords?.length) return false;
-        return t.keywords.some((k) => {
-          const kw = normalize(k);
-          if (!kw) return false;
-          return t.matchType === 'contains' ? norm.includes(kw) : norm === kw;
-        });
-      });
-      if (byKeyword) return byKeyword;
+    const out: FlowTriggerCandidate[] = [];
+    for (const flow of flows) {
+      const triggers = normalizeTriggers(flow.triggers);
+      if (triggers.subflowOnly) continue;
+      if (triggers.inboxIds.length && !triggers.inboxIds.includes(inboxId))
+        continue;
+      const hit = this.matchEvent(triggers, event, now);
+      if (!hit) continue;
+      if (!inSchedule(triggers.schedule, now)) continue;
+      out.push({ flow, triggers, ...hit });
     }
+    // sort es estable: a igual prioridad se conserva el orden por edición.
+    return out.sort(
+      (a, b) => (b.triggers.priority ?? 0) - (a.triggers.priority ?? 0),
+    );
+  }
 
-    if (isNewConversation) {
-      return applicable.find((f) => f.triggers?.onNewConversation) || null;
+  private matchEvent(
+    triggers: FlowTriggers,
+    event: FlowTriggerEvent,
+    now: Date,
+  ): { trigger: FlowTrigger; variables: Record<string, string> } | null {
+    for (const trigger of triggers.items) {
+      if (trigger.type !== event.kind) continue;
+      switch (event.kind) {
+        case 'keyword': {
+          const keyword = matchKeyword(trigger, event.text);
+          if (keyword !== null)
+            return {
+              trigger,
+              variables: { trigger_type: 'keyword', trigger_keyword: keyword },
+            };
+          break;
+        }
+        case 'new_conversation':
+          return { trigger, variables: { trigger_type: 'new_conversation' } };
+        case 'template_reply':
+          if (matchTemplateReply(trigger, event.reply, now))
+            return {
+              trigger,
+              variables: {
+                trigger_type: 'template_reply',
+                template_name: event.reply.templateName ?? '',
+                template_button: event.reply.button ?? '',
+              },
+            };
+          break;
+        case 'ad_click':
+          if (matchAdClick(trigger, event.ad))
+            return {
+              trigger,
+              variables: {
+                trigger_type: 'ad_click',
+                ad_id: event.ad.sourceId ?? '',
+                ad_headline: event.ad.headline ?? '',
+              },
+            };
+          break;
+      }
     }
     return null;
+  }
+
+  /**
+   * Resumen para el modal de disparadores: inicios por origen en 30 días, qué
+   * flujos lo llaman con «Iniciar flujo» y qué campañas lo usan al responder.
+   */
+  async getTriggerOverview(id: string, tenantId: string) {
+    await this.findOne(id, tenantId);
+    const [starts, callers, campaigns] = await Promise.all([
+      this.flowStarts.countsBySource(tenantId, id, 30),
+      this.flowRepo
+        .createQueryBuilder('f')
+        .select(['f.id', 'f.name'])
+        .where('f.tenant_id = :tenantId AND f.id <> :id', { tenantId, id })
+        .andWhere('f.nodes @> :needle::jsonb', {
+          needle: JSON.stringify([
+            { type: 'start_flow', data: { targetFlowId: id } },
+          ]),
+        })
+        .getMany(),
+      this.campaignRepo.find({
+        where: { tenantId, replyFlowId: id },
+        select: { id: true, name: true },
+      }),
+    ]);
+    return {
+      starts30d: starts,
+      callers: callers.map((f) => ({ id: f.id, name: f.name })),
+      campaigns: campaigns.map((c) => ({ id: c.id, name: c.name })),
+    };
   }
 
   // ─── Saneado del grafo ────────────────────────────────────────
@@ -491,6 +609,14 @@ export class ConversationFlowsService {
           // Solo tiene sentido si hay archivo en el encabezado y más de 3 respuestas.
           if (d.overflow === 'list') node.data.overflow = 'list';
           if (buttons.some((b) => (b.type ?? 'reply') === 'reply')) {
+            // Dónde guardar el título del botón elegido.
+            const variable = this.cleanVariable(d.variable);
+            if (variable) node.data.variable = variable;
+            const saveToField = await this.cleanContactField(
+              d.saveToField,
+              () => (customKeys ??= this.writableCustomKeys(flow.tenantId)),
+            );
+            if (saveToField) node.data.saveToField = saveToField;
             const noMatch = this.sanitizeNoMatch(d.noMatch);
             if (noMatch) node.data.noMatch = noMatch;
             // Solo los mensajes con respuestas esperan al contacto.
@@ -509,10 +635,37 @@ export class ConversationFlowsService {
           if (timeout) node.data.timeout = timeout;
           break;
         }
-        case 'action':
-          node.data.actions = (Array.isArray(d.actions) ? d.actions : [])
-            .filter((a: any) => a && ACTION_TYPES.has(a.type))
-            .map((a: any) => ({
+        case 'action': {
+          const actions: FlowAction[] = [];
+          for (const a of Array.isArray(d.actions) ? d.actions : []) {
+            if (!a || !ACTION_TYPES.has(a.type)) continue;
+            if (a.type === 'update_contact') {
+              const field = await this.cleanContactField(
+                a.field,
+                () => (customKeys ??= this.writableCustomKeys(flow.tenantId)),
+                true,
+              );
+              actions.push({
+                type: 'update_contact',
+                field: field ?? '',
+                value: String(a.value ?? '').slice(0, 1000),
+                ...(a.onlyIfEmpty === true ? { onlyIfEmpty: true } : {}),
+              });
+              continue;
+            }
+            if (a.type === 'add_to_project' || a.type === 'set_project_status') {
+              // El proyecto debe ser de la cuenta del flujo; si no, queda vacío (y la acción no hace nada).
+              const projectId = await this.cleanProjectId(a.projectId, flow.tenantId);
+              const status = ALL_STATUSES.has(String(a.status ?? '')) ? String(a.status) : undefined;
+              actions.push({
+                type: a.type,
+                projectId: projectId ?? '',
+                ...(a.type === 'add_to_project' && isRole(a.role) ? { role: a.role } : {}),
+                ...(status ? { status } : {}),
+              });
+              continue;
+            }
+            actions.push({
               type: a.type,
               ...(a.type === 'set_variable'
                 ? {
@@ -523,8 +676,11 @@ export class ConversationFlowsService {
               ...(a.type === 'add_label' || a.type === 'remove_label'
                 ? { labelId: String(a.labelId || '') }
                 : {}),
-            }));
+            });
+          }
+          node.data.actions = actions;
           break;
+        }
         case 'condition':
           if (Array.isArray(d.branches)) {
             node.data.branches = this.sanitizeBranches(d.branches);
@@ -554,6 +710,12 @@ export class ConversationFlowsService {
           if (timeout) node.data.timeout = timeout;
           break;
         }
+        case 'ai_generate':
+          node.data.generate = await this.sanitizeGenerate(
+            d.generate,
+            () => (customKeys ??= this.writableCustomKeys(flow.tenantId)),
+          );
+          break;
         case 'start_flow': {
           const target = String(d.targetFlowId || '');
           if (target) {
@@ -802,6 +964,8 @@ export class ConversationFlowsService {
           !!agent?.outcomes.some((o) => `out:${o.id}` === handle)
         );
       }
+      case 'ai_generate':
+        return handle === 'next' || handle === 'error';
       case 'user_input':
         // «Siguiente», «Sin respuesta válida» (se agotaron los intentos) y
         // «Sin respuesta» (no respondió a tiempo).
@@ -814,26 +978,46 @@ export class ConversationFlowsService {
     }
   }
 
-  private sanitizeTriggers(t: FlowTriggers | null): FlowTriggers {
-    const keywords = (Array.isArray(t?.keywords) ? t!.keywords : [])
-      .map((k) =>
-        String(k || '')
-          .trim()
-          .slice(0, 100),
-      )
-      .filter(Boolean)
-      .slice(0, 50);
-    return {
-      keywords,
-      matchType: t?.matchType === 'contains' ? 'contains' : 'exact',
-      onNewConversation: t?.onNewConversation === true,
-      inboxIds: (Array.isArray(t?.inboxIds) ? t!.inboxIds : [])
-        .map(String)
-        .filter(Boolean),
-    };
+  /**
+   * Disparadores en formato 2. Rechaza con un mensaje claro lo que no se
+   * podría evaluar (expresión regular inválida, demasiadas reglas); lo
+   * incompleto se conserva para no perder lo que se está editando.
+   */
+  private sanitizeTriggers(raw: unknown): FlowTriggers {
+    const t = normalizeTriggers(raw);
+    for (const item of t.items) {
+      if (item.type !== 'keyword' || item.matchType !== 'regex') continue;
+      const bad = (item.keywords ?? []).find((k) => !isValidRegex(k));
+      if (bad)
+        throw new BadRequestException(
+          `La expresión regular «${bad}» no es válida (máximo ${REGEX_MAX_PATTERN} caracteres)`,
+        );
+    }
+    if (t.audience) {
+      if (t.audience.rules.length > MAX_AUDIENCE_RULES)
+        throw new BadRequestException(
+          `La audiencia admite máximo ${MAX_AUDIENCE_RULES} reglas`,
+        );
+      const [branch] = this.sanitizeBranches([
+        { id: 'audience', name: 'Audiencia', ...t.audience },
+      ]);
+      t.audience = branch.rules.length
+        ? { match: branch.match, rules: branch.rules }
+        : null;
+      if (!t.audience) delete t.audience;
+    }
+    return t;
   }
 
   /** Claves de los campos personalizados del tenant (todos admiten escritura). */
+  /** Id de un proyecto de reclutamiento de la cuenta, o null. */
+  private async cleanProjectId(raw: unknown, tenantId: string): Promise<string | null> {
+    const id = String(raw ?? '').trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null;
+    const rows: unknown[] = await this.flowRepo.manager.query(`SELECT 1 FROM recruitment_projects WHERE id = $1 AND tenant_id = $2`, [id, tenantId]);
+    return rows.length ? id : null;
+  }
+
   private async writableCustomKeys(tenantId: string): Promise<Set<string>> {
     const fields = await this.customFieldRepo.find({ where: { tenantId } });
     return new Set(
@@ -847,10 +1031,13 @@ export class ConversationFlowsService {
   private async cleanContactField(
     v: unknown,
     customKeys: () => Promise<Set<string>>,
+    /** La acción «Actualizar contacto» también puede escribir campos de lista como el estado. */
+    forAction = false,
   ): Promise<string | undefined> {
     const key = String(v || '').trim();
     if (!key) return undefined;
     if (WRITABLE_CONTACT_KEYS.has(key)) return key;
+    if (forAction && ACTION_ONLY_CONTACT_KEYS.has(key)) return key;
     return (await customKeys()).has(key) ? key : undefined;
   }
 
@@ -1083,6 +1270,89 @@ export class ConversationFlowsService {
       out.maxTurns = Math.min(Math.max(Math.floor(turns), 1), AGENT_MAX_TURNS);
     if (a.allowHandoff === false) out.allowHandoff = false;
     if (AI_MODES.has(a.mode as string)) out.mode = a.mode;
+    return out;
+  }
+
+  /**
+   * Nodo «Generación IA». Lo incompleto (instrucciones vacías, datos sin
+   * variable) se conserva o se descarta sin error para no perder lo que se está
+   * editando; el motor sale por «Si falla» si el nodo no puede ejecutarse.
+   */
+  private async sanitizeGenerate(
+    raw: FlowAiGenerateConfig | undefined,
+    customKeys: () => Promise<Set<string>>,
+  ): Promise<FlowAiGenerateConfig> {
+    const g = (
+      raw && typeof raw === 'object' ? raw : {}
+    ) as Partial<FlowAiGenerateConfig>;
+    const out: FlowAiGenerateConfig = {
+      instructions: String(g.instructions || '')
+        .trim()
+        .slice(0, GENERATE_MAX_INSTRUCTIONS),
+      output: g.output === 'structured' ? 'structured' : 'text',
+    };
+
+    if (out.output === 'text') {
+      const variable = this.cleanVariable(g.variable);
+      if (variable) out.variable = variable;
+      const field = await this.cleanContactField(g.saveToField, customKeys);
+      if (field) out.saveToField = field;
+      if (g.send === true) out.send = true;
+      if (g.length === 'short' || g.length === 'long') out.length = g.length;
+    } else {
+      const seen = new Set<string>();
+      const fields: FlowAiGenerateField[] = [];
+      for (const f of (Array.isArray(g.fields) ? g.fields : []).slice(
+        0,
+        GENERATE_MAX_FIELDS,
+      )) {
+        const variable = this.cleanVariable(f?.variable);
+        if (!variable || seen.has(variable)) continue;
+        seen.add(variable);
+        const type = GENERATE_FIELD_TYPES.has(f.type) ? f.type : 'text';
+        const field: FlowAiGenerateField = {
+          variable,
+          description: String(f.description || '')
+            .trim()
+            .slice(0, 300),
+          type,
+        };
+        if (type === 'choice') {
+          const options = this.cleanList(f.options, GENERATE_MAX_OPTIONS, 100);
+          if (options.length) field.options = options;
+          else field.type = 'text';
+        }
+        if (f.required === true) field.required = true;
+        const saveTo = await this.cleanContactField(f.saveToField, customKeys);
+        if (saveTo) field.saveToField = saveTo;
+        fields.push(field);
+      }
+      out.fields = fields;
+    }
+
+    const c = (
+      g.context && typeof g.context === 'object' ? g.context : {}
+    ) as NonNullable<FlowAiGenerateConfig['context']>;
+    const messages = Number(c.messages);
+    const keys = [
+      ...new Set(
+        (Array.isArray(c.keys) ? c.keys : [])
+          .map((k) => String(k ?? '').trim())
+          .filter((k) => VARIABLE_KEY_RE.test(k) && k.length <= 64),
+      ),
+    ].slice(0, GENERATE_MAX_KEYS);
+    out.context = {
+      messages: Number.isFinite(messages)
+        ? Math.min(Math.max(Math.floor(messages), 0), GENERATE_MAX_MESSAGES)
+        : 0,
+      ...(keys.length ? { keys } : {}),
+      ...(c.allContact === true ? { allContact: true } : {}),
+      ...(c.allVariables === true ? { allVariables: true } : {}),
+      ...(c.projects === true ? { projects: true } : {}),
+    };
+    if (g.creativity === 'precise' || g.creativity === 'creative')
+      out.creativity = g.creativity;
+    if (AI_MODES.has(g.mode as string)) out.mode = g.mode;
     return out;
   }
 

@@ -1,3 +1,5 @@
+import { reclutamientoApi } from "@/services/reclutamiento";
+import type { FlowEditorContextValue } from "./editorContext";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import {
@@ -27,6 +29,7 @@ import {
   Save,
   TextCursorInput,
   Trash2,
+  Wand2,
   Workflow,
   Zap,
 } from "lucide-react";
@@ -37,8 +40,10 @@ import { migrateLegacyConditions, newBranch } from "./conditions";
 import { EMPTY_TRIGGERS, FlowEditorContext, FlowVariablesContext } from "./editorContext";
 import { buildVariableOptions, type VariableCatalog, type VariableMeta } from "./variables";
 import { nodeTypes } from "./nodeTypes";
+import { defaultGenerateConfig, generatedVariables } from "./generate";
 import { NodeInspector } from "./NodeInspector";
 import { TriggersModal } from "./TriggersModal";
+import { hasAutoTriggers, normalizeTriggers } from "./triggers";
 import {
   flowsApi,
   shortId,
@@ -70,6 +75,7 @@ const ADDABLE: { type: Exclude<FlowNodeType, "start">; label: string; icon: Reac
   { type: "action", label: "Acción", icon: <Zap className="h-3.5 w-3.5" />, className: "text-purple-700 dark:text-purple-300" },
   { type: "condition", label: "Condición", icon: <GitFork className="h-3.5 w-3.5" />, className: "text-amber-600 dark:text-amber-300" },
   { type: "ai_agent", label: "Conversación IA", icon: <Bot className="h-3.5 w-3.5" />, className: "text-fuchsia-700 dark:text-fuchsia-300" },
+  { type: "ai_generate", label: "Generación IA", icon: <Wand2 className="h-3.5 w-3.5" />, className: "text-violet-700 dark:text-violet-300" },
   { type: "start_flow", label: "Iniciar flujo", icon: <Workflow className="h-3.5 w-3.5" />, className: "text-brand-700 dark:text-brand-200" },
 ];
 
@@ -90,6 +96,8 @@ function defaultData(type: FlowNodeType): FlowNodeData {
           outcomes: [{ id: shortId("o"), name: "Objetivo cumplido", description: "Cuando se cumplió el objetivo del tramo" }],
         },
       };
+    case "ai_generate":
+      return { generate: defaultGenerateConfig() };
     default:
       return {};
   }
@@ -167,6 +175,8 @@ function validHandles(node: RFNode): Set<string> {
       if (!branches) return new Set(["true", "false"]);
       return new Set([...branches.map((b) => `cond:${b.id}`), "else"]);
     }
+    case "ai_generate":
+      return new Set(["next", "error"]);
     case "start_flow":
       return new Set();
     case "action":
@@ -216,6 +226,11 @@ function FlujoEditorInner() {
   const [saving, setSaving] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [labels, setLabels] = useState<LabelOption[]>([]);
+  const [recruitment, setRecruitment] = useState<FlowEditorContextValue["recruitment"]>(null);
+  const tenantRole = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
+  // Las acciones de proyecto usan la API de Reclutamiento: módulo activo y owner/admin.
+  const canUseRecruitment =
+    !!user && (user.isSuperAdmin || (!!tenantRole?.tenant.features?.reclutamiento && (tenantRole.role === "owner" || tenantRole.role === "admin")));
   const [inboxes, setInboxes] = useState<InboxOption[]>([]);
   const [linkTracking, setLinkTracking] = useState<boolean | null>(null);
   const [showTriggers, setShowTriggers] = useState(false);
@@ -234,7 +249,7 @@ function FlujoEditorInner() {
         if (cancelled) return;
         setFlow(data);
         setName(data.name);
-        setTriggers(data.triggers || EMPTY_TRIGGERS);
+        setTriggers(normalizeTriggers(data.triggers));
         // Los nodos Condición antiguos (Sí / No) se convierten al formato de ramas.
         const migrated = migrateLegacyConditions(data.nodes, data.edges);
         setNodes(toRFNodes(migrated.nodes));
@@ -261,7 +276,17 @@ function FlujoEditorInner() {
       .get<InboxOption[]>("/chats/inboxes", { params: { tenantId } })
       .then(({ data }) => setInboxes(data))
       .catch(() => {});
-  }, [tenantId]);
+    if (canUseRecruitment) {
+      Promise.all([reclutamientoApi.projects(tenantId, { limit: 100 }), reclutamientoApi.prospectCatalog(tenantId)])
+        .then(([projects, catalog]) =>
+          setRecruitment({
+            projects: projects.data.map((p) => ({ id: p.id, name: p.name, status: p.status, roles: p.roles, defaultRole: p.defaultRole })),
+            states: catalog.states.map((s) => ({ key: s.key, label: s.label, help: s.help })),
+          }),
+        )
+        .catch(() => setRecruitment(null));
+    }
+  }, [tenantId, canUseRecruitment]);
 
   // ¿El servidor puede generar enlaces cortos públicos para rastrear clics?
   useEffect(() => {
@@ -366,6 +391,7 @@ function FlujoEditorInner() {
       if (n.data.variable) set.add(n.data.variable);
       for (const e of n.data.ai?.extras || []) if (e.variable) set.add(e.variable);
       for (const c of n.data.agent?.collect || []) if (c.variable) set.add(c.variable);
+      if (n.type === "ai_generate") for (const k of Object.keys(generatedVariables(n.data.generate))) set.add(k);
       for (const a of n.data.actions || []) if (a.type === "set_variable" && a.variable) set.add(a.variable);
     }
     return [...set].sort();
@@ -395,6 +421,12 @@ function FlujoEditorInner() {
         if ((b.type ?? "reply") === "reply") replies.add(title);
         else if (b.type === "url" && b.track !== false) links.add(title);
       }
+      if (n.type === "message" && n.data.variable && !meta[n.data.variable]) {
+        const titles = (n.data.buttons || [])
+          .filter((b) => (b.type ?? "reply") === "reply" && b.title?.trim())
+          .map((b) => b.title.trim());
+        meta[n.data.variable] = titles.length ? { type: "select", options: titles } : { type: "text" };
+      }
       if (n.type === "user_input") {
         if (n.data.variable) meta[n.data.variable] = inputVariableMeta(n.data);
         for (const e of n.data.ai?.extras || []) if (e.variable && !meta[e.variable]) meta[e.variable] = { type: "text" };
@@ -413,6 +445,10 @@ function FlujoEditorInner() {
       if (n.data.agent?.allowHandoff !== false) outcomes.add("Transferir a un agente");
       outcomes.add("Límite de mensajes");
       for (const c of n.data.agent?.collect || []) if (c.variable && !meta[c.variable]) meta[c.variable] = { type: "text" };
+    }
+    for (const n of nodes) {
+      if (n.type !== "ai_generate") continue;
+      for (const [k, m] of Object.entries(generatedVariables(n.data.generate))) if (!meta[k]) meta[k] = m;
     }
     if (outcomes.size) meta.ai_outcome = { type: "select", options: [...outcomes] };
     meta.ai_summary = { type: "text" };
@@ -445,7 +481,7 @@ function FlujoEditorInner() {
           ...(extra?.status ? { status: extra.status } : {}),
         });
         setFlow(data);
-        setTriggers(data.triggers || EMPTY_TRIGGERS);
+        setTriggers(normalizeTriggers(data.triggers));
         // El backend sanea las conexiones: reflejar el resultado.
         setEdges(toRFEdges(data.edges));
         setDirty(false);
@@ -478,7 +514,7 @@ function FlujoEditorInner() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const hasTriggers = triggers.keywords.length > 0 || triggers.onNewConversation;
+  const hasTriggers = hasAutoTriggers(triggers);
 
   const activate = async () => {
     setShowActivateWarning(false);
@@ -541,7 +577,7 @@ function FlujoEditorInner() {
   const status = flow.status;
 
   return (
-    <FlowEditorContext.Provider value={{ flows, labels, inboxes, currentFlowId: flow.id }}>
+    <FlowEditorContext.Provider value={{ flows, labels, inboxes, currentFlowId: flow.id, recruitment }}>
      <FlowVariablesContext.Provider value={variableOptions}>
       <div className="flex-1 min-w-0 flex flex-col bg-background">
         {/* Header */}
@@ -669,8 +705,12 @@ function FlujoEditorInner() {
 
       <TriggersModal
         open={showTriggers}
+        flowId={flowId ?? ""}
+        tenantId={tenantId}
         triggers={triggers}
         inboxes={inboxes}
+        labels={labels}
+        variableOptions={variableOptions}
         onClose={() => setShowTriggers(false)}
         onSave={applyTriggers}
       />
@@ -680,7 +720,7 @@ function FlujoEditorInner() {
         onClose={() => setShowActivateWarning(false)}
         onConfirm={activate}
         title="Activar sin disparadores"
-        description="Este flujo no tiene palabras clave ni inicio automático. Solo se ejecutará cuando otro flujo lo inicie. ¿Activarlo igualmente?"
+        description="Este flujo no tiene disparadores. Solo se ejecutará cuando otro flujo o una campaña lo inicie. ¿Activarlo igualmente?"
         confirmLabel="Activar"
         variant="warning"
       />

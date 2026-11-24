@@ -60,8 +60,10 @@ export class TransformProcessor {
     rows: Record<string, string>[],
     mapping: Record<string, string[]>,
     transforms?: Record<string, any>,
+    /** Campos destino del tipo de importación. Por defecto, los de contactos. */
+    fields: TargetFieldDefinition[] = this.targetFields,
   ): Record<string, unknown>[] {
-    const fieldTypeMap = new Map(this.targetFields.map((f) => [f.field, f.type]));
+    const fieldTypeMap = new Map(fields.map((f) => [f.field, f.type]));
 
     return rows.map((row) => {
       const record: Record<string, unknown> = {};

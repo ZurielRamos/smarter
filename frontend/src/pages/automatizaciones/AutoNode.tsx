@@ -41,6 +41,8 @@ function summary(type: string, d: AutomationNodeData): string {
       return "Evento del CRM";
     case "send_message":
       return s(d.text) || "Sin mensaje";
+    case "start_conversation_flow":
+      return s(d.phone) || s(d.recordId) || "Sin destinatario";
     case "contact_upsert":
     case "contact_find":
       return s(d.phone) || s(d.email) || "Sin identificador";

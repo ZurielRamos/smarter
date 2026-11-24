@@ -1,3 +1,4 @@
+import { ReclutamientoModule } from '../reclutamiento/reclutamiento.module';
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Inbox } from './inbox.entity';
@@ -13,6 +14,7 @@ import { Label } from './label.entity';
 import { Tenant } from '../tenants/tenant.entity';
 import { Activity } from '../records/activity.entity';
 import { CampaignSendLog } from '../campaigns/campaign-send-log.entity';
+import { Campaign } from '../campaigns/campaign.entity';
 import { CampaignSend } from '../campaigns/campaign-send.entity';
 import { UserTenant } from '../users/user-tenant.entity';
 import { ChatsService } from './chats.service';
@@ -42,10 +44,11 @@ import { WhatsAppFlowsModule } from '../whatsapp-flows/whatsapp-flows.module';
 import { ConversationFlowsModule } from '../conversation-flows/conversation-flows.module';
 import { FlowLinkController } from './flow-link.controller';
 import { FlowTimersWorker } from './flow-timers.worker';
+import { ApiFlowsController } from './api-flows.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Inbox, Conversation, Message, SyncTombstone, InboxCollaborator, ClientRecord, Label, Tenant, Activity, CampaignSendLog, CampaignSend, UserTenant]),
+    TypeOrmModule.forFeature([Inbox, Conversation, Message, SyncTombstone, InboxCollaborator, ClientRecord, Label, Tenant, Activity, CampaignSendLog, CampaignSend, UserTenant, Campaign]),
     BillingModule,
     WebhooksModule,
     AuthModule,
@@ -59,9 +62,11 @@ import { FlowTimersWorker } from './flow-timers.worker';
     TemplatesModule,
     WhatsAppFlowsModule,
     ConversationFlowsModule,
+    // Acciones de proyecto de los flujos (agregar a proyecto, cambiar estado).
+    ReclutamientoModule,
   ],
   providers: [ChatsService, FlowTimersWorker, ChatsGateway, ChatWidgetGateway, WebhookForwarderService, ChatsSyncService, ConversationAccessService, ConversationAccessGuard],
-  controllers: [ChatsController, ChatsSyncController, ApiConversationsController, ApiMessagesController, ApiInboxesController, ChatWidgetController, WebhookController, MailgunWebhookController, ApiEmailController, ApiWhatsappAuthController, FlowLinkController],
+  controllers: [ChatsController, ChatsSyncController, ApiConversationsController, ApiMessagesController, ApiInboxesController, ApiFlowsController, ChatWidgetController, WebhookController, MailgunWebhookController, ApiEmailController, ApiWhatsappAuthController, FlowLinkController],
   exports: [ChatsService, ChatsGateway, ChatWidgetGateway],
 })
 export class ChatsModule {}

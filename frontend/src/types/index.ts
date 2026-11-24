@@ -156,8 +156,13 @@ export interface DeduplicatePreviewDuplicate {
   incoming: Record<string, unknown>;
   existing: {
     id: string;
-    firstName: string | null;
-    lastName: string | null;
+    /** Contactos */
+    firstName?: string | null;
+    lastName?: string | null;
+    /** Empresas */
+    name?: string | null;
+    documentNumber?: string | null;
+    city?: string | null;
     phone: string | null;
     email: string | null;
   };

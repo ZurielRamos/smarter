@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, Query, Req, StreamableFile, UseGuards, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, Query, Req, StreamableFile, UploadedFile, UseGuards, UseInterceptors, Res } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../../auth/tenant-access.guard';
 import { ModuleFeatureGuard } from '../../auth/module-feature.guard';
@@ -44,6 +45,17 @@ export class PortalAdminController {
     return { config: await this.portalConfig.update(tenantId, this.actor(req), body ?? {}) };
   }
 
+  /** Landing pública: contenido, marca, orden de secciones y publicación. */
+  @Put('portal-landing')
+  async updateLanding(@Param('tenantId', ParseUUIDPipe) tenantId: string, @Body() body: Record<string, unknown>, @Req() req: any) {
+    return { landing: await this.portalConfig.updateLanding(tenantId, this.actor(req), body ?? {}) };
+  }
+  /** Sube una imagen de la landing (`logo`, `hero` o `about`) y devuelve su URL. */
+  @Post('portal-landing/images/:slot')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
+  uploadLandingImage(@Param('tenantId', ParseUUIDPipe) tenantId: string, @Param('slot') slot: string, @UploadedFile() file: any) {
+    return this.portalConfig.uploadLandingImage(tenantId, slot, file);
+  }
   @Get('portal-config/whatsapp-inboxes')
   inboxes(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
     return this.portalConfig.listInboxes(tenantId);

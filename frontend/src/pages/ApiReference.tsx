@@ -863,6 +863,84 @@ const inbox = await response.json();`,
         ],
       },
       {
+        id: "flows", label: "Flujos", endpoints: [
+          {
+            id: "list-flows",
+            method: "GET",
+            label: "Listar flujos",
+            path: "/api/v1/{cuenta}/flows",
+            description: "Lista los flujos conversacionales de la cuenta con su estado. Solo los flujos con estado active se pueden iniciar.",
+            curl: `const response = await fetch(
+  "https://smarter.strategee.us/api/v1/supergiros/flows",
+  {
+    method: "GET",
+    headers: {
+      "x-api-token": "tu_token_de_api"
+    }
+  }
+);
+const flows = await response.json();`,
+            response: `[
+  {
+    "id": "f064f5b2-2ba2-4f36-8626-a5c34530f6a5",
+    "name": "Me interesa",
+    "status": "active"
+  }
+]`,
+          },
+          {
+            id: "start-flow",
+            method: "POST",
+            label: "Iniciar flujo",
+            path: "/api/v1/{cuenta}/flows/{flowId}/start",
+            description:
+              "Inicia un flujo activo con un contacto. Indica conversationId, o inboxId junto con recordId o phone (el contacto debe existir en el CRM o tener ya una conversación con ese número). No se aplican los disparadores ni las reglas del flujo. Si la ventana de 24 horas de WhatsApp está cerrada, envía template: se manda la plantilla y el flujo empieza cuando el contacto responda (hasta 72 horas). Sin template, la respuesta es 400. Solo administradores.",
+            params: [
+              { name: "flowId", type: "uuid", required: true, description: "ID del flujo" },
+            ],
+            body: `{
+  "inboxId": "i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
+  "phone": "573001234567",
+  "variables": { "pedido": "A-1029" },
+  "template": {
+    "name": "seguimiento_pedido",
+    "language": "es",
+    "params": ["Ana", "A-1029"]
+  }
+}`,
+            bodyDescription:
+              "variables quedan disponibles en el flujo como {{pedido}}, y {{trigger_type}} vale api. template solo se usa si la ventana de 24 h está cerrada; params son las variables {{1}}, {{2}}… del cuerpo.",
+            curl: `const response = await fetch(
+  "https://smarter.strategee.us/api/v1/supergiros/flows/f064f5b2-2ba2-4f36-8626-a5c34530f6a5/start",
+  {
+    method: "POST",
+    headers: {
+      "x-api-token": "tu_token_de_api",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      inboxId: "i1j2k3l4-m5n6-7890-opqr-stuvwxyz1234",
+      phone: "573001234567",
+      variables: { pedido: "A-1029" }
+    })
+  }
+);
+const result = await response.json();`,
+            response: `{
+  "status": "started",
+  "conversationId": "c1d2e3f4-a5b6-7890-cdef-1234567890ab"
+}
+
+// Con la ventana cerrada y plantilla:
+{
+  "status": "template_sent",
+  "conversationId": "c1d2e3f4-a5b6-7890-cdef-1234567890ab",
+  "messageId": "m1n2o3p4-q5r6-7890-stuv-wxyz12345678"
+}`,
+          },
+        ],
+      },
+      {
         id: "campaigns", label: "Campañas", endpoints: [
           {
             id: "list-campaigns",

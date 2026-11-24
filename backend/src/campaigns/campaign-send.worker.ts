@@ -1356,11 +1356,15 @@ export class CampaignSendWorker extends WorkerHost {
             : null;
         }
 
+        const isTemplate = messageType === 'template';
         messages.push({
           conversationId: conv.id,
           direction: 'outbound',
           messageType,
           content: renderedContent,
+          // Identifican la respuesta del contacto («Flujo al responder» y «Respuesta a plantilla»).
+          templateName: isTemplate ? campaign.whatsappTemplateName || null : null,
+          campaignId: campaign.id,
           mediaUrl: templateMeta,
           externalId: log.providerMessageId || undefined,
           status: 'sent',

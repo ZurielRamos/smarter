@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 
 /**
  * Validación y saneamiento de entradas del módulo Encuestas. No hay
@@ -229,4 +230,86 @@ export function assertValidFlowJson(flowJson: unknown): asserts flowJson is Reco
   ) {
     throw new BadRequestException('flowJson inválido: debe tener pantallas y pesar menos de 1 MB');
   }
+}
+
+/**
+ * Plantilla mínima de encuesta en formato Meta Flow JSON. Una pantalla terminal
+ * con un título y un campo de texto, lista para editar en el constructor
+ * visual. Igual que la de WhatsApp Flows: así la estructura es compatible.
+ */
+export function starterFlowJson(): Record<string, any> {
+  return {
+    version: '7.3',
+    data_api_version: '3.0',
+    routing_model: { SCREEN_INICIO: [] },
+    screens: [
+      {
+        id: 'SCREEN_INICIO',
+        title: 'Pantalla 1',
+        terminal: true,
+        success: true,
+        data: {},
+        layout: {
+          type: 'SingleColumnLayout',
+          children: [
+            {
+              type: 'Form',
+              name: 'form_screen_inicio',
+              children: [
+                { type: 'TextHeading', text: 'Título de ejemplo' },
+                {
+                  type: 'TextInput',
+                  name: 'respuesta',
+                  label: 'Tu respuesta',
+                  'input-type': 'text',
+                  required: false,
+                },
+                {
+                  type: 'Footer',
+                  label: 'Enviar',
+                  'on-click-action': {
+                    name: 'complete',
+                    payload: { respuesta: '${form.respuesta}' },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+  };
+}
+
+
+/** Dirección pública única a partir del nombre. */
+export function generateSurveySlug(name: string): string {
+  const base = (name || 'encuesta')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  return `${base || 'encuesta'}-${randomBytes(4).toString('hex')}`;
+}
+
+/** Cantidad de preguntas (campos con etiqueta, opciones u OptIn) del flowJson, incluidas las condicionales. */
+export function countQuestions(flowJson: unknown): number {
+  const screens = (flowJson as { screens?: unknown })?.screens;
+  if (!Array.isArray(screens)) return 0;
+  const names = new Set<string>();
+  const walk = (nodes: unknown) => {
+    if (!Array.isArray(nodes)) return;
+    for (const node of nodes) {
+      if (!node || typeof node !== 'object') continue;
+      const n = node as Record<string, any>;
+      if (n.name && (n.label != null || n['data-source'] || n.type === 'OptIn')) names.add(String(n.name));
+      walk(n.children);
+      walk(n.then);
+      walk(n.else);
+    }
+  };
+  for (const screen of screens) walk(screen?.layout?.children);
+  return names.size;
 }

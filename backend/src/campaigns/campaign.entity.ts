@@ -96,6 +96,10 @@ export class Campaign {
   @Column({ name: 'whatsapp_template_category', type: 'varchar', nullable: true })
   whatsappTemplateCategory: string; // UTILITY, MARKETING, AUTHENTICATION
 
+  /** Flujo conversacional que se inicia cuando el contacto responde a la plantilla de esta campaña */
+  @Column({ name: 'reply_flow_id', type: 'uuid', nullable: true })
+  replyFlowId: string | null;
+
   // === CALL (Llamada) fields ===
   @Column({ name: 'call_voice', type: 'varchar', nullable: true })
   callVoice: string; // Mariana, Penelope, Conchita, Mia, Lucia, Enrique, Miguel

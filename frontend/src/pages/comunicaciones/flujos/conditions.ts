@@ -180,6 +180,18 @@ export const SOURCES: SourceDef[] = [
   { key: "weekday", label: "Día de la semana", group: "Fecha y hora", defaultOperator: "in_list", operators: ["in_list", "not_in_list"], operatorLabels: { in_list: "es", not_in_list: "no es" } },
   { key: "date", label: "Fecha de hoy", group: "Fecha y hora", defaultOperator: "date_after", operators: ["date_before", "date_after", "date_on", "date_between"], operatorLabels: { date_before: "es anterior a", date_after: "es posterior a", date_on: "es el", date_between: "está entre" } },
   { key: "random", label: "Reparto al azar (prueba A/B)", group: "Azar", defaultOperator: "percent", operators: ["percent"], operatorLabels: { percent: "se cumple el" } },
+  { key: "project", label: "¿Está en el proyecto?", group: "Reclutamiento", defaultOperator: "is_true", operators: ["is_true", "is_false"], operatorLabels: { is_true: "Sí está", is_false: "No está" } },
+  { key: "project_status", label: "Estado en el proyecto", group: "Reclutamiento", defaultOperator: "in_list", operators: ["in_list", "not_in_list"], operatorLabels: { in_list: "es", not_in_list: "no es" } },
+  { key: "project_role", label: "Perfil en el proyecto", group: "Reclutamiento", defaultOperator: "in_list", operators: ["in_list", "not_in_list"], operatorLabels: { in_list: "es", not_in_list: "no es" } },
+];
+
+/** Reglas que solo existen con Reclutamiento activo. */
+export const PROJECT_SOURCES = new Set<FlowConditionSource>(["project", "project_status", "project_role"]);
+
+export const PROJECT_ROLE_OPTIONS = [
+  { value: "participant", label: "Participante" },
+  { value: "surveyor", label: "Encuestador" },
+  { value: "moderator", label: "Moderador" },
 ];
 
 export const SOURCE_BY_KEY: Record<string, SourceDef> = Object.fromEntries(SOURCES.map((s) => [s.key, s]));
@@ -248,6 +260,11 @@ export function newRule(source: FlowConditionSource = "variable"): FlowCondition
       return { ...base, value: "50" };
     case "label":
       return { ...base, field: "" };
+    case "project":
+      return { ...base, field: "" };
+    case "project_status":
+    case "project_role":
+      return { ...base, field: "", value: "" };
     default:
       return { ...base, value: "" };
   }
@@ -265,6 +282,9 @@ export function ruleIssue(rule: FlowConditionRule): string | null {
   if (!op) return "Operador no válido";
   if (rule.source === "variable" && !rule.field?.trim()) return "Elige un campo o variable";
   if (rule.source === "label" && !rule.field) return "Elige una etiqueta";
+  if (PROJECT_SOURCES.has(rule.source) && !rule.field) return "Elige un proyecto";
+  if (rule.source === "project_status" && !rule.value?.trim()) return "Elige al menos un estado";
+  if (rule.source === "project_role" && !rule.value?.trim()) return "Elige al menos un perfil";
   if (rule.source === "weekday") return rule.value?.trim() ? null : "Elige al menos un día";
   if (rule.source === "random") {
     const n = Number(rule.value);
@@ -296,6 +316,9 @@ export interface DescribeLookups {
   options: VariableOption[];
   labels: LabelOption[];
   inboxes: InboxOption[];
+  /** Con Reclutamiento: nombres de proyectos y estados. */
+  projects?: Array<{ id: string; name: string }>;
+  states?: Array<{ key: string; label: string }>;
 }
 
 function weekdayNames(value?: string): string {
@@ -353,6 +376,17 @@ export function describeRule(rule: FlowConditionRule, lookups: DescribeLookups):
       return `Hoy ${opText}${value}`;
     case "random":
       return `${v || "…"} % de las veces`;
+    case "project":
+    case "project_status":
+    case "project_role": {
+      const name = lookups.projects?.find((p) => p.id === rule.field)?.name ?? "(proyecto)";
+      if (rule.source === "project") return `${rule.operator === "is_true" ? "Está" : "No está"} en «${name}»`;
+      const keys = v.split(",").filter(Boolean);
+      const names = keys.map((k) =>
+        rule.source === "project_status" ? (lookups.states?.find((s) => s.key === k)?.label ?? k) : (PROJECT_ROLE_OPTIONS.find((r) => r.value === k)?.label ?? k),
+      );
+      return `${rule.source === "project_status" ? "Estado" : "Perfil"} en «${name}» ${opText} ${names.length ? names.join(" o ") : "…"}`;
+    }
     default:
       return opText;
   }

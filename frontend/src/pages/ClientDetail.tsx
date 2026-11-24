@@ -7,6 +7,8 @@ import { getClient, getConversationsByRecord, getNotes, deleteNote, getActivitie
 import type { ClientRecord, ConversationRecord, NoteRecord, ActivityRecord, ContactEventRecord, CustomField, FlowSubmissionRecord } from "@/services/api";
 import { FlowSubmissionModal } from "@/components/flow-builder/FlowSubmissionModal";
 import { ContactOriginCard } from "@/components/ContactOriginCard";
+import { ContactCompanies } from "@/pages/empresas/ContactCompanies";
+import { ContactProjects } from "@/pages/reclutamiento/proyectos/ContactProjects";
 import { ATTRIBUTION_FIELD_KEYS, ATTRIBUTION_GROUP, isUuid } from "@/lib/attribution-fields";
 import { useAuth } from "@/context/AuthContext";
 import { AddNoteModal } from "./AddNoteModal";
@@ -210,6 +212,9 @@ export function ClientDetail() {
   const currentRole = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
   const tenantId = currentRole?.tenantId || "";
   const cursosEnabled = !!currentRole?.tenant?.features?.cursos;
+  const companiesEnabled = !!currentRole?.tenant?.features?.companies;
+  const isTenantAdmin = currentRole?.role === "owner" || currentRole?.role === "admin";
+  const recruitmentEnabled = !!currentRole?.tenant?.features?.reclutamiento && isTenantAdmin;
   const [client, setClient] = useState<ClientRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [conversations, setConversations] = useState<ConversationRecord[]>([]);
@@ -439,6 +444,10 @@ export function ClientDetail() {
 
               {/* Origen / atribución */}
               <ContactOriginCard client={client} tenantId={tenantId} />
+              {/* Empresas vinculadas */}
+              {companiesEnabled && slug && id && <ContactCompanies slug={slug} tenantId={tenantId} recordId={id} />}
+              {/* Proyectos de reclutamiento donde tiene registros vinculados */}
+              {recruitmentEnabled && slug && id && <ContactProjects slug={slug} tenantId={tenantId} recordId={id} />}
 
               {/* Activity / Conversations */}
               <div className="bg-card rounded-xl border border-border p-5">

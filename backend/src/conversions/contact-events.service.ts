@@ -352,6 +352,7 @@ export class ContactEventsService {
         direction: 'outbound',
         messageType: 'template',
         content: renderedContent,
+        templateName,
         externalId,
         status: 'sent',
         source: 'automation',

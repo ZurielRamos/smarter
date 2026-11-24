@@ -24,6 +24,8 @@ export interface ContactFieldDef {
   options?: string[];
   /** Un nodo Entrada puede guardar la respuesta en este campo. */
   writable?: boolean;
+  /** Solo la acción «Actualizar contacto» puede escribir este campo. */
+  actionWritable?: boolean;
 }
 
 export const CONTACT_SYSTEM_FIELDS: ContactFieldDef[] = [
@@ -213,8 +215,14 @@ export const WRITABLE_CONTACT_KEYS = new Set([
   'source',
   'notes',
 ]);
+/**
+ * Campos de lista que no tiene sentido llenar con una respuesta libre, pero sí
+ * con la acción «Actualizar contacto» (p. ej. mover el contacto a «interesado»).
+ */
+export const ACTION_ONLY_CONTACT_KEYS = new Set(['status', 'channelSource']);
 for (const f of CONTACT_SYSTEM_FIELDS) {
   if (WRITABLE_CONTACT_KEYS.has(f.key)) f.writable = true;
+  else if (ACTION_ONLY_CONTACT_KEYS.has(f.key)) f.actionWritable = true;
 }
 
 /** Variables propias del flujo que siempre existen. */
@@ -258,6 +266,49 @@ export const FLOW_SPECIAL_VARIABLES: {
     key: 'ai_summary',
     label: 'Resumen de la conversación con IA',
     description: 'Resumen que escribió la IA al terminar el tramo',
+  },
+  {
+    key: 'ai_error',
+    label: 'Motivo del fallo de la generación con IA',
+    description:
+      'Por qué el último nodo Generación IA salió por «Si falla» (vacío si funcionó)',
+  },
+  {
+    key: 'trigger_type',
+    label: 'Cómo inició el flujo',
+    description:
+      'keyword, new_conversation, template_reply, ad_click, campaign, manual, automation o api',
+  },
+  {
+    key: 'trigger_keyword',
+    label: 'Palabra clave que inició el flujo',
+    description: 'La palabra clave del disparador que coincidió',
+  },
+  {
+    key: 'template_name',
+    label: 'Plantilla respondida',
+    description: 'Nombre de la plantilla a la que respondió el contacto',
+  },
+  {
+    key: 'template_button',
+    label: 'Botón de la plantilla',
+    description:
+      'Botón de la plantilla que pulsó (vacío si respondió con texto)',
+  },
+  {
+    key: 'campaign_name',
+    label: 'Campaña respondida',
+    description: 'Campaña cuya plantilla respondió el contacto',
+  },
+  {
+    key: 'ad_id',
+    label: 'Id del anuncio',
+    description: 'Anuncio de Meta (Click-to-WhatsApp) desde el que llegó',
+  },
+  {
+    key: 'ad_headline',
+    label: 'Titular del anuncio',
+    description: 'Titular del anuncio de Meta desde el que llegó',
   },
 ];
 

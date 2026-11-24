@@ -7,6 +7,7 @@ import type { Conversation, Inbox, Label, TenantMember, AssignmentFilter } from 
 import { RecordFilterEditor } from "./RecordFilterEditor";
 import type { FilterCondition } from "@/pages/FilterPanel";
 import type { CustomField } from "@/services/api";
+import { EMPTY_PROJECT_FILTER, ProjectChatFilter, type ProjectChatFilterValue } from "@/pages/reclutamiento/proyectos/ProjectChatFilter";
 
 const ASSIGNMENT_OPTIONS: { value: AssignmentFilter; label: string }[] = [
   { value: "all", label: "Todos" },
@@ -35,6 +36,11 @@ interface ConversationListProps {
   recordFilters: FilterCondition[];
   setRecordFilters: (v: FilterCondition[]) => void;
   customFields: CustomField[];
+  /** Filtro por proyectos de reclutamiento; solo si la cuenta lo tiene y la persona administra Reclutamiento. */
+  projectFilter: ProjectChatFilterValue;
+  setProjectFilter: (v: ProjectChatFilterValue) => void;
+  canFilterProjects: boolean;
+  tenantId: string;
   onSelectConversation: (conv: Conversation) => void;
   onContextMenu: (e: React.MouseEvent, conv: Conversation) => void;
   onLoadMore: () => void;
@@ -61,6 +67,10 @@ export const ConversationList = memo(function ConversationList({
   recordFilters,
   setRecordFilters,
   customFields,
+  projectFilter,
+  setProjectFilter,
+  canFilterProjects,
+  tenantId,
   onSelectConversation,
   onContextMenu,
   onLoadMore,
@@ -71,6 +81,7 @@ export const ConversationList = memo(function ConversationList({
   const channelDropdownRef = useRef<HTMLDivElement>(null);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const activeRecordFilterCount = recordFilters.filter((f) => f.field && f.operator).length;
+  const projectFilterActive = canFilterProjects && projectFilter.projectIds.length > 0;
 
   // Cerrar los dropdowns (canales y filtros) al hacer click fuera o pulsar Esc.
   // Los popups internos del editor de reglas viven dentro de filterDropdownRef,
@@ -196,7 +207,7 @@ export const ConversationList = memo(function ConversationList({
             <div className="relative" ref={filterDropdownRef}>
               <button
                 onClick={() => setFilterDropdownOpen((v) => !v)}
-                className={`p-1.5 rounded-lg transition-colors ${selectedLabelFilters.size > 0 || hideCampaignMessages || activeRecordFilterCount > 0 ? "text-brand-600 bg-brand-50 dark:text-brand-100 dark:bg-brand-700" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                className={`p-1.5 rounded-lg transition-colors ${selectedLabelFilters.size > 0 || hideCampaignMessages || activeRecordFilterCount > 0 || projectFilterActive ? "text-brand-600 bg-brand-50 dark:text-brand-100 dark:bg-brand-700" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
                 title="Filtrar"
               >
                 <Filter className="h-4 w-4" />
@@ -237,6 +248,7 @@ export const ConversationList = memo(function ConversationList({
                     )}
                   </div>
 
+                  {canFilterProjects && tenantId && <ProjectChatFilter tenantId={tenantId} value={projectFilter} onChange={setProjectFilter} />}
                   {labels.length > 0 && (
                     <div className="border-t border-border mt-1 pt-1">
                       <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Etiquetas</p>
@@ -270,10 +282,10 @@ export const ConversationList = memo(function ConversationList({
                       })}
                     </div>
                   )}
-                  {(selectedLabelFilters.size > 0 || hideCampaignMessages || activeRecordFilterCount > 0) && (
+                  {(selectedLabelFilters.size > 0 || hideCampaignMessages || activeRecordFilterCount > 0 || projectFilterActive) && (
                     <div className="border-t border-border mt-1.5 pt-1.5">
                       <button
-                        onClick={() => { setSelectedLabelFilters(new Set()); setHideCampaignMessages(false); setRecordFilters([]); }}
+                        onClick={() => { setSelectedLabelFilters(new Set()); setHideCampaignMessages(false); setRecordFilters([]); setProjectFilter(EMPTY_PROJECT_FILTER); }}
                         className="w-full px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-left"
                       >
                         Limpiar filtros

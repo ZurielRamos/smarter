@@ -1601,6 +1601,17 @@ export class RecordsService {
         [losers],
       );
 
+      // 4b. Agente asignado: se conserva el del contacto más antiguo (por createdAt)
+      //     entre los que tienen agente. Si solo uno tiene, se mantiene ese.
+      const oldestWithAgent = [winner, ...loserRecords]
+        .filter((r) => !!r.assignedTo)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0];
+      if (oldestWithAgent && oldestWithAgent.assignedTo !== winner.assignedTo) {
+        await manager.query(`UPDATE clients SET assigned_to = $1 WHERE id = $2`, [
+          oldestWithAgent.assignedTo,
+          winnerId,
+        ]);
+      }
       // 5. Persistir los campos consolidados del ganador.
       await manager.query(
         `UPDATE clients SET

@@ -43,6 +43,7 @@ import { NodeInspector } from "./NodeInspector";
 import { RunPanel } from "./RunPanel";
 import { CATEGORY_LABELS, NODE_BY_TYPE, NODE_CATALOG, type NodeCategory } from "./nodeCatalog";
 import { EditorContext, type NodeRunInfo } from "./editorContext";
+import { api } from "@/services/api";
 
 type FlowNode = Node<AutomationNodeData>;
 
@@ -94,6 +95,15 @@ function EditorInner() {
   const [paletteSearch, setPaletteSearch] = useState("");
   const [connections, setConnections] = useState<AutomationConnection[]>([]);
   const [inboxes, setInboxes] = useState<InboxOption[]>([]);
+  const [conversationFlows, setConversationFlows] = useState<{ id: string; name: string; status: string }[]>([]);
+  // Flujos de Comunicaciones para el nodo «Iniciar flujo conversacional».
+  useEffect(() => {
+    if (!tenantId) return;
+    api
+      .get<{ id: string; name: string; status: string }[]>("/conversation-flows", { params: { tenantId } })
+      .then(({ data }) => setConversationFlows(data))
+      .catch(() => setConversationFlows([]));
+  }, [tenantId]);
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [running, setRunning] = useState(false);
@@ -381,12 +391,13 @@ function EditorInner() {
       issueNodeIds,
       connections,
       inboxes,
+      conversationFlows,
       reloadConnections,
       nodes: nodes.map((n) => ({ id: n.id, type: n.type as AutomationNodeType, position: n.position, data: n.data })),
       onRotateWebhook: rotateWebhook,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tenantId, auto?.id, auto?.webhookToken, runInfo, issueNodeIds, connections, inboxes, reloadConnections, nodes],
+    [tenantId, auto?.id, auto?.webhookToken, runInfo, issueNodeIds, connections, inboxes, conversationFlows, reloadConnections, nodes],
   );
 
   const palette = useMemo(() => {

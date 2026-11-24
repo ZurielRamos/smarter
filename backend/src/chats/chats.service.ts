@@ -1,12 +1,15 @@
+import { ProjectProspectsService } from '../reclutamiento/project-prospects.service';
+import { ProjectFilter, applyProjectFilter } from './conversation-project-filter';
 import {
   Injectable,
   Inject,
+  Optional,
   forwardRef,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan, SelectQueryBuilder } from 'typeorm';
+import { Repository, MoreThan, SelectQueryBuilder, In, Not } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { FlowSubmissionsService } from '../whatsapp-flows/flow-submissions.service';
@@ -50,7 +53,18 @@ import {
   compressVideoForWhatsApp,
   WA_VIDEO_LIMIT,
 } from '../media/whatsapp-transcode.util';
-import { ConversationFlowsService } from '../conversation-flows/conversation-flows.service';
+import {
+  ConversationFlowsService,
+  FlowTriggerEvent,
+} from '../conversation-flows/conversation-flows.service';
+import { FlowStartsService } from '../conversation-flows/flow-starts.service';
+import type {
+  FlowDirectStartSource,
+  FlowStartSource,
+  TemplateReplyInfo,
+} from '../conversation-flows/flow-triggers.util';
+import type { ConversationFlow } from '../conversation-flows/conversation-flow.entity';
+import { Campaign } from '../campaigns/campaign.entity';
 import {
   ConversationFlowEngine,
   FlowContext,
@@ -60,6 +74,8 @@ import {
 import {
   CONTACT_SYSTEM_FIELDS,
   WRITABLE_CONTACT_KEYS,
+  ACTION_ONLY_CONTACT_KEYS,
+  VARIABLE_KEY_RE,
   buildContactVariables,
 } from '../conversation-flows/contact-fields.util';
 import { parseDay } from '../conversation-flows/flow-conditions.util';
@@ -117,8 +133,12 @@ export interface ConvListOpts {
    * con AND.
    */
   recordFilters?: Array<{ field: string; operator: string; value: string }>;
+  /**
+   * Contactos que están en alguno de estos proyectos de reclutamiento. Con
+   * `statuses`, solo los que tienen ese estado en el proyecto; vacío = todos.
+   */
+  projectFilter?: ProjectFilter;
 }
-
 export type SendMessageOptions = {
   /** Id generado por el cliente para hacer el envío idempotente. */
   clientMessageId?: string;
@@ -131,6 +151,85 @@ export type SendMessageOptions = {
   /** Encabezado multimedia (link público https). Excluye `header` de texto. */
   headerMedia?: OutgoingHeaderMedia;
 };
+
+/** Datos del mensaje entrante que pueden iniciar un flujo (solo WhatsApp Cloud). */
+interface FlowInboundSignals {
+  /** id (wamid) del mensaje citado o de la plantilla cuyo botón se pulsó */
+  replyToExternalId?: string | null;
+  /** Título del botón de plantilla pulsado */
+  templateButton?: string | null;
+  /** Anuncio Click-to-WhatsApp desde el que llegó */
+  referral?: { sourceId?: string | null; headline?: string | null } | null;
+}
+
+/** Plantilla a la que respondió el contacto y el flujo que tenía asignado. */
+interface RepliedTemplate extends TemplateReplyInfo {
+  campaignId: string | null;
+  replyFlowId: string | null;
+  replyFlowSource: FlowDirectStartSource | null;
+}
+
+/** Qué inició el flujo en este turno (se registra en flow_starts). */
+interface FlowStartInfo {
+  source: FlowStartSource;
+  ref: string | null;
+}
+
+/** Ventana del «Flujo al responder» (campañas y plantillas enviadas para iniciar un flujo). */
+const CAMPAIGN_REPLY_WINDOW_MS = 72 * 3_600_000;
+
+/** Plantilla para iniciar un flujo con la ventana de 24 h cerrada. */
+export interface FlowStartTemplate {
+  name: string;
+  language?: string;
+  /** Variables del cuerpo {{1}}, {{2}}… en orden */
+  params?: string[];
+}
+
+export interface FlowStartResult {
+  /** started = el flujo ya envió su primer paso; template_sent = empezará cuando el contacto responda */
+  status: 'started' | 'template_sent';
+  conversationId: string;
+  messageId?: string;
+}
+
+const START_SOURCE_NOTE: Record<FlowDirectStartSource, string> = {
+  manual: 'desde el chat',
+  automation: 'por una automatización',
+  api: 'por la API',
+};
+
+/** Variables de entrada de un inicio directo: claves {{válidas}}, valores de texto. */
+function cleanStartVariables(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (Object.keys(out).length >= 50) break;
+    if (!VARIABLE_KEY_RE.test(k) || k.length > 50) continue;
+    if (v === null || v === undefined || typeof v === 'object') continue;
+    out[k] = String(v).slice(0, 1000);
+  }
+  return out;
+}
+
+/** Nombre de la plantilla de un mensaje saliente (columna nueva o formatos anteriores). */
+function templateNameOf(msg: {
+  templateName?: string | null;
+  mediaUrl?: string | null;
+  content?: string | null;
+}): string | null {
+  if (msg.templateName) return msg.templateName;
+  if (msg.mediaUrl?.startsWith('{')) {
+    try {
+      const name = JSON.parse(msg.mediaUrl)?.name;
+      if (typeof name === 'string' && name) return name;
+    } catch {
+      // no es JSON: se intenta con el contenido
+    }
+  }
+  const m = /^(?:\[Plantilla: (.+)\]|📋 (\S+))/.exec(msg.content ?? '');
+  return m ? (m[1] ?? m[2]) : null;
+}
 
 @Injectable()
 export class ChatsService {
@@ -218,6 +317,11 @@ export class ChatsService {
     @InjectRepository(SyncTombstone)
     private readonly tombstoneRepo: Repository<SyncTombstone>,
     private readonly flowTimersService: FlowTimersService,
+    private readonly flowStartsService: FlowStartsService,
+    @InjectRepository(Campaign)
+    private readonly campaignRepo: Repository<Campaign>,
+    @Optional()
+    private readonly projectProspects?: ProjectProspectsService,
   ) {}
 
   /**
@@ -373,6 +477,7 @@ export class ChatsService {
       userId?: string;
       search?: string;
       recordFilters?: Array<{ field: string; operator: string; value: string }>;
+      projectFilter?: { projectIds: string[]; statuses: string[] };
       limit: number;
       offset: number;
     },
@@ -391,8 +496,8 @@ export class ChatsService {
       userId: opts.userId,
       search: opts.search,
       recordFilters: opts.recordFilters,
+      projectFilter: opts.projectFilter,
     };
-
     const conversationsPromise =
       opts.inboxIds && opts.inboxIds.length > 0
         ? this.getConversationsByInboxes(opts.inboxIds, convOpts)
@@ -1945,6 +2050,17 @@ export class ChatsService {
         mediaUrl,
         mediaMimeType,
         interactivePayload,
+        flowSignals: {
+          replyToExternalId: msg.context?.id || null,
+          templateButton:
+            msg.type === 'button' ? msg.button?.text || null : null,
+          referral: msg.referral
+            ? {
+                sourceId: msg.referral.source_id || null,
+                headline: msg.referral.headline || null,
+              }
+            : null,
+        },
       }).catch((err) => {
         console.error('[Bot Auto-Reply] Failed:', err?.message || err);
       });
@@ -3168,9 +3284,14 @@ export class ChatsService {
   /**
    * Ejecuta los flujos conversacionales para un mensaje entrante. Orden:
    *   1) Pulsación de un botón de flujo (aunque el flujo ya hubiera terminado).
-   *   2) Palabra clave de un flujo activo (reinicia aunque haya otro en curso).
-   *   3) Continuación del flujo en curso (respuesta a botón o entrada de texto).
-   *   4) Flujo configurado para conversaciones nuevas.
+   *   2) Respuesta a una plantilla: el «Flujo al responder» de la campaña que
+   *      la envió y, si no, los disparadores «Respuesta a plantilla».
+   *   3) Llegada desde un anuncio de Meta (Click-to-WhatsApp).
+   *   4) Palabra clave de un flujo activo.
+   *   5) Continuación del flujo en curso (respuesta a botón o entrada de texto).
+   *   6) Flujo configurado para conversaciones nuevas.
+   * En 2–4 y 6 se aplican las reglas del flujo (bandejas, horario, audiencia,
+   * frecuencia y «si está en otro flujo») y, a igual tipo, gana la prioridad.
    * Devuelve true si un flujo atendió el mensaje.
    */
   private async runConversationFlows(
@@ -3179,12 +3300,12 @@ export class ChatsService {
     content: string | null,
     payload: string | null,
     media: FlowInputMedia | null = null,
+    signals: FlowInboundSignals = {},
   ): Promise<boolean> {
     if (!ChatsService.FLOW_CHANNELS.has(inbox.channel)) return false;
     // Un archivo sin texto solo le interesa a un flujo que espera una respuesta
     // (entrada de archivo o nota de voz); no inicia flujos por sí solo.
     if (!content && !payload && !media?.url) return false;
-
     let handled = false;
     // Serializa por conversación: dos mensajes seguidos no deben avanzar el flujo en paralelo.
     await this.withInboundLock(`flow:${conversationRef.id}`, async () => {
@@ -3192,12 +3313,11 @@ export class ChatsService {
         where: { id: conversationRef.id },
       });
       if (!conversation) return;
-      // Conversación tomada por un agente: las palabras clave y los botones de
-      // flujo siguen funcionando (son una acción explícita del contacto), pero
-      // no se inician flujos automáticos. Si el agente escribe a mano, el flujo
-      // en curso se cancela en sendMessage.
+      // Conversación tomada por un agente: las acciones explícitas del contacto
+      // (botones de flujo, palabras clave, respuesta a una plantilla) siguen
+      // funcionando; los inicios automáticos (anuncio, conversación nueva) no.
+      // Si el agente escribe a mano, el flujo en curso se cancela en sendMessage.
       const handedOff = conversation.botStatus === 'handed_off';
-
       const loader = (flowId: string) =>
         this.conversationFlowsService.loadForTenant(inbox.tenantId, flowId);
       // El contacto del CRM se carga solo si un flujo va a ejecutarse (y una vez):
@@ -3211,9 +3331,64 @@ export class ChatsService {
         ));
       const variables = conversation.flowVariables || {};
       const input = { text: content, payload, media };
-
+      const now = new Date();
       let result: FlowRunResult | null = null;
+      // Origen del flujo que se inicia en este turno (para flow_starts).
+      let startInfo: FlowStartInfo | null = null;
 
+      /** Primer flujo candidato que pasa las reglas que dependen de la conversación. */
+      const tryStart = async (event: FlowTriggerEvent): Promise<void> => {
+        const candidates =
+          await this.conversationFlowsService.findTriggerCandidates(
+            inbox.tenantId,
+            inbox.id,
+            event,
+            now,
+          );
+        for (const c of candidates) {
+          const running = conversation.flowState?.flowId;
+          if (
+            running &&
+            running !== c.flow.id &&
+            c.triggers.ifRunning === 'skip'
+          )
+            continue;
+          if (
+            c.triggers.audience &&
+            !this.conversationFlowEngine.matchesAudience(
+              c.triggers.audience,
+              variables,
+              await getContext(),
+            )
+          )
+            continue;
+          if (
+            !(await this.flowStartsService.allows(
+              c.flow.id,
+              c.triggers.frequency,
+              {
+                recordId: conversation.recordId ?? null,
+                conversationId: conversation.id,
+              },
+              now,
+            ))
+          )
+            continue;
+          result = await this.conversationFlowEngine.start(
+            c.flow,
+            { ...variables, ...c.variables },
+            loader,
+            await getContext(),
+          );
+          if (result.handled) {
+            startInfo = { source: c.trigger.type, ref: c.trigger.id };
+            return;
+          }
+        }
+      };
+      const notHandled = () => !(result as FlowRunResult | null)?.handled;
+
+      // 1) Botón de un flujo.
       if (parseButtonPayload(payload)) {
         result = await this.conversationFlowEngine.resume(
           conversation.flowState,
@@ -3223,23 +3398,47 @@ export class ChatsService {
           await getContext(),
         );
       }
-      if (!result?.handled && content) {
-        const keywordFlow =
-          await this.conversationFlowsService.findTriggeredFlow(
-            inbox.tenantId,
-            inbox.id,
-            content,
-            false,
-          );
-        if (keywordFlow)
-          result = await this.conversationFlowEngine.start(
-            keywordFlow,
-            variables,
-            loader,
-            await getContext(),
-          );
+      // 2) Respuesta a una plantilla (solo WhatsApp Cloud envía plantillas).
+      if (notHandled() && inbox.channel === 'whatsapp') {
+        const reply = await this.findRepliedTemplate(
+          conversation,
+          signals,
+        ).catch(() => null);
+        // Texto libre tras una plantilla: si hay un flujo esperando respuesta, es para él.
+        if (reply && (reply.button !== null || !conversation.flowState)) {
+          if (reply.replyFlowId || reply.campaignId) {
+            const started = await this.startAssignedReplyFlow(
+              inbox,
+              reply,
+              variables,
+              loader,
+              getContext,
+              now,
+            );
+            if (started) {
+              result = started.result;
+              startInfo = started.info;
+            }
+          }
+          if (notHandled())
+            await tryStart({ kind: 'template_reply', reply });
+        }
       }
-      if (!result?.handled && conversation.flowState) {
+      // 3) Llegada desde un anuncio de Meta.
+      if (notHandled() && !handedOff && signals.referral) {
+        await tryStart({
+          kind: 'ad_click',
+          ad: {
+            sourceId: signals.referral.sourceId ?? null,
+            headline: signals.referral.headline ?? null,
+          },
+        });
+      }
+      // 4) Palabra clave.
+      if (notHandled() && content)
+        await tryStart({ kind: 'keyword', text: content });
+      // 5) Flujo en curso.
+      if (notHandled() && conversation.flowState) {
         result = await this.conversationFlowEngine.resume(
           conversation.flowState,
           variables,
@@ -3248,31 +3447,18 @@ export class ChatsService {
           await getContext(),
         );
       }
-      if (!result?.handled && !handedOff && content) {
+      // 6) Conversación nueva.
+      if (notHandled() && !handedOff && content) {
         const inboundCount = await this.messageRepo.count({
           where: { conversationId: conversation.id, direction: 'inbound' },
         });
-        if (inboundCount <= 1) {
-          const newConvFlow =
-            await this.conversationFlowsService.findTriggeredFlow(
-              inbox.tenantId,
-              inbox.id,
-              null,
-              true,
-            );
-          if (newConvFlow)
-            result = await this.conversationFlowEngine.start(
-              newConvFlow,
-              variables,
-              loader,
-              await getContext(),
-            );
-        }
+        if (inboundCount <= 1) await tryStart({ kind: 'new_conversation' });
       }
 
-      if (!result?.handled) {
+      const final = result as FlowRunResult | null;
+      if (!final?.handled) {
         // El flujo soltó la conversación (o no había ninguno): limpiar estado si quedó colgado.
-        if (conversation.flowState && result && result.state === null) {
+        if (conversation.flowState && final && final.state === null) {
           conversation.flowState = null;
           await this.conversationRepo.save(conversation);
           conversationRef.flowState = null;
@@ -3282,11 +3468,338 @@ export class ChatsService {
         }
         return;
       }
-
       handled = true;
-      await this.applyFlowResult(inbox, conversation, conversationRef, result);
+      await this.applyFlowResult(inbox, conversation, conversationRef, final, {
+        startInfo,
+      });
     });
     return handled;
+  }
+
+  /**
+   * Plantilla a la que responde el mensaje entrante, o null si no responde a
+   * ninguna. Un botón de plantilla trae el id del mensaje original (context);
+   * un texto libre cuenta si la plantilla es el último mensaje enviado y esta
+   * es la primera respuesta del contacto después de ella.
+   */
+  private async findRepliedTemplate(
+    conversation: Conversation,
+    signals: FlowInboundSignals,
+  ): Promise<RepliedTemplate | null> {
+    const button = signals.templateButton?.trim() || null;
+    let msg: Message | null = null;
+    if (signals.replyToExternalId) {
+      msg = await this.messageRepo.findOne({
+        where: {
+          conversationId: conversation.id,
+          externalId: signals.replyToExternalId,
+          direction: 'outbound',
+        },
+      });
+      // Citó un mensaje que no es una plantilla: no es una respuesta a plantilla.
+      if (msg && msg.messageType !== 'template') return null;
+    }
+    if (!msg) {
+      const last = await this.messageRepo.findOne({
+        where: {
+          conversationId: conversation.id,
+          direction: 'outbound',
+          messageType: Not(In(['system', 'note'])),
+        },
+        order: { createdAt: 'DESC' },
+      });
+      if (last?.messageType !== 'template') return null;
+      if (!button) {
+        const repliesSince = await this.messageRepo.count({
+          where: {
+            conversationId: conversation.id,
+            direction: 'inbound',
+            createdAt: MoreThan(last.createdAt),
+          },
+        });
+        if (repliesSince > 1) return null;
+      }
+      msg = last;
+    }
+    return {
+      templateName: templateNameOf(msg),
+      button,
+      sentAt: msg.createdAt,
+      campaignId: msg.campaignId ?? null,
+      replyFlowId: msg.replyFlowId ?? null,
+      replyFlowSource: (msg.replyFlowSource as FlowDirectStartSource) ?? null,
+    };
+  }
+
+  /**
+   * Flujo asignado a la plantilla respondida: el que quedó pendiente al
+   * iniciarlo con la ventana cerrada (chat, automatización o API) o, si no, el
+   * «Flujo al responder» de la campaña que la envió. Es una asignación
+   * explícita: no usa los disparadores ni las reglas del flujo, solo exige que
+   * esté activo y que la respuesta llegue en las 72 h siguientes.
+   */
+  private async startAssignedReplyFlow(
+    inbox: Inbox,
+    reply: RepliedTemplate,
+    variables: Record<string, string>,
+    loader: (flowId: string) => Promise<ConversationFlow | null>,
+    getContext: () => Promise<FlowContext>,
+    now: Date,
+  ): Promise<{ result: FlowRunResult; info: FlowStartInfo } | null> {
+    if (now.getTime() - reply.sentAt.getTime() > CAMPAIGN_REPLY_WINDOW_MS)
+      return null;
+    let flowId: string | null = null;
+    let info: FlowStartInfo | null = null;
+    const entry: Record<string, string> = {
+      template_name: reply.templateName ?? '',
+      template_button: reply.button ?? '',
+    };
+    if (reply.replyFlowId) {
+      flowId = reply.replyFlowId;
+      const source = reply.replyFlowSource ?? 'manual';
+      info = { source, ref: null };
+      entry.trigger_type = source;
+    } else if (reply.campaignId) {
+      const campaign = await this.campaignRepo.findOne({
+        where: { id: reply.campaignId, tenantId: inbox.tenantId },
+        select: { id: true, name: true, replyFlowId: true },
+      });
+      if (!campaign?.replyFlowId) return null;
+      flowId = campaign.replyFlowId;
+      info = { source: 'campaign', ref: campaign.id };
+      entry.trigger_type = 'campaign';
+      entry.campaign_name = campaign.name;
+    }
+    if (!flowId || !info) return null;
+    const flow = await loader(flowId);
+    if (!flow || flow.status !== 'active') return null;
+    const result = await this.conversationFlowEngine.start(
+      flow,
+      { ...variables, ...entry },
+      loader,
+      await getContext(),
+    );
+    return result.handled ? { result, info } : null;
+  }
+
+  /**
+   * Inicia un flujo en una conversación por orden explícita: un agente desde
+   * el chat, una automatización o la API. No aplica disparadores ni reglas
+   * (horario, audiencia, frecuencia): quien lo inicia ya decidió.
+   *
+   * Con la ventana de 24 h cerrada los mensajes libres no se pueden enviar:
+   * en WhatsApp se envía la plantilla indicada y el flujo empieza cuando el
+   * contacto responda (en las 72 h siguientes). Sin plantilla, o en canales
+   * sin plantillas, se rechaza.
+   */
+  async startFlowInConversation(
+    conversationId: string,
+    flowId: string,
+    opts: {
+      source: FlowDirectStartSource;
+      variables?: Record<string, unknown>;
+      template?: FlowStartTemplate | null;
+      performedBy?: string | null;
+      performedByName?: string | null;
+    },
+  ): Promise<FlowStartResult> {
+    const conversation = await this.conversationRepo.findOne({
+      where: { id: conversationId },
+      relations: { inbox: true },
+    });
+    if (!conversation) throw new NotFoundException('Conversación no encontrada');
+    const inbox = conversation.inbox;
+    if (!ChatsService.FLOW_CHANNELS.has(inbox.channel))
+      throw new BadRequestException(
+        'Los flujos solo funcionan en WhatsApp, Messenger, Instagram y el chat web.',
+      );
+    const flow = await this.conversationFlowsService.loadForTenant(
+      inbox.tenantId,
+      flowId,
+    );
+    if (!flow) throw new NotFoundException('Flujo no encontrado');
+    if (flow.status !== 'active')
+      throw new BadRequestException(
+        `El flujo «${flow.name}» no está activo. Actívalo antes de iniciarlo.`,
+      );
+    const entry = {
+      ...cleanStartVariables(opts.variables),
+      trigger_type: opts.source,
+    };
+    const who =
+      opts.source === 'manual' && opts.performedByName
+        ? `por ${opts.performedByName}`
+        : START_SOURCE_NOTE[opts.source];
+
+    const windowOpen = await this.isServiceWindowOpen(
+      conversation.id,
+      inbox.channel,
+    );
+    if (!windowOpen) {
+      if (inbox.channel !== 'whatsapp')
+        throw new BadRequestException(
+          'La ventana de 24 horas está cerrada y este canal no admite plantillas. El flujo podrá iniciarse cuando el contacto vuelva a escribir.',
+        );
+      const name = String(opts.template?.name || '').trim();
+      if (!name)
+        throw new BadRequestException(
+          'La ventana de 24 horas está cerrada: indica una plantilla aprobada. El flujo empezará cuando el contacto la responda.',
+        );
+      const params = (opts.template?.params ?? []).map((p) =>
+        String(p ?? '').slice(0, 1000),
+      );
+      const sent = await this.sendTemplateMessage(
+        conversation.id,
+        name,
+        String(opts.template?.language || '').trim() || 'es',
+        params.length
+          ? [
+              {
+                type: 'body',
+                parameters: params.map((text) => ({ type: 'text', text })),
+              },
+            ]
+          : undefined,
+        opts.performedBy || undefined,
+      );
+      if (sent.status === 'failed')
+        throw new BadRequestException(
+          `No se pudo enviar la plantilla «${name}». Revisa la nota en la conversación.`,
+        );
+      await this.messageRepo.update(sent.id, {
+        replyFlowId: flow.id,
+        replyFlowSource: opts.source,
+      });
+      // Las variables viven en la conversación: el flujo las verá al empezar.
+      await this.withInboundLock(`flow:${conversation.id}`, async () => {
+        const fresh = await this.conversationRepo.findOne({
+          where: { id: conversation.id },
+        });
+        if (!fresh) return;
+        fresh.flowVariables = { ...(fresh.flowVariables || {}), ...entry };
+        // Un flujo anterior que siguiera esperando ya no aplica: la respuesta
+        // a esta plantilla es para el flujo nuevo.
+        if (fresh.flowState) {
+          fresh.flowState = null;
+          await this.flowTimersService
+            .cancelForConversation(fresh.id)
+            .catch(() => {});
+        }
+        await this.conversationRepo.save(fresh);
+      });
+      await this.createSystemNote(
+        conversation.id,
+        `▶ Flujo «${flow.name}» programado ${who}: se envió la plantilla «${name}» y empezará cuando el contacto responda.`,
+        inbox.tenantId,
+      );
+      return {
+        status: 'template_sent',
+        conversationId: conversation.id,
+        messageId: sent.id,
+      };
+    }
+
+    let started = false;
+    await this.withInboundLock(`flow:${conversation.id}`, async () => {
+      const fresh = await this.conversationRepo.findOne({
+        where: { id: conversation.id },
+      });
+      if (!fresh) return;
+      const loader = (id: string) =>
+        this.conversationFlowsService.loadForTenant(inbox.tenantId, id);
+      const result = await this.conversationFlowEngine.start(
+        flow,
+        { ...(fresh.flowVariables || {}), ...entry },
+        loader,
+        await this.buildFlowContext(inbox, fresh, ''),
+      );
+      if (!result.handled) return;
+      await this.createSystemNote(
+        conversation.id,
+        `▶ Flujo «${flow.name}» iniciado ${who}.`,
+        inbox.tenantId,
+      );
+      await this.applyFlowResult(inbox, fresh, fresh, result, {
+        startInfo: { source: opts.source, ref: opts.performedBy ?? null },
+      });
+      started = true;
+    });
+    if (!started)
+      throw new BadRequestException(
+        `El flujo «${flow.name}» no tiene pasos conectados al Inicio.`,
+      );
+    return { status: 'started', conversationId: conversation.id };
+  }
+
+  /**
+   * Conversación donde iniciar un flujo desde la API: por id, por contacto del
+   * CRM o por teléfono (en una bandeja). Con teléfono se busca el contacto por
+   * los últimos 10 dígitos; si no existe, una conversación con ese número.
+   */
+  async resolveConversationForFlowStart(
+    tenantId: string,
+    q: {
+      conversationId?: string;
+      inboxId?: string;
+      recordId?: string;
+      phone?: string;
+    },
+  ): Promise<string> {
+    const uuid = /^[0-9a-f-]{36}$/i;
+    if (q.conversationId) {
+      if (!uuid.test(q.conversationId))
+        throw new BadRequestException('conversationId no es válido');
+      const conv = await this.conversationRepo.findOne({
+        where: { id: q.conversationId },
+        relations: { inbox: true },
+      });
+      if (!conv || conv.inbox?.tenantId !== tenantId)
+        throw new NotFoundException('Conversación no encontrada');
+      return conv.id;
+    }
+    if (!q.inboxId || !uuid.test(q.inboxId))
+      throw new BadRequestException(
+        'Indica conversationId, o inboxId junto con recordId o phone',
+      );
+    const inbox = await this.inboxRepo.findOne({
+      where: { id: q.inboxId, tenantId },
+    });
+    if (!inbox) throw new NotFoundException('Bandeja no encontrada');
+    let recordId = q.recordId && uuid.test(q.recordId) ? q.recordId : null;
+    if (q.recordId && !recordId)
+      throw new BadRequestException('recordId no es válido');
+    const phone = String(q.phone || '').replace(/\D/g, '');
+    if (!recordId && phone.length >= 7) {
+      const record = await this.clientRecordRepo
+        .createQueryBuilder('c')
+        .where('c.tenantId = :tenantId', { tenantId })
+        .andWhere('c.deletedAt IS NULL')
+        .andWhere(
+          "RIGHT(regexp_replace(c.phone, '\\D', '', 'g'), 10) = :suffix",
+          { suffix: phone.slice(-10) },
+        )
+        .getOne();
+      recordId = record?.id ?? null;
+      if (!recordId) {
+        const conv = await this.conversationRepo.findOne({
+          where: { inboxId: inbox.id, contactId: phone },
+        });
+        if (conv) return conv.id;
+        throw new NotFoundException(
+          'No hay un contacto con ese teléfono. Créalo primero con la API de contactos.',
+        );
+      }
+    }
+    if (!recordId) throw new BadRequestException('Indica recordId o phone');
+    const record = await this.clientRecordRepo.findOne({
+      where: { id: recordId, tenantId },
+    });
+    if (!record) throw new NotFoundException('Contacto no encontrado');
+    const conv = await this.findOrCreateConversationForRecord(
+      inbox.id,
+      record.id,
+    );
+    return conv.id;
   }
 
   /**
@@ -3298,7 +3811,7 @@ export class ChatsService {
     conversation: Conversation,
     lastMessage = '',
   ): Promise<FlowContext> {
-    const [record, inboundCount] = await Promise.all([
+    const [record, inboundCount, projects] = await Promise.all([
       conversation.recordId
         ? this.clientRecordRepo.findOne({
             where: { id: conversation.recordId },
@@ -3308,6 +3821,12 @@ export class ChatsService {
       this.messageRepo.count({
         where: { conversationId: conversation.id, direction: 'inbound' },
       }),
+      // Proyectos de reclutamiento del contacto (condiciones de proyecto).
+      this.projectProspects
+        ? this.projectProspects
+            .flowMemberships(inbox.tenantId, conversation.recordId)
+            .catch(() => ({}) as Record<string, { status: string; role: string }>)
+        : Promise.resolve({} as Record<string, { status: string; role: string }>),
     ]);
     return {
       contactName: conversation.contactName,
@@ -3320,10 +3839,53 @@ export class ChatsService {
       conversationStatus: conversation.status,
       inboundCount,
       hasContact: !!record,
+      projects,
+      // Nodo «Generación IA»: solo se consultan si el nodo los pide.
+      recentMessages: (limit) => this.flowRecentMessages(conversation.id, limit),
+      projectNames: (ids) =>
+        this.projectProspects
+          ? this.projectProspects.projectNames(inbox.tenantId, ids)
+          : Promise.resolve({}),
       // La paginación «Más opciones» solo aplica a WhatsApp Cloud nativo.
       whatsappCloud:
         inbox.channel === 'whatsapp' && !isBridgeActive(inbox.metadata),
     };
+  }
+
+  /**
+   * Últimos mensajes de la conversación para el nodo «Generación IA», en orden
+   * cronológico. Sin notas internas ni avisos del sistema; los archivos sin
+   * texto se describen («[imagen]») para que la IA sepa que existieron.
+   */
+  private async flowRecentMessages(
+    conversationId: string,
+    limit: number,
+  ): Promise<{ from: 'contacto' | 'negocio'; text: string }[]> {
+    const rows = await this.messageRepo.find({
+      where: {
+        conversationId,
+        messageType: Not(In(['system', 'note'])),
+      },
+      select: { id: true, direction: true, messageType: true, content: true, createdAt: true },
+      order: { createdAt: 'DESC' },
+      take: Math.min(Math.max(limit, 1), 50),
+    });
+    const media: Record<string, string> = {
+      image: '[imagen]',
+      video: '[video]',
+      audio: '[audio]',
+      ptt: '[nota de voz]',
+      document: '[documento]',
+      sticker: '[sticker]',
+      location: '[ubicación]',
+    };
+    return rows
+      .reverse()
+      .map((m) => ({
+        from: (m.direction === 'inbound' ? 'contacto' : 'negocio') as 'contacto' | 'negocio',
+        text: (m.content || '').trim() || media[m.messageType] || '',
+      }))
+      .filter((m) => m.text);
   }
 
   /** Persiste el estado del flujo, aplica sus efectos y envía sus mensajes. */
@@ -3332,7 +3894,7 @@ export class ChatsService {
     conversation: Conversation,
     conversationRef: any,
     result: FlowRunResult,
-    opts: { suppressMessages?: boolean } = {},
+    opts: { suppressMessages?: boolean; startInfo?: FlowStartInfo | null } = {},
   ): Promise<void> {
     const { effects } = result;
     const previousToken = conversation.flowState?.token;
@@ -3378,6 +3940,16 @@ export class ChatsService {
           err?.message || err,
         ),
       );
+    }
+    // Agregar a proyecto / cambiar estado: se aplican después del contacto y se
+    // explican con una nota interna (también lo que no se pudo hacer).
+    if (effects.projectActions?.length && this.projectProspects) {
+      const notes = await this.projectProspects
+        .applyFlowActions(inbox.tenantId, conversation.recordId, effects.projectActions)
+        .catch((err) => [`Flujo: no se pudieron aplicar las acciones de proyecto (${err?.message || 'error'}).`]);
+      for (const note of notes) {
+        await this.createSystemNote(conversation.id, `📁 ${note}`, inbox.tenantId).catch(() => undefined);
+      }
     }
     // Sincronizar el objeto del pipeline para que un save posterior no pise el estado.
     Object.assign(conversationRef, {
@@ -3453,6 +4025,25 @@ export class ChatsService {
       this.conversationFlowsService
         .incrementRunCount(result.startedFlowIds)
         .catch(() => {});
+      // El primero es el que inició el disparador; los demás (o todos, si el
+      // turno continuó un flujo) llegaron por el nodo «Iniciar flujo».
+      this.flowStartsService
+        .record(
+          result.startedFlowIds.map((flowId, i) => ({
+            tenantId: inbox.tenantId,
+            flowId,
+            conversationId: conversation.id,
+            recordId: conversation.recordId ?? null,
+            source: i === 0 && opts.startInfo ? opts.startInfo.source : 'subflow',
+            sourceRef: i === 0 && opts.startInfo ? opts.startInfo.ref : null,
+          })),
+        )
+        .catch((err) =>
+          console.warn(
+            '[ConversationFlow] No se pudo registrar el inicio:',
+            err?.message || err,
+          ),
+        );
     }
   }
 
@@ -3506,7 +4097,12 @@ export class ChatsService {
     for (const [key, raw] of entries) {
       const value = raw.trim();
       const system = systemByKey.get(key);
-      if (system && WRITABLE_CONTACT_KEYS.has(key)) {
+      // Los campos de solo acción llegan únicamente desde «Actualizar contacto»:
+      // al guardar el flujo se descartan en los nodos Entrada y de IA.
+      if (
+        system &&
+        (WRITABLE_CONTACT_KEYS.has(key) || ACTION_ONLY_CONTACT_KEYS.has(key))
+      ) {
         if (key === 'phone' && isPhoneChannel) {
           skipped.push(
             `${system.label} (es el identificador del contacto en WhatsApp)`,
@@ -3861,6 +4457,7 @@ export class ChatsService {
       mediaUrl?: string | null;
       mediaMimeType?: string | null;
       interactivePayload?: string | null;
+      flowSignals?: FlowInboundSignals;
     },
   ): Promise<void> {
     // Los flujos conversacionales tienen prioridad sobre el bot: si un flujo
@@ -3879,6 +4476,7 @@ export class ChatsService {
             mimeType: mediaInfo.mediaMimeType ?? null,
           }
         : null,
+      mediaInfo?.flowSignals,
     ).catch((err) => {
       console.error('[ConversationFlow] Failed:', err?.message || err);
       return false;
@@ -4870,6 +5468,8 @@ export class ChatsService {
       });
     }
 
+    // Contactos en proyectos de reclutamiento (y, opcionalmente, en ciertos estados).
+    applyProjectFilter(qb, opts.projectFilter);
     // Reglas de filtro sobre campos del contacto vinculado (record).
     if (opts.recordFilters && opts.recordFilters.length > 0) {
       this.applyRecordFilters(qb, opts.recordFilters);
@@ -7345,6 +7945,7 @@ export class ChatsService {
       conversationId,
       direction: 'outbound',
       messageType: 'template',
+      templateName,
       content: displayContent,
       mediaUrl: templateComponents
         ? JSON.stringify({

@@ -26,6 +26,7 @@ const KNOWN_TYPES = new Set([
   'send_message',
   'contact_upsert',
   'contact_find',
+  'start_conversation_flow',
 ]);
 
 export interface GraphIssue {
@@ -128,6 +129,14 @@ export function validateGraph(
         need(
           !empty(d.phone) || !empty(d.email) || !empty(d.recordId),
           'indica el destinatario (teléfono, email o id de contacto)',
+        );
+        break;
+      case 'start_conversation_flow':
+        need(!empty(d.inboxId), 'selecciona un canal');
+        need(!empty(d.flowId), 'selecciona el flujo');
+        need(
+          !empty(d.phone) || !empty(d.recordId),
+          'indica el destinatario (teléfono o id de contacto)',
         );
         break;
       case 'contact_upsert':

@@ -1,3 +1,5 @@
+import { toast } from "sonner";
+import { EMPTY_PROJECT_FILTER, type ProjectChatFilterValue } from "@/pages/reclutamiento/proyectos/ProjectChatFilter";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -58,6 +60,26 @@ export function useConversations() {
       return [];
     }
   });
+  // Filtro por proyectos de reclutamiento. Los ids son de la cuenta: se guarda por cuenta.
+  const projectFilterKey = `chat_filter_projects_${tenantId}`;
+  const readProjectFilter = (key: string): ProjectChatFilterValue => {
+    try {
+      const saved = localStorage.getItem(key);
+      const parsed = saved ? JSON.parse(saved) : null;
+      return parsed && Array.isArray(parsed.projectIds) && Array.isArray(parsed.statuses) ? parsed : EMPTY_PROJECT_FILTER;
+    } catch {
+      return EMPTY_PROJECT_FILTER;
+    }
+  };
+  const [projectFilter, setProjectFilter] = useState<ProjectChatFilterValue>(() => (tenantId ? readProjectFilter(projectFilterKey) : EMPTY_PROJECT_FILTER));
+  // Al cambiar de cuenta se toma el filtro guardado de esa cuenta.
+  const loadedFilterKey = useRef(tenantId ? projectFilterKey : "");
+  useEffect(() => {
+    if (!tenantId || loadedFilterKey.current === projectFilterKey) return;
+    loadedFilterKey.current = projectFilterKey;
+    setProjectFilter(readProjectFilter(projectFilterKey));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectFilterKey, tenantId]);
   // Campos del contacto (sistema + personalizados) para construir las reglas.
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
 
@@ -113,7 +135,10 @@ export function useConversations() {
     if (activeRecordFilters.length > 0) {
       params.recordFilters = JSON.stringify(activeRecordFilters.map(({ field, operator, value }) => ({ field, operator, value })));
     }
-
+    if (projectFilter.projectIds.length > 0) {
+      params.projectIds = projectFilter.projectIds.join(",");
+      if (projectFilter.statuses.length > 0) params.projectStatuses = projectFilter.statuses.join(",");
+    }
     chatApi.get<{ data: Conversation[]; total: number }>("/chats/conversations", { params })
       .then(({ data: res }) => {
         if (reset) {
@@ -126,9 +151,10 @@ export function useConversations() {
           reset ? res.data.length < res.total : conversationsRef.current.length + res.data.length < res.total
         );
       })
-      .catch(() => {})
+      // Un error no debe verse como «Sin conversaciones»: se avisa para no confundirlo con una lista vacía.
+      .catch(() => toast.error("No se pudieron cargar las conversaciones con estos filtros"))
       .finally(() => setLoadingConversations(false));
-  }, [tenantId, selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter, searchQuery, recordFilters]);
+  }, [tenantId, selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter, searchQuery, recordFilters, projectFilter]);
 
   // Carga inicial consolidada: una sola petición trae inboxes + primera página
   // de conversaciones + labels + members. Los datos semi-estáticos se sirven
@@ -156,7 +182,10 @@ export function useConversations() {
     if (activeRecordFilters.length > 0) {
       params.recordFilters = JSON.stringify(activeRecordFilters.map(({ field, operator, value }) => ({ field, operator, value })));
     }
-
+    if (projectFilter.projectIds.length > 0) {
+      params.projectIds = projectFilter.projectIds.join(",");
+      if (projectFilter.statuses.length > 0) params.projectStatuses = projectFilter.statuses.join(",");
+    }
     chatApi.get<BootstrapResponse>("/chats/bootstrap", { params })
       .then(({ data }) => {
         setInboxes(data.inboxes);
@@ -174,7 +203,7 @@ export function useConversations() {
       })
       .catch(() => {})
       .finally(() => setLoadingConversations(false));
-  }, [tenantId, selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter, searchQuery, recordFilters]);
+  }, [tenantId, selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter, searchQuery, recordFilters, projectFilter]);
 
   const loadMessages = useCallback((convId: string) => {
     setLoadingMessages(true);
@@ -299,7 +328,7 @@ export function useConversations() {
       return;
     }
     loadConversations();
-  }, [selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter, recordFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedInboxFilter, selectedLabelFilters, hideCampaignMessages, assignmentFilter, recordFilters, projectFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Recargar conversaciones al cambiar la búsqueda, con debounce para no lanzar
   // una petición por cada tecla. Se salta el primer render (búsqueda vacía).
@@ -330,6 +359,9 @@ export function useConversations() {
   useEffect(() => {
     localStorage.setItem("chat_filter_recordRules", JSON.stringify(recordFilters));
   }, [recordFilters]);
+  useEffect(() => {
+    if (tenantId && loadedFilterKey.current === projectFilterKey) localStorage.setItem(projectFilterKey, JSON.stringify(projectFilter));
+  }, [projectFilter, projectFilterKey, tenantId]);
 
   // --- Active conversation effects ---
   useEffect(() => {
@@ -436,6 +468,8 @@ export function useConversations() {
     setSearchQuery,
     recordFilters,
     setRecordFilters,
+    projectFilter,
+    setProjectFilter,
     customFields,
 
     // Labels & Members

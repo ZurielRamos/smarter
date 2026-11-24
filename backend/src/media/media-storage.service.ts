@@ -402,6 +402,13 @@ export class MediaStorageService implements OnModuleInit {
     }
   }
 
+  /** ¿La URL apunta al bucket público de este servicio, dentro de la carpeta indicada? */
+  isOwnUrl(url: string, folderPrefix: string): boolean {
+    if (!url || !this.publicUrl) return false;
+    const prefix = `${this.publicUrl.replace(/\/$/, '')}/${folderPrefix.replace(/^\//, '')}`;
+    return url.startsWith(prefix) && !url.includes('..');
+  }
+
   // ───────────── Objetos privados por clave ─────────────
   // Para contenido que NO debe servirse por la URL pública del bucket: el
   // llamador cifra el contenido antes de guardarlo y lo sirve por la API.

@@ -1,6 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCheck, BellOff, Archive, Trash2, UserCircle, X, UserPlus } from "lucide-react";
+import { CheckCheck, BellOff, Archive, Trash2, UserCircle, X, UserPlus, FolderPlus } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { AddToProjectModal } from "@/pages/reclutamiento/proyectos/AddToProjectModal";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useConversations } from "./useConversations";
 import { ConversationList } from "./ConversationList";
@@ -17,6 +19,12 @@ export function Conversaciones() {
   // Context menu state (lives here since it spans the sidebar and needs conversation data)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; conversation: Conversation } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Conversation | null>(null);
+  const [addToProject, setAddToProject] = useState<Conversation | null>(null);
+  const { user } = useAuth();
+  // «Agregar a proyecto» solo con Reclutamiento activo y para owner/admin (los mismos permisos que exige el servidor).
+  const tenantRole = user?.tenantRoles.find((tr) => tr.tenant.slug === ctx.slug);
+  const canAddToProject =
+    !!user && (user.isSuperAdmin || (!!tenantRole?.tenant.features?.reclutamiento && (tenantRole.role === "owner" || tenantRole.role === "admin")));
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, conv: Conversation) => {
@@ -151,6 +159,10 @@ export function Conversaciones() {
         recordFilters={ctx.recordFilters}
         setRecordFilters={ctx.setRecordFilters}
         customFields={ctx.customFields}
+        projectFilter={ctx.projectFilter}
+        setProjectFilter={ctx.setProjectFilter}
+        canFilterProjects={canAddToProject}
+        tenantId={ctx.tenantId}
         onSelectConversation={ctx.setActiveConversation}
         onContextMenu={handleContextMenu}
         onLoadMore={() => ctx.loadConversations(false)}
@@ -236,6 +248,17 @@ export function Conversaciones() {
               ))}
             </div>
           </div>
+          {canAddToProject && contextMenu.conversation.record?.id && (
+            <button
+              onClick={() => {
+                setAddToProject(contextMenu.conversation);
+                setContextMenu(null);
+              }}
+              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+            >
+              <FolderPlus className="h-4 w-4 text-muted-foreground" /> Agregar a proyecto
+            </button>
+          )}
           <div className="my-1 border-t border-border" />
           <button onClick={handleDeleteConversation} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
             <Trash2 className="h-4 w-4 text-red-400" /> Eliminar conversación
@@ -243,6 +266,9 @@ export function Conversaciones() {
         </div>
       )}
 
+      {addToProject?.record?.id && (
+        <AddToProjectModal tenantId={ctx.tenantId} recordId={addToProject.record.id} contactName={getDisplayName(addToProject)} onClose={() => setAddToProject(null)} />
+      )}
       {/* Delete confirmation */}
       {deleteConfirm && (
         <ConfirmModal

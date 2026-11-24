@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -30,6 +30,10 @@ const PortalConfig = lazy(() => import("./pages/cursos/PortalConfig").then((m) =
 const CursoDetail = lazy(() => import("./pages/cursos/CursoDetail").then((m) => ({ default: m.CursoDetail })));
 const PublicCourse = lazy(() => import("./pages/cursos/PublicCourse").then((m) => ({ default: m.PublicCourse })));
 const AcademyPortal = lazy(() => import("./pages/cursos/AcademyPortal").then((m) => ({ default: m.AcademyPortal })));
+const EmpresasLayout = lazy(() => import("./pages/empresas/EmpresasLayout").then((m) => ({ default: m.EmpresasLayout })));
+const Empresas = lazy(() => import("./pages/empresas/Empresas").then((m) => ({ default: m.Empresas })));
+const ImportEmpresas = lazy(() => import("./pages/empresas/ImportEmpresas").then((m) => ({ default: m.ImportEmpresas })));
+const EmpresaDetail = lazy(() => import("./pages/empresas/EmpresaDetail").then((m) => ({ default: m.EmpresaDetail })));
 const Encuestas = lazy(() => import("./pages/encuestas/Encuestas").then((m) => ({ default: m.Encuestas })));
 const EncuestaDetail = lazy(() => import("./pages/encuestas/EncuestaDetail").then((m) => ({ default: m.EncuestaDetail })));
 const PublicSurvey = lazy(() => import("./pages/encuestas/PublicSurvey").then((m) => ({ default: m.PublicSurvey })));
@@ -55,10 +59,21 @@ const AutomatizacionesLayout = lazy(() => import("./pages/automatizaciones/Autom
 const Automatizaciones = lazy(() => import("./pages/automatizaciones/Automatizaciones").then((m) => ({ default: m.Automatizaciones })));
 const ReclutamientoLayout = lazy(() => import("./pages/reclutamiento/ReclutamientoLayout").then((m) => ({ default: m.ReclutamientoLayout })));
 const Reclutamiento = lazy(() => import("./pages/reclutamiento/Reclutamiento").then((m) => ({ default: m.Reclutamiento })));
+const Pagos = lazy(() => import("./pages/reclutamiento/Pagos").then((m) => ({ default: m.Pagos })));
 const PlantillasContrato = lazy(() => import("./pages/reclutamiento/Plantillas").then((m) => ({ default: m.Plantillas })));
 const PlantillaEditor = lazy(() => import("./pages/reclutamiento/PlantillaEditor").then((m) => ({ default: m.PlantillaEditor })));
 const PortalEncuestador = lazy(() => import("./pages/reclutamiento/PortalConfig").then((m) => ({ default: m.PortalConfig })));
-const EncuestadorPortal = lazy(() => import("./pages/reclutamiento/portal/EncuestadorPortal").then((m) => ({ default: m.EncuestadorPortal })));
+const LandingEditor = lazy(() => import("./pages/reclutamiento/landing/LandingEditor").then((m) => ({ default: m.LandingEditor })));
+const RecruitPortal = lazy(() => import("./pages/reclutamiento/portal/RecruitPortal").then((m) => ({ default: m.RecruitPortal })));
+/** Lleva la dirección anterior del portal (/encuestador/:slug) a la actual, conservando la invitación (?i=). */
+function LegacyPortalRedirect() {
+  const { tenantSlug } = useParams();
+  const { search } = useLocation();
+  return <Navigate to={`/r/${encodeURIComponent(tenantSlug ?? "")}${search}`} replace />;
+}
+
+const Proyectos = lazy(() => import("./pages/reclutamiento/proyectos/Proyectos").then((m) => ({ default: m.Proyectos })));
+const ProyectoDetalle = lazy(() => import("./pages/reclutamiento/proyectos/ProyectoDetalle").then((m) => ({ default: m.ProyectoDetalle })));
 const ReclutamientoDetail = lazy(() => import("./pages/reclutamiento/ReclutamientoDetail").then((m) => ({ default: m.ReclutamientoDetail })));
 const AutomationEditor = lazy(() => import("./pages/automatizaciones/AutomationEditor").then((m) => ({ default: m.AutomationEditor })));
 const AutomationConnections = lazy(() => import("./pages/automatizaciones/AutomationConnections").then((m) => ({ default: m.AutomationConnections })));
@@ -158,7 +173,10 @@ function App() {
             <Route path="/s/:surveySlug" element={<PublicSurvey />} />
             <Route path="/c/:slug" element={<PublicCourse />} />
             <Route path="/academy/:tenantSlug/*" element={<AcademyPortal />} />
-            <Route path="/encuestador/:tenantSlug" element={<EncuestadorPortal />} />
+            <Route path="/r/:tenantSlug" element={<RecruitPortal />} />
+            <Route path="/r/:tenantSlug/:projectSlug" element={<RecruitPortal />} />
+            {/* Dirección anterior del portal: se conserva para los enlaces de invitación ya enviados. */}
+            <Route path="/encuestador/:tenantSlug" element={<LegacyPortalRedirect />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/data-deletion" element={<DataDeletion />} />
@@ -188,6 +206,11 @@ function App() {
               <Route path="/:slug/clients/schema" element={<ClientSchema />} />
               <Route path="/:slug/clients/deleted" element={<DeletedContacts />} />
               <Route path="/:slug/clients/:id" element={<ClientDetail />} />
+              <Route path="/:slug/empresas" element={<EmpresasLayout />}>
+                <Route index element={<Empresas />} />
+                <Route path="importar" element={<ImportEmpresas />} />
+                <Route path=":companyId" element={<EmpresaDetail />} />
+              </Route>
               <Route path="/:slug/campaigns" element={<Campaigns />} />
               <Route path="/:slug/campaigns/:id" element={<CampaignDetail />} />
               <Route path="/:slug/encuestas" element={<Encuestas />}>
@@ -231,8 +254,12 @@ function App() {
               </Route>
               <Route path="/:slug/reclutamiento" element={<ReclutamientoLayout />}>
                 <Route index element={<Reclutamiento />} />
+                <Route path="pagos" element={<Pagos />} />
                 <Route path="plantillas" element={<PlantillasContrato />} />
                 <Route path="portal" element={<PortalEncuestador />} />
+                <Route path="landing" element={<LandingEditor />} />
+                <Route path="proyectos" element={<Proyectos />} />
+                <Route path="proyectos/:projectId" element={<ProyectoDetalle />} />
                 <Route path="plantillas/:templateId" element={<PlantillaEditor />} />
                 <Route path=":profileId" element={<ReclutamientoDetail />} />
               </Route>

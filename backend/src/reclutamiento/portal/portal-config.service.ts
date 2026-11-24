@@ -5,12 +5,26 @@ import { CustomField } from '../../records/custom-field.entity';
 import { Inbox } from '../../chats/inbox.entity';
 import { WhatsAppService } from '../../campaigns/whatsapp.service';
 import { TenantAuditService } from '../../audit/tenant-audit.service';
+import { MediaStorageService } from '../../media/media-storage.service';
 import { PortalConfigRow } from '../entities/portal-config.entity';
 import { Actor, requireObject } from '../validation';
+import { storeLandingImage } from './landing-images';
 import { PortalFieldDef, buildFieldCatalog } from './portal-fields';
+import {
+  DEFAULT_LANDING,
+  LANDING_MEDIA_CHANNEL,
+  LandingConfig,
+  landingImageUrls,
+  mergeLanding,
+  parseLanding,
+} from './portal-landing';
 
 export type InvitationChannel = 'email' | 'whatsapp' | 'both' | 'manual';
 export type VerificationChannel = 'email' | 'phone' | 'both';
+/** Quién puede crear su perfil: solo invitados, o cualquiera que verifique su correo o teléfono. */
+export type RegistrationMode = 'invite' | 'open';
+export const DEFAULT_CONSENT_TEXT =
+  'Acepto que {{empresa}} trate mis datos personales para evaluar mi postulación y gestionar mi vinculación.';
 export const INVITATION_VARIABLES = ['nombre', 'empresa', 'enlace'] as const;
 
 export interface PortalConfig {
@@ -29,6 +43,8 @@ export interface PortalConfig {
   documents: Array<{ key: string; label: string; required: boolean; help: string }>;
   sessionHours: number;
   welcomeMessage: string;
+  registration: { mode: RegistrationMode; consentText: string };
+  landing: LandingConfig;
 }
 
 export const DEFAULT_CONFIG: PortalConfig = {
@@ -60,6 +76,8 @@ export const DEFAULT_CONFIG: PortalConfig = {
   documents: [{ key: 'documento_identidad', label: 'Documento de identidad', required: true, help: 'Foto o PDF legible, por ambos lados.' }],
   sessionHours: 12,
   welcomeMessage: '',
+  registration: { mode: 'invite', consentText: DEFAULT_CONSENT_TEXT },
+  landing: DEFAULT_LANDING,
 };
 
 const str = (v: unknown, field: string, max: number, fallback = ''): string => {
@@ -84,6 +102,7 @@ export class PortalConfigService {
     @InjectRepository(Inbox) private readonly inboxes: Repository<Inbox>,
     private readonly whatsapp: WhatsAppService,
     private readonly audit: TenantAuditService,
+    private readonly media: MediaStorageService,
   ) {}
 
   /** Configuración vigente: lo guardado completado con los valores por defecto. */
@@ -111,6 +130,14 @@ export class PortalConfigService {
       documents: Array.isArray(saved.documents) ? saved.documents : d.documents,
       sessionHours: typeof saved.sessionHours === 'number' ? saved.sessionHours : d.sessionHours,
       welcomeMessage: typeof saved.welcomeMessage === 'string' ? saved.welcomeMessage : d.welcomeMessage,
+      registration: {
+        mode: saved.registration?.mode === 'open' ? 'open' : 'invite',
+        consentText:
+          typeof saved.registration?.consentText === 'string' && saved.registration.consentText.trim()
+            ? saved.registration.consentText
+            : d.registration.consentText,
+      },
+      landing: mergeLanding(saved.landing),
     };
   }
 
@@ -121,6 +148,7 @@ export class PortalConfigService {
 
   async update(tenantId: string, actor: Actor, body: Record<string, unknown>): Promise<PortalConfig> {
     const input = requireObject(body, 'La configuración');
+    const current = await this.get(tenantId);
     const inv = requireObject(input.invitation ?? {}, 'La invitación');
     const ver = requireObject(input.verification ?? {}, 'La verificación');
     const d = DEFAULT_CONFIG;
@@ -171,6 +199,9 @@ export class PortalConfigService {
       documents: this.parseDocuments(input.documents ?? d.documents),
       sessionHours: int(input.sessionHours, 'Las horas de sesión', 1, 168, d.sessionHours),
       welcomeMessage: str(input.welcomeMessage, 'El mensaje de bienvenida', 1000),
+      registration: this.parseRegistration(input.registration, current.registration),
+      // La landing tiene su propio endpoint: aquí nunca se modifica.
+      landing: current.landing,
     };
 
     if (!config.invitation.email.body.includes('{{enlace}}') && (config.invitation.channel === 'email' || config.invitation.channel === 'both')) {
@@ -198,12 +229,67 @@ export class PortalConfigService {
       actorLabel: actor.email,
       action: 'reclutamiento.portal.config_update',
       targetType: 'portal_config',
-      metadata: { invitationChannel: config.invitation.channel, verificationChannel: config.verification.channel, fields: config.fields.length, documents: config.documents.length },
+      metadata: {
+        invitationChannel: config.invitation.channel,
+        verificationChannel: config.verification.channel,
+        registrationMode: config.registration.mode,
+        fields: config.fields.length,
+        documents: config.documents.length,
+      },
     });
     return config;
   }
 
-  private async assertWhatsappReady(tenantId: string, wa: { inboxId: string | null; templateName: string }, what: string) {
+  private parseRegistration(raw: unknown, fallback: PortalConfig['registration']): PortalConfig['registration'] {
+    if (raw === undefined || raw === null) return fallback;
+    const o = requireObject(raw, 'El registro');
+    const mode = (o.mode ?? fallback.mode) as string;
+    if (mode !== 'invite' && mode !== 'open') throw new BadRequestException('El modo de registro es inválido');
+    const consentText = str(o.consentText, 'El texto de consentimiento', 500, fallback.consentText) || DEFAULT_CONSENT_TEXT;
+    return { mode, consentText };
+  }
+
+  // ───────────── Landing ─────────────
+
+  /** Carpeta de las imágenes de landing de una cuenta dentro del bucket público. */
+  private imageFolder(tenantId: string): string {
+    return `media/${tenantId}/${LANDING_MEDIA_CHANNEL}/`;
+  }
+
+  async updateLanding(tenantId: string, actor: Actor, body: Record<string, unknown>): Promise<LandingConfig> {
+    const input = requireObject(body, 'La landing');
+    const folder = this.imageFolder(tenantId);
+    const landing = parseLanding(input, { isOwnImage: (url) => this.media.isOwnUrl(url, folder) });
+    const current = await this.get(tenantId);
+    const config: PortalConfig = { ...current, landing };
+    await this.rows.upsert({ tenantId, config: config as unknown as Record<string, any>, updatedBy: actor.id }, ['tenantId']);
+    // Imágenes que ya no se usan: se borran del almacenamiento (solo las de esta cuenta).
+    const kept = new Set(landingImageUrls(landing));
+    for (const url of landingImageUrls(current.landing)) {
+      if (!kept.has(url) && this.media.isOwnUrl(url, folder)) await this.media.deleteByUrl(url).catch(() => undefined);
+    }
+    await this.audit.log({
+      tenantId,
+      actorType: 'user',
+      actorId: actor.id,
+      actorLabel: actor.email,
+      action: 'reclutamiento.portal.landing_update',
+      targetType: 'portal_config',
+      metadata: { enabled: landing.enabled, sections: landing.sections.filter((s) => s.enabled).map((s) => s.id) },
+    });
+    return landing;
+  }
+
+  /** Sube una imagen de la landing y devuelve su URL; el editor la guarda con la landing. */
+  uploadLandingImage(
+    tenantId: string,
+    slot: string,
+    file: { buffer: Buffer; mimetype: string; originalname?: string } | undefined,
+  ): Promise<{ url: string }> {
+    return storeLandingImage(this.media, tenantId, 'landing', slot, file);
+  }
+
+  async assertWhatsappReady(tenantId: string, wa: { inboxId: string | null; templateName: string }, what: string) {
     if (!wa.inboxId || !wa.templateName) {
       throw new BadRequestException(`Elige el número de WhatsApp y la plantilla ${what}`);
     }

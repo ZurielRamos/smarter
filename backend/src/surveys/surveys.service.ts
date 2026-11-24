@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { Survey } from './survey.entity';
 import { SurveyResponse } from './survey-response.entity';
@@ -14,6 +14,8 @@ import {
   CrmMappingInput,
   SurveyUpdateFields,
   assertValidFlowJson,
+  generateSurveySlug,
+  starterFlowJson,
   parseAgentToken,
   parseCrmMapping,
   parseLocation,
@@ -30,55 +32,6 @@ function requireTenantId(tenantId: unknown): string {
     throw new BadRequestException('tenantId requerido');
   }
   return tenantId;
-}
-
-/**
- * Plantilla mínima de encuesta en formato Meta Flow JSON. Una pantalla terminal
- * con un título y un campo de texto, lista para editar en el constructor
- * visual. Igual que la de WhatsApp Flows: así la estructura es compatible.
- */
-function starterFlowJson(): Record<string, any> {
-  return {
-    version: '7.3',
-    data_api_version: '3.0',
-    routing_model: { SCREEN_INICIO: [] },
-    screens: [
-      {
-        id: 'SCREEN_INICIO',
-        title: 'Pantalla 1',
-        terminal: true,
-        success: true,
-        data: {},
-        layout: {
-          type: 'SingleColumnLayout',
-          children: [
-            {
-              type: 'Form',
-              name: 'form_screen_inicio',
-              children: [
-                { type: 'TextHeading', text: 'Título de ejemplo' },
-                {
-                  type: 'TextInput',
-                  name: 'respuesta',
-                  label: 'Tu respuesta',
-                  'input-type': 'text',
-                  required: false,
-                },
-                {
-                  type: 'Footer',
-                  label: 'Enviar',
-                  'on-click-action': {
-                    name: 'complete',
-                    payload: { respuesta: '${form.respuesta}' },
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      },
-    ],
-  };
 }
 
 export interface SurveyQuestionAnalytics {
@@ -121,8 +74,9 @@ export class SurveysService {
   // ---- CRUD local ----
 
   findAll(tenantId: string): Promise<Survey[]> {
+    // Las encuestas de un estudio viven en Estudios, no en este módulo.
     return this.surveyRepo.find({
-      where: { tenantId: requireTenantId(tenantId) },
+      where: { tenantId: requireTenantId(tenantId), clientStudyId: IsNull() },
       order: { createdAt: 'DESC' },
     });
   }
@@ -169,6 +123,36 @@ export class SurveysService {
           firstScreen,
         };
       });
+  }
+
+  /** Las encuestas de un estudio las gobierna el estudio: no se activan, archivan, eliminan ni publican por aquí. */
+  private assertNotStudy(survey: Survey, what: string): void {
+    if (survey.clientStudyId) {
+      throw new ConflictException(`${what}: la encuesta pertenece a un estudio. Se administra desde Estudios.`);
+    }
+  }
+
+  /**
+   * ¿Ya no se pueden cambiar las preguntas de una encuesta de estudio? Sí cuando
+   * recibió respuestas, cuando algún encuestador fue asignado al estudio o
+   * cuando el estudio se cerró: mezclar versiones distintas del cuestionario
+   * dañaría los resultados. Los textos y la apariencia siguen editables.
+   */
+  async isStructureLocked(survey: Pick<Survey, 'id' | 'clientStudyId' | 'responseCount'>): Promise<boolean> {
+    if (!survey.clientStudyId) return false;
+    if (survey.responseCount > 0) return true;
+    const rows: Array<{ locked: boolean }> = await this.surveyRepo.manager.query(
+      `SELECT (
+         EXISTS (SELECT 1 FROM client_studies c WHERE c.id = $1 AND c.status = 'closed')
+         OR EXISTS (
+           SELECT 1 FROM study_assignments a
+           JOIN project_studies p ON p.id = a.study_id
+           WHERE p.client_study_id = $1
+         )
+       ) AS locked`,
+      [survey.clientStudyId],
+    );
+    return !!rows[0]?.locked;
   }
 
   async findOne(id: string): Promise<Survey> {
@@ -307,6 +291,11 @@ export class SurveysService {
   }> {
     assertValidFlowJson(flowJson);
     const survey = await this.findOne(id);
+    if (await this.isStructureLocked(survey)) {
+      throw new ConflictException(
+        'Las preguntas ya no se pueden cambiar: el estudio tiene respuestas, encuestadores asignados o está cerrado. Crea un estudio nuevo para otra versión.',
+      );
+    }
     survey.flowJson = flowJson;
     const saved = await this.surveyRepo.save(survey);
 
@@ -386,7 +375,7 @@ export class SurveysService {
   }
 
   async remove(id: string): Promise<void> {
-    await this.findOne(id);
+    this.assertNotStudy(await this.findOne(id), 'No se puede eliminar');
     await this.surveyRepo.softDelete(id);
   }
 
@@ -396,6 +385,7 @@ export class SurveysService {
    */
   async activate(id: string): Promise<Survey> {
     const survey = await this.findOne(id);
+    this.assertNotStudy(survey, 'No se puede activar');
     if (!survey.slug) survey.slug = this.generateSlug(survey.name);
     survey.status = 'active';
     return this.surveyRepo.save(survey);
@@ -403,6 +393,7 @@ export class SurveysService {
 
   async archive(id: string): Promise<Survey> {
     const survey = await this.findOne(id);
+    this.assertNotStudy(survey, 'No se puede archivar');
     survey.status = 'archived';
     return this.surveyRepo.save(survey);
   }
@@ -506,6 +497,9 @@ export class SurveysService {
       select: { id: true, features: true, isActive: true },
     });
     if (!tenant || tenant.isActive === false) return false;
+    // La encuesta de un estudio no tiene enlace público: solo la responden los
+    // encuestadores asignados, desde el portal, para que cada respuesta quede atribuida.
+    if (survey.clientStudyId) return false;
     return isFeatureEnabled(tenant.features, 'encuestas');
   }
 
@@ -591,6 +585,7 @@ export class SurveysService {
   /** Actualiza el mapeo de campos al CRM y el campo de match. */
   async updateCrmMapping(id: string, body: unknown): Promise<Survey> {
     const survey = await this.findOne(id);
+    this.assertNotStudy(survey, 'No se puede vincular al CRM');
     // Los destinos deben existir en el catálogo de campos del CRM del tenant.
     const targets = await this.crm.listTargets(survey.tenantId);
     const allowed = new Set<string>([...targets.system, ...targets.custom].map((t) => t.value));
@@ -604,8 +599,26 @@ export class SurveysService {
     return this.crm.listTargets(requireTenantId(tenantId));
   }
 
-  findResponses(id: string): Promise<SurveyResponse[]> {
-    return this.responseRepo.find({ where: { surveyId: id }, order: { createdAt: 'DESC' } });
+  /**
+   * Respuestas de una encuesta. En la de un estudio (gestionada por el cliente)
+   * solo salen las que la reclutadora ya aprobó, y sin los datos internos del
+   * trabajo de campo: el cliente nunca ve quién hizo la encuesta.
+   */
+  async findResponses(id: string): Promise<SurveyResponse[]> {
+    const survey = await this.findOne(id);
+    if (!survey.clientStudyId) return this.responseRepo.find({ where: { surveyId: id }, order: { createdAt: 'DESC' } });
+    const rows = await this.clientVisibleResponses(id);
+    return rows.map((r) => ({ ...r, profileId: null, studyLinkId: null, recruiterReviewedBy: null, clientReviewedBy: null }) as SurveyResponse);
+  }
+
+  /** Lo que el cliente puede ver de una encuesta de estudio: lo que pasó la revisión de la reclutadora (y no lo rechazó ella). */
+  private clientVisibleResponses(surveyId: string): Promise<SurveyResponse[]> {
+    return this.responseRepo
+      .createQueryBuilder('r')
+      .where('r.surveyId = :id', { id: surveyId })
+      .andWhere("(r.reviewStatus IN ('pending_client', 'approved') OR (r.reviewStatus = 'rejected' AND r.rejectedBy = 'client'))")
+      .orderBy('r.createdAt', 'DESC')
+      .getMany();
   }
 
   /**
@@ -651,6 +664,7 @@ export class SurveysService {
     validationErrors?: any[];
   }> {
     const survey = await this.findOne(id);
+    this.assertNotStudy(survey, 'No se puede publicar en WhatsApp');
     if (!survey.flowJson) throw new BadRequestException('La encuesta no tiene contenido');
     if (!inboxId) throw new BadRequestException('inboxId requerido');
     if (survey.requireLocation) {
@@ -790,7 +804,10 @@ export class SurveysService {
 
   async analytics(id: string): Promise<SurveyAnalytics> {
     const survey = await this.findOne(id);
-    const responses = await this.responseRepo.find({ where: { surveyId: id } });
+    // En un estudio, los resultados se calculan sobre lo que no fue rechazado y ya pasó la revisión de la reclutadora.
+    const responses = survey.clientStudyId
+      ? (await this.clientVisibleResponses(id)).filter((r) => r.reviewStatus !== 'rejected')
+      : await this.responseRepo.find({ where: { surveyId: id } });
 
     const byChannel: Record<string, number> = {};
     for (const r of responses) {
@@ -891,15 +908,7 @@ export class SurveysService {
   }
 
   private generateSlug(name: string): string {
-    const base = (name || 'encuesta')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 60);
-    const suffix = randomBytes(4).toString('hex');
-    return `${base || 'encuesta'}-${suffix}`;
+    return generateSurveySlug(name);
   }
 
   private booleanBuckets(

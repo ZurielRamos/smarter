@@ -439,7 +439,7 @@ interface Props {
 
 export function NodeInspector({ node, onChange, onDelete, onClose }: Props) {
   const def = NODE_BY_TYPE[node.type];
-  const { connections, inboxes } = useEditor();
+  const { connections, inboxes, conversationFlows } = useEditor();
   const [confirmDelete, setConfirmDelete] = useState(false);
   if (!def) return null;
   const d = node.data;
@@ -548,6 +548,22 @@ export function NodeInspector({ node, onChange, onDelete, onClose }: Props) {
               <option value="">{f.optional ? "Todos los canales" : "Selecciona un canal…"}</option>
               {inboxes.map((i) => (
                 <option key={i.id} value={i.id}>{i.name} · {i.channel}</option>
+              ))}
+            </select>
+            {help}
+          </div>
+        );
+      case "conversationFlow":
+        return (
+          <div key={f.key}>
+            <label htmlFor={id} className={labelClass}>{f.label}</label>
+            <select id={id} value={(val as string) ?? ""} onChange={(e) => set(f.key, e.target.value || undefined)} className={inputClass}>
+              <option value="">Selecciona un flujo…</option>
+              {conversationFlows.map((fl) => (
+                <option key={fl.id} value={fl.id}>
+                  {fl.name}
+                  {fl.status !== "active" ? " (inactivo)" : ""}
+                </option>
               ))}
             </select>
             {help}

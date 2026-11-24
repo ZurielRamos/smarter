@@ -8,6 +8,10 @@ import { addTenantFeatures } from './005-add-tenant-features.migration';
 import { addConversationFlows } from './006-add-conversation-flows.migration';
 import { addFlowLinks } from './007-add-flow-links.migration';
 import { addFlowTimers } from './008-add-flow-timers.migration';
+import { addFlowTriggers } from './009-add-flow-triggers.migration';
+import { dropLegacyProjects } from './010-drop-legacy-projects.migration';
+import { addProspectRoles } from './011-prospect-roles.migration';
+import { simplifyProspectStates } from './012-simple-prospect-states.migration';
 
 dotenv.config();
 
@@ -37,6 +41,10 @@ async function run() {
     await addConversationFlows(dataSource);
     await addFlowLinks(dataSource);
     await addFlowTimers(dataSource);
+    await addFlowTriggers(dataSource);
+    await dropLegacyProjects(dataSource);
+    await addProspectRoles(dataSource);
+    await simplifyProspectStates(dataSource);
   } finally {
     await dataSource.destroy();
     console.log('[Runner] Conexión cerrada');

@@ -72,6 +72,51 @@ export class SurveyResponse {
   @Column({ name: 'attributed_user_id', type: 'uuid', nullable: true })
   attributedUserId: string | null;
 
+  // ── Trabajo de campo (encuestas de un estudio, respondidas desde el portal) ──
+  /** Encuestador (perfil de la cuenta reclutadora) que hizo la encuesta. */
+  @Column({ name: 'profile_id', type: 'uuid', nullable: true })
+  profileId: string | null;
+
+  /** Asignación del estudio al socio (`project_studies.id`). */
+  @Column({ name: 'study_link_id', type: 'uuid', nullable: true })
+  studyLinkId: string | null;
+
+  /** Lote y fila (posición en `study_batches.rows`) a los que cuenta la encuesta. */
+  @Index()
+  @Column({ name: 'batch_id', type: 'uuid', nullable: true })
+  batchId: string | null;
+
+  @Column({ name: 'batch_row', type: 'integer', nullable: true })
+  batchRow: number | null;
+
+  /**
+   * Revisión en dos etapas (solo respuestas de trabajo de campo): primero la
+   * reclutadora y luego el cliente. Nulo en las demás encuestas.
+   *  pending_recruiter → pending_client → approved, o rejected en cualquiera.
+   */
+  @Index()
+  @Column({ name: 'review_status', type: 'varchar', length: 20, nullable: true })
+  reviewStatus: 'pending_recruiter' | 'pending_client' | 'approved' | 'rejected' | null;
+
+  /** Quién rechazó: la reclutadora o el cliente. */
+  @Column({ name: 'rejected_by', type: 'varchar', length: 10, nullable: true })
+  rejectedBy: 'recruiter' | 'client' | null;
+
+  @Column({ name: 'reject_reason', type: 'text', nullable: true })
+  rejectReason: string | null;
+
+  @Column({ name: 'recruiter_reviewed_by', type: 'uuid', nullable: true })
+  recruiterReviewedBy: string | null;
+
+  @Column({ name: 'recruiter_reviewed_at', type: 'timestamptz', nullable: true })
+  recruiterReviewedAt: Date | null;
+
+  @Column({ name: 'client_reviewed_by', type: 'uuid', nullable: true })
+  clientReviewedBy: string | null;
+
+  @Column({ name: 'client_reviewed_at', type: 'timestamptz', nullable: true })
+  clientReviewedAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

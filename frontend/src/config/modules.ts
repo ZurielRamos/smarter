@@ -46,11 +46,18 @@ export const TENANT_MODULES: ModuleDef[] = [
     always: true,
   },
   {
+    key: "companies",
+    label: "Empresas",
+    description: "Empresas y establecimientos, con sucursales y contactos vinculados",
+    path: "empresas",
+    defaultOn: false,
+  },
+  {
     key: "encuestas",
     label: "Encuestas",
     description: "Encuestas por enlace y WhatsApp",
     path: "encuestas",
-    defaultOn: true,
+    defaultOn: false,
   },
   {
     key: "cursos",
@@ -69,7 +76,7 @@ export const TENANT_MODULES: ModuleDef[] = [
   {
     key: "reclutamiento",
     label: "Reclutamiento",
-    description: "Cuenta reclutadora: encuestadores con contrato y datos de pago verificados",
+    description: "Cuenta reclutadora: encuestadores con contrato y datos de pago verificados, y proyectos con landing y registro de prospectos",
     path: "reclutamiento",
     defaultOn: false,
   },

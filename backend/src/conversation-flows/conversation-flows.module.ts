@@ -6,6 +6,9 @@ import { CustomField } from '../records/custom-field.entity';
 import { Bot } from '../bots/bot.entity';
 import { FlowTimer } from './flow-timer.entity';
 import { FlowTimersService } from './flow-timers.service';
+import { FlowStart } from './flow-start.entity';
+import { FlowStartsService } from './flow-starts.service';
+import { Campaign } from '../campaigns/campaign.entity';
 import { ConversationFlowsService } from './conversation-flows.service';
 import { ConversationFlowsController } from './conversation-flows.controller';
 import { ConversationFlowEngine } from './conversation-flow.engine';
@@ -26,6 +29,8 @@ import { BotsModule } from '../bots/bots.module';
       CustomField,
       Bot,
       FlowTimer,
+      FlowStart,
+      Campaign,
     ]),
     // IA de los nodos Entrada (OpenRouter, créditos y transcripción de audio).
     BillingModule,
@@ -38,12 +43,14 @@ import { BotsModule } from '../bots/bots.module';
     FlowLinksService,
     FlowAiService,
     FlowTimersService,
+    FlowStartsService,
   ],
   exports: [
     ConversationFlowsService,
     ConversationFlowEngine,
     FlowLinksService,
     FlowTimersService,
+    FlowStartsService,
   ],
 })
 export class ConversationFlowsModule {}

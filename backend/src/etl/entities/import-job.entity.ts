@@ -10,6 +10,8 @@ import {
 } from 'typeorm';
 import { Tenant } from '../../tenants/tenant.entity';
 
+export type ImportEntity = 'contacts' | 'companies';
+
 export type ImportJobStatus =
   | 'pending'
   | 'parsing'
@@ -57,6 +59,10 @@ export class ImportJob {
   tenant: Tenant;
 
   // === Estado ===
+  /** Qué se importa: contactos (por defecto) o empresas. Separa los trabajos de cada módulo. */
+  @Column({ type: 'varchar', length: 20, default: 'contacts' })
+  entity: ImportEntity;
+
   @Column({ type: 'varchar', length: 30, default: 'pending' })
   status: ImportJobStatus;
 

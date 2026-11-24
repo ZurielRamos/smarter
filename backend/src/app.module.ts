@@ -35,6 +35,7 @@ import { CursosModule } from './cursos/cursos.module';
 import { LegalModule } from './legal/legal.module';
 import { AutomatizacionesModule } from './automatizaciones/automatizaciones.module';
 import { ReclutamientoModule } from './reclutamiento/reclutamiento.module';
+import { CompaniesModule } from './companies/companies.module';
 
 @Module({
   imports: [
@@ -102,6 +103,7 @@ import { ReclutamientoModule } from './reclutamiento/reclutamiento.module';
     LegalModule,
     AutomatizacionesModule,
     ReclutamientoModule,
+    CompaniesModule,
   ],
   providers: [
     {

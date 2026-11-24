@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Check } from "lucide-react";
+import { ChevronDown, Check, Search } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useBranding } from "@/context/BrandingContext";
 
 export function TenantSelector({ compact = false }: { compact?: boolean } = {}) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const { user } = useAuth();
   const branding = useBranding();
   const iconSvg = branding.iconUrl;
@@ -22,6 +23,20 @@ export function TenantSelector({ compact = false }: { compact?: boolean } = {}) 
   // Count total options (tenants + super admin if applicable)
   const totalOptions = tenants.length + (user?.isSuperAdmin ? 1 : 0);
   const hasMultipleOptions = totalOptions > 1;
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredTenants = normalizedQuery
+    ? tenants.filter((tr) => tr.tenant.name.toLowerCase().includes(normalizedQuery))
+    : tenants;
+  const adminLabel = `${branding.name} Admin`;
+  const showAdmin =
+    !!user?.isSuperAdmin &&
+    (!normalizedQuery || adminLabel.toLowerCase().includes(normalizedQuery));
+
+  // Reset search when closing
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
 
   // Close on click outside
   useEffect(() => {
@@ -107,9 +122,30 @@ export function TenantSelector({ compact = false }: { compact?: boolean } = {}) 
                 Cuentas
               </p>
             </div>
+            <div className="px-3 py-2 border-b border-border">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  autoFocus
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setOpen(false);
+                  }}
+                  placeholder="Buscar cuenta..."
+                  className="w-full h-8 pl-8 pr-2 rounded-md bg-muted text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-accent-500"
+                />
+              </div>
+            </div>
             <div className="py-1 max-h-64 overflow-y-auto">
+              {!showAdmin && filteredTenants.length === 0 && (
+                <p className="px-4 py-3 text-sm text-muted-foreground text-center">
+                  Sin resultados
+                </p>
+              )}
               {/* Super Admin option */}
-              {user?.isSuperAdmin && (
+              {showAdmin && (
                 <button
                   onClick={handleSelectAdmin}
                   className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted transition-colors"
@@ -124,7 +160,7 @@ export function TenantSelector({ compact = false }: { compact?: boolean } = {}) 
               )}
 
               {/* Tenant options */}
-              {tenants.map((tr) => (
+              {filteredTenants.map((tr) => (
                 <button
                   key={tr.tenantId}
                   onClick={() => handleSelect(tr.tenant.slug)}

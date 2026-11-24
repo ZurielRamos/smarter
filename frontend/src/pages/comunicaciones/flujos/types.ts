@@ -63,7 +63,15 @@ export interface FlowNoMatch {
   aiMode?: FlowAiMode;
 }
 
-export type FlowNodeType = "start" | "message" | "user_input" | "action" | "condition" | "start_flow" | "ai_agent";
+export type FlowNodeType =
+  | "start"
+  | "message"
+  | "user_input"
+  | "action"
+  | "condition"
+  | "start_flow"
+  | "ai_agent"
+  | "ai_generate";
 export type FlowInputValidation =
   | "any"
   | "number"
@@ -111,6 +119,45 @@ export interface FlowAgentConfig {
   allowHandoff?: boolean;
   mode?: FlowAiMode;
 }
+/** Tipo de un dato del nodo «Generación IA» (el servidor lo valida y normaliza). */
+export type FlowAiFieldType = "text" | "number" | "date" | "boolean" | "choice" | "email" | "phone";
+export interface FlowAiGenerateField {
+  /** Variable donde se guarda */
+  variable: string;
+  /** Qué dato es y cómo obtenerlo */
+  description: string;
+  type: FlowAiFieldType;
+  /** choice: valores permitidos */
+  options?: string[];
+  /** Si falta, el nodo sale por «Si falla» */
+  required?: boolean;
+  saveToField?: string;
+}
+export interface FlowAiGenerateContext {
+  /** Últimos mensajes de la conversación (0 = ninguno) */
+  messages?: number;
+  /** Variables o campos concretos */
+  keys?: string[];
+  allContact?: boolean;
+  allVariables?: boolean;
+  /** Proyectos de reclutamiento del contacto */
+  projects?: boolean;
+}
+/** Nodo «Generación IA». Salidas: `next` y `error`. */
+export interface FlowAiGenerateConfig {
+  instructions: string;
+  output: "text" | "structured";
+  /** text: variable del resultado (vacío = ai_text) */
+  variable?: string;
+  saveToField?: string;
+  /** text: enviar el texto al contacto */
+  send?: boolean;
+  length?: "short" | "medium" | "long";
+  fields?: FlowAiGenerateField[];
+  context?: FlowAiGenerateContext;
+  creativity?: "precise" | "balanced" | "creative";
+  mode?: FlowAiMode;
+}
 export interface FlowInputAi {
   enabled: boolean;
   /** Qué dato debe obtener («el nombre completo», «el monto en pesos») */
@@ -135,7 +182,16 @@ export const HEADER_ACCEPT: Record<Exclude<FlowHeaderType, "text">, string> = {
   video: "video/mp4,video/quicktime,video/webm,video/3gpp",
   document: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt",
 };
-export type FlowActionType = "set_variable" | "add_label" | "remove_label" | "handoff" | "resolve";
+export type FlowActionType =
+  | "set_variable"
+  | "add_label"
+  | "remove_label"
+  | "update_contact"
+  | "handoff"
+  | "resolve"
+  // Reclutamiento (solo con el módulo activo)
+  | "add_to_project"
+  | "set_project_status";
 /** Operadores de condición (espejo del backend: flow-conditions.util.ts). */
 export type FlowConditionOperator =
   // Texto
@@ -189,7 +245,11 @@ export type FlowConditionSource =
   | "time_of_day"
   | "weekday"
   | "date"
-  | "random";
+  | "random"
+  // Reclutamiento: `field` = id del proyecto; `value` = estados o perfiles separados por coma
+  | "project"
+  | "project_status"
+  | "project_role";
 
 export interface FlowConditionRule {
   id: string;
@@ -214,6 +274,16 @@ export interface FlowAction {
   variable?: string;
   value?: string;
   labelId?: string;
+  /** update_contact: clave del campo del CRM; el valor va en `value` */
+  field?: string;
+  /** update_contact: solo escribir si el campo está vacío */
+  onlyIfEmpty?: boolean;
+  /** add_to_project / set_project_status: proyecto de reclutamiento */
+  projectId?: string;
+  /** add_to_project: perfil (vacío = el de entrada del proyecto) */
+  role?: "participant" | "surveyor" | "moderator";
+  /** add_to_project: estado de entrada (vacío = «Nuevo»); set_project_status: estado nuevo */
+  status?: string;
 }
 
 export interface FlowNodeData {
@@ -233,10 +303,11 @@ export interface FlowNodeData {
   noMatch?: FlowNoMatch;
   /** message con botones / user_input / ai_agent: si no responde a tiempo */
   timeout?: FlowTimeoutConfig;
+  /** user_input: variable de la respuesta · message con botones: título del botón elegido */
   variable?: string;
   validation?: FlowInputValidation;
   errorMessage?: string;
-  /** user_input: campo del CRM donde también se guarda la respuesta */
+  /** user_input / message con botones: campo del CRM donde también se guarda la respuesta */
   saveToField?: string;
   /** user_input: no preguntar si la variable o el campo del CRM ya tienen valor */
   skipIfFilled?: boolean;
@@ -264,6 +335,7 @@ export interface FlowNodeData {
   conditionValue?: string;
   targetFlowId?: string;
   agent?: FlowAgentConfig;
+  generate?: FlowAiGenerateConfig;
   [key: string]: unknown;
 }
 
@@ -281,12 +353,68 @@ export interface FlowEdgeModel {
   target: string;
 }
 
-export interface FlowTriggers {
-  keywords: string[];
-  matchType: "exact" | "contains";
-  onNewConversation: boolean;
-  inboxIds: string[];
+// ─── Disparadores (espejo de backend: conversation-flow.entity.ts y flow-triggers.util.ts) ───
+export type FlowKeywordMatch = "exact" | "contains" | "starts_with" | "regex";
+export type FlowTriggerType = "keyword" | "new_conversation" | "template_reply" | "ad_click";
+export interface FlowTrigger {
+  id: string;
+  type: FlowTriggerType;
+  keywords?: string[];
+  matchType?: FlowKeywordMatch;
+  exclude?: string[];
+  /** template_reply: vacío = cualquier plantilla */
+  templateName?: string;
+  /** template_reply: vacío = cualquier botón */
+  buttons?: string[];
+  anyReply?: boolean;
+  withinHours?: number;
+  /** ad_click: vacío = cualquier anuncio */
+  adIds?: string[];
+  headlineContains?: string;
 }
+export interface FlowTriggerSchedule {
+  mode: "inside" | "outside";
+  days: number[];
+  from: string;
+  to: string;
+}
+export interface FlowTriggerFrequency {
+  mode: "once" | "cooldown";
+  after?: number;
+  unit?: "hours" | "days";
+}
+export interface FlowTriggers {
+  version: 2;
+  items: FlowTrigger[];
+  inboxIds: string[];
+  subflowOnly?: boolean;
+  schedule?: FlowTriggerSchedule | null;
+  audience?: { match: "all" | "any"; rules: FlowConditionRule[] } | null;
+  frequency?: FlowTriggerFrequency | null;
+  ifRunning?: "interrupt" | "skip";
+  priority?: number;
+}
+/** GET /conversation-flows/:id/trigger-overview */
+export interface FlowTriggerOverview {
+  starts30d: Record<string, number>;
+  callers: { id: string; name: string }[];
+  campaigns: { id: string; name: string }[];
+}
+export const TRIGGER_LABELS: Record<FlowTriggerType, string> = {
+  keyword: "Palabras clave",
+  new_conversation: "Conversación nueva",
+  template_reply: "Respuesta a plantilla",
+  ad_click: "Anuncio de Meta",
+};
+/** Nombres de los orígenes registrados en flow_starts. */
+export const START_SOURCE_LABELS: Record<string, string> = {
+  ...TRIGGER_LABELS,
+  campaign: "Campaña",
+  subflow: "Desde otro flujo",
+  manual: "Desde el chat",
+  automation: "Automatización",
+  api: "API",
+};
 
 export type FlowStatus = "draft" | "active" | "inactive";
 
@@ -363,9 +491,15 @@ export const ACTION_LABELS: Record<FlowActionType, string> = {
   set_variable: "Asignar variable",
   add_label: "Agregar etiqueta",
   remove_label: "Quitar etiqueta",
+  update_contact: "Actualizar contacto",
   handoff: "Transferir a un agente",
   resolve: "Marcar como resuelta",
+  add_to_project: "Agregar a proyecto",
+  set_project_status: "Cambiar estado en proyecto",
 };
+
+/** Acciones que solo existen con Reclutamiento activo. */
+export const PROJECT_ACTIONS = new Set<FlowActionType>(["add_to_project", "set_project_status"]);
 
 export const NODE_LABELS: Record<FlowNodeType, string> = {
   start: "Inicio",
@@ -375,6 +509,7 @@ export const NODE_LABELS: Record<FlowNodeType, string> = {
   condition: "Condición",
   start_flow: "Iniciar flujo",
   ai_agent: "Conversación con IA",
+  ai_generate: "Generación IA",
 };
 
 /** Id corto para nodos y botones (sin ":" porque viaja en el payload del canal). */

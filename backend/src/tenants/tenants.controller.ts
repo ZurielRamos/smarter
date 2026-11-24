@@ -24,6 +24,7 @@ import { TenantsService } from './tenants.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { UpdateTenantFeaturesDto } from './dto/update-tenant-features.dto';
+import { ensureRecruitmentFields } from '../reclutamiento/recruitment-fields';
 import { MediaStorageService } from '../media/media-storage.service';
 import { BillingService } from '../billing/billing.service';
 import { CreatePlanDto, RechargeDto } from '../billing/dto';
@@ -310,6 +311,8 @@ export class TenantsController {
     const tenant = await this.tenantsService.findOne(id);
     const mergedFeatures = { ...(tenant.features || {}), ...dto };
     const updated = await this.tenantsService.update(id, { features: mergedFeatures });
+    // Al activar Reclutamiento se crean los campos del contacto que usa (estrato, ocupación, nivel educativo).
+    if (dto.reclutamiento === true) await ensureRecruitmentFields(this.userRepo.manager, id);
 
     await this.auditService.log({
       adminUserId: req.user.id,

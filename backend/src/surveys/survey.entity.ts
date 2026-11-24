@@ -103,6 +103,15 @@ export class Survey {
   flowJson: Record<string, any> | null;
 
   // Nº de respuestas recibidas (web + WhatsApp), para listados rápidos.
+  /**
+   * Estudio (client_studies) al que pertenece la encuesta. Una encuesta de un
+   * estudio nace y se edita dentro de Estudios: no aparece en el módulo
+   * Encuestas y su ciclo de vida lo gobierna el estudio.
+   */
+  @Index()
+  @Column({ name: 'client_study_id', type: 'uuid', nullable: true })
+  clientStudyId: string | null;
+
   @Column({ name: 'response_count', type: 'integer', default: 0 })
   responseCount: number;
 

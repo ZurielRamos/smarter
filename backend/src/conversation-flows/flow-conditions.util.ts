@@ -25,6 +25,8 @@ export interface ConditionEnv {
   /** Cuántos mensajes ha enviado el contacto en la conversación. */
   inboundCount: number;
   hasContact: boolean;
+  /** Proyectos de reclutamiento del contacto: id → estado y perfil. Vacío sin contacto o sin el módulo. */
+  projects?: Record<string, { status: string; role: string }>;
   /** Valor de una variable: primero las del flujo y luego los campos del CRM. */
   lookup(key: string): string;
   /** Sustituye {{variables}} en un texto. */
@@ -49,6 +51,9 @@ export const CONDITION_SOURCES: ReadonlySet<FlowConditionSource> = new Set([
   'weekday',
   'date',
   'random',
+  'project',
+  'project_status',
+  'project_role',
 ]);
 
 export const CONDITION_OPERATORS: ReadonlySet<FlowConditionOperator> = new Set([
@@ -476,6 +481,14 @@ export function evaluateRule(
       return apply(env.inboundCount <= 1 ? 'true' : 'false');
     case 'has_contact':
       return apply(env.hasContact ? 'true' : 'false');
+    case 'project':
+      return apply(env.projects?.[rule.field ?? ''] ? 'true' : 'false');
+    // Si no está en el proyecto, el estado y el perfil valen vacío: «es» no se
+    // cumple y «no es» sí.
+    case 'project_status':
+      return apply(env.projects?.[rule.field ?? '']?.status ?? '');
+    case 'project_role':
+      return apply(env.projects?.[rule.field ?? '']?.role ?? '');
     case 'date':
       return compareDays(
         op,

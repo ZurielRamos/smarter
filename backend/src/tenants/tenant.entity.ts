@@ -58,6 +58,8 @@ export class Tenant {
     automatizaciones?: boolean;
     /** Módulo Reclutamiento (encuestadores con contrato y pagos; cuenta reclutadora) */
     reclutamiento?: boolean;
+    /** Módulo Estudios (cuenta cliente: socios reclutadores, publicar estudios). Apagado por defecto. */
+    estudios?: boolean;
   } | null;
 
   /**

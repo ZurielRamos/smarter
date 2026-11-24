@@ -136,6 +136,8 @@ export class LoadProcessor {
 
           for (const [key, val] of Object.entries(dup.incomingRecord)) {
             if (key === 'id' || key === 'tenantId') continue;
+            // La asignación de agente solo se cambia manualmente o al responder; nunca por importación.
+            if (key === 'assignedTo') continue;
             if (val === null || val === undefined || val === '') continue;
 
             // For overwrite_selected, only update specified fields

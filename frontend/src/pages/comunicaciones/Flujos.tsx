@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { flowsApi, statusColors, statusLabels, type ConversationFlowSummary } from "./flujos/types";
 import type { FlujosOutletContext } from "./flujos/FlujoEditor";
+import { describeTriggers, normalizeTriggers } from "./flujos/triggers";
 
 export function Flujos() {
   const navigate = useNavigate();
@@ -103,13 +104,7 @@ export function Flujos() {
           ) : (
             <div className="p-2 space-y-1">
               {filtered.map((f) => {
-                const t = f.triggers;
-                const triggerText = [
-                  t?.keywords?.length ? t.keywords.slice(0, 3).join(", ") + (t.keywords.length > 3 ? "…" : "") : null,
-                  t?.onNewConversation ? "conversación nueva" : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ");
+                const triggerText = describeTriggers(normalizeTriggers(f.triggers)) ?? "";
                 return (
                   <button
                     key={f.id}

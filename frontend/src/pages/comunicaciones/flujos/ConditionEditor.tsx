@@ -4,9 +4,12 @@ import { cn } from "@/lib/utils";
 import { VariableInput } from "./VariableField";
 import { FlowSelect } from "./FlowSelect";
 import { VARIABLE_GROUP_LABELS, type VariableOption } from "./variables";
+import { FlowEditorContext } from "./editorContext";
 import {
   CHANNEL_OPTIONS,
   OPERATOR_BY_KEY,
+  PROJECT_ROLE_OPTIONS,
+  PROJECT_SOURCES,
   SOURCES,
   STATUS_OPTIONS,
   WEEKDAYS,
@@ -113,6 +116,72 @@ export function ConditionEditor({ data, set, options, labels, inboxes }: Props) 
         está disponible.
       </div>
     </div>
+    </LookupsContext.Provider>
+  );
+}
+
+/**
+ * Lista de reglas con «todas / cualquiera», sin ramas. La usan los
+ * disparadores para la audiencia del flujo.
+ */
+export function RuleListEditor({
+  match,
+  rules,
+  onChange,
+  max,
+  options,
+  labels,
+  inboxes,
+}: Lookups & {
+  match: "all" | "any";
+  rules: FlowConditionRule[];
+  onChange: (next: { match: "all" | "any"; rules: FlowConditionRule[] }) => void;
+  max: number;
+}) {
+  return (
+    <LookupsContext.Provider value={{ options, labels, inboxes }}>
+      <div className="space-y-2">
+        {rules.length > 1 && (
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            Se cumple si
+            <FlowSelect
+              compact
+              value={match}
+              onChange={(v) => onChange({ match: v as "all" | "any", rules })}
+              aria-label="Cuántas reglas deben cumplirse"
+              className="w-44"
+              options={[
+                { value: "all", label: "se cumplen todas" },
+                { value: "any", label: "se cumple cualquiera" },
+              ]}
+            />
+            las reglas
+          </div>
+        )}
+        {rules.map((rule, i) => (
+          <div key={rule.id}>
+            {i > 0 && (
+              <p className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {match === "any" ? "o" : "y"}
+              </p>
+            )}
+            <RuleRow
+              rule={rule}
+              onChange={(next) => onChange({ match, rules: rules.map((r) => (r.id === rule.id ? next : r)) })}
+              onDelete={() => onChange({ match, rules: rules.filter((r) => r.id !== rule.id) })}
+            />
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ match, rules: [...rules, newRule()] })}
+          disabled={rules.length >= max}
+          className="flex items-center gap-1 text-[11px] font-medium text-brand-700 hover:underline disabled:opacity-40 dark:text-brand-300"
+        >
+          <Plus className="h-3 w-3" />
+          {rules.length >= max ? `Máximo ${max} reglas` : "Agregar regla"}
+        </button>
+      </div>
     </LookupsContext.Provider>
   );
 }
@@ -239,6 +308,7 @@ function RuleRow({
 }) {
   const uid = useId();
   const { options } = useContext(LookupsContext);
+  const { recruitment } = useContext(FlowEditorContext);
   const field = rule.source === "variable" ? options.find((o) => o.key === rule.field) : undefined;
   const operators = operatorsForRule(rule, field?.type);
   const op = OPERATOR_BY_KEY[rule.operator];
@@ -285,7 +355,8 @@ function RuleRow({
           value={rule.source}
           onChange={(v) => changeSource(v as FlowConditionSource)}
           className="min-w-0 flex-1"
-          options={SOURCES.map((x) => ({ value: x.key, label: x.label, group: x.group }))}
+          // Las reglas de proyecto solo se ofrecen con Reclutamiento; una ya guardada se sigue mostrando.
+          options={SOURCES.filter((x) => !PROJECT_SOURCES.has(x.key) || !!recruitment || x.key === rule.source).map((x) => ({ value: x.key, label: x.label, group: x.group }))}
         />
         <button type="button" onClick={onDelete} aria-label="Eliminar regla" className={cn(iconButton, "hover:!text-red-600")}>
           <Trash2 className="h-3.5 w-3.5" />
@@ -338,7 +409,27 @@ function SourceTarget({
   fieldType?: string;
 }) {
   const { options, labels } = useContext(LookupsContext);
-
+  const { recruitment } = useContext(FlowEditorContext);
+  if (PROJECT_SOURCES.has(rule.source)) {
+    if (!recruitment) {
+      return <p className="text-[10px] text-amber-600 dark:text-amber-400">Para editar esta regla, la cuenta necesita Reclutamiento activo y tu rol debe ser propietario o administrador.</p>;
+    }
+    const known = recruitment.projects.some((p) => p.id === rule.field);
+    return (
+      <FlowSelect
+        compact
+        searchable={recruitment.projects.length > 8}
+        aria-label="Proyecto"
+        placeholder={recruitment.projects.length ? "Elige un proyecto…" : "La cuenta no tiene proyectos"}
+        value={rule.field ?? ""}
+        onChange={(v) => onChange({ ...rule, field: v })}
+        options={[
+          ...(rule.field && !known ? [{ value: rule.field, label: "(proyecto eliminado)" }] : []),
+          ...recruitment.projects.map((p) => ({ value: p.id, label: p.name, hint: p.status === "active" ? undefined : p.status === "paused" ? "Pausado" : p.status === "draft" ? "Borrador" : "Terminado" })),
+        ]}
+      />
+    );
+  }
   if (rule.source === "variable") {
     const known = options.some((o) => o.key === rule.field);
     const fieldOptionCount = options.find((o) => o.key === rule.field)?.options?.length ?? 0;
@@ -427,6 +518,9 @@ function ValueEditor({
           placeholder="Elige una bandeja…"
         />
       );
+    case "project_status":
+    case "project_role":
+      return <ProjectChoices rule={rule} onChange={setValue} />;
     case "weekday": {
       const picked = new Set(value.split(",").filter(Boolean));
       const toggle = (day: string) => {
@@ -715,6 +809,46 @@ function DatePair({
           />
         </>
       )}
+    </div>
+  );
+}
+
+/** Estados o perfiles a comparar en una regla de proyecto (se elige uno o varios). */
+function ProjectChoices({ rule, onChange }: { rule: FlowConditionRule; onChange: (value: string) => void }) {
+  const { recruitment } = useContext(FlowEditorContext);
+  const choices =
+    rule.source === "project_status"
+      ? (recruitment?.states ?? []).map((s) => ({ value: s.key, label: s.label, title: s.help }))
+      : PROJECT_ROLE_OPTIONS.map((r) => ({ ...r, title: r.label }));
+  const picked = new Set((rule.value ?? "").split(",").filter(Boolean));
+  const toggle = (key: string) => {
+    const next = new Set(picked);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    onChange(choices.filter((c) => next.has(c.value)).map((c) => c.value).join(","));
+  };
+  return (
+    <div className="space-y-1">
+      <div role="group" aria-label={rule.source === "project_status" ? "Estados" : "Perfiles"} className="flex flex-wrap gap-1">
+        {choices.map((c) => (
+          <button
+            key={c.value}
+            type="button"
+            aria-pressed={picked.has(c.value)}
+            title={c.title}
+            onClick={() => toggle(c.value)}
+            className={cn(
+              "rounded-md border px-1.5 py-1 text-[11px] font-medium transition-colors",
+              picked.has(c.value)
+                ? "border-brand-400 bg-brand-100 text-brand-800 dark:bg-brand-900/40 dark:text-brand-100"
+                : "border-border text-muted-foreground hover:bg-muted",
+            )}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-[10px] text-muted-foreground">Si marcas varios, basta con uno. Si el contacto no está en el proyecto, «es» no se cumple y «no es» sí.</p>
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
   UserPlus,
   UserSearch,
   Split,
+  Workflow,
   Webhook,
   type LucideIcon,
 } from "lucide-react";
@@ -32,6 +33,7 @@ export type FieldDef =
   | { kind: "keyvalue"; key: string; label: string; keyPlaceholder?: string; valuePlaceholder?: string }
   | { kind: "connection"; key: string; label: string; types: string[]; optional?: boolean }
   | { kind: "inbox"; key: string; label: string; optional?: boolean; help?: string }
+  | { kind: "conversationFlow"; key: string; label: string; help?: string }
   | { kind: "cron"; key: string; label: string }
   | { kind: "assignments"; key: string; label: string }
   | { kind: "branches"; key: string; label: string }
@@ -398,6 +400,27 @@ export const NODE_CATALOG: NodeDef[] = [
       { kind: "keyvalue", key: "templateParams", label: "Variables de la plantilla (en orden)", keyPlaceholder: "{{1}}", valuePlaceholder: "valor" },
     ],
     defaults: { label: "Enviar mensaje", text: "", createIfMissing: true },
+  },
+  {
+    type: "start_conversation_flow",
+    label: "Iniciar flujo conversacional",
+    description: "Inicia un flujo de Comunicaciones con un contacto (con plantilla si la ventana de 24 h está cerrada)",
+    category: "crm",
+    icon: Workflow,
+    accent: "bg-teal-500",
+    outputs: "default",
+    fields: [
+      { kind: "inbox", key: "inboxId", label: "Canal" },
+      { kind: "conversationFlow", key: "flowId", label: "Flujo", help: "Solo se inician flujos activos. Sus disparadores y reglas no se aplican." },
+      { kind: "text", key: "phone", label: "Teléfono", placeholder: "{{trigger.contact.phone}}" },
+      { kind: "text", key: "recordId", label: "ID de contacto (opcional)", placeholder: "{{trigger.contact.id}}", help: "Si lo indicas, se usa en lugar del teléfono." },
+      { kind: "toggle", key: "createIfMissing", label: "Crear el contacto si no existe" },
+      { kind: "keyvalue", key: "variables", label: "Variables del flujo", keyPlaceholder: "pedido", valuePlaceholder: "{{trigger.body.orderId}}" },
+      { kind: "text", key: "templateName", label: "Plantilla (WhatsApp, si la ventana está cerrada)", help: "Se envía la plantilla y el flujo empieza cuando el contacto responda (hasta 72 h). Sin plantilla, el nodo falla si la ventana está cerrada." },
+      { kind: "text", key: "templateLanguage", label: "Idioma de la plantilla", placeholder: "es" },
+      { kind: "keyvalue", key: "templateParams", label: "Variables de la plantilla (en orden)", keyPlaceholder: "{{1}}", valuePlaceholder: "valor" },
+    ],
+    defaults: { label: "Iniciar flujo", createIfMissing: true },
   },
   {
     type: "contact_upsert",

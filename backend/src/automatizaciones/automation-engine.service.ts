@@ -380,6 +380,8 @@ export class AutomationEngine {
         return this.crm.upsertContact(state.automation.tenantId, d, ctx);
       case 'contact_find':
         return this.crm.findContact(state.automation.tenantId, d, ctx);
+      case 'start_conversation_flow':
+        return this.crm.startConversationFlow(state.automation.tenantId, d, ctx);
 
       case 'set_variable': {
         const list = (d.assignments as { name: string; value: string; type?: string }[]) || [];

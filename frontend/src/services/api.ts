@@ -103,18 +103,22 @@ export async function uploadFile(file: File): Promise<ParseResult> {
   return data;
 }
 
-export async function uploadFileAsync(file: File, tenantId: string): Promise<ImportJob> {
+/** Tipo de importación: separa los trabajos y las plantillas de contactos y de empresas. */
+export type ImportEntity = 'contacts' | 'companies';
+
+export async function uploadFileAsync(file: File, tenantId: string, entity: ImportEntity = 'contacts'): Promise<ImportJob> {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('tenantId', tenantId);
+  formData.append('entity', entity);
   const { data } = await api.post<ImportJob>('/etl/parse-async', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return data;
 }
 
-export async function getActiveImportJob(tenantId: string): Promise<ImportJob | null> {
-  const { data } = await api.get<ImportJob | null>('/etl/active-job', { params: { tenantId } });
+export async function getActiveImportJob(tenantId: string, entity: ImportEntity = 'contacts'): Promise<ImportJob | null> {
+  const { data } = await api.get<ImportJob | null>('/etl/active-job', { params: { tenantId, entity } });
   return data;
 }
 
@@ -214,10 +218,11 @@ export async function getTemplates(tenantId?: string): Promise<MappingTemplate[]
   return data;
 }
 
-export async function getTemplateByStructure(tenantId: string, headers: string[]): Promise<MappingTemplate | null> {
+export async function getTemplateByStructure(tenantId: string, headers: string[], entity: ImportEntity = 'contacts'): Promise<MappingTemplate | null> {
   const { data } = await api.post<MappingTemplate | null>('/etl/templates/by-structure', {
     tenantId,
     headers,
+    entity,
   });
   return data;
 }

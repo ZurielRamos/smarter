@@ -63,6 +63,15 @@ export class ConversationFlowsController {
     return this.flows.findOne(id, tenantId);
   }
 
+  /** Inicios por disparador, flujos que lo llaman y campañas que lo usan. */
+  @Get(':id/trigger-overview')
+  triggerOverview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('tenantId') tenantId: string,
+  ) {
+    return this.flows.getTriggerOverview(id, tenantId);
+  }
+
   @Post()
   create(@Body() dto: CreateConversationFlowDto) {
     return this.flows.create(dto);

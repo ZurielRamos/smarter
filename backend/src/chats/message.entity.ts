@@ -65,6 +65,24 @@ export class Message {
   @Column({ name: 'reply_to_external_id', type: 'varchar', nullable: true })
   replyToExternalId: string | null;
 
+  // Plantilla de WhatsApp enviada (messageType 'template'): la usan los
+  // disparadores «Respuesta a plantilla» de los flujos.
+  @Column({ name: 'template_name', type: 'varchar', length: 512, nullable: true })
+  templateName: string | null;
+
+  // Campaña que envió este mensaje (para su «Flujo al responder»)
+  @Column({ name: 'campaign_id', type: 'uuid', nullable: true })
+  campaignId: string | null;
+
+  // Flujo que se inicia cuando el contacto responda a esta plantilla (inicio
+  // manual, por automatización o por API con la ventana de 24 h cerrada).
+  @Column({ name: 'reply_flow_id', type: 'uuid', nullable: true })
+  replyFlowId: string | null;
+
+  // Origen de ese inicio: manual | automation | api
+  @Column({ name: 'reply_flow_source', type: 'varchar', length: 24, nullable: true })
+  replyFlowSource: string | null;
+
   // sent | delivered | read | failed
   @Column({ type: 'varchar', length: 20, default: 'sent' })
   status: string;

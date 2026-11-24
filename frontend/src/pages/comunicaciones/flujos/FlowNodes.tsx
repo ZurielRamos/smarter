@@ -15,6 +15,7 @@ import {
   Sparkles,
   Bot,
   Clock,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ACTION_LABELS, VALIDATION_LABELS, type FlowNodeData } from "./types";
@@ -22,6 +23,7 @@ import { FlowEditorContext, FlowVariablesContext } from "./editorContext";
 import { conditionIssues, describeBranch } from "./conditions";
 import { AI_MODE_OPTIONS, inputIssue } from "./inputs";
 import { agentIssue } from "./agent";
+import { describeGenerateContext, generateIssue, GENERATE_DEFAULT_VARIABLE } from "./generate";
 import { shortDuration, timeoutIssue } from "./timeout";
 
 type FlowNode = Node<FlowNodeData>;
@@ -168,6 +170,7 @@ function ActionRow({
 }
 
 export function MessageNode({ data, selected }: NodeProps<FlowNode>) {
+  const options = useContext(FlowVariablesContext);
   const buttons = data.buttons || [];
   const replies = buttons.filter((b) => (b.type ?? "reply") === "reply");
   const actions = buttons.filter((b) => b.type === "url" || b.type === "call");
@@ -206,6 +209,16 @@ export function MessageNode({ data, selected }: NodeProps<FlowNode>) {
         </div>
       ) : (
         <Placeholder>Escribe el mensaje…</Placeholder>
+      )}
+      {replies.length > 0 && (data.variable || data.saveToField) && (
+        <p className="truncate text-[10px] text-muted-foreground text-center">
+          →{data.variable && <code className="ml-1 font-mono">{`{{${data.variable}}}`}</code>}
+          {data.saveToField && (
+            <span className="ml-1">
+              CRM: {options.find((o) => o.key === data.saveToField)?.label ?? data.saveToField}
+            </span>
+          )}
+        </p>
       )}
       {buttons.length > 0 && (
         <div className="space-y-1.5">
@@ -305,10 +318,14 @@ export function UserInputNode({ data, selected }: NodeProps<FlowNode>) {
 }
 
 export function ActionNode({ data, selected }: NodeProps<FlowNode>) {
-  const { labels } = useContext(FlowEditorContext);
+  const { labels, recruitment } = useContext(FlowEditorContext);
+  const projectName = (id?: string) => recruitment?.projects.find((p) => p.id === id)?.name || (id ? "(proyecto)" : "?");
+  const stateName = (key?: string) => recruitment?.states.find((s) => s.key === key)?.label || key || "";
   const actions = data.actions || [];
   const terminal = actions.some((a) => a.type === "handoff" || a.type === "resolve");
+  const options = useContext(FlowVariablesContext);
   const labelName = (id?: string) => labels.find((l) => l.id === id)?.label || "(etiqueta)";
+  const fieldName = (key?: string) => (key ? (options.find((o) => o.key === key)?.label ?? key) : "?");
 
   return (
     <NodeShell
@@ -316,7 +333,13 @@ export function ActionNode({ data, selected }: NodeProps<FlowNode>) {
       header="Acción"
       headerClass="bg-purple-600 text-white"
       icon={<Zap className="h-3.5 w-3.5" />}
-      warning={actions.length === 0 ? "Sin acciones" : null}
+      warning={
+        actions.length === 0
+          ? "Sin acciones"
+          : actions.some((a) => (a.type === "add_to_project" || a.type === "set_project_status") && (!a.projectId || (a.type === "set_project_status" && !a.status)))
+            ? "Acción de proyecto incompleta"
+            : null
+      }
     >
       {actions.length === 0 ? (
         <Placeholder>Agrega una acción…</Placeholder>
@@ -328,6 +351,21 @@ export function ActionNode({ data, selected }: NodeProps<FlowNode>) {
                 <>
                   Asignar <span className="rounded bg-muted px-1 font-mono">{a.value || "∅"}</span> a{" "}
                   <span className="rounded bg-muted px-1 font-mono">{a.variable || "?"}</span>
+                </>
+              ) : a.type === "update_contact" ? (
+                <>
+                  Contacto: <span className="rounded bg-muted px-1">{fieldName(a.field)}</span> ={" "}
+                  <span className="rounded bg-muted px-1 font-mono">{a.value || "∅"}</span>
+                </>
+              ) : a.type === "add_to_project" ? (
+                <>
+                  Agregar a <span className="rounded bg-muted px-1">{projectName(a.projectId)}</span>
+                  {a.status ? <> en <span className="rounded bg-muted px-1">{stateName(a.status)}</span></> : null}
+                </>
+              ) : a.type === "set_project_status" ? (
+                <>
+                  <span className="rounded bg-muted px-1">{projectName(a.projectId)}</span> →{" "}
+                  <span className="rounded bg-muted px-1">{a.status ? stateName(a.status) : "?"}</span>
                 </>
               ) : a.type === "add_label" || a.type === "remove_label" ? (
                 <>
@@ -351,11 +389,11 @@ export function ActionNode({ data, selected }: NodeProps<FlowNode>) {
 }
 
 export function ConditionNode({ data, selected }: NodeProps<FlowNode>) {
-  const { labels, inboxes } = useContext(FlowEditorContext);
+  const { labels, inboxes, recruitment } = useContext(FlowEditorContext);
   const options = useContext(FlowVariablesContext);
   const branches = data.branches ?? [];
   const issues = conditionIssues(data.branches);
-  const lookups = { options, labels, inboxes };
+  const lookups = { options, labels, inboxes, projects: recruitment?.projects, states: recruitment?.states };
   return (
     <NodeShell
       selected={selected}
@@ -422,6 +460,52 @@ export function AgentNode({ data, selected }: NodeProps<FlowNode>) {
         <OutputRow id="limit" label="Límite de mensajes" className="text-muted-foreground" />
         <OutputRow id="error" label="Si la IA falla" className="text-muted-foreground" />
         <TimeoutRow data={data} />
+      </div>
+    </NodeShell>
+  );
+}
+
+export function GenerateNode({ data, selected }: NodeProps<FlowNode>) {
+  const g = data.generate;
+  const structured = g?.output === "structured";
+  const fields = (g?.fields ?? []).filter((f) => f.variable);
+  return (
+    <NodeShell
+      selected={selected}
+      header="Generación IA"
+      headerClass="bg-violet-600 text-white"
+      icon={<Wand2 className="h-3.5 w-3.5" />}
+      warning={generateIssue(g)}
+    >
+      {g?.instructions?.trim() ? (
+        <p className="line-clamp-3 whitespace-pre-wrap break-words rounded-lg bg-muted/60 px-2.5 py-2">{g.instructions}</p>
+      ) : (
+        <Placeholder>Qué debe generar…</Placeholder>
+      )}
+      <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+        <Sparkles className="h-3 w-3 shrink-0 text-violet-600" aria-hidden />
+        {describeGenerateContext(g)}
+      </p>
+      <div className="flex flex-wrap justify-center gap-1 text-[10px]">
+        {structured ? (
+          fields.length ? (
+            fields.map((f) => (
+              <span key={f.variable} className="rounded bg-muted px-1 font-mono">
+                {f.variable}
+                {f.required ? "*" : ""}
+              </span>
+            ))
+          ) : null
+        ) : (
+          <>
+            <span className="rounded bg-muted px-1 font-mono">{g?.variable || GENERATE_DEFAULT_VARIABLE}</span>
+            {g?.send && <span className="rounded bg-violet-100 px-1 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">se envía</span>}
+          </>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        <OutputRow id="next" label="Siguiente" className="text-violet-700 dark:text-violet-300" />
+        <OutputRow id="error" label="Si falla" className="text-muted-foreground" />
       </div>
     </NodeShell>
   );

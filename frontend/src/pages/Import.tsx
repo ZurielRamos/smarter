@@ -21,7 +21,10 @@ import {
   getImportJob,
   getImportHistory,
   cancelImportJob,
+  type ImportEntity,
 } from "@/services/api";
+import { companiesImportApi } from "@/services/companies";
+import { TEMPLATE_CSV, suggestMapping } from "./empresas/importSupport";
 import type {
   TargetField,
   ParseResult,
@@ -50,6 +53,9 @@ import {
 import { cn } from "@/lib/utils";
 
 const DEFAULT_IMPORT_STATUS = "lead";
+
+/** Campos por los que se puede detectar una empresa que ya existe (los mismos que valida el servidor). */
+const COMPANY_MATCH_FIELDS = ["documentNumber", "name", "email", "phone1"];
 // Se usan solo si la cuenta no tiene estados configurados en el campo de sistema "status"
 const FALLBACK_STATUSES = [
   "lead", "contactado", "interesado", "oportunidad",
@@ -58,7 +64,14 @@ const FALLBACK_STATUSES = [
 
 type Step = "upload" | "preview" | "map" | "validate" | "deduplicate" | "processing" | "success";
 
-export function Import() {
+/**
+ * Asistente de importación de archivos (CSV o Excel): subir, revisar, mapear,
+ * validar, detectar duplicados y cargar. Sirve a contactos y a empresas; lo que
+ * cambia entre ambos es el destino de los datos, los campos y los textos.
+ */
+export function Import({ entity = "contacts" }: { entity?: ImportEntity }) {
+  const isCompanies = entity === "companies";
+  const noun = isCompanies ? "empresas" : "contactos";
   const [step, setStep] = useState<Step>("upload");
   const [targetFields, setTargetFields] = useState<TargetField[]>([]);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
@@ -79,6 +92,7 @@ export function Import() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { slug } = useParams();
+  const backPath = `/${slug}/${isCompanies ? "empresas" : "clients"}`;
   const navigate = useNavigate();
   const { user } = useAuth();
   const currentTenant = user?.tenantRoles.find((tr) => tr.tenant.slug === slug);
@@ -87,6 +101,10 @@ export function Import() {
   useEffect(() => {
     async function loadFields() {
       try {
+        if (isCompanies) {
+          if (tenantId) setTargetFields(await companiesImportApi.targetFields(tenantId));
+          return;
+        }
         const systemFields = await getTargetFields();
         if (tenantId) {
           const customFields = await getCustomFields(tenantId);
@@ -116,14 +134,14 @@ export function Import() {
       }
     }
     loadFields();
-  }, [tenantId]);
+  }, [tenantId, isCompanies]);
 
   // Check for active import jobs on mount
   const [activeJob, setActiveJob] = useState<ImportJob | null>(null);
 
   useEffect(() => {
     if (!tenantId) return;
-    getActiveImportJob(tenantId).then((job) => {
+    getActiveImportJob(tenantId, entity).then((job) => {
       if (!job) return;
 
       if (job.status === 'awaiting_mapping') {
@@ -187,7 +205,7 @@ export function Import() {
         }, 2000);
       }
     }).catch(() => {});
-  }, [tenantId]);
+  }, [tenantId, entity]);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -208,7 +226,7 @@ export function Import() {
     try {
       // For files > 5MB, use async parse (queued in background)
       if (file.size > 5 * 1024 * 1024 && tenantId) {
-        const job = await uploadFileAsync(file, tenantId);
+        const job = await uploadFileAsync(file, tenantId, entity);
         setActiveJob(job);
         setImportJob(job);
         setStep("processing");
@@ -256,7 +274,18 @@ export function Import() {
 
     if (parseResult && tenantId) {
       try {
-        const template = await getTemplateByStructure(tenantId, parseResult.headers);
+        const template = await getTemplateByStructure(tenantId, parseResult.headers, entity);
+        if (!template && isCompanies) {
+          // Primera vez con estas columnas: se propone un mapeo por el nombre de cada una.
+          const suggested = suggestMapping(parseResult.headers, targetFields);
+          let loaded = 0;
+          for (const [field, sources] of Object.entries(suggested)) {
+            if (!initialMapping.hasOwnProperty(field)) continue;
+            initialMapping[field] = sources;
+            loaded++;
+          }
+          setPreloadedFields(loaded);
+        }
         if (template) {
           const headers = new Set(parseResult.headers);
           let loaded = 0;
@@ -284,12 +313,9 @@ export function Import() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await validatePreview({
-        fileId: parseResult.fileId,
-        tenantId,
-        mapping,
-        transforms,
-      });
+      const result = isCompanies
+        ? await companiesImportApi.validatePreview(tenantId, { fileId: parseResult.fileId, mapping, transforms })
+        : await validatePreview({ fileId: parseResult.fileId, tenantId, mapping, transforms });
       setValidationResult(result);
       setStep("validate");
     } catch (err: any) {
@@ -314,13 +340,9 @@ export function Import() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await deduplicatePreview({
-        fileId: parseResult.fileId,
-        tenantId,
-        mapping,
-        transforms: currentTransforms,
-        matchFields,
-      });
+      const result = isCompanies
+        ? await companiesImportApi.deduplicatePreview(tenantId, { fileId: parseResult.fileId, mapping, transforms: currentTransforms, matchFields })
+        : await deduplicatePreview({ fileId: parseResult.fileId, tenantId, mapping, transforms: currentTransforms, matchFields });
       setDeduplicateResult(result);
       setStep("deduplicate");
     } catch (err: unknown) {
@@ -337,8 +359,7 @@ export function Import() {
     setError(null);
     setStep("processing");
     try {
-      const job = await executeImport({
-        tenantId,
+      const params = {
         fileId: parseResult.fileId,
         mapping,
         transforms: currentTransforms,
@@ -347,8 +368,10 @@ export function Import() {
         overwriteFields: deduplicateStrategy === 'overwrite_selected' ? overwriteFields : undefined,
         headers: parseResult.headers,
         templateName: "auto",
-        defaultStatus,
-      });
+      };
+      const job = isCompanies
+        ? await companiesImportApi.execute(tenantId, params)
+        : await executeImport({ tenantId, ...params, defaultStatus });
       setImportJob(job);
 
       // If async (still pending/processing), poll for status
@@ -417,13 +440,13 @@ export function Import() {
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate(`/${slug}/clients`)}
+              onClick={() => navigate(backPath)}
               className="h-8 w-8 rounded-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-white">Importar Datos</h1>
+              <h1 className="text-xl font-bold text-white">{isCompanies ? "Importar empresas" : "Importar Datos"}</h1>
               <p className="text-brand-300 mt-0.5 text-sm">
                 Pipeline ETL: sube, mapea, valida, deduplica y carga
               </p>
@@ -476,6 +499,26 @@ export function Import() {
             <div className="flex-1 flex items-center justify-center">
               <div className="w-full max-w-xl">
                 <FileUploader onFileSelected={handleFileSelected} isLoading={isLoading} />
+                {isCompanies && (
+                  <p className="mt-3 text-center text-xs text-muted-foreground">
+                    ¿No sabes cómo armar el archivo?{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = URL.createObjectURL(new Blob([TEMPLATE_CSV], { type: "text/csv;charset=utf-8" }));
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "plantilla-empresas.csv";
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="font-medium text-brand-700 hover:underline dark:text-brand-300"
+                    >
+                      Descarga la plantilla
+                    </button>
+                    . La columna "Matriz" permite crear sucursales de una cadena.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -505,6 +548,7 @@ export function Import() {
                   Se precargaron <strong>{preloadedFields}</strong> campos del mapeo anterior.
                 </div>
               )}
+              {!isCompanies && (
               <div className="shrink-0 mx-4 mt-4 mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground">Estado de los contactos nuevos</p>
@@ -520,6 +564,7 @@ export function Import() {
                   options={statusOptions.map((s) => ({ value: s, label: s }))}
                 />
               </div>
+              )}
               <div className="flex-1 min-h-0">
                 <FieldMapper
                   targetFields={targetFields}
@@ -638,7 +683,7 @@ export function Import() {
                 {/* Dedup field selector - always show */}
                 <div className="mt-6 p-4 rounded-xl bg-blue-50 border border-blue-200">
                   <p className="text-sm font-medium text-blue-800 mb-1">Detección de duplicados</p>
-                  <p className="text-xs text-blue-600 mb-3">Selecciona un campo para detectar contactos que ya existen en la base de datos.</p>
+                  <p className="text-xs text-blue-600 mb-3">{`Selecciona un campo para detectar ${noun} que ya existen en la base de datos.`}</p>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -650,7 +695,7 @@ export function Import() {
                     >
                       No verificar
                     </button>
-                    {targetFields.filter((f) => Object.keys(mapping).includes(f.field) && (mapping[f.field]?.length > 0)).map((f) => (
+                    {targetFields.filter((f) => Object.keys(mapping).includes(f.field) && (mapping[f.field]?.length > 0) && (!isCompanies || COMPANY_MATCH_FIELDS.includes(f.field))).map((f) => (
                       <button
                         key={f.field}
                         type="button"
@@ -670,7 +715,7 @@ export function Import() {
                 {matchFields.length > 0 && (
                   <div className="mt-4 p-4 rounded-xl bg-indigo-50 border border-indigo-200">
                     <p className="text-sm font-medium text-indigo-800 mb-2">Estrategia para duplicados</p>
-                    <p className="text-xs text-indigo-600 mb-3">Si se detectan contactos duplicados, ¿qué hacer?</p>
+                    <p className="text-xs text-indigo-600 mb-3">{`Si se detectan ${noun} duplicad${isCompanies ? "as" : "os"}, ¿qué hacer?`}</p>
                     <div className="grid grid-cols-2 gap-2">
                       {([
                         { value: 'merge_non_empty', label: 'Completar vacíos', desc: 'Solo llenar campos que estén vacíos' },
@@ -807,13 +852,31 @@ export function Import() {
                           <div className="grid grid-cols-2 gap-3 text-xs">
                             <div>
                               <p className="text-[10px] text-muted-foreground uppercase mb-1">Entrante</p>
-                              <p className="text-foreground">{String(dup.incoming.firstName || "")} {String(dup.incoming.lastName || "")}</p>
-                              <p className="text-muted-foreground font-mono">{String(dup.incoming.phone || dup.incoming.email || "—")}</p>
+                              {isCompanies ? (
+                                <>
+                                  <p className="text-foreground">{String(dup.incoming.name || "—")}</p>
+                                  <p className="text-muted-foreground font-mono">{String(dup.incoming.documentNumber || dup.incoming.phone || dup.incoming.email || "—")}</p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-foreground">{String(dup.incoming.firstName || "")} {String(dup.incoming.lastName || "")}</p>
+                                  <p className="text-muted-foreground font-mono">{String(dup.incoming.phone || dup.incoming.email || "—")}</p>
+                                </>
+                              )}
                             </div>
                             <div>
                               <p className="text-[10px] text-muted-foreground uppercase mb-1">Existente en BD</p>
-                              <p className="text-foreground">{dup.existing.firstName} {dup.existing.lastName}</p>
-                              <p className="text-muted-foreground font-mono">{dup.existing.phone || dup.existing.email || "—"}</p>
+                              {isCompanies ? (
+                                <>
+                                  <p className="text-foreground">{dup.existing.name}{dup.existing.city ? ` · ${dup.existing.city}` : ""}</p>
+                                  <p className="text-muted-foreground font-mono">{dup.existing.documentNumber || dup.existing.phone || dup.existing.email || "—"}</p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-foreground">{dup.existing.firstName} {dup.existing.lastName}</p>
+                                  <p className="text-muted-foreground font-mono">{dup.existing.phone || dup.existing.email || "—"}</p>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -923,8 +986,8 @@ export function Import() {
 
                 <div className="flex gap-3 justify-center mt-6">
                   <Button onClick={handleReset} variant="outline" size="lg">Subir otro archivo</Button>
-                  <Button onClick={() => navigate(`/${slug}/clients`)} size="lg" className="bg-brand-800 hover:bg-brand-700 text-white">
-                    Ver contactos
+                  <Button onClick={() => navigate(backPath)} size="lg" className="bg-brand-800 hover:bg-brand-700 text-white">
+                    {isCompanies ? "Ver empresas" : "Ver contactos"}
                   </Button>
                 </div>
               </div>

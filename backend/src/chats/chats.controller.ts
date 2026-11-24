@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { Public } from '../auth/public.decorator';
 import { ChatsService, AssignmentFilter } from './chats.service';
+import { parseProjectFilter } from './conversation-project-filter';
 import { WebhookForwarderService } from './webhook-forwarder.service';
 import { ConversationAccessGuard, ConversationAccessService } from './conversation-access';
 import { TenantResourceService } from '../auth/tenant-resource.guard';
@@ -341,6 +342,8 @@ export class ChatsController {
     @Query('assignment') assignment?: string,
     @Query('search') search?: string,
     @Query('recordFilters') recordFilters?: string,
+    @Query('projectIds') projectIds?: string,
+    @Query('projectStatuses') projectStatuses?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
@@ -352,15 +355,14 @@ export class ChatsController {
       userId: req.user?.id,
       search: search?.trim() || undefined,
       recordFilters: parseRecordFilters(recordFilters),
+      projectFilter: parseProjectFilter(projectIds, projectStatuses),
       limit: limit ? parseInt(limit, 10) : 15,
       offset: offset ? parseInt(offset, 10) : 0,
     });
   }
 
   @Get('conversations')
-
-  @TenantRefs({ kind: 'inbox', in: 'query', field: 'inboxId' })
-
+  // Un solo @TenantRefs: si se repite, el de arriba reemplaza al de abajo y se pierde `inboxIds`.
   @TenantRefs({ kind: 'inbox', in: 'query', field: 'inboxId' }, { kind: 'inbox', in: 'query', field: 'inboxIds', csv: true })
   getConversations(
     @Req() req: any,
@@ -374,6 +376,8 @@ export class ChatsController {
     @Query('assignment') assignment?: string,
     @Query('search') search?: string,
     @Query('recordFilters') recordFilters?: string,
+    @Query('projectIds') projectIds?: string,
+    @Query('projectStatuses') projectStatuses?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
@@ -386,6 +390,7 @@ export class ChatsController {
       userId: req.user?.id,
       search: search?.trim() || undefined,
       recordFilters: parseRecordFilters(recordFilters),
+      projectFilter: parseProjectFilter(projectIds, projectStatuses),
     };
 
     if (recordId) return this.chatsService.getConversationsByRecordId(recordId, opts);
@@ -422,6 +427,33 @@ export class ChatsController {
   @TenantResource('conversation')
   updateConversationStatus(@Param('id') id: string, @Body() body: { status: string }, @Req() req: any) {
     return this.chatsService.updateConversationStatus(id, body.status, req.user?.name || req.user?.email);
+  }
+
+  /**
+   * Inicia un flujo conversacional en la conversación (acción del agente). Con
+   * la ventana de 24 h cerrada exige una plantilla: se envía y el flujo empieza
+   * cuando el contacto responda.
+   */
+  @Post('conversations/:id/start-flow')
+  @TenantResource('conversation')
+  @TenantRefs({ kind: 'conversationFlow', in: 'body', field: 'flowId' })
+  startFlow(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    body: {
+      flowId: string;
+      template?: { name: string; language?: string; params?: string[] } | null;
+      variables?: Record<string, string>;
+    },
+    @Req() req: any,
+  ) {
+    return this.chatsService.startFlowInConversation(id, String(body?.flowId || ''), {
+      source: 'manual',
+      template: body?.template ?? null,
+      variables: body?.variables,
+      performedBy: req.user?.id ?? null,
+      performedByName: req.user?.name || req.user?.email || null,
+    });
   }
 
   @Post('conversations/:id/bot-pause')

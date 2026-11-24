@@ -1,12 +1,15 @@
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
-import { FileText, Globe, Users } from "lucide-react";
+import { FileText, FolderKanban, Globe, Wallet, LayoutTemplate, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import headerBg from "@/assets/header-background.jpg";
 
 const navItems = [
   { key: "encuestadores", path: "", icon: <Users className="h-4.5 w-4.5" />, label: "Encuestadores" },
+  { key: "proyectos", path: "proyectos", icon: <FolderKanban className="h-4.5 w-4.5" />, label: "Proyectos" },
+  { key: "pagos", path: "pagos", icon: <Wallet className="h-4.5 w-4.5" />, label: "Pagos" },
   { key: "plantillas", path: "plantillas", icon: <FileText className="h-4.5 w-4.5" />, label: "Plantillas de contrato" },
-  { key: "portal", path: "portal", icon: <Globe className="h-4.5 w-4.5" />, label: "Portal del encuestador" },
+  { key: "portal", path: "portal", icon: <Globe className="h-4.5 w-4.5" />, label: "Portal de registro" },
+  { key: "landing", path: "landing", icon: <LayoutTemplate className="h-4.5 w-4.5" />, label: "Landing" },
 ];
 
 export function ReclutamientoLayout() {
@@ -25,7 +28,17 @@ export function ReclutamientoLayout() {
     return <Navigate to={`/${slug}`} replace />;
   }
 
-  const activeView = location.pathname.includes("/plantillas") ? "plantillas" : location.pathname.endsWith("/portal") ? "portal" : "encuestadores";
+  const activeView = location.pathname.includes("/proyectos")
+    ? "proyectos"
+    : location.pathname.endsWith("/pagos")
+    ? "pagos"
+    : location.pathname.includes("/plantillas")
+    ? "plantillas"
+    : location.pathname.endsWith("/portal")
+      ? "portal"
+      : location.pathname.endsWith("/landing")
+        ? "landing"
+        : "encuestadores";
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -35,7 +48,7 @@ export function ReclutamientoLayout() {
       >
         <h1 className="text-xl font-bold text-white">Reclutamiento</h1>
         <p className="text-brand-300 mt-0.5 text-sm">
-          Gestiona encuestadores, sus contratos y sus datos de pago
+          Gestiona encuestadores, sus contratos y sus datos de pago, y los proyectos con su landing y registro de prospectos
         </p>
       </div>
 

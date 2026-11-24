@@ -111,10 +111,11 @@ export class CampaignsService {
       sendDate: string | null;
       sendTime: string | null;
       recurrenceDays: Record<string, string> | null;
+      replyFlowId: string | null;
     }>,
   ): Promise<Campaign> {
     // Solo se editan estos campos: la cuenta, los contadores y el estado de envío los gestiona el servidor.
-    const EDITABLE = ['name', 'description', 'segments', 'channel', 'status', 'listId', 'messageTemplate', 'emailSubject', 'emailTemplateId', 'inboxId', 'whatsappTemplateName', 'whatsappTemplateLanguage', 'whatsappVariableMapping', 'whatsappTemplateCategory', 'callVoice', 'callRetries', 'callLeaveVoicemail', 'callAudioCode', 'maxSends', 'isRecurring', 'sendDate', 'sendTime', 'recurrenceDays'];
+    const EDITABLE = ['name', 'description', 'segments', 'channel', 'status', 'listId', 'messageTemplate', 'emailSubject', 'emailTemplateId', 'inboxId', 'whatsappTemplateName', 'whatsappTemplateLanguage', 'whatsappVariableMapping', 'whatsappTemplateCategory', 'callVoice', 'callRetries', 'callLeaveVoicemail', 'callAudioCode', 'maxSends', 'isRecurring', 'sendDate', 'sendTime', 'recurrenceDays', 'replyFlowId'];
     const changes = Object.fromEntries(Object.entries(data).filter(([k, v]) => EDITABLE.includes(k) && v !== undefined));
     if (Object.keys(changes).length) await this.campaignRepository.update(id, changes as any);
     const campaign = await this.findOne(id);

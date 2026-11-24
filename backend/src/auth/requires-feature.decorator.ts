@@ -15,14 +15,15 @@ export type TenantFeature =
   | 'cursos'
   | 'automatizaciones'
   | 'reclutamiento'
-  | 'encuestas';
+  | 'encuestas'
+  | 'estudios';
 
 /**
- * Módulos que existían antes de introducir el feature-gating: si el flag no
- * está definido en el tenant se consideran ACTIVOS (solo se apagan con
- * `false` explícito). Debe coincidir con `defaultOn` en frontend/src/config/modules.ts.
+ * Módulos activos por defecto: si el flag no está definido en el tenant se
+ * consideran ACTIVOS (solo se apagan con `false` explícito). Hoy no hay
+ * ninguno: todos los módulos opcionales se activan de forma explícita. Debe coincidir con `defaultOn` en frontend/src/config/modules.ts.
  */
-export const DEFAULT_ON_FEATURES: ReadonlySet<TenantFeature> = new Set<TenantFeature>(['encuestas']);
+export const DEFAULT_ON_FEATURES: ReadonlySet<TenantFeature> = new Set<TenantFeature>();
 
 /** Indica si un feature está activo para un tenant, respetando los valores por defecto. */
 export function isFeatureEnabled(

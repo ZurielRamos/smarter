@@ -13,6 +13,9 @@ import { PortalAuthService } from './portal-auth.service';
 import { PortalConfigService } from './portal-config.service';
 import { PortalMessengerService, fillTemplate } from './portal-messenger.service';
 
+/** Ruta pública del portal en el frontend (debe coincidir con App.tsx). */
+export const PORTAL_PUBLIC_PATH = '/r';
+
 /** Invitar a un encuestador al portal y ver cómo va su proceso. Lado de quien administra la cuenta. */
 @Injectable()
 export class PortalInvitationsService {
@@ -32,7 +35,7 @@ export class PortalInvitationsService {
   /** Enlace público del portal de una cuenta. */
   portalUrl(slug: string, token?: string): string {
     const base = (this.config.get<string>('FRONTEND_URL') || '').replace(/\/$/, '');
-    return `${base}/encuestador/${encodeURIComponent(slug)}${token ? `?i=${encodeURIComponent(token)}` : ''}`;
+    return `${base}${PORTAL_PUBLIC_PATH}/${encodeURIComponent(slug)}${token ? `?i=${encodeURIComponent(token)}` : ''}`;
   }
 
   async invite(tenantId: string, actor: Actor, profileId: string) {
