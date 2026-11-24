@@ -136,9 +136,12 @@ interface Props {
   options: VariableOption[];
   /** id del <datalist> con las variables del flujo */
   variableListId: string;
+  /** Encabezado y pie del mensaje (los mismos campos que el nodo Mensaje). */
+  headerSlot?: ReactNode;
+  footerSlot?: ReactNode;
 }
 
-export function InputEditor({ nodeId, data, set, options, variableListId }: Props) {
+export function InputEditor({ nodeId, data, set, options, variableListId, headerSlot, footerSlot }: Props) {
   const type = data.validation || "any";
   const crmOptions = crmFieldOptions(options);
   const isText = TEXT_TYPES.has(type);
@@ -172,9 +175,11 @@ export function InputEditor({ nodeId, data, set, options, variableListId }: Prop
   return (
     <div className="space-y-5">
       <Section title="Pregunta">
+        {headerSlot}
         <VariableTextarea
           id={`${nodeId}-text`}
           aria-label="Pregunta"
+          formatting
           rows={3}
           value={data.text || ""}
           onChange={(v) => set({ text: v })}
@@ -182,6 +187,7 @@ export function InputEditor({ nodeId, data, set, options, variableListId }: Prop
           className={cn(inputClass, "resize-y")}
         />
         <p className={hintClass}>Escribe {"{"} para insertar una variable o un campo del CRM.</p>
+        {footerSlot}
       </Section>
 
       <Section title="Tipo de respuesta">

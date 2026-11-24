@@ -10,8 +10,10 @@ import {
   type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { Bold, Code, Italic, List, ListOrdered, Quote, Strikethrough } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { caretCoordinates } from "./caretCoordinates";
+import { toggleInline, toggleLines, type Edit, type InlineFormat, type LineFormat } from "./whatsappFormat";
 import { FlowVariablesContext } from "./editorContext";
 import {
   VARIABLE_GROUP_LABELS,
@@ -38,13 +40,23 @@ interface FieldProps {
   "aria-invalid"?: boolean;
 }
 
+const TOOLS: Array<{ key: InlineFormat | LineFormat; label: string; title: string; icon: typeof Bold; line?: boolean }> = [
+  { key: "bold", label: "Negrita", title: "Negrita (Ctrl/⌘ + B): *texto*", icon: Bold },
+  { key: "italic", label: "Cursiva", title: "Cursiva (Ctrl/⌘ + I): _texto_", icon: Italic },
+  { key: "strike", label: "Tachado", title: "Tachado: ~texto~", icon: Strikethrough },
+  { key: "mono", label: "Monoespaciado", title: "Monoespaciado: ```texto```", icon: Code },
+  { key: "bullet", label: "Lista con viñetas", title: "Lista con viñetas: - texto", icon: List, line: true },
+  { key: "numbered", label: "Lista numerada", title: "Lista numerada: 1. texto", icon: ListOrdered, line: true },
+  { key: "quote", label: "Cita", title: "Cita: > texto", icon: Quote, line: true },
+];
+
 /** Campo de una línea que sugiere variables al escribir `{` o `{{`. */
 export function VariableInput(props: FieldProps) {
   return <VariableField {...props} />;
 }
 
 /** Área de texto que sugiere variables al escribir `{` o `{{`. */
-export function VariableTextarea(props: FieldProps & { rows?: number }) {
+export function VariableTextarea(props: FieldProps & { rows?: number; formatting?: boolean }) {
   return <VariableField {...props} multiline />;
 }
 
@@ -84,8 +96,9 @@ function VariableField({
   onChange,
   className,
   type = "text",
+  formatting = false,
   ...rest
-}: FieldProps & { multiline?: boolean; rows?: number }) {
+}: FieldProps & { multiline?: boolean; rows?: number; formatting?: boolean }) {
   const options = useContext(FlowVariablesContext);
   const ref = useRef<FieldElement | null>(null);
   const baseId = useId();
@@ -98,6 +111,7 @@ function VariableField({
   const [active, setActive] = useState(0);
   const [coords, setCoords] = useState<Coords | null>(null);
   const pendingCaret = useRef<number | null>(null);
+  const pendingSelection = useRef<{ start: number; end: number } | null>(null);
   // Entre insertar una variable y que React confirme el texto nuevo, el DOM aún
   // tiene el valor anterior: un evento de selección que llegue en ese hueco
   // reabriría la lista con el disparador viejo.
@@ -143,6 +157,11 @@ function VariableField({
   useLayoutEffect(() => {
     // El texto ya está confirmado: vuelven a valer los eventos de selección.
     inserting.current = false;
+    const sel = pendingSelection.current;
+    if (sel && ref.current) {
+      pendingSelection.current = null;
+      ref.current.setSelectionRange(sel.start, sel.end);
+    }
     const caret = pendingCaret.current;
     if (caret === null || !ref.current) return;
     pendingCaret.current = null;
@@ -202,7 +221,26 @@ function VariableField({
     setDismissedAt(null);
   };
 
+  // Formato de WhatsApp sobre la selección (solo texto multilínea con `formatting`).
+  const format = (key: InlineFormat | LineFormat) => {
+    const el = ref.current;
+    if (!el) return;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? start;
+    const line = TOOLS.find((t) => t.key === key)?.line;
+    const edit: Edit = line ? toggleLines(el.value, start, end, key as LineFormat) : toggleInline(el.value, start, end, key as InlineFormat);
+    pendingSelection.current = { start: edit.start, end: edit.end };
+    inserting.current = true;
+    onChange(edit.value);
+    setTrigger(null);
+    el.focus();
+  };
   const handleKeyDown = (e: KeyboardEvent<FieldElement>) => {
+    if (formatting && multiline && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === "b" || e.key === "i")) {
+      e.preventDefault();
+      format(e.key === "b" ? "bold" : "italic");
+      return;
+    }
     // Una tecla nueva es una acción nueva: si el padre no cambió el texto (p. ej.
     // lo recortó al mismo valor), no se queda ignorando la selección.
     inserting.current = false;
@@ -324,6 +362,26 @@ function VariableField({
 
   return (
     <>
+      {multiline && formatting && (
+        <div role="toolbar" aria-label="Formato del mensaje" className="mb-1 flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-0.5">
+          {TOOLS.map((t, i) => (
+            <span key={t.key} className="flex items-center">
+              {i === 4 && <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />}
+              <button
+                type="button"
+                title={t.title}
+                aria-label={t.label}
+                // Pulsar el botón no debe quitarle el foco ni la selección al texto.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => format(t.key)}
+                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+              >
+                <t.icon className="h-3.5 w-3.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       {multiline ? (
         <textarea ref={(n) => void (ref.current = n)} rows={rows} {...shared} />
       ) : (

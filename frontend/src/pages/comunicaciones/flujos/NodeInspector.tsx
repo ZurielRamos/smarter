@@ -131,6 +131,16 @@ export function NodeInspector({
             set={set}
             options={variableOptions}
             variableListId={variableListId}
+            headerSlot={<HeaderFields data={data} set={set} tenantId={tenantId} buttonCount={0} />}
+            footerSlot={
+              <LimitedField
+                id="msg-footer"
+                label="Pie de mensaje"
+                value={data.footer || ""}
+                placeholder="Responde con un solo mensaje"
+                onChange={(v) => set({ footer: v })}
+              />
+            }
           />
         )}
 
@@ -441,6 +451,7 @@ function MessageFields({
         </label>
         <VariableTextarea
           id="msg-text"
+          formatting
           rows={5}
           value={data.text || ""}
           onChange={(v) => set({ text: v })}

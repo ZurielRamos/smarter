@@ -16,6 +16,7 @@ import {
   Bot,
   Clock,
   Wand2,
+  Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ACTION_LABELS, VALIDATION_LABELS, type FlowNodeData } from "./types";
@@ -280,8 +281,18 @@ export function UserInputNode({ data, selected }: NodeProps<FlowNode>) {
       icon={<TextCursorInput className="h-3.5 w-3.5" />}
       warning={inputIssue(data) ?? timeoutIssue(data.timeout)}
     >
-      {data.text?.trim() ? (
-        <p className="whitespace-pre-wrap break-words line-clamp-4 rounded-lg bg-muted/60 px-2.5 py-2">{data.text}</p>
+      {data.headerType && data.headerType !== "text" && data.headerMediaUrl && (
+        <div className="flex items-center gap-1.5 rounded-lg bg-muted/60 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+          {data.headerType === "image" ? <ImageIcon className="h-3.5 w-3.5 shrink-0" /> : data.headerType === "video" ? <Video className="h-3.5 w-3.5 shrink-0" /> : <FileText className="h-3.5 w-3.5 shrink-0" />}
+          <span className="truncate">{data.headerMediaName || (data.headerType === "image" ? "Imagen" : data.headerType === "video" ? "Video" : "Documento")}</span>
+        </div>
+      )}
+      {data.text?.trim() || data.header || data.footer ? (
+        <div className="space-y-1 rounded-lg bg-muted/60 px-2.5 py-2">
+          {(!data.headerType || data.headerType === "text") && data.header && <p className="font-semibold break-words">{data.header}</p>}
+          {data.text?.trim() && <p className="whitespace-pre-wrap break-words line-clamp-4">{data.text}</p>}
+          {data.footer && <p className="text-[10px] text-muted-foreground break-words">{data.footer}</p>}
+        </div>
       ) : (
         <Placeholder>Pregunta al contacto…</Placeholder>
       )}

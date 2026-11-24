@@ -849,7 +849,15 @@ export class ConversationFlowEngine {
             const list = formatChoices(node.data.choices || []);
             if (list) text = text ? `${text}\n\n${list}` : list;
           }
-          if (text) result.messages.push({ text });
+          // Encabezado y pie como en el nodo Mensaje (la pregunta ya lleva las opciones).
+          const msg = this.renderMessage(node.data, variables, context);
+          if (text || msg.headerMedia)
+            result.messages.push({
+              text,
+              header: msg.header,
+              footer: msg.footer,
+              headerMedia: msg.headerMedia,
+            });
           result.state = this.waitingState(flow.id, node.id, 'input');
           return;
         }

@@ -580,31 +580,7 @@ export class ConversationFlowsService {
       switch (raw.type) {
         case 'message': {
           node.data.text = String(d.text || '').slice(0, 4096);
-          // Límite de WhatsApp para header/footer de mensajes interactivos.
-          const footer = String(d.footer || '')
-            .trim()
-            .slice(0, 60);
-          if (footer) node.data.footer = footer;
-          const headerType = HEADER_MEDIA_TYPES.has(String(d.headerType))
-            ? (d.headerType as FlowHeaderType)
-            : 'text';
-          if (headerType === 'text') {
-            const header = String(d.header || '')
-              .trim()
-              .slice(0, 60);
-            if (header) node.data.header = header;
-          } else {
-            // Solo URLs https (las sube el endpoint upload-media a nuestro storage).
-            const url = String(d.headerMediaUrl || '').trim();
-            if (/^https:\/\/\S+$/i.test(url) && url.length <= 2048) {
-              node.data.headerType = headerType;
-              node.data.headerMediaUrl = url;
-              const name = String(d.headerMediaName || '')
-                .trim()
-                .slice(0, 240);
-              if (name) node.data.headerMediaName = name;
-            }
-          }
+          this.sanitizeHeaderFooter(d, node.data);
           const buttons = this.sanitizeButtons(d.buttons);
           if (buttons.length) node.data.buttons = buttons;
           // Solo tiene sentido si hay archivo en el encabezado y más de 3 respuestas.
@@ -632,6 +608,7 @@ export class ConversationFlowsService {
             flow.tenantId,
             () => (customKeys ??= this.writableCustomKeys(flow.tenantId)),
           );
+          this.sanitizeHeaderFooter(d, node.data);
           const timeout = this.sanitizeTimeout(d.timeout);
           if (timeout) node.data.timeout = timeout;
           break;
@@ -1057,6 +1034,35 @@ export class ConversationFlowsService {
     if (WRITABLE_CONTACT_KEYS.has(key)) return key;
     if (forAction && ACTION_ONLY_CONTACT_KEYS.has(key)) return key;
     return (await customKeys()).has(key) ? key : undefined;
+  }
+
+  /** Encabezado (texto o archivo) y pie del mensaje; los usan los nodos Mensaje y Entrada. */
+  private sanitizeHeaderFooter(d: FlowNodeData, out: FlowNodeData): void {
+    // Límite de WhatsApp para header/footer de mensajes interactivos.
+    const footer = String(d.footer || '')
+      .trim()
+      .slice(0, 60);
+    if (footer) out.footer = footer;
+    const headerType = HEADER_MEDIA_TYPES.has(String(d.headerType))
+      ? (d.headerType as FlowHeaderType)
+      : 'text';
+    if (headerType === 'text') {
+      const header = String(d.header || '')
+        .trim()
+        .slice(0, 60);
+      if (header) out.header = header;
+    } else {
+      // Solo URLs https (las sube el endpoint upload-media a nuestro storage).
+      const url = String(d.headerMediaUrl || '').trim();
+      if (/^https:\/\/\S+$/i.test(url) && url.length <= 2048) {
+        out.headerType = headerType;
+        out.headerMediaUrl = url;
+        const name = String(d.headerMediaName || '')
+          .trim()
+          .slice(0, 240);
+        if (name) out.headerMediaName = name;
+      }
+    }
   }
 
   /**
