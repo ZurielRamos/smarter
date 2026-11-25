@@ -21,16 +21,53 @@ export const ATTRIBUTION_PARAM_KEYS = [
   'fbclid', 'gclid', 'gbraid', 'wbraid', 'ttclid', 'li_fat_id', 'twclid', 'msclkid', 'ctwa_clid',
   'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
   'fbc', 'fbp', '_fbc', '_fbp',
+  // IDs de campaña/conjunto/anuncio (por parámetros dinámicos de la URL del anuncio)
+  'campaign_id', 'campaignid', 'adset_id', 'adsetid', 'ad_id', 'adid', 'utm_id',
 ] as const;
+/** Claves que acompañan la atribución pero no la prueban por sí solas. */
+const SUPPORT_PARAM_KEYS: readonly string[] = [
+  'fbc', 'fbp', '_fbc', '_fbp',
+  'campaign_id', 'campaignid', 'adset_id', 'adsetid', 'ad_id', 'adid', 'utm_id',
+];
 
+const SEARCH_ENGINES = ['google', 'bing', 'yahoo', 'duckduckgo', 'ecosia', 'baidu', 'yandex'];
+const SOCIAL_NETWORKS: Record<string, string> = {
+  'facebook.com': 'facebook', 'fb.com': 'facebook', 'instagram.com': 'instagram',
+  't.co': 'twitter', 'twitter.com': 'twitter', 'x.com': 'twitter',
+  'linkedin.com': 'linkedin', 'lnkd.in': 'linkedin', 'tiktok.com': 'tiktok',
+  'youtube.com': 'youtube', 'pinterest.com': 'pinterest', 'reddit.com': 'reddit',
+};
+
+/** Clasifica un referrer externo como buscador (organic), red social (social) u otro sitio (referral). */
+export function classifyReferrer(referrer?: string, landingPage?: string): { source: string; medium: string } | null {
+  if (!referrer) return null;
+  let host: string;
+  try {
+    host = new URL(referrer).hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+  if (!host) return null;
+  try {
+    const own = new URL(landingPage || '').hostname.toLowerCase().replace(/^www\./, '');
+    if (own && (host === own || host.endsWith('.' + own) || own.endsWith('.' + host))) return null;
+  } catch {
+    // landingPage ausente o inválida: se asume referrer externo
+  }
+  const labels = host.split('.');
+  const engine = SEARCH_ENGINES.find((e) => labels.includes(e));
+  if (engine) return { source: engine, medium: 'organic' };
+  const social = Object.keys(SOCIAL_NETWORKS).find((d) => host === d || host.endsWith('.' + d));
+  if (social) return { source: SOCIAL_NETWORKS[social], medium: 'social' };
+  return { source: host, medium: 'referral' };
+}
 /** Objeto de atribución que el cliente (formulario, API, widget) envía junto a un alta. */
 export type AttributionInput = Partial<Record<(typeof ATTRIBUTION_PARAM_KEYS)[number] | 'referrer' | 'landingPage', string>>;
-
 /** Indica si el objeto trae al menos un dato de atribución utilizable. */
 export function hasAttributionData(attribution?: Record<string, any> | null): boolean {
   if (!attribution || typeof attribution !== 'object') return false;
   return ATTRIBUTION_PARAM_KEYS.some(
-    (k) => !['fbc', 'fbp', '_fbc', '_fbp'].includes(k) && typeof attribution[k] === 'string' && attribution[k].trim() !== '',
+    (k) => !SUPPORT_PARAM_KEYS.includes(k) && typeof attribution[k] === 'string' && attribution[k].trim() !== '',
   );
 }
 
@@ -212,8 +249,9 @@ export class ConversionsService {
   /**
    * Detect platform from URL params and create the appropriate event.
    */
-  async trackFromUrlParams(tenantId: string, params: Record<string, string>, context: { ipAddress?: string; userAgent?: string; referrer?: string; landingPage?: string; recordId?: string; sessionId?: string }): Promise<AdEvent | null> {
+  async trackFromUrlParams(tenantId: string, params: Record<string, string>, context: { ipAddress?: string; userAgent?: string; referrer?: string; landingPage?: string; recordId?: string; sessionId?: string; allowReferrerOnly?: boolean }): Promise<AdEvent | null> {
     let platform = 'direct';
+    let referrerSource: { source: string; medium: string } | null = null;
     let clickId: string | null = null;
     let clickIdType: string | null = null;
 
@@ -271,8 +309,19 @@ export class ConversionsService {
       }
     }
 
-    // Don't track direct visits with no attribution data
-    if (platform === 'direct' && !params.utm_source) return null;
+    // Visita sin parámetros: solo se registra si hay un referrer externo (buscador, red social, otro sitio).
+    if (platform === 'direct' && !params.utm_source) {
+      referrerSource = context.allowReferrerOnly ? classifyReferrer(context.referrer, context.landingPage) : null;
+      if (!referrerSource) return null;
+      platform = 'organic';
+    }
+
+    const campaignId = params.campaign_id || params.campaignid || params.utm_id || undefined;
+    const adsetId = params.adset_id || params.adsetid || undefined;
+    const adId = params.ad_id || params.adid || undefined;
+    const metadata = campaignId || adsetId || adId
+      ? { ...(campaignId && { campaignId }), ...(adsetId && { adsetId }), ...(adId && { adId }) }
+      : undefined;
 
     return this.trackEvent({
       tenantId,
@@ -283,8 +332,8 @@ export class ConversionsService {
       clickIdType: clickIdType || undefined,
       fbc: params._fbc || params.fbc || undefined,
       fbp: params._fbp || params.fbp || undefined,
-      utmSource: params.utm_source,
-      utmMedium: params.utm_medium,
+      utmSource: params.utm_source || referrerSource?.source,
+      utmMedium: params.utm_medium || referrerSource?.medium,
       utmCampaign: params.utm_campaign,
       utmContent: params.utm_content,
       utmTerm: params.utm_term,
@@ -292,6 +341,7 @@ export class ConversionsService {
       landingPage: context.landingPage,
       ipAddress: context.ipAddress,
       userAgent: context.userAgent,
+      metadata,
     });
   }
 
@@ -712,6 +762,8 @@ export class ConversionsService {
       .createQueryBuilder('ae')
       .where('ae.tenant_id = :tenantId', { tenantId })
       .andWhere("ae.session_id = :sessionId", { sessionId: `trk_${code}` })
+      .andWhere("ae.status != 'expired'")
+      .orderBy('ae.created_at', 'DESC')
       .getOne();
   }
 
@@ -724,6 +776,34 @@ export class ConversionsService {
     if (adEvent) {
       await this.applyTouchToRecord(adEvent, recordId);
     }
+  }
+
+  /**
+   * Reserva el siguiente código de seguimiento del tenant de forma atómica
+   * (un solo UPDATE ... RETURNING), para que visitas simultáneas no reciban el mismo código.
+   */
+  async nextTrackingCode(tenantId: string): Promise<string> {
+    const rows: Array<{ code: number }> = await this.adEventRepo.manager.query(
+      `UPDATE tenants SET tracking_config = jsonb_set(
+          COALESCE(tracking_config, '{}'::jsonb),
+          '{nextCode}',
+          to_jsonb(COALESCE((tracking_config->>'nextCode')::int, 1) + 1)
+        )
+       WHERE id = $1
+       RETURNING (tracking_config->>'nextCode')::int - 1 AS code`,
+      [tenantId],
+    );
+    // En UPDATE ... RETURNING de pg, el resultado puede venir como [rows, count]
+    const first: any = Array.isArray(rows[0]) ? (rows as any)[0][0] : rows[0];
+    return String(first.code);
+  }
+
+  /** Mezcla claves en tracking_config sin pisar las demás (evita sobrescribir nextCode). */
+  async mergeTrackingConfig(tenantId: string, patch: Record<string, any>): Promise<void> {
+    await this.adEventRepo.manager.query(
+      `UPDATE tenants SET tracking_config = COALESCE(tracking_config, '{}'::jsonb) || $2::jsonb WHERE id = $1`,
+      [tenantId, JSON.stringify(patch)],
+    );
   }
 
   /**

@@ -42,10 +42,11 @@ export class LinkTrackerController {
     // Generate token if not present
     if (!config.pixelToken) {
       const newToken = require('crypto').randomUUID();
-      await this.tenantRepo.update(tenant.id, {
-        trackingConfig: { ...config, pixelToken: newToken },
-      } as any);
-      return this.getPixelScript(slug, res); // recurse with new token
+      await this.tenantRepo.query(
+        `UPDATE tenants SET tracking_config = COALESCE(tracking_config, '{}'::jsonb) || jsonb_build_object('pixelToken', COALESCE(tracking_config->>'pixelToken', $2::text)) WHERE id = $1`,
+        [tenant.id, newToken],
+      );
+      return this.getPixelScript(slug, res); // re-read with the stored token
     }
 
     const script = `
@@ -83,10 +84,20 @@ export class LinkTrackerController {
   var fbp = getCookie("_fbp");
   if (!fbc && params.fbclid) fbc = "fb.1." + Date.now() + "." + params.fbclid;
 
-  // Check if there's any attribution data worth tracking
+  // Attribution data in the URL, an external referrer (search/social/other site),
+  // or a code already created earlier in this session (internal navigation).
   var hasAttribution = params.fbclid || params.gclid || params.gbraid || params.wbraid || params.msclkid || params.ttclid || params.li_fat_id || params.twclid || params.ctwa_clid || params.utm_source;
-  if (!hasAttribution) {
-    // Still ping but don't track
+  function externalReferrer() {
+    if (!document.referrer) return false;
+    try {
+      var rh = new URL(document.referrer).hostname.replace(/^www\\./, "");
+      var ch = window.location.hostname.replace(/^www\\./, "");
+      return rh !== ch && !rh.endsWith("." + ch) && !ch.endsWith("." + rh);
+    } catch (e) { return false; }
+  }
+  var hasStoredCode = !!sessionStorage.getItem("__sg_code");
+  if (!hasAttribution && !hasStoredCode && !externalReferrer()) {
+    // Nothing to track: just ping
     var pingXhr = new XMLHttpRequest();
     pingXhr.open("GET", API + "/ping", true);
     pingXhr.send();
@@ -150,21 +161,36 @@ export class LinkTrackerController {
   // Modify WhatsApp links to include tracking code and open in new tab
   function processLinks() {
     if (!trackingCode) return;
-    var codeText = CODE_PATTERN.replace("{{code}}", trackingCode);
-    var links = document.querySelectorAll('a[href*="wa.me"], a[href*="api.whatsapp.com"]');
+    var links = document.querySelectorAll('a[href*="wa.me"], a[href*="api.whatsapp.com"], a[href*="web.whatsapp.com/send"], a[href^="whatsapp:"]');
     links.forEach(function(link) {
       if (link.dataset.sgTracked) return;
       link.dataset.sgTracked = "1";
-      link.setAttribute("target", "_blank");
+      if (!/^whatsapp:/i.test(link.getAttribute("href") || "")) link.setAttribute("target", "_blank");
 
       // Modify the href directly to include the code
-      var url = new URL(link.href);
-      var existingText = url.searchParams.get("text") || "";
-      var separator = existingText ? " " : "";
-      url.searchParams.set("text", existingText + separator + codeText);
-      link.href = url.toString();
+      try {
+        link.href = decorate(link.href);
+      } catch (e) {}
     });
   }
+
+  // Appends the tracking code to any WhatsApp URL. Idempotent.
+  function decorate(href) {
+    if (!trackingCode) return href;
+    var codeText = CODE_PATTERN.replace("{{code}}", trackingCode);
+    var url = new URL(href);
+    var existingText = url.searchParams.get("text") || "";
+    if (existingText.indexOf(codeText) !== -1) return href;
+    url.searchParams.set("text", existingText + (existingText ? " " : "") + codeText);
+    return url.toString();
+  }
+
+  // Public helper for custom buttons / widgets that open WhatsApp from JavaScript:
+  //   window.open(window.SmarterTrack.decorate("https://wa.me/573001234567?text=Hola"))
+  window.SmarterTrack = {
+    getCode: function() { return trackingCode; },
+    decorate: decorate
+  };
 
   // Process on load and watch for dynamic links
   if (document.readyState === "loading") {
@@ -213,7 +239,7 @@ export class LinkTrackerController {
     }
 
     // Generate sequential code
-    const code = await this.generateCode(tenant);
+    const code = await this.conversionsService.nextTrackingCode(tenant.id);
 
     // Create the AdEvent
     await this.conversionsService.trackFromUrlParams(
@@ -225,6 +251,7 @@ export class LinkTrackerController {
         referrer: body.referrer,
         landingPage: body.landingPage,
         sessionId: `trk_${code}`,
+        allowReferrerOnly: true,
       },
     );
 
@@ -245,15 +272,15 @@ export class LinkTrackerController {
     const tenant = await this.tenantRepo.findOne({ where: { slug } });
     if (!tenant) return res.status(404).json({ ok: false });
 
-    // Update last ping timestamp
+    // Update last ping timestamp (merge atómico, como máximo una vez por minuto)
     const config = tenant.trackingConfig || {};
-    await this.tenantRepo.update(tenant.id, {
-      trackingConfig: {
-        ...config,
+    const lastPing = config.lastPingAt ? Date.parse(config.lastPingAt) : 0;
+    if (Date.now() - lastPing > 60_000) {
+      await this.conversionsService.mergeTrackingConfig(tenant.id, {
         lastPingAt: new Date().toISOString(),
         lastPingOrigin: (req.headers['origin'] || req.headers['referer'] || '') as string,
-      },
-    } as any);
+      });
+    }
 
     // Return 1x1 transparent pixel (for img tag fallback) or JSON
     res.setHeader('Cache-Control', 'no-cache');
@@ -306,16 +333,5 @@ export class LinkTrackerController {
         lastPingAt: config.lastPingAt || null,
       });
     }
-  }
-  private async generateCode(tenant: Tenant): Promise<string> {
-    const config = tenant.trackingConfig || {};
-    const nextCode = config.nextCode || 1;
-
-    // Increment atomically
-    await this.tenantRepo.update(tenant.id, {
-      trackingConfig: { ...config, nextCode: nextCode + 1 },
-    } as any);
-
-    return String(nextCode);
   }
 }

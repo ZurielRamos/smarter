@@ -363,7 +363,12 @@ export class ChatsController {
 
   @Get('conversations')
   // Un solo @TenantRefs: si se repite, el de arriba reemplaza al de abajo y se pierde `inboxIds`.
-  @TenantRefs({ kind: 'inbox', in: 'query', field: 'inboxId' }, { kind: 'inbox', in: 'query', field: 'inboxIds', csv: true })
+  // `recordId`: la ficha del contacto lista sus conversaciones sin tenantId; la cuenta sale del contacto.
+  @TenantRefs(
+    { kind: 'inbox', in: 'query', field: 'inboxId' },
+    { kind: 'inbox', in: 'query', field: 'inboxIds', csv: true },
+    { kind: 'record', in: 'query', field: 'recordId' },
+  )
   getConversations(
     @Req() req: any,
     @Query('tenantId') tenantId?: string,
