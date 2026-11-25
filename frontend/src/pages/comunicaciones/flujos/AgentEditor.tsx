@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { NumberField } from "@/components/ui/number-field";
 import { FlowSelect, type SelectOption } from "./FlowSelect";
 import { Toggle } from "./Toggle";
+import { ReplaceToggle } from "./ReplaceToggle";
 import { AiModePicker } from "./AiModePicker";
 import { VariableTextarea } from "./VariableField";
 import { VARIABLE_GROUP_LABELS, type VariableOption } from "./variables";
@@ -287,10 +288,11 @@ export function AgentEditor({ nodeId, data, set, options, tenantId }: Props) {
               searchable
               aria-label={`Campo del CRM del dato ${i + 1}`}
               value={c.saveToField || ""}
-              onChange={(v) => setCollect(i, { saveToField: v || undefined })}
+              onChange={(v) => setCollect(i, { saveToField: v || undefined, ...(v ? {} : { keepExisting: undefined }) })}
               placeholder="No guardar en el CRM"
               options={crmOptions}
             />
+            {c.saveToField && <ReplaceToggle keepExisting={c.keepExisting} onChange={(keepExisting) => setCollect(i, { keepExisting })} />}
           </div>
         ))}
         <button

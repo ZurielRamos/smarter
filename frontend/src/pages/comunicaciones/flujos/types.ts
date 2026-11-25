@@ -92,6 +92,8 @@ export interface FlowAiExtra {
   variable: string;
   description: string;
   saveToField?: string;
+  /** Con true, no reemplaza el dato si el campo del CRM ya tiene valor (por defecto lo reemplaza) */
+  keepExisting?: boolean;
 }
 /** Variante de OpenRouter sobre el modelo de la cuenta; sin modo = balanceado. */
 export type FlowAiMode = "nitro" | "exacto" | "floor";
@@ -106,6 +108,8 @@ export interface FlowAgentCollect {
   variable: string;
   description: string;
   saveToField?: string;
+  /** Con true, no reemplaza el dato si el campo del CRM ya tiene valor (por defecto lo reemplaza) */
+  keepExisting?: boolean;
 }
 /** Nodo «Conversación con IA». Salidas: `out:<id>`, `handoff`, `limit` y `error`. */
 export interface FlowAgentConfig {
@@ -135,6 +139,8 @@ export interface FlowAiGenerateField {
   /** Si falta, el nodo sale por «Si falla» */
   required?: boolean;
   saveToField?: string;
+  /** Con true, no reemplaza el dato si el campo del CRM ya tiene valor (por defecto lo reemplaza) */
+  keepExisting?: boolean;
 }
 export interface FlowAiGenerateContext {
   /** Últimos mensajes de la conversación (0 = ninguno) */
@@ -153,6 +159,8 @@ export interface FlowAiGenerateConfig {
   /** text: variable del resultado (vacío = ai_text) */
   variable?: string;
   saveToField?: string;
+  /** Con true, no reemplaza el dato si el campo del CRM ya tiene valor (por defecto lo reemplaza) */
+  keepExisting?: boolean;
   /** text: enviar el texto al contacto */
   send?: boolean;
   length?: "short" | "medium" | "long";
@@ -290,7 +298,9 @@ export interface FlowAction {
   labelId?: string;
   /** update_contact: clave del campo del CRM; el valor va en `value` */
   field?: string;
-  /** set_project_answers: no reemplazar lo que ya tenga (update_contact siempre reemplaza) */
+  /** update_contact: con true no reemplaza el dato si el campo ya tiene valor (por defecto lo reemplaza) */
+  keepExisting?: boolean;
+  /** set_project_answers: no reemplazar lo que ya tenga */
   onlyIfEmpty?: boolean;
   /** add_to_project / set_project_status: proyecto de reclutamiento */
   projectId?: string;
@@ -333,6 +343,8 @@ export interface FlowNodeData {
   errorMessage?: string;
   /** user_input / message con botones: campo del CRM donde también se guarda la respuesta */
   saveToField?: string;
+  /** Con true, no reemplaza el dato si el campo del CRM ya tiene valor (por defecto lo reemplaza) */
+  keepExisting?: boolean;
   /** user_input: no preguntar si la variable o el campo del CRM ya tienen valor */
   skipIfFilled?: boolean;
   transform?: FlowInputTransform;

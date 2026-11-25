@@ -141,6 +141,8 @@ export interface FlowAiExtra {
   description: string;
   /** Campo del CRM donde también se guarda (opcional) */
   saveToField?: string;
+  /** Con true, no reemplaza el dato si el campo del CRM ya tiene valor (por defecto lo reemplaza) */
+  keepExisting?: boolean;
 }
 
 /**
@@ -162,6 +164,8 @@ export interface FlowAgentCollect {
   variable: string;
   description: string;
   saveToField?: string;
+  /** Con true, no reemplaza el dato si el campo del CRM ya tiene valor (por defecto lo reemplaza) */
+  keepExisting?: boolean;
 }
 
 /**
@@ -219,6 +223,8 @@ export interface FlowAiGenerateField {
   required?: boolean;
   /** Campo del CRM donde también se guarda */
   saveToField?: string;
+  /** Con true, no reemplaza el dato si el campo del CRM ya tiene valor (por defecto lo reemplaza) */
+  keepExisting?: boolean;
 }
 
 /** Información que recibe la IA además de las instrucciones. */
@@ -249,6 +255,8 @@ export interface FlowAiGenerateConfig {
   variable?: string;
   /** text: campo del CRM donde también se guarda */
   saveToField?: string;
+  /** Con true, no reemplaza el dato si el campo del CRM ya tiene valor (por defecto lo reemplaza) */
+  keepExisting?: boolean;
   /** text: enviar el texto generado al contacto como mensaje */
   send?: boolean;
   /** text: extensión orientativa */
@@ -314,7 +322,9 @@ export interface FlowAction {
   labelId?: string;
   /** update_contact: clave del campo del CRM (el valor va en `value`, admite {{variables}}) */
   field?: string;
-  /** set_project_answers: no reemplazar lo que ya tenga (update_contact siempre reemplaza) */
+  /** update_contact: con true no reemplaza el dato si el campo ya tiene valor (por defecto lo reemplaza) */
+  keepExisting?: boolean;
+  /** set_project_answers: no reemplazar lo que ya tenga */
   onlyIfEmpty?: boolean;
   /** add_to_project / set_project_status: proyecto de reclutamiento de la cuenta */
   projectId?: string;
@@ -474,6 +484,8 @@ export interface FlowNodeData {
   errorMessage?: string;
   /** user_input / message con botones: campo del CRM donde también se guarda la respuesta */
   saveToField?: string;
+  /** Con true, no reemplaza el dato si el campo del CRM ya tiene valor (por defecto lo reemplaza) */
+  keepExisting?: boolean;
   /** user_input: no preguntar si la variable o el campo del CRM ya tienen valor */
   skipIfFilled?: boolean;
   /** user_input: formato al guardar (solo respuestas de texto) */

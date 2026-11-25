@@ -609,7 +609,10 @@ export class ConversationFlowsService {
               d.saveToField,
               () => (customKeys ??= this.writableCustomKeys(flow.tenantId)),
             );
-            if (saveToField) node.data.saveToField = saveToField;
+            if (saveToField) {
+              node.data.saveToField = saveToField;
+              if (d.keepExisting === true) node.data.keepExisting = true;
+            }
             const noMatch = this.sanitizeNoMatch(d.noMatch);
             if (noMatch) node.data.noMatch = noMatch;
             // Solo los mensajes con respuestas esperan al contacto.
@@ -643,6 +646,7 @@ export class ConversationFlowsService {
                 type: 'update_contact',
                 field: field ?? '',
                 value: String(a.value ?? '').slice(0, 1000),
+                ...(a.keepExisting === true ? { keepExisting: true } : {}),
               });
               continue;
             }
@@ -1154,7 +1158,10 @@ export class ConversationFlowsService {
     if (errorMessage) out.errorMessage = errorMessage.slice(0, 1000);
 
     const saveToField = await this.cleanContactField(d.saveToField, customKeys);
-    if (saveToField) out.saveToField = saveToField;
+    if (saveToField) {
+      out.saveToField = saveToField;
+      if (d.keepExisting === true) out.keepExisting = true;
+    }
     if (d.skipIfFilled === true) out.skipIfFilled = true;
     if (
       INPUT_TRANSFORMS.has(d.transform as FlowInputTransform) &&
@@ -1268,6 +1275,7 @@ export class ConversationFlowsService {
           variable,
           description,
           ...(field ? { saveToField: field } : {}),
+          ...(field && raw?.keepExisting === true ? { keepExisting: true } : {}),
         });
       }
       const instruction = String(ai.instruction || '')
@@ -1356,6 +1364,7 @@ export class ConversationFlowsService {
           .trim()
           .slice(0, 200),
         ...(field ? { saveToField: field } : {}),
+        ...(field && c?.keepExisting === true ? { keepExisting: true } : {}),
       });
     }
     if (collect.length) out.collect = collect;
@@ -1391,7 +1400,10 @@ export class ConversationFlowsService {
       const variable = this.cleanVariable(g.variable);
       if (variable) out.variable = variable;
       const field = await this.cleanContactField(g.saveToField, customKeys);
-      if (field) out.saveToField = field;
+      if (field) {
+        out.saveToField = field;
+        if (g.keepExisting === true) out.keepExisting = true;
+      }
       if (g.send === true) out.send = true;
       if (g.length === 'short' || g.length === 'long') out.length = g.length;
     } else {
@@ -1419,7 +1431,10 @@ export class ConversationFlowsService {
         }
         if (f.required === true) field.required = true;
         const saveTo = await this.cleanContactField(f.saveToField, customKeys);
-        if (saveTo) field.saveToField = saveTo;
+        if (saveTo) {
+          field.saveToField = saveTo;
+          if (f.keepExisting === true) field.keepExisting = true;
+        }
         fields.push(field);
       }
       out.fields = fields;

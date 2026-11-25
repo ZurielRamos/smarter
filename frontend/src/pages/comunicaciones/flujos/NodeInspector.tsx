@@ -7,6 +7,7 @@ import { VariableInput, VariableTextarea } from "./VariableField";
 import { ConditionEditor } from "./ConditionEditor";
 import { InputEditor } from "./InputEditor";
 import { SendTemplateFields } from "./SendTemplateFields";
+import { ReplaceToggle } from "./ReplaceToggle";
 import { NoMatchEditor } from "./NoMatchEditor";
 import { TimeoutEditor } from "./TimeoutEditor";
 import { supportsTimeout } from "./timeout";
@@ -508,6 +509,11 @@ function MessageFields({
                 ...crmOptions,
               ]}
             />
+            {data.saveToField && (
+              <div className="mt-2">
+                <ReplaceToggle keepExisting={data.keepExisting} onChange={(keepExisting) => set({ keepExisting })} />
+              </div>
+            )}
           </div>
           <p className="text-[11px] text-muted-foreground">
             Se guarda el título del botón que elija el contacto (también si lo escribe y se reconoce). Úsala luego como{" "}
@@ -921,7 +927,7 @@ function ActionFields({
                 value={a.value || ""}
                 onChange={(v) => update(i, { value: v })}
               />
-              <p className="text-[11px] text-muted-foreground">Reemplaza el valor que el contacto tenga en el CRM.</p>
+              {a.field && <ReplaceToggle keepExisting={a.keepExisting} onChange={(keepExisting) => update(i, { keepExisting })} />}
             </div>
           )}
           {a.type === "send_template" && (

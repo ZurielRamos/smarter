@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { NumberField } from "@/components/ui/number-field";
 import { FlowSelect, type SelectOption } from "./FlowSelect";
 import { Toggle } from "./Toggle";
+import { ReplaceToggle } from "./ReplaceToggle";
 import { AiModePicker } from "./AiModePicker";
 import { CommaListInput } from "./CommaListInput";
 import { VariableTextarea } from "./VariableField";
@@ -261,10 +262,11 @@ export function GenerateEditor({ nodeId, data, set, options }: Props) {
                   searchable
                   aria-label={`Campo del CRM del dato ${i + 1}`}
                   value={f.saveToField || ""}
-                  onChange={(v) => setField(i, { saveToField: v || undefined })}
+                  onChange={(v) => setField(i, { saveToField: v || undefined, ...(v ? {} : { keepExisting: undefined }) })}
                   placeholder="No guardar en el CRM"
                   options={crmOptions}
                 />
+                {f.saveToField && <ReplaceToggle keepExisting={f.keepExisting} onChange={(keepExisting) => setField(i, { keepExisting })} />}
                 <label className="flex items-center gap-1.5 text-[11px] text-foreground">
                   <input
                     type="checkbox"
@@ -322,10 +324,15 @@ export function GenerateEditor({ nodeId, data, set, options }: Props) {
                 searchable
                 aria-label="Campo del CRM"
                 value={g.saveToField || ""}
-                onChange={(v) => setG({ saveToField: v || undefined })}
+                onChange={(v) => setG({ saveToField: v || undefined, ...(v ? {} : { keepExisting: undefined }) })}
                 placeholder="No guardar en el CRM"
                 options={crmOptions}
               />
+              {g.saveToField && (
+                <div className="mt-2">
+                  <ReplaceToggle keepExisting={g.keepExisting} onChange={(keepExisting) => setG({ keepExisting })} />
+                </div>
+              )}
             </div>
           </>
         )}

@@ -482,7 +482,7 @@ export class ConversationFlowEngine {
         if (!v) continue;
         variables[extra.variable] = v;
         if (extra.saveToField)
-          this.queueContactUpdate(extra.saveToField, v, context, result);
+          this.queueContactUpdate(extra.saveToField, v, context, result, extra.keepExisting);
       }
     }
     const next = this.nextNodeId(flow, node.id, 'next');
@@ -796,6 +796,7 @@ export class ConversationFlowEngine {
         button.title,
         context,
         result,
+        node.data.keepExisting,
       );
     const next = this.nextNodeId(flow, node.id, `btn:${button.id}`);
     if (next)
@@ -910,7 +911,7 @@ export class ConversationFlowEngine {
                   context,
                 ).trim();
                 if (value)
-                  this.queueContactUpdate(action.field, value, context, result);
+                  this.queueContactUpdate(action.field, value, context, result, action.keepExisting);
                 break;
               }
               // Las acciones de proyecto se aplican al terminar el turno. Para que una
@@ -1402,6 +1403,12 @@ export class ConversationFlowEngine {
     for (const [k, v] of Object.entries(context.contact || {}))
       if (v?.trim()) data[k] = v;
     for (const [k, v] of Object.entries(variables)) if (v?.trim()) data[k] = v;
+    // Lo que este nodo debe averiguar no cuenta como conocido, aunque el contacto ya
+    // tenga un valor (de otra vez): se vuelve a preguntar y el nuevo reemplaza al anterior.
+    for (const c of node.data.agent.collect || []) {
+      delete data[c.variable];
+      if (c.saveToField) delete data[c.saveToField];
+    }
     return this.ai.converse({
       tenantId: flow.tenantId,
       flowId: flow.id,
@@ -1435,7 +1442,7 @@ export class ConversationFlowEngine {
       if (!value) continue;
       variables[c.variable] = value;
       if (c.saveToField)
-        this.queueContactUpdate(c.saveToField, value, context, result);
+        this.queueContactUpdate(c.saveToField, value, context, result, c.keepExisting);
     }
     let next = history;
     // Al cumplir el objetivo el cierre puede ser el de la IA, uno fijo o ninguno.
@@ -1555,7 +1562,7 @@ export class ConversationFlowEngine {
         }
         variables[f.variable] = value;
         if (f.saveToField)
-          this.queueContactUpdate(f.saveToField, value, context, result);
+          this.queueContactUpdate(f.saveToField, value, context, result, f.keepExisting);
       }
       if (!outcome.ok) return failed(outcome.reason);
     } else {
@@ -1563,7 +1570,7 @@ export class ConversationFlowEngine {
       if (!text) return failed('La IA no devolvió texto');
       variables[config.variable || GENERATE_DEFAULT_VARIABLE] = text;
       if (config.saveToField)
-        this.queueContactUpdate(config.saveToField, text, context, result);
+        this.queueContactUpdate(config.saveToField, text, context, result, config.keepExisting);
       if (config.send) result.messages.push({ text });
     }
     delete variables.ai_error;
@@ -1757,7 +1764,7 @@ export class ConversationFlowEngine {
   ): void {
     if (data.variable) variables[data.variable] = value;
     if (data.saveToField)
-      this.queueContactUpdate(data.saveToField, value, context, result);
+      this.queueContactUpdate(data.saveToField, value, context, result, data.keepExisting);
   }
 
   /**
@@ -1769,7 +1776,10 @@ export class ConversationFlowEngine {
     value: string,
     context: FlowContext,
     result: FlowRunResult,
+    /** Con true, un campo que ya tiene valor no se toca (por defecto se reemplaza). */
+    keepExisting = false,
   ): void {
+    if (keepExisting && (context.contact?.[field] ?? '').trim()) return;
     result.contactUpdates[field] = value;
     const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
     context.contact = {

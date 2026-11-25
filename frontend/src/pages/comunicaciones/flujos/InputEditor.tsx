@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { NumberField } from "@/components/ui/number-field";
 import { FlowSelect, type SelectOption } from "./FlowSelect";
 import { Toggle } from "./Toggle";
+import { ReplaceToggle } from "./ReplaceToggle";
 import { VariableInput, VariableTextarea } from "./VariableField";
 import { VARIABLE_GROUP_LABELS, type VariableOption } from "./variables";
 import { REGEX_MAX, inputIssue, isValidPattern } from "./inputs";
@@ -236,6 +237,11 @@ export function InputEditor({ nodeId, data, set, options, variableListId, header
               ...crmOptions,
             ]}
           />
+          {data.saveToField && (
+            <div className="mt-2">
+              <ReplaceToggle keepExisting={data.keepExisting} onChange={(keepExisting) => set({ keepExisting })} />
+            </div>
+          )}
           <p className={hintClass}>
             Se actualiza el contacto vinculado a la conversación. En WhatsApp no se cambia el teléfono porque identifica
             al contacto.
@@ -648,10 +654,11 @@ function AiSection({
                   searchable
                   aria-label={`Campo del CRM del dato adicional ${i + 1}`}
                   value={e.saveToField || ""}
-                  onChange={(v) => setExtra(i, { saveToField: v || undefined })}
+                  onChange={(v) => setExtra(i, { saveToField: v || undefined, ...(v ? {} : { keepExisting: undefined }) })}
                   placeholder="No guardar en el CRM"
                   options={crmOptions}
                 />
+                {e.saveToField && <ReplaceToggle keepExisting={e.keepExisting} onChange={(keepExisting) => setExtra(i, { keepExisting })} />}
               </div>
             ))}
             <button
