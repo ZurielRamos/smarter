@@ -98,8 +98,8 @@ export interface FlowEffects {
 }
 /**
  * Plantilla por enviar. Los valores de las variables van sin resolver y con una
- * copia de las variables del flujo: ChatsService las resuelve para cada
- * destinatario (así {{firstName}} es el del contacto que la recibe).
+ * copia de las variables del flujo: ChatsService las resuelve con los datos del
+ * contacto de la conversación (el que escribe), no con los de quien la recibe.
  */
 export interface FlowTemplateSend {
   inboxId: string;

@@ -3808,8 +3808,10 @@ export class ChatsService {
   /**
    * Acción «Enviar plantilla» de un flujo. Resuelve los destinatarios (el
    * contacto de la conversación, contactos elegidos o los de una lista), rellena
-   * las variables de la plantilla para cada uno (variables del flujo y, si no
-   * hay, los datos de ese contacto en el CRM) y la envía por el canal elegido.
+   * las variables de la plantilla y la envía por el canal elegido. Las
+   * variables ({{email}}, {{firstName}}…) son siempre las del contacto de la
+   * conversación, el que escribe al flujo, y no las de quien recibe la plantilla:
+   * así se puede avisar a un asesor sobre un lead.
    * El resultado, incluidos los fallos, queda en una nota de la conversación.
    */
   private async runFlowTemplateSend(
@@ -3859,16 +3861,21 @@ export class ChatsService {
       return;
     }
 
+    // Los valores se resuelven una sola vez, con las variables del flujo y los
+    // datos del contacto de la conversación.
+    const source = conversation.recordId
+      ? await this.clientRecordRepo.findOne({ where: { id: conversation.recordId, tenantId: origin.tenantId } })
+      : null;
+    const ctx: FlowContext = {
+      contactName: conversation.contactName,
+      contact: buildContactVariables(source),
+    };
+
     let sent = 0;
     const failures: string[] = [];
     for (const record of records) {
       const who = record.fullName || record.phone || record.email || record.id;
       try {
-        // Los valores se resuelven con las variables del flujo y los datos de ESTE contacto.
-        const ctx: FlowContext = {
-          contactName: record.fullName || undefined,
-          contact: buildContactVariables(record),
-        };
         const values: Record<string, string> = {};
         let empty: string | null = null;
         for (const [key, raw] of Object.entries(send.templateVariables)) {
@@ -3877,7 +3884,7 @@ export class ChatsService {
           if (!v && key !== 'header_media') empty = key;
           values[key] = v;
         }
-        if (empty) throw new Error('una variable de la plantilla quedó vacía para este contacto');
+        if (empty) throw new Error('una variable de la plantilla quedó vacía');
 
         const conv =
           conversation.recordId === record.id && conversation.inboxId === target.id
@@ -3887,7 +3894,7 @@ export class ChatsService {
           conv.id,
           send.templateName,
           send.templateLanguage,
-          this.buildAutomationTemplateComponents(send.templateComponents, record, values),
+          this.buildAutomationTemplateComponents(send.templateComponents, source, values),
           undefined,
           `[Plantilla: ${send.templateName}]`,
           send.templateComponents,

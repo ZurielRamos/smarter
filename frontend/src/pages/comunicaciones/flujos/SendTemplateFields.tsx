@@ -143,7 +143,7 @@ export function SendTemplateFields({
             </div>
           ))}
           <p className="text-[11px] text-muted-foreground">
-            Escribe {"{"} para usar una variable del flujo o un dato del contacto en el CRM. Si es para otros contactos, cada uno recibe sus propios datos.
+            Escribe {"{"} para usar una variable del flujo o un dato del contacto de esta conversación (el que escribe), sin importar quién reciba la plantilla.
           </p>
         </div>
       )}
