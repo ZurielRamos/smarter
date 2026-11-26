@@ -1,5 +1,6 @@
 import { ProjectProspectsService } from '../reclutamiento/project-prospects.service';
 import { withMessagingAccount } from './whatsapp-messaging-account.util';
+import { withOtpButtonComponents } from './whatsapp-otp-button.util';
 import { ProjectFilter, applyProjectFilter } from './conversation-project-filter';
 import {
   Injectable,
@@ -7447,45 +7448,51 @@ export class ChatsService {
     templateName: string,
     preferredLanguage: string,
   ): Promise<string> {
+    return (await this.resolveTemplate(inbox, templateName, preferredLanguage))
+      .language;
+  }
+  /**
+   * Resuelve el idioma REAL de la plantilla en Meta (evita #132001 cuando el
+   * idioma pedido no coincide con la traducción aprobada, es vs es_CO) y devuelve
+   * los componentes de esa traducción, si se pudieron leer.
+   */
+  private async resolveTemplate(
+    inbox: Inbox,
+    templateName: string,
+    preferredLanguage: string,
+  ): Promise<{ language: string; components?: any[] }> {
     const preferred = (preferredLanguage || '').trim();
-    if (!inbox.wabaId || !inbox.accessToken) return preferred || 'es';
-
+    if (!inbox.wabaId || !inbox.accessToken) return { language: preferred || 'es' };
     try {
       const res = await fetch(
-        `https://graph.facebook.com/v21.0/${inbox.wabaId}/message_templates?fields=name,language,status&name=${encodeURIComponent(templateName)}&limit=50&access_token=${inbox.accessToken}`,
+        `https://graph.facebook.com/v21.0/${inbox.wabaId}/message_templates?fields=name,language,status,components&name=${encodeURIComponent(templateName)}&limit=50&access_token=${inbox.accessToken}`,
       );
       const data = await res.json();
       const all: any[] = Array.isArray(data.data) ? data.data : [];
       // Solo las traducciones de ESTA plantilla (por nombre exacto).
       const translations = all.filter((t) => t?.name === templateName);
-      if (translations.length === 0) return preferred || 'es';
-
+      if (translations.length === 0) return { language: preferred || 'es' };
       const langs: string[] = translations.map((t) => String(t.language));
-
-      // 1) Coincidencia exacta.
-      if (preferred && langs.includes(preferred)) return preferred;
-
-      // 2) Misma base de idioma (es <-> es_CO, es_MX, etc.).
       const base = (preferred || 'es').split(/[_-]/)[0].toLowerCase();
-      const sameBase = langs.find(
-        (l) => l.split(/[_-]/)[0].toLowerCase() === base,
-      );
-      if (sameBase) return sameBase;
-
-      // 3) Única traducción disponible.
-      if (langs.length === 1) return langs[0];
-
-      // 4) Fallback: lo pedido (Meta decidirá).
-      return preferred || langs[0] || 'es';
+      // 1) Coincidencia exacta. 2) Misma base de idioma (es <-> es_CO, es_MX...).
+      // 3) Única traducción disponible. 4) Fallback: lo pedido (Meta decidirá).
+      const language =
+        (preferred && langs.includes(preferred) && preferred) ||
+        langs.find((l) => l.split(/[_-]/)[0].toLowerCase() === base) ||
+        (langs.length === 1 && langs[0]) ||
+        preferred ||
+        langs[0] ||
+        'es';
+      const match = translations.find((t) => String(t.language) === language);
+      return { language, components: match?.components };
     } catch (err) {
       console.warn(
         '[Templates] resolveTemplateLanguage failed:',
         (err as any)?.message || err,
       );
-      return preferred || 'es';
+      return { language: preferred || 'es' };
     }
   }
-
   /**
    * Verifica contra Meta que un Flow esté en estado PUBLISHED. Devuelve el
    * estado real (PUBLISHED | DRAFT | DEPRECATED | ...) o null si no se pudo
@@ -7838,11 +7845,12 @@ export class ChatsService {
 
     // Resolver el idioma REAL de la plantilla en Meta para evitar #132001 cuando
     // el idioma solicitado no coincide con la traducción aprobada (es vs es_CO).
-    languageCode = await this.resolveTemplateLanguage(
+    const resolvedTemplate = await this.resolveTemplate(
       inbox,
       templateName,
       languageCode,
     );
+    languageCode = resolvedTemplate.language;
 
     // Respetar consentimiento (opt-in) del contacto: si tiene el opt-in de
     // WhatsApp desactivado, no se le pueden enviar plantillas. Solo se permiten
@@ -7906,6 +7914,14 @@ export class ChatsService {
 
     // Motivo de fallo (subida de media o envío). Si se puebla, no se llama a Meta.
     let sendError: string | null = null;
+
+    // Plantillas de autenticación: el botón "Copiar código" exige el mismo código
+    // del cuerpo; sin él Meta responde 131008. Se usa la definición de Meta (ya
+    // leída al resolver el idioma) y, si no, la que envió el llamador.
+    components = withOtpButtonComponents(
+      resolvedTemplate.components || templateComponents,
+      components,
+    );
 
     // Fallback de header media: si la plantilla define un header IMAGE/VIDEO/DOCUMENT
     // pero NO se proveyó su componente en el envío (el agente no subió archivo),
