@@ -1,4 +1,5 @@
 import { ProjectProspectsService } from '../reclutamiento/project-prospects.service';
+import { withMessagingAccount } from './whatsapp-messaging-account.util';
 import { ProjectFilter, applyProjectFilter } from './conversation-project-filter';
 import {
   Injectable,
@@ -2610,12 +2611,17 @@ export class ChatsService {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${inbox.accessToken}`,
           },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            ...this.buildWhatsAppRecipient(conversation.contactId),
-            type: 'text',
-            text: { body: text },
-          }),
+          body: JSON.stringify(
+            withMessagingAccount(
+              {
+                messaging_product: 'whatsapp',
+                ...this.buildWhatsAppRecipient(conversation.contactId),
+                type: 'text',
+                text: { body: text },
+              },
+              inbox.messagingAccountId,
+            ),
+          ),
         },
       );
       const data = await res.json();
@@ -6331,11 +6337,14 @@ export class ChatsService {
       try {
         for (let i = 0; i < bodies.length; i++) {
           const isLast = i === bodies.length - 1;
-          const payload: any = {
-            messaging_product: 'whatsapp',
-            ...recipient,
-            ...bodies[i],
-          };
+          const payload: any = withMessagingAccount(
+            {
+              messaging_product: 'whatsapp',
+              ...recipient,
+              ...bodies[i],
+            },
+            inbox.messagingAccountId,
+          );
           if (isLast && replyToExternalId)
             payload.context = { message_id: replyToExternalId };
           const res = await fetch(
@@ -6942,7 +6951,9 @@ export class ChatsService {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${inbox.accessToken}`,
               },
-              body: JSON.stringify(messageBody),
+              body: JSON.stringify(
+                withMessagingAccount(messageBody, inbox.messagingAccountId),
+              ),
             },
           );
           const sendText = await sendRes.text();
@@ -8049,7 +8060,9 @@ export class ChatsService {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${inbox.accessToken}`,
           },
-          body: JSON.stringify(messageBody),
+          body: JSON.stringify(
+            withMessagingAccount(messageBody, inbox.messagingAccountId),
+          ),
         },
       );
       data = await res.json();

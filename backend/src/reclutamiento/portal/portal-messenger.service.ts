@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { withMessagingAccount } from '../../chats/whatsapp-messaging-account.util';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Inbox } from '../../chats/inbox.entity';
@@ -70,7 +71,7 @@ export class PortalMessengerService {
       fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${inbox.accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload(components)),
+        body: JSON.stringify(withMessagingAccount(payload(components), inbox.messagingAccountId)),
       });
     try {
       let res = await send(button ? [body, button] : [body]);

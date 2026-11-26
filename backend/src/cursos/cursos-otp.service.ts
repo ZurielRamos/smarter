@@ -3,6 +3,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
+import { withMessagingAccount } from '../chats/whatsapp-messaging-account.util';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { createHash, randomInt } from 'crypto';
@@ -130,7 +131,7 @@ export class CursosOtpService {
       fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${inbox.accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(withMessagingAccount(body, inbox.messagingAccountId)),
       });
     try {
       let res = await send(base);
@@ -303,7 +304,7 @@ export class CursosOtpService {
           Authorization: `Bearer ${inbox.accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(withMessagingAccount(body, inbox.messagingAccountId)),
       });
 
     try {

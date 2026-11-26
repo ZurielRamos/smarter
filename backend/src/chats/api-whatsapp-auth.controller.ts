@@ -10,6 +10,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { withMessagingAccount } from './whatsapp-messaging-account.util';
 import { ApiTokenGuard } from '../auth/api-token.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -118,7 +119,7 @@ export class ApiWhatsappAuthController {
       fetch(`https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/messages`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${inbox.accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(withMessagingAccount(data, inbox.messagingAccountId)),
       });
 
     try {

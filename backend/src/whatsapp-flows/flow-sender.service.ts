@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { withMessagingAccount } from '../chats/whatsapp-messaging-account.util';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
@@ -293,7 +294,9 @@ export class FlowSenderService {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${inbox.accessToken}`,
           },
-          body: JSON.stringify(messageBody),
+          body: JSON.stringify(
+            withMessagingAccount(messageBody, inbox.messagingAccountId),
+          ),
         },
       );
       const data = await res.json();

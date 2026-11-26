@@ -1,4 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { withMessagingAccount } from '../chats/whatsapp-messaging-account.util';
 import { Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
@@ -514,6 +515,7 @@ export class CampaignSendWorker extends WorkerHost {
               variables,
               templateComponents,
               inbox.tenantId,
+              inbox.messagingAccountId,
             );
 
             if (result.success) {
@@ -744,6 +746,7 @@ export class CampaignSendWorker extends WorkerHost {
     variables: Record<string, string>,
     templateComponents?: any[] | null,
     tenantId?: string,
+    messagingAccountId?: string | null,
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     const components: any[] = [];
 
@@ -816,7 +819,7 @@ export class CampaignSendWorker extends WorkerHost {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(requestBody),
+          body: JSON.stringify(withMessagingAccount(requestBody, messagingAccountId)),
         },
       );
 

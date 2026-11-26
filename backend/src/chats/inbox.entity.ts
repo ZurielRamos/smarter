@@ -48,6 +48,10 @@ export class Inbox {
   // For WhatsApp — the WABA ID
   @Column({ name: 'waba_id', type: 'varchar', nullable: true })
   wabaId: string | null;
+  // For WhatsApp — Messaging account usada en los envíos (`messaging_account_id`).
+  // Necesaria cuando el número está vinculado a más de una cuenta de mensajes.
+  @Column({ name: 'messaging_account_id', type: 'varchar', nullable: true })
+  messagingAccountId: string | null;
 
   // Long-lived token for this inbox's channel
   @Column({ name: 'access_token', type: 'text', nullable: true })

@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { withMessagingAccount } from '../chats/whatsapp-messaging-account.util';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, SelectQueryBuilder } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -1051,7 +1052,9 @@ export class CampaignsService {
                   Authorization: `Bearer ${accessToken}`,
                   'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(requestBody),
+                body: JSON.stringify(
+                  withMessagingAccount(requestBody, inbox.messagingAccountId),
+                ),
               },
             );
 

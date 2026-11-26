@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { withMessagingAccount } from '../chats/whatsapp-messaging-account.util';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContactEvent } from './contact-event.entity';
@@ -262,7 +263,9 @@ export class ContactEventsService {
             Authorization: `Bearer ${inbox.accessToken}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(requestBody),
+          body: JSON.stringify(
+            withMessagingAccount(requestBody, inbox.messagingAccountId),
+          ),
         },
       );
 
