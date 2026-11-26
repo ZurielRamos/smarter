@@ -59,6 +59,30 @@ export class ApiWhatsappAuthController {
   }
 
   /**
+   * Idioma real de la plantilla en Meta: si el pedido no existe (p. ej. "es" y la
+   * plantilla está en "es_CO"), usa la traducción con la misma base de idioma o
+   * la única disponible. Si no puede consultarlo, devuelve el pedido.
+   */
+  private async resolveTemplateLanguage(inbox: Inbox, templateName: string, preferred: string): Promise<string> {
+    if (!inbox.wabaId || !inbox.accessToken) return preferred;
+    try {
+      const res = await fetch(
+        `https://graph.facebook.com/v21.0/${inbox.wabaId}/message_templates?fields=name,language&name=${encodeURIComponent(templateName)}&limit=50`,
+        { headers: { Authorization: `Bearer ${inbox.accessToken}` } },
+      );
+      const data: any = await res.json();
+      const langs: string[] = (Array.isArray(data?.data) ? data.data : [])
+        .filter((t: any) => t?.name === templateName)
+        .map((t: any) => String(t.language));
+      if (!langs.length || langs.includes(preferred)) return preferred;
+      const base = preferred.split(/[_-]/)[0].toLowerCase();
+      return langs.find((l) => l.split(/[_-]/)[0].toLowerCase() === base) || (langs.length === 1 ? langs[0] : preferred);
+    } catch {
+      return preferred;
+    }
+  }
+
+  /**
    * POST /api/v1/:slug/whatsapp/auth-template
    * Envía una plantilla de autenticación de Meta con el código en el cuerpo
    * y en el botón (copiar código / one-tap). Solo administradores.
@@ -122,17 +146,28 @@ export class ApiWhatsappAuthController {
         body: JSON.stringify(withMessagingAccount(data, inbox.messagingAccountId)),
       });
 
+    // Mensaje de error de Meta con el detalle (error_data.details) y el fbtrace_id.
+    const describe = (r: any) => {
+      const e = r?.error;
+      if (!e) return 'Error desconocido';
+      const details = e.error_data?.details ? ` | ${e.error_data.details}` : '';
+      return `${e.message || 'Error'}${details} (code ${e.code}, fbtrace_id ${e.fbtrace_id || '-'})`;
+    };
+
     try {
+      payload.template.language.code = await this.resolveTemplateLanguage(inbox, templateName, languageCode);
       let res = await send(payload);
       let result: any = await res.json();
-      // Plantillas sin botón (zero-tap sin parámetro): reintentar solo con el cuerpo.
-      if (!res.ok) {
+      // Solo si Meta indica que sobran parámetros (132000) se reintenta sin el
+      // botón. En cualquier otro caso el reintento ocultaría el error real.
+      if (!res.ok && result?.error?.code === 132000) {
+        this.logger.warn(`auth-template a ${to}: ${describe(result)}; reintento sin botón`);
         res = await send({ ...payload, template: { ...payload.template, components: [bodyComponent] } });
         result = await res.json();
       }
       const messageId = result?.messages?.[0]?.id;
       if (!res.ok || !messageId) {
-        throw new Error(result?.error?.message || 'Error desconocido');
+        throw new Error(describe(result));
       }
       return { success: true, messageId, to, templateName };
     } catch (err) {
