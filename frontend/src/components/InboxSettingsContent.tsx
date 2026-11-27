@@ -35,7 +35,7 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
 
   // WhatsApp connect
   const [connecting, setConnecting] = useState(false);
-  const [waConfig, setWaConfig] = useState<{ appId: string; configId: string; featureType?: string | null } | null>(null);
+  const [waConfig, setWaConfig] = useState<{ appId: string; configId: string; featureType?: string | null; coexistenceFeatureType?: string | null } | null>(null);
 
 
   // Email config
@@ -108,7 +108,7 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
     } catch {}
   };
 
-  const handleWhatsAppConnect = () => {
+  const handleWhatsAppConnect = (coexistence = false) => {
     if (!inbox || !waConfig) return;
     if (!waConfig.configId) { alert("Falta el WhatsApp Config ID (META_WA_CONFIG_ID) en el servidor. No se puede iniciar el Embedded Signup."); return; }
     if (!waConfig.appId) { alert("Falta el App ID (META_APP_ID) en el servidor."); return; }
@@ -135,11 +135,14 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
         config_id: waConfig.configId,
         response_type: "code",
         override_default_response_type: true,
-        // Mismos extras que el enlace de onboarding de Meta; featureType solo si
-        // el servidor lo define (META_WA_FEATURE_TYPE).
+        // Mismos extras que el enlace de onboarding de Meta. En coexistencia se
+        // fuerza el featureType de la app WhatsApp Business; si no, solo se usa
+        // el del servidor (META_WA_FEATURE_TYPE) cuando está definido.
         extras: {
           setup: {},
-          ...(waConfig.featureType ? { featureType: waConfig.featureType } : {}),
+          ...(coexistence
+            ? { featureType: waConfig.coexistenceFeatureType || "whatsapp_business_app_onboarding" }
+            : waConfig.featureType ? { featureType: waConfig.featureType } : {}),
           sessionInfoVersion: "3",
           version: "v4",
         },
@@ -554,20 +557,32 @@ export function InboxSettingsContent({ inboxId, onDeleted }: { inboxId: string; 
                 </button>
               </>
             ) : (
-              <button
-                onClick={() => {
-                  if (inbox.channel === "whatsapp") {
-                    handleWhatsAppConnect();
-                  } else {
-                    window.location.href = `/api/chats/oauth/connect?inboxId=${inbox.id}&channel=${inbox.channel}`;
-                  }
-                }}
-                disabled={connecting || (inbox.channel === "whatsapp" && !waConfig)}
-                className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-medium disabled:opacity-50"
-              >
-                {connecting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wifi className="h-3 w-3" />}
-                {connecting ? "Conectando..." : "Conectar"}
-              </button>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    if (inbox.channel === "whatsapp") {
+                      handleWhatsAppConnect();
+                    } else {
+                      window.location.href = `/api/chats/oauth/connect?inboxId=${inbox.id}&channel=${inbox.channel}`;
+                    }
+                  }}
+                  disabled={connecting || (inbox.channel === "whatsapp" && !waConfig)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-medium disabled:opacity-50"
+                >
+                  {connecting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wifi className="h-3 w-3" />}
+                  {connecting ? "Conectando..." : "Conectar"}
+                </button>
+                {inbox.channel === "whatsapp" && (
+                  <button
+                    onClick={() => handleWhatsAppConnect(true)}
+                    disabled={connecting || !waConfig}
+                    title="Para un número que ya usas en la app WhatsApp Business del celular. Podrás seguir usando la app y tu historial se sincroniza."
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-green-600 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10 text-xs font-medium disabled:opacity-50"
+                  >
+                    Conectar número de la app WhatsApp Business
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}

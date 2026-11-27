@@ -1,6 +1,20 @@
 import { ProjectProspectsService } from '../reclutamiento/project-prospects.service';
 import { withMessagingAccount } from './whatsapp-messaging-account.util';
 import { withOtpButtonComponents } from './whatsapp-otp-button.util';
+import {
+  COEXISTENCE_SUBSCRIBED_FIELDS,
+  COEXISTENCE_SYNC_WINDOW_MS,
+  CoexistenceMetadata,
+  HISTORY_SHARING_DECLINED_CODE,
+  digitsOnly,
+  isBusinessHistoryMessage,
+  mapHistoryStatus,
+  normalizeWhatsAppMessage,
+  parseStateSyncContact,
+  resolveEchoContact,
+  resolveThreadContact,
+  unixToDate,
+} from './whatsapp-coexistence.util';
 import { ProjectFilter, applyProjectFilter } from './conversation-project-filter';
 import {
   Injectable,
@@ -1281,16 +1295,65 @@ export class ChatsService {
     inbox.status = phoneNumberId ? 'connected' : 'pending';
     inbox.metadata = { ...inbox.metadata, embeddedSignup: true };
 
+    // Coexistencia: el número también está en la app WhatsApp Business. Se
+    // detecta con `is_on_biz_app` en el número (no depende de lo que envíe el
+    // frontend). En ese caso NO se registra el número (ya está registrado).
+    const isCoexistence = phoneNumberId
+      ? await this.isPhoneOnBusinessApp(phoneNumberId, accessToken)
+      : false;
+    if (isCoexistence) {
+      const coexistence: CoexistenceMetadata = {
+        enabled: true,
+        onboardedAt: new Date().toISOString(),
+        historyStatus: 'pending',
+      };
+      inbox.metadata = { ...inbox.metadata, coexistence };
+    }
+
     // Subscribe WABA to webhook
     if (wabaId) {
       await this.subscribeWabaToWebhook(
         wabaId,
         accessToken,
         'WhatsApp Embedded',
+        isCoexistence ? COEXISTENCE_SUBSCRIBED_FIELDS : undefined,
       );
     }
 
-    return this.inboxRepo.save(inbox);
+    const saved = await this.inboxRepo.save(inbox);
+
+    // Meta da 24 h para iniciar la sincronización: se lanza de inmediato y en
+    // segundo plano para no bloquear la respuesta del onboarding.
+    if (isCoexistence && phoneNumberId) {
+      this.runCoexistenceSync(saved.id).catch((err) =>
+        console.error(
+          `[Coexistence] Sync falló para inbox ${saved.id}:`,
+          err?.message || err,
+        ),
+      );
+    }
+    return saved;
+  }
+
+  /**
+   * True si el número está en uso a la vez en la app WhatsApp Business y en la
+   * Cloud API (`is_on_biz_app`).
+   */
+  private async isPhoneOnBusinessApp(
+    phoneNumberId: string,
+    accessToken: string,
+  ): Promise<boolean> {
+    try {
+      const res = await fetch(
+        `https://graph.facebook.com/v21.0/${phoneNumberId}?fields=is_on_biz_app,platform_type`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      const data = await res.json().catch(() => ({}));
+      return data?.is_on_biz_app === true;
+    } catch (err) {
+      console.warn('[Coexistence] No se pudo leer is_on_biz_app:', err);
+      return false;
+    }
   }
 
   /**
@@ -1303,6 +1366,7 @@ export class ChatsService {
     wabaId: string,
     accessToken: string,
     tag: string,
+    fields: string[] = ['messages'],
   ): Promise<void> {
     try {
       const res = await fetch(
@@ -1312,7 +1376,7 @@ export class ChatsService {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             access_token: accessToken,
-            subscribed_fields: ['messages'],
+            subscribed_fields: fields,
           }),
         },
       );
@@ -1323,7 +1387,7 @@ export class ChatsService {
           JSON.stringify(data).slice(0, 300),
         );
       } else {
-        console.log(`[${tag}] Suscrito WABA ${wabaId} al campo 'messages'`);
+        console.log(`[${tag}] Suscrito WABA ${wabaId} a: ${fields.join(', ')}`);
       }
 
       // Verificar qué campos quedaron suscritos (diagnóstico).
@@ -1368,6 +1432,9 @@ export class ChatsService {
       inbox.wabaId,
       inbox.accessToken,
       'Resubscribe',
+      inbox.metadata?.coexistence?.enabled
+        ? COEXISTENCE_SUBSCRIBED_FIELDS
+        : undefined,
     );
 
     // Devolver los campos suscritos actuales para diagnóstico desde el frontend.
@@ -1401,6 +1468,30 @@ export class ChatsService {
           // Status updates
           if (change.field === 'messages' && change.value?.statuses) {
             await this.handleWhatsAppStatuses(change.value.statuses);
+          }
+          // Coexistencia (número también en la app WhatsApp Business). Se
+          // encolan y no se esperan: un `history` puede traer miles de mensajes
+          // y Meta reintenta si el webhook tarda en responder.
+          if (change.field === 'smb_message_echoes') {
+            this.enqueueCoexistenceTask(change.value, () =>
+              this.handleWhatsAppMessageEchoes(change.value),
+            );
+          }
+          if (change.field === 'history') {
+            this.enqueueCoexistenceTask(change.value, () =>
+              this.handleWhatsAppHistory(change.value),
+            );
+          }
+          if (change.field === 'smb_app_state_sync') {
+            this.enqueueCoexistenceTask(change.value, () =>
+              this.handleWhatsAppStateSync(change.value),
+            );
+          }
+          if (
+            change.field === 'account_update' &&
+            change.value?.event === 'PARTNER_REMOVED'
+          ) {
+            await this.handleWhatsAppPartnerRemoved(change.value);
           }
           // Instagram messages (new API format)
           if (
@@ -1553,6 +1644,571 @@ export class ChatsService {
         { suffix },
       )
       .getOne();
+  }
+
+  // === COEXISTENCIA (WhatsApp Business app + Cloud API) ===
+
+  private coexistenceQueues?: Map<string, Promise<void>>;
+
+  /**
+   * Encola una tarea de coexistencia por número (`phone_number_id`) para que
+   * eco, historial y contactos se procesen de a uno y no dupliquen
+   * conversaciones. No se espera: el webhook responde de inmediato.
+   */
+  private enqueueCoexistenceTask(
+    value: any,
+    task: () => Promise<void>,
+  ): void {
+    const queues = (this.coexistenceQueues ??= new Map());
+    const key = String(value?.metadata?.phone_number_id ?? 'global');
+    const prev = queues.get(key) ?? Promise.resolve();
+    const next: Promise<void> = prev
+      .then(task)
+      .catch((err) =>
+        console.error('[Coexistence] Error procesando webhook:', err),
+      )
+      .then(() => {
+        if (queues.get(key) === next) queues.delete(key);
+      });
+    queues.set(key, next);
+  }
+
+  /** Mezcla cambios en `inbox.metadata.coexistence` sin tocar el resto del inbox. */
+  private async patchCoexistenceMetadata(
+    inboxId: string,
+    patch: (current: CoexistenceMetadata) => Partial<CoexistenceMetadata>,
+  ): Promise<void> {
+    const inbox = await this.inboxRepo.findOne({ where: { id: inboxId } });
+    if (!inbox) return;
+    const current = (inbox.metadata?.coexistence ?? {
+      enabled: true,
+      onboardedAt: new Date().toISOString(),
+    }) as CoexistenceMetadata;
+    await this.inboxRepo.update(inboxId, {
+      metadata: {
+        ...(inbox.metadata ?? {}),
+        coexistence: { ...current, ...patch(current) },
+      } as any,
+    });
+  }
+
+  private async findWhatsAppInboxByPhoneNumberId(
+    phoneNumberId: string | undefined,
+  ): Promise<Inbox | null> {
+    if (!phoneNumberId) return null;
+    const inbox = await this.inboxRepo.findOne({ where: { phoneNumberId } });
+    if (!inbox) {
+      console.warn(
+        `[Coexistence] No hay inbox para phone_number_id: ${phoneNumberId}`,
+      );
+    }
+    return inbox;
+  }
+
+  /** POST /{phone-number-id}/smb_app_data. Devuelve el request_id de Meta. */
+  private async requestSmbAppData(
+    inbox: Inbox,
+    syncType: 'smb_app_state_sync' | 'history',
+  ): Promise<string | null> {
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${inbox.phoneNumberId}/smb_app_data`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${inbox.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          sync_type: syncType,
+        }),
+      },
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data?.error) {
+      throw new Error(
+        data?.error?.message || `smb_app_data ${syncType} HTTP ${res.status}`,
+      );
+    }
+    return data?.request_id ?? null;
+  }
+
+  /**
+   * Inicia la sincronización de contactos y de historial tras el onboarding.
+   * Cada paso solo se puede hacer una vez: los pasos que ya salieron bien se
+   * omiten, así que es seguro reintentar tras un fallo (dentro de las 24 h).
+   */
+  async runCoexistenceSync(inboxId: string): Promise<{
+    ok: boolean;
+    reason?: string;
+    contacts?: string;
+    history?: string;
+  }> {
+    const inbox = await this.inboxRepo.findOne({ where: { id: inboxId } });
+    const co = inbox?.metadata?.coexistence as CoexistenceMetadata | undefined;
+    if (!inbox || !co?.enabled) {
+      return { ok: false, reason: 'El canal no está en modo coexistencia' };
+    }
+    if (!inbox.phoneNumberId || !inbox.accessToken) {
+      return { ok: false, reason: 'Falta phoneNumberId o accessToken' };
+    }
+    if (Date.now() - new Date(co.onboardedAt).getTime() > COEXISTENCE_SYNC_WINDOW_MS) {
+      return {
+        ok: false,
+        reason:
+          'Pasaron más de 24 h desde el onboarding. El cliente debe desconectarse y repetir Embedded Signup.',
+      };
+    }
+    const steps = [
+      ['contactsSync', 'smb_app_state_sync'],
+      ['historySync', 'history'],
+    ] as const;
+    const result: Record<string, string> = {};
+    for (const [key, syncType] of steps) {
+      if (co[key]?.status === 'ok') {
+        result[key === 'contactsSync' ? 'contacts' : 'history'] = 'already_done';
+        continue;
+      }
+      let step: CoexistenceMetadata['contactsSync'];
+      try {
+        const requestId = await this.requestSmbAppData(inbox, syncType);
+        step = { status: 'ok', at: new Date().toISOString(), requestId };
+        console.log(
+          `[Coexistence] ${syncType} iniciado para inbox ${inbox.id} (request_id=${requestId})`,
+        );
+      } catch (err: any) {
+        step = {
+          status: 'failed',
+          at: new Date().toISOString(),
+          error: String(err?.message || err).slice(0, 300),
+        };
+        console.error(
+          `[Coexistence] ${syncType} falló para inbox ${inbox.id}:`,
+          step.error,
+        );
+      }
+      await this.patchCoexistenceMetadata(inbox.id, () => ({ [key]: step }));
+      result[key === 'contactsSync' ? 'contacts' : 'history'] = step!.status;
+    }
+    return {
+      ok: result.contacts !== 'failed' && result.history !== 'failed',
+      ...result,
+    };
+  }
+
+  /**
+   * Busca o crea la conversación de un contacto para mensajes que no llegaron
+   * como `messages` (ecos e historial). Reconcilia con un contacto existente
+   * por BSUID o teléfono, igual que el flujo de mensajes entrantes.
+   */
+  private async findOrCreateCoexistenceConversation(
+    inbox: Inbox,
+    waIdRaw: string | null,
+    userId: string | null,
+    contactName: string | null,
+  ): Promise<Conversation | null> {
+    const waId = waIdRaw ? waIdRaw.replace(/^\+/, '') : null;
+    const contactId = this.canonicalWhatsAppContactId(waId, userId);
+    if (!contactId) return null;
+
+    let conversation = await this.conversationRepo.findOne({
+      where: { inboxId: inbox.id, contactId },
+    });
+    if (conversation) return conversation;
+
+    const bsuid = this.isWhatsAppIdentityId(userId)
+      ? userId
+      : this.isWhatsAppIdentityId(contactId)
+        ? contactId
+        : null;
+    const phone = waId && !this.isWhatsAppIdentityId(waId) ? waId : null;
+
+    let record: ClientRecord | null = null;
+    if (bsuid) {
+      record = await this.clientRecordRepo.findOne({
+        where: { tenantId: inbox.tenantId, whatsappId: bsuid },
+      });
+    }
+    if (!record && phone) {
+      record = await this.findRecordByPhoneFlexible(phone, inbox.tenantId);
+    }
+    if (record) {
+      conversation =
+        (await this.conversationRepo.findOne({
+          where: { inboxId: inbox.id, recordId: record.id },
+        })) ||
+        (phone
+          ? await this.conversationRepo.findOne({
+              where: { inboxId: inbox.id, contactId: phone },
+            })
+          : null);
+      if (conversation) {
+        if (!conversation.recordId) conversation.recordId = record.id;
+        conversation.contactId = contactId;
+        return this.conversationRepo.save(conversation);
+      }
+    }
+
+    conversation = await this.conversationRepo.save(
+      this.conversationRepo.create({
+        inboxId: inbox.id,
+        contactId,
+        contactName: contactName || contactId,
+        status: 'open',
+      }),
+    );
+    try {
+      const linked =
+        record ??
+        (await this.findOrCreateRecordByPhone(
+          contactId,
+          inbox.tenantId,
+          contactName || undefined,
+          inbox.id,
+          userId,
+          phone,
+        ));
+      conversation.recordId = linked.id;
+      conversation = await this.conversationRepo.save(conversation);
+    } catch (err: any) {
+      console.error(
+        '[Coexistence] No se pudo vincular el contacto (se continúa):',
+        err?.message || err,
+      );
+    }
+    return conversation;
+  }
+
+  /** Descarga el archivo de un mensaje y lo guarda en el storage. Nunca lanza. */
+  private async storeCoexistenceMedia(
+    inbox: Inbox,
+    conversationId: string,
+    messageId: string,
+    n: ReturnType<typeof normalizeWhatsAppMessage>,
+  ): Promise<{ mediaUrl: string | null; mimeType: string | null }> {
+    if (!n.mediaId || !inbox.accessToken) {
+      return { mediaUrl: null, mimeType: n.mediaMimeType };
+    }
+    try {
+      const stored = await this.mediaStorageService.processWhatsAppMedia(
+        n.mediaId,
+        inbox.accessToken,
+        {
+          channel: 'whatsapp',
+          tenantId: inbox.tenantId,
+          conversationId,
+          messageId,
+          mimeType: n.mediaMimeType || undefined,
+          filename: n.filename || undefined,
+        },
+      );
+      return {
+        mediaUrl: stored?.url || null,
+        mimeType: stored?.mimeType || n.mediaMimeType,
+      };
+    } catch (err: any) {
+      console.warn('[Coexistence] No se pudo guardar el archivo:', err?.message);
+      return { mediaUrl: null, mimeType: n.mediaMimeType };
+    }
+  }
+
+  /**
+   * `smb_message_echoes`: mensajes que el negocio envía desde la app WhatsApp
+   * Business o un dispositivo vinculado. Se guardan como salientes. No se
+   * ejecutan bots, automatizaciones ni plantillas: no son mensajes del contacto.
+   */
+  private async handleWhatsAppMessageEchoes(value: any): Promise<void> {
+    const inbox = await this.findWhatsAppInboxByPhoneNumberId(
+      value?.metadata?.phone_number_id,
+    );
+    if (!inbox) return;
+
+    for (const echo of value?.message_echoes ?? []) {
+      if (!echo?.id) continue;
+      const already = await this.messageRepo.findOne({
+        where: { externalId: echo.id },
+        select: { id: true },
+      });
+      if (already) continue;
+
+      const { waId, userId, name } = resolveEchoContact(echo, value.contacts);
+      const conversation = await this.findOrCreateCoexistenceConversation(
+        inbox,
+        waId,
+        userId,
+        name,
+      );
+      if (!conversation) {
+        console.warn(
+          `[Coexistence] Eco sin contacto resoluble: ${JSON.stringify(echo).slice(0, 200)}`,
+        );
+        continue;
+      }
+
+      const n = normalizeWhatsAppMessage(echo);
+      const media = await this.storeCoexistenceMedia(
+        inbox,
+        conversation.id,
+        echo.id,
+        n,
+      );
+      const sentAt = unixToDate(echo.timestamp);
+      const message = await this.messageRepo.save(
+        this.messageRepo.create({
+          conversationId: conversation.id,
+          direction: 'outbound',
+          messageType: n.messageType,
+          content: n.content,
+          mediaUrl: media.mediaUrl,
+          mediaMimeType: media.mimeType,
+          externalId: echo.id,
+          replyToExternalId: echo.context?.id || null,
+          status: 'sent',
+          source: 'app',
+          createdAt: sentAt,
+        }),
+      );
+
+      conversation.lastMessage = n.content || `[${n.messageType}]`;
+      conversation.lastMessageAt = sentAt;
+      conversation.lastMessageSource = 'app';
+      await this.conversationRepo.save(conversation);
+
+      if (!conversation.inbox) conversation.inbox = inbox;
+      this.chatsGateway.emitNewMessage(inbox.tenantId, conversation.id, message);
+      this.chatsGateway.emitConversationUpdate(inbox.tenantId, conversation);
+    }
+  }
+
+  /**
+   * `history`: historial de chats (hasta 180 días) que el negocio aceptó
+   * compartir, o el aviso de que lo rechazó (error 2593109). También llega por
+   * aquí el archivo de los mensajes multimedia (en `value.messages`).
+   */
+  private async handleWhatsAppHistory(value: any): Promise<void> {
+    const inbox = await this.findWhatsAppInboxByPhoneNumberId(
+      value?.metadata?.phone_number_id,
+    );
+    if (!inbox) return;
+    const businessPhone = value?.metadata?.display_phone_number ?? null;
+
+    if (Array.isArray(value.messages) && value.messages.length) {
+      await this.attachHistoryMedia(inbox, value.messages);
+    }
+
+    for (const block of value?.history ?? []) {
+      if (block?.errors?.length) {
+        const declined = block.errors.some(
+          (e: any) => Number(e?.code) === HISTORY_SHARING_DECLINED_CODE,
+        );
+        console.warn(
+          `[Coexistence] history con error para inbox ${inbox.id}:`,
+          JSON.stringify(block.errors).slice(0, 300),
+        );
+        await this.patchCoexistenceMetadata(inbox.id, () => ({
+          historyStatus: declined ? 'declined' : 'failed',
+        }));
+        continue;
+      }
+
+      let imported = 0;
+      for (const thread of block?.threads ?? []) {
+        try {
+          imported += await this.importHistoryThread(inbox, thread, businessPhone);
+        } catch (err: any) {
+          console.error(
+            '[Coexistence] Error importando hilo (se continúa):',
+            err?.message || err,
+          );
+        }
+      }
+      const progress = block?.metadata?.progress;
+      await this.patchCoexistenceMetadata(inbox.id, (cur) => ({
+        historyStatus: 'shared',
+        historyProgress: typeof progress === 'number' ? progress : cur.historyProgress,
+        historyMessagesImported: (cur.historyMessagesImported ?? 0) + imported,
+      }));
+    }
+  }
+
+  /** Importa los mensajes de un hilo del historial. Devuelve cuántos guardó. */
+  private async importHistoryThread(
+    inbox: Inbox,
+    thread: any,
+    businessPhone: string | null,
+  ): Promise<number> {
+    const msgs: any[] = (thread?.messages ?? []).filter((m: any) => m?.id);
+    if (!msgs.length) return 0;
+
+    const existing = new Set(
+      (
+        await this.messageRepo.find({
+          where: { externalId: In(msgs.map((m) => m.id)) },
+          select: { externalId: true },
+        })
+      ).map((m) => m.externalId),
+    );
+    const fresh = msgs
+      .filter((m) => !existing.has(m.id))
+      .sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
+    if (!fresh.length) return 0;
+
+    const { waId, userId, name } = resolveThreadContact(thread);
+    const conversation = await this.findOrCreateCoexistenceConversation(
+      inbox,
+      waId,
+      userId,
+      name,
+    );
+    if (!conversation) return 0;
+
+    const rows = fresh.map((m) => {
+      const n = normalizeWhatsAppMessage(m);
+      const outbound = isBusinessHistoryMessage(m, businessPhone);
+      return this.messageRepo.create({
+        conversationId: conversation.id,
+        direction: outbound ? 'outbound' : 'inbound',
+        messageType: n.messageType,
+        content: n.content,
+        externalId: m.id,
+        replyToExternalId: m.context?.id || null,
+        status: outbound
+          ? mapHistoryStatus(m.history_context?.status)
+          : 'delivered',
+        source: outbound ? 'app' : null,
+        createdAt: unixToDate(m.timestamp),
+      });
+    });
+    await this.messageRepo.save(rows, { chunk: 200 });
+
+    // Vista previa: solo si lo importado es más reciente que lo que ya hay.
+    const last = rows[rows.length - 1];
+    if (
+      !conversation.lastMessageAt ||
+      last.createdAt > conversation.lastMessageAt
+    ) {
+      conversation.lastMessage = last.content || `[${last.messageType}]`;
+      conversation.lastMessageAt = last.createdAt;
+      conversation.lastMessageSource = last.direction === 'outbound' ? 'app' : null;
+      await this.conversationRepo.save(conversation);
+    }
+    return rows.length;
+  }
+
+  /**
+   * Webhook `history` con `messages`: trae el archivo de un mensaje multimedia
+   * que antes llegó como `media_placeholder`. Se actualiza ese mensaje.
+   */
+  private async attachHistoryMedia(inbox: Inbox, messages: any[]): Promise<void> {
+    for (const m of messages) {
+      if (!m?.id) continue;
+      const saved = await this.messageRepo.findOne({
+        where: { externalId: m.id },
+      });
+      if (!saved) continue;
+      const n = normalizeWhatsAppMessage(m);
+      if (!n.mediaId) continue;
+      const media = await this.storeCoexistenceMedia(
+        inbox,
+        saved.conversationId,
+        m.id,
+        n,
+      );
+      if (!media.mediaUrl) continue;
+      saved.messageType = n.messageType;
+      saved.mediaUrl = media.mediaUrl;
+      saved.mediaMimeType = media.mimeType;
+      saved.content = n.content;
+      await this.messageRepo.save(saved);
+    }
+  }
+
+  /**
+   * `smb_app_state_sync`: contactos de la libreta de la app WhatsApp Business.
+   * `add` crea o completa el contacto; `remove` no borra nada del CRM.
+   */
+  private async handleWhatsAppStateSync(value: any): Promise<void> {
+    const inbox = await this.findWhatsAppInboxByPhoneNumberId(
+      value?.metadata?.phone_number_id,
+    );
+    if (!inbox) return;
+
+    let imported = 0;
+    for (const item of value?.state_sync ?? []) {
+      const c = parseStateSyncContact(item);
+      if (!c || c.action !== 'add' || (!c.phone && !c.userId)) continue;
+      try {
+        let record: ClientRecord | null = null;
+        if (c.userId) {
+          record = await this.clientRecordRepo.findOne({
+            where: { tenantId: inbox.tenantId, whatsappId: c.userId },
+          });
+        }
+        if (!record && c.phone) {
+          record = await this.findRecordByPhoneFlexible(c.phone, inbox.tenantId);
+        }
+        const parts = (c.fullName || '').split(' ');
+        if (!record) {
+          await this.clientRecordRepo.save(
+            this.clientRecordRepo.create({
+              tenantId: inbox.tenantId,
+              phone: c.phone,
+              whatsappId: this.isWhatsAppIdentityId(c.userId) ? c.userId : null,
+              firstName: parts[0] || null,
+              lastName: parts.slice(1).join(' ') || null,
+              status: 'active',
+              channelSource: inbox.id,
+            } as Partial<ClientRecord>),
+          );
+          imported++;
+        } else if (!record.firstName && parts[0]) {
+          // Solo completa el nombre si el contacto no lo tenía.
+          record.firstName = parts[0];
+          record.lastName = record.lastName || parts.slice(1).join(' ');
+          await this.clientRecordRepo.save(record);
+        }
+      } catch (err: any) {
+        console.error(
+          '[Coexistence] Error importando contacto (se continúa):',
+          err?.message || err,
+        );
+      }
+    }
+    if (imported) {
+      await this.patchCoexistenceMetadata(inbox.id, (cur) => ({
+        contactsImported: (cur.contactsImported ?? 0) + imported,
+      }));
+    }
+  }
+
+  /**
+   * `account_update` con `PARTNER_REMOVED`: el cliente desconectó la cuenta
+   * desde la app WhatsApp Business. Solo afecta canales en coexistencia.
+   */
+  private async handleWhatsAppPartnerRemoved(value: any): Promise<void> {
+    const wabaId = value?.waba_info?.waba_id;
+    if (!wabaId) return;
+    const inboxes = await this.inboxRepo.find({
+      where: { wabaId: String(wabaId) },
+    });
+    for (const inbox of inboxes) {
+      if (!inbox.metadata?.coexistence?.enabled) continue;
+      await this.inboxRepo.update(inbox.id, {
+        status: 'disconnected',
+        metadata: {
+          ...inbox.metadata,
+          coexistence: {
+            ...inbox.metadata.coexistence,
+            disconnectedAt: new Date().toISOString(),
+            disconnection: value.disconnection_info ?? null,
+          },
+        },
+      });
+      console.warn(
+        `[Coexistence] Inbox ${inbox.id} desconectado por PARTNER_REMOVED`,
+        JSON.stringify(value.disconnection_info ?? {}),
+      );
+    }
   }
 
   private async handleWhatsAppMessages(value: any): Promise<void> {

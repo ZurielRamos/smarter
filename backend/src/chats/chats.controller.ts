@@ -107,6 +107,14 @@ export class ChatsController {
     return this.chatsService.resubscribeInboxWebhook(id);
   }
 
+  // Coexistencia: (re)inicia la sincronización de contactos e historial.
+  // Solo reintenta los pasos que fallaron y solo dentro de las 24 h del onboarding.
+  @Post('inboxes/:id/coexistence/sync')
+  @TenantResource('inbox')
+  syncCoexistence(@Param('id') id: string) {
+    return this.chatsService.runCoexistenceSync(id);
+  }
+
   // Configure the first-message welcome template for a WhatsApp channel
   @Put('inboxes/:id/first-message-template')
   @TenantResource('inbox')
@@ -233,6 +241,9 @@ export class ChatsController {
       // "whatsapp_business_app_onboarding"). Si la configuración (config_id) de
       // Meta no lo habilita, enviarlo provoca "Función no disponible".
       featureType: this.configService.get<string>('META_WA_FEATURE_TYPE') || null,
+      // Solo se envía cuando el usuario elige conectar un número que ya usa en la
+      // app WhatsApp Business (coexistencia). No afecta a los demás signups.
+      coexistenceFeatureType: 'whatsapp_business_app_onboarding',
     };
   }
 

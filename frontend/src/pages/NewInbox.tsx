@@ -63,7 +63,7 @@ export function NewInbox() {
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [waConfig, setWaConfig] = useState<{ appId: string; configId: string; featureType?: string | null } | null>(null);
+  const [waConfig, setWaConfig] = useState<{ appId: string; configId: string; featureType?: string | null; coexistenceFeatureType?: string | null } | null>(null);
 
   // Pre-load WhatsApp config so FB.login can be called synchronously on click
   const preloadWaConfig = async () => {
@@ -117,7 +117,7 @@ export function NewInbox() {
     });
   };
 
-  const handleConnect = () => {
+  const handleConnect = (coexistence = false) => {
     if (!createdInbox) return;
 
     if (createdInbox.channel === "whatsapp") {
@@ -147,11 +147,14 @@ export function NewInbox() {
           config_id: waConfig.configId,
           response_type: "code",
           override_default_response_type: true,
-          // Mismos extras que el enlace de onboarding de Meta; featureType solo si
-          // el servidor lo define (META_WA_FEATURE_TYPE).
+          // Mismos extras que el enlace de onboarding de Meta. En coexistencia se
+          // fuerza el featureType de la app WhatsApp Business; si no, solo se usa
+          // el del servidor (META_WA_FEATURE_TYPE) cuando está definido.
           extras: {
             setup: {},
-            ...(waConfig.featureType ? { featureType: waConfig.featureType } : {}),
+            ...(coexistence
+              ? { featureType: waConfig.coexistenceFeatureType || "whatsapp_business_app_onboarding" }
+              : waConfig.featureType ? { featureType: waConfig.featureType } : {}),
             sessionInfoVersion: "3",
             version: "v4",
           },
@@ -324,12 +327,22 @@ export function NewInbox() {
                   ) : (
                     <>
                       <button
-                        onClick={handleConnect}
+                        onClick={() => handleConnect()}
                         disabled={connecting}
                         className="px-5 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50"
                       >
                         {connecting ? "Conectando..." : `Conectar ${channel}`}
                       </button>
+                      {channel === "whatsapp" && (
+                        <button
+                          onClick={() => handleConnect(true)}
+                          disabled={connecting}
+                          title="Para un número que ya usas en la app WhatsApp Business del celular. Podrás seguir usando la app y tu historial se sincroniza."
+                          className="px-5 py-2 text-sm rounded-lg border border-blue-600 text-blue-700 hover:bg-blue-50 font-medium disabled:opacity-50"
+                        >
+                          Conectar número de la app WhatsApp Business
+                        </button>
+                      )}
                       <button onClick={() => { setStep(4); }} className="px-4 py-2 text-sm text-muted-foreground rounded-lg hover:bg-muted font-medium">
                         Omitir por ahora
                       </button>
