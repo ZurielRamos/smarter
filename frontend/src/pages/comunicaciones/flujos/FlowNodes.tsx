@@ -16,6 +16,7 @@ import {
   Bot,
   Clock,
   Wand2,
+  Globe,
   Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ import { conditionIssues, describeBranch } from "./conditions";
 import { AI_MODE_OPTIONS, inputIssue } from "./inputs";
 import { agentIssue } from "./agent";
 import { describeGenerateContext, generateIssue, GENERATE_DEFAULT_VARIABLE } from "./generate";
+import { httpIssue } from "./http";
 import { shortDuration, timeoutIssue } from "./timeout";
 
 type FlowNode = Node<FlowNodeData>;
@@ -540,6 +542,47 @@ export function GenerateNode({ data, selected }: NodeProps<FlowNode>) {
       </div>
       <div className="space-y-1.5">
         <OutputRow id="next" label="Siguiente" className="text-violet-700 dark:text-violet-300" />
+        <OutputRow id="error" label="Si falla" className="text-muted-foreground" />
+      </div>
+    </NodeShell>
+  );
+}
+
+/** `METHOD host/ruta` de la URL, sin esquema y con las variables tal cual. */
+function describeHttpTarget(url: string): string {
+  const u = url.trim().replace(/^https?:\/\//i, "");
+  return u.length > 40 ? `${u.slice(0, 40)}…` : u;
+}
+
+export function HttpNode({ data, selected }: NodeProps<FlowNode>) {
+  const h = data.http;
+  const vars = (h?.mappings ?? []).filter((m) => m.variable);
+  return (
+    <NodeShell
+      selected={selected}
+      header="Petición API"
+      headerClass="bg-sky-600 text-white"
+      icon={<Globe className="h-3.5 w-3.5" />}
+      warning={httpIssue(h)}
+    >
+      {h?.url?.trim() ? (
+        <p className="break-all rounded-lg bg-muted/60 px-2.5 py-2 font-mono text-[11px]">
+          <span className="font-semibold text-sky-700 dark:text-sky-300">{h.method}</span> {describeHttpTarget(h.url)}
+        </p>
+      ) : (
+        <Placeholder>URL de la API…</Placeholder>
+      )}
+      {vars.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-1 text-[10px]">
+          {vars.map((m) => (
+            <span key={m.id} className="rounded bg-muted px-1 font-mono">
+              {m.variable}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="space-y-1.5">
+        <OutputRow id="next" label="Éxito" className="text-sky-700 dark:text-sky-300" />
         <OutputRow id="error" label="Si falla" className="text-muted-foreground" />
       </div>
     </NodeShell>

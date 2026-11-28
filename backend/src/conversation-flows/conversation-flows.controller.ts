@@ -13,12 +13,14 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAccessGuard } from '../auth/tenant-access.guard';
 import { ConversationFlowsService } from './conversation-flows.service';
 import { FlowLinksService } from './flow-links.service';
 import {
   CreateConversationFlowDto,
+  HttpTestDto,
   UpdateConversationFlowDto,
 } from './dto/conversation-flow.dto';
 
@@ -53,6 +55,16 @@ export class ConversationFlowsController {
   @Get('variables')
   variables(@Query('tenantId') tenantId: string) {
     return this.flows.getVariableCatalog(tenantId);
+  }
+
+  /**
+   * Prueba una petición del nodo «Petición API» con valores de ejemplo. Declarada
+   * antes de las rutas con `:id`. No modifica el flujo ni la conversación.
+   */
+  @Post('http-test')
+  @Throttle({ medium: { limit: 20, ttl: 60_000 } })
+  httpTest(@Body() dto: HttpTestDto) {
+    return this.flows.testHttp(dto);
   }
 
   @Get(':id')

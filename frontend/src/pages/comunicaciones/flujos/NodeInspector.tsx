@@ -15,6 +15,7 @@ import { CommaListInput } from "./CommaListInput";
 import { AgentEditor } from "./AgentEditor";
 import { ProjectAnswersFields } from "./ProjectAnswersFields";
 import { GenerateEditor } from "./GenerateEditor";
+import { HttpEditor } from "./HttpEditor";
 import { FlowSelect } from "./FlowSelect";
 import { optionLabel } from "./conditions";
 import {
@@ -160,6 +161,16 @@ export function NodeInspector({
           <AgentEditor nodeId={nodeId} data={data} set={set} options={variableOptions} tenantId={tenantId} />
         )}
         {type === "ai_generate" && <GenerateEditor nodeId={nodeId} data={data} set={set} options={variableOptions} />}
+        {type === "http_request" && (
+          <HttpEditor
+            nodeId={nodeId}
+            flowId={currentFlowId}
+            tenantId={tenantId}
+            data={data}
+            set={set}
+            options={variableOptions}
+          />
+        )}
         {type === "condition" && <ConditionEditor data={data} set={set} options={variableOptions} labels={labels} inboxes={inboxes} />}
         {supportsTimeout(type, data) && <TimeoutEditor nodeType={type} data={data} set={set} />}
         {type === "start_flow" && (

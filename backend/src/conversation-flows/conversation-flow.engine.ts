@@ -27,6 +27,12 @@ import {
   type FlowInputMedia,
 } from './flow-input.util';
 import { FlowAiService } from './flow-ai.service';
+import { safeFetch } from '../automatizaciones/utils/safe-fetch.util';
+import {
+  HTTP_MAX_TURN_MS,
+  applyMappings,
+  executeFlowHttp,
+} from './flow-http.util';
 import {
   newWaitToken,
   planTimers,
@@ -131,6 +137,8 @@ export interface FlowRunResult {
   state: ConversationFlowState | null;
   /** Variables de la conversación tras la ejecución (persisten entre flujos). */
   variables: Record<string, string>;
+  /** Milisegundos acumulados en peticiones API (nodo «Petición API») durante el turno. */
+  httpMs: number;
   effects: FlowEffects;
   /** Flujos que se iniciaron en esta ejecución (para métricas). */
   startedFlowIds: string[];
@@ -1037,6 +1045,10 @@ export class ConversationFlowEngine {
           );
           break;
 
+        case 'http_request':
+          nodeId = await this.runHttp(flow, node, variables, context, result);
+          break;
+
         case 'start_flow': {
           const targetId = node.data.targetFlowId;
           const target = targetId ? await loader(targetId) : null;
@@ -1068,6 +1080,7 @@ export class ConversationFlowEngine {
       messages: [],
       state: null,
       variables,
+      httpMs: 0,
       effects: {
         handoff: false,
         resolve: false,
@@ -1574,6 +1587,76 @@ export class ConversationFlowEngine {
       if (config.send) result.messages.push({ text });
     }
     delete variables.ai_error;
+    return this.nextNodeId(flow, node.id, 'next');
+  }
+
+  /** Función de red del nodo «Petición API»; las pruebas la reemplazan. */
+  private httpFetcher: typeof safeFetch = safeFetch;
+
+  /**
+   * Ejecuta la petición del nodo y devuelve el siguiente. Éxito (2xx): guarda
+   * los campos mapeados y sigue por «Siguiente». Cualquier fallo sigue por «Si
+   * falla»; sin esa salida el flujo termina. Guarda {{http_status}} y, si
+   * falla, {{http_error}}.
+   */
+  private async runHttp(
+    flow: ConversationFlow,
+    node: FlowNode,
+    variables: Record<string, string>,
+    context: FlowContext,
+    result: FlowRunResult,
+  ): Promise<string | null> {
+    const cfg = node.data.http;
+    const fail = (status: number, reason: string): string | null => {
+      variables.http_status = String(status);
+      variables.http_error = reason;
+      const target = this.nextNodeId(flow, node.id, 'error');
+      if (!target) {
+        // Sin salida «Si falla» el flujo termina. Nunca se registra cuerpo ni encabezados.
+        let host = '';
+        try {
+          host = new URL(String(cfg?.url ?? '')).host;
+        } catch {
+          /* URL con variables sin resolver: no se muestra */
+        }
+        console.warn(
+          `[ConversationFlow] Petición API sin salida de error: flujo ${flow.id}, nodo ${node.id}, ` +
+            `${cfg?.method || 'GET'} ${host}, estado ${status}, motivo: ${reason}`,
+        );
+      }
+      return target;
+    };
+    if (!cfg || !String(cfg.url ?? '').trim())
+      return fail(0, 'El nodo no tiene URL');
+
+    const outcome = await executeFlowHttp(
+      cfg,
+      (t) => this.interpolate(t, variables, context),
+      {
+        fetcher: this.httpFetcher,
+        budgetMs: HTTP_MAX_TURN_MS - result.httpMs,
+      },
+    );
+    result.httpMs += outcome.durationMs;
+    if (!outcome.ok)
+      return fail(outcome.status, outcome.error || `HTTP ${outcome.status}`);
+
+    variables.http_status = String(outcome.status);
+    const mappings = cfg.mappings ?? [];
+    const { values } = applyMappings(mappings, outcome.body);
+    for (const m of mappings) {
+      if (!m.variable || m.variable === '__proto__') continue;
+      const value = values[m.variable];
+      // Una ruta ausente no debe conservar el valor de una ejecución anterior.
+      if (value === undefined) {
+        delete variables[m.variable];
+        continue;
+      }
+      variables[m.variable] = value;
+      if (m.saveToField)
+        this.queueContactUpdate(m.saveToField, value, context, result, m.keepExisting);
+    }
+    delete variables.http_error;
     return this.nextNodeId(flow, node.id, 'next');
   }
 

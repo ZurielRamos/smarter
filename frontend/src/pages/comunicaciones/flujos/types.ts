@@ -71,7 +71,8 @@ export type FlowNodeType =
   | "condition"
   | "start_flow"
   | "ai_agent"
-  | "ai_generate";
+  | "ai_generate"
+  | "http_request";
 export type FlowInputValidation =
   | "any"
   | "number"
@@ -168,6 +169,33 @@ export interface FlowAiGenerateConfig {
   context?: FlowAiGenerateContext;
   creativity?: "precise" | "balanced" | "creative";
   mode?: FlowAiMode;
+}
+export type FlowHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+export interface FlowHttpPair {
+  key: string;
+  value: string;
+}
+export interface FlowHttpMapping {
+  id: string;
+  /** Ruta en la respuesta (`data.items[0].nombre`) o `$` (respuesta completa) */
+  path: string;
+  variable: string;
+  saveToField?: string;
+  keepExisting?: boolean;
+}
+/** Nodo «Petición API». Salidas: `next` (Éxito) y `error` (Si falla). */
+export interface FlowHttpConfig {
+  method: FlowHttpMethod;
+  url: string;
+  query?: FlowHttpPair[];
+  /** El valor de los encabezados sensibles llega como `__saved__` si ya está guardado */
+  headers?: FlowHttpPair[];
+  bodyType?: "none" | "json" | "form" | "text";
+  body?: string;
+  formFields?: FlowHttpPair[];
+  /** 1–15, predeterminado 10 */
+  timeoutSec?: number;
+  mappings?: FlowHttpMapping[];
 }
 export interface FlowInputAi {
   enabled: boolean;
@@ -372,6 +400,7 @@ export interface FlowNodeData {
   targetFlowId?: string;
   agent?: FlowAgentConfig;
   generate?: FlowAiGenerateConfig;
+  http?: FlowHttpConfig;
   [key: string]: unknown;
 }
 
@@ -548,6 +577,7 @@ export const NODE_LABELS: Record<FlowNodeType, string> = {
   start_flow: "Iniciar flujo",
   ai_agent: "Conversación con IA",
   ai_generate: "Generación IA",
+  http_request: "Petición API",
 };
 
 /** Id corto para nodos y botones (sin ":" porque viaja en el payload del canal). */

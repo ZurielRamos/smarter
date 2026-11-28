@@ -106,7 +106,8 @@ export type FlowNodeType =
   | 'condition'
   | 'start_flow'
   | 'ai_agent'
-  | 'ai_generate';
+  | 'ai_generate'
+  | 'http_request';
 
 /**
  * Tipo de respuesta que espera un nodo Entrada. Las de texto se validan y
@@ -450,6 +451,49 @@ export interface FlowConditionBranch {
   rules: FlowConditionRule[];
 }
 
+export type FlowHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+/** Par clave/valor de parámetros de consulta, encabezados o campos de formulario. */
+export interface FlowHttpPair {
+  key: string;
+  value: string;
+}
+
+/** Regla que toma un campo de la respuesta y lo guarda en una variable del flujo. */
+export interface FlowHttpMapping {
+  /** Estable, para la interfaz */
+  id: string;
+  /** Ruta en la respuesta ('data.items[0].nombre') o '$' (respuesta completa) */
+  path: string;
+  /** Variable donde se guarda (/^\w{1,50}$/) */
+  variable: string;
+  /** Campo del CRM donde también se guarda */
+  saveToField?: string;
+  /** Con true, no reemplaza el dato si el campo del CRM ya tiene valor */
+  keepExisting?: boolean;
+}
+
+/**
+ * Nodo «Petición API»: llama a una API HTTP y guarda campos de la respuesta en
+ * variables del flujo. No espera al contacto. Salidas: `next` (respuesta 2xx) y
+ * `error` (cualquier otro caso; sin conexión el flujo termina). Siempre fija
+ * `http_status` y, si falla, `http_error`.
+ */
+export interface FlowHttpConfig {
+  method: FlowHttpMethod;
+  /** Admite {{variables}} (se codifican en la URL) */
+  url: string;
+  query?: FlowHttpPair[];
+  /** El valor de los encabezados sensibles se enmascara en las lecturas de la API */
+  headers?: FlowHttpPair[];
+  bodyType?: 'none' | 'json' | 'form' | 'text';
+  body?: string;
+  formFields?: FlowHttpPair[];
+  /** 1–15, predeterminado 10 */
+  timeoutSec?: number;
+  mappings?: FlowHttpMapping[];
+}
+
 export interface FlowNodeData {
   /** message / user_input: texto a enviar (admite {{variables}}) */
   text?: string;
@@ -530,6 +574,8 @@ export interface FlowNodeData {
   agent?: FlowAgentConfig;
   /** ai_generate: configuración de la generación con IA */
   generate?: FlowAiGenerateConfig;
+  /** http_request: configuración de la petición API */
+  http?: FlowHttpConfig;
 }
 
 export interface FlowNode {

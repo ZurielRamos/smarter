@@ -1,0 +1,125 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 Crear `backend/src/conversation-flows/flow-http.util.ts` con `executeFlowHttp`, `applyMappings`, `isSensitiveHeader`, `MASKED_HEADER_VALUE` y las constantes del diseño. Agregar tipos `FlowHttpConfig`, `FlowHttpMapping` y `FlowHttpPair` y `'http_request'` en `conversation-flow.entity.ts`.": [
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820253606
+      },
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820259762
+      },
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820330107
+      }
+    ],
+    "1.2 Pruebas `flow-http.util.spec.ts` con `fetcher` simulado, según la estrategia de pruebas del diseño.": [
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820253641
+      },
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820334362
+      },
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820372959
+      }
+    ],
+    "2.1 Agregar `case 'http_request'` y `runHttp` en `conversation-flow.engine.ts`, con `httpMs` en `FlowRunResult`, `http_status`, `http_error`, mapeos, `saveToField` y presupuesto de 30 s por turno. Sin salida `error` conectada el flujo termina.": [
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820253693
+      },
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820334936
+      },
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820373314
+      }
+    ],
+    "2.2 En `conversation-flows.service.ts`: `NODE_TYPES`, `isValidHandle` (`next`, `error`), `sanitizeHttp`, máscara de encabezados sensibles al leer y conservación del valor guardado al escribir.": [
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820253723
+      },
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820335945
+      },
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820374320
+      }
+    ],
+    "2.3 Agregar `POST conversation-flows/http-test` con `HttpTestDto`, `testHttp` y `@Throttle` de 20 por minuto, antes de las rutas `:id`.": [
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820253756
+      }
+    ],
+    "2.4 Pruebas `flow-http-node.spec.ts` (motor) y pruebas del servicio y del endpoint de prueba según el diseño. Ejecutar toda la suite de `conversation-flows` para confirmar que los flujos sin el nodo no cambian.": [
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820253782
+      }
+    ],
+    "3.1 Agregar tipos en `types.ts` y crear `http.ts` (`defaultHttpConfig`, `httpIssue`, `httpVariables`, `extractPlaceholders`, `suggestVariableName`, `getPath`).": [
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820253814
+      },
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820336392
+      },
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820375108
+      }
+    ],
+    "3.2 Crear `JsonTree.tsx` y `HttpEditor.tsx` con las secciones Petición, Probar (con `ConfirmModal` para métodos distintos de GET) y Guardar respuesta, y encabezados sensibles ocultos con valor \"guardado\".": [
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820253848
+      }
+    ],
+    "3.3 Crear `HttpNode` en `FlowNodes.tsx`, registrarlo en `nodeTypes.ts`, y en `FlujoEditor.tsx` agregarlo a la paleta (\"Petición API\", después de \"Generación IA\"), con datos por defecto, salidas `next` y `error`, y variables disponibles (`http_status`, `http_error` y las mapeadas). Conectar `HttpEditor` en `NodeInspector.tsx`.": [
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820253882
+      }
+    ],
+    "3.4 Ejecutar `tsc` y lint del frontend y corregir los errores.": [
+      {
+        "executionId": "1ca75173-22df-4a4a-97f8-aba2dbdba579",
+        "chatSessionId": "sess_564bf141-2b75-4e16-bacf-54b45836f7ce",
+        "timestamp": 1795820253915
+      }
+    ]
+  }
+}

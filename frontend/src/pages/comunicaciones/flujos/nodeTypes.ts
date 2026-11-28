@@ -1,4 +1,4 @@
-import { ActionNode, AgentNode, ConditionNode, GenerateNode, MessageNode, StartFlowNode, StartNode, UserInputNode } from "./FlowNodes";
+import { ActionNode, AgentNode, ConditionNode, GenerateNode, HttpNode, MessageNode, StartFlowNode, StartNode, UserInputNode } from "./FlowNodes";
 
 /** Registro de nodos para React Flow (definido fuera del componente para no recrearse en cada render). */
 export const nodeTypes = {
@@ -10,4 +10,5 @@ export const nodeTypes = {
   start_flow: StartFlowNode,
   ai_agent: AgentNode,
   ai_generate: GenerateNode,
+  http_request: HttpNode,
 };

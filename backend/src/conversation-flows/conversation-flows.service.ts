@@ -2,6 +2,7 @@ import { ALL_STATUSES, isRole } from '../reclutamiento/prospect-states';
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -34,6 +35,7 @@ import {
   FlowInputTransform,
   FlowInputValidation,
   FlowMediaKind,
+  FlowHttpConfig,
 } from './conversation-flow.entity';
 import { MediaStorageService } from '../media/media-storage.service';
 import { CustomField } from '../records/custom-field.entity';
@@ -125,8 +127,11 @@ import {
 } from '../media/whatsapp-transcode.util';
 import {
   CreateConversationFlowDto,
+  HttpTestDto,
   UpdateConversationFlowDto,
 } from './dto/conversation-flow.dto';
+import { executeFlowHttp } from './flow-http.util';
+import { maskFlow, sanitizeHttpConfig } from './flow-http-sanitize.util';
 
 const NODE_TYPES = new Set<FlowNodeType>([
   'start',
@@ -137,6 +142,7 @@ const NODE_TYPES = new Set<FlowNodeType>([
   'start_flow',
   'ai_agent',
   'ai_generate',
+  'http_request',
 ]);
 const ACTION_TYPES = new Set<FlowAction['type']>([
   'set_variable',
@@ -184,9 +190,13 @@ const MAX_RULES_PER_BRANCH = 12;
 /** Título de botones de enlace/llamada: 20 en WhatsApp (cta_url) y Messenger. */
 const MAX_ACTION_TITLE = 20;
 const MAX_NODES = 300;
+/** Tamaño máximo del cuerpo que devuelve la prueba de una petición API. */
+const HTTP_TEST_MAX_BODY = 256 * 1024;
 
 @Injectable()
 export class ConversationFlowsService {
+  private readonly logger = new Logger(ConversationFlowsService.name);
+
   constructor(
     @InjectRepository(ConversationFlow)
     private readonly flowRepo: Repository<ConversationFlow>,
@@ -286,7 +296,16 @@ export class ConversationFlowsService {
     return flows;
   }
 
+  /** Flujo para la API: el valor de los encabezados sensibles va enmascarado. */
   async findOne(id: string, tenantId: string): Promise<ConversationFlow> {
+    return maskFlow(await this.loadOwned(id, tenantId));
+  }
+
+  /** Flujo del tenant tal como está guardado (sin máscara). Solo para uso interno. */
+  private async loadOwned(
+    id: string,
+    tenantId: string,
+  ): Promise<ConversationFlow> {
     if (!tenantId) throw new BadRequestException('tenantId es requerido');
     const flow = await this.flowRepo.findOne({ where: { id, tenantId } });
     if (!flow) throw new NotFoundException('Flujo no encontrado');
@@ -308,14 +327,14 @@ export class ConversationFlowsService {
       edges: [],
       triggers: { ...EMPTY_TRIGGERS, items: [] },
     });
-    return this.flowRepo.save(flow);
+    return maskFlow(await this.flowRepo.save(flow));
   }
 
   async update(
     id: string,
     dto: UpdateConversationFlowDto,
   ): Promise<ConversationFlow> {
-    const flow = await this.findOne(id, dto.tenantId);
+    const flow = await this.loadOwned(id, dto.tenantId);
 
     if (dto.name !== undefined) {
       const name = String(dto.name).trim();
@@ -334,11 +353,11 @@ export class ConversationFlowsService {
       flow.triggers = this.sanitizeTriggers(dto.triggers);
     if (dto.status !== undefined) flow.status = dto.status;
 
-    return this.flowRepo.save(flow);
+    return maskFlow(await this.flowRepo.save(flow));
   }
 
   async remove(id: string, tenantId: string): Promise<void> {
-    const flow = await this.findOne(id, tenantId);
+    const flow = await this.loadOwned(id, tenantId);
     await this.flowRepo.remove(flow);
   }
 
@@ -534,7 +553,7 @@ export class ConversationFlowsService {
    * flujos lo llaman con «Iniciar flujo» y qué campañas lo usan al responder.
    */
   async getTriggerOverview(id: string, tenantId: string) {
-    await this.findOne(id, tenantId);
+    await this.loadOwned(id, tenantId);
     const [starts, callers, campaigns] = await Promise.all([
       this.flowStarts.countsBySource(tenantId, id, 30),
       this.flowRepo
@@ -734,6 +753,19 @@ export class ConversationFlowsService {
             () => (customKeys ??= this.writableCustomKeys(flow.tenantId)),
           );
           break;
+        case 'http_request': {
+          // El nodo anterior (guardado en BD, antes de este cambio) aporta los
+          // secretos que el editor devuelve como «__saved__».
+          const prev = (Array.isArray(flow.nodes) ? flow.nodes : []).find(
+            (n) => n?.id === id && n.type === 'http_request',
+          );
+          node.data.http = await this.sanitizeHttp(
+            d.http,
+            prev?.data?.http,
+            () => (customKeys ??= this.writableCustomKeys(flow.tenantId)),
+          );
+          break;
+        }
         case 'start_flow': {
           const target = String(d.targetFlowId || '');
           if (target) {
@@ -983,6 +1015,7 @@ export class ConversationFlowsService {
         );
       }
       case 'ai_generate':
+      case 'http_request':
         return handle === 'next' || handle === 'error';
       case 'user_input':
         // «Siguiente», «Sin respuesta válida» (se agotaron los intentos) y
@@ -1464,6 +1497,101 @@ export class ConversationFlowsService {
       out.creativity = g.creativity;
     if (AI_MODES.has(g.mode as string)) out.mode = g.mode;
     return out;
+  }
+
+  /**
+   * Nodo «Petición API». Lo incompleto (sin URL, mapeos a medias) se conserva
+   * o se descarta sin error para no perder lo que se está editando; el motor
+   * sale por «Si falla» si el nodo no puede ejecutarse.
+   */
+  private async sanitizeHttp(
+    raw: unknown,
+    previous: FlowHttpConfig | undefined,
+    customKeys: () => Promise<Set<string>>,
+  ): Promise<FlowHttpConfig> {
+    const out = sanitizeHttpConfig(raw, previous);
+    for (const m of out.mappings ?? []) {
+      if (!m.saveToField) continue;
+      const field = await this.cleanContactField(m.saveToField, customKeys);
+      if (field) {
+        m.saveToField = field;
+      } else {
+        delete m.saveToField;
+        delete m.keepExisting;
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Prueba una petición con la configuración del editor (aunque tenga cambios
+   * sin guardar) y valores de ejemplo. No guarda nada ni toca el flujo, la
+   * conversación o el contacto. Un fallo de la API vuelve como `ok: false`.
+   */
+  async testHttp(dto: HttpTestDto) {
+    if (!dto?.tenantId) throw new BadRequestException('tenantId es requerido');
+    let previous: FlowHttpConfig | undefined;
+    if (dto.flowId && dto.nodeId) {
+      const flow = await this.loadOwned(dto.flowId, dto.tenantId);
+      previous = flow.nodes?.find(
+        (n) => n.id === dto.nodeId && n.type === 'http_request',
+      )?.data?.http;
+    }
+    const cfg = await this.sanitizeHttp(
+      dto.config,
+      previous,
+      () => this.writableCustomKeys(dto.tenantId),
+    );
+
+    const values = dto.values && typeof dto.values === 'object' ? dto.values : {};
+    const resolve = (text: string) =>
+      text.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (_m, key: string) => {
+        const v = values[key];
+        return v === undefined || v === null ? '' : String(v);
+      });
+
+    const outcome = await executeFlowHttp(cfg, resolve);
+
+    let host = '';
+    try {
+      host = new URL(cfg.url).host;
+    } catch {
+      /* URL vacía o inválida */
+    }
+    this.logger.log(
+      `http-test tenant=${dto.tenantId} host=${host || '-'} status=${outcome.status} ms=${outcome.durationMs}`,
+    );
+
+    let contentType: 'json' | 'text' = 'text';
+    let body: unknown = undefined;
+    let truncated = false;
+    if (outcome.body !== undefined && outcome.body !== null) {
+      if (typeof outcome.body === 'string') {
+        body = outcome.body;
+      } else {
+        const json = JSON.stringify(outcome.body);
+        if (json.length > HTTP_TEST_MAX_BODY) {
+          body = json;
+        } else {
+          body = outcome.body;
+          contentType = 'json';
+        }
+      }
+      if (typeof body === 'string' && body.length > HTTP_TEST_MAX_BODY) {
+        body = body.slice(0, HTTP_TEST_MAX_BODY);
+        truncated = true;
+      }
+    }
+
+    return {
+      ok: outcome.ok,
+      status: outcome.status,
+      durationMs: outcome.durationMs,
+      contentType,
+      body,
+      truncated,
+      error: outcome.error,
+    };
   }
 
   /**

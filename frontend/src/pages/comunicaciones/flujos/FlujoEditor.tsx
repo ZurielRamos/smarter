@@ -32,6 +32,7 @@ import {
   TextCursorInput,
   Trash2,
   Wand2,
+  Globe,
   Workflow,
   Zap,
 } from "lucide-react";
@@ -43,6 +44,7 @@ import { EMPTY_TRIGGERS, FlowEditorContext, FlowVariablesContext } from "./edito
 import { buildVariableOptions, type VariableCatalog, type VariableMeta } from "./variables";
 import { nodeTypes } from "./nodeTypes";
 import { defaultGenerateConfig, generatedVariables } from "./generate";
+import { clearHttpSamples, defaultHttpConfig, httpVariables } from "./http";
 import { NodeInspector } from "./NodeInspector";
 import { TriggersModal } from "./TriggersModal";
 import { hasAutoTriggers, normalizeTriggers } from "./triggers";
@@ -78,6 +80,7 @@ const ADDABLE: { type: Exclude<FlowNodeType, "start">; label: string; icon: Reac
   { type: "condition", label: "Condición", icon: <GitFork className="h-3.5 w-3.5" />, className: "text-amber-600 dark:text-amber-300" },
   { type: "ai_agent", label: "Conversación IA", icon: <Bot className="h-3.5 w-3.5" />, className: "text-fuchsia-700 dark:text-fuchsia-300" },
   { type: "ai_generate", label: "Generación IA", icon: <Wand2 className="h-3.5 w-3.5" />, className: "text-violet-700 dark:text-violet-300" },
+  { type: "http_request", label: "Petición API", icon: <Globe className="h-3.5 w-3.5" />, className: "text-sky-700 dark:text-sky-300" },
   { type: "start_flow", label: "Iniciar flujo", icon: <Workflow className="h-3.5 w-3.5" />, className: "text-brand-700 dark:text-brand-200" },
 ];
 
@@ -100,6 +103,8 @@ function defaultData(type: FlowNodeType): FlowNodeData {
       };
     case "ai_generate":
       return { generate: defaultGenerateConfig() };
+    case "http_request":
+      return { http: defaultHttpConfig() };
     default:
       return {};
   }
@@ -178,6 +183,7 @@ function validHandles(node: RFNode): Set<string> {
       return new Set([...branches.map((b) => `cond:${b.id}`), "else"]);
     }
     case "ai_generate":
+    case "http_request":
       return new Set(["next", "error"]);
     case "start_flow":
       return new Set();
@@ -217,6 +223,9 @@ function FlujoEditorInner() {
   const { screenToFlowPosition, fitView } = useReactFlow();
   const isDark = useIsDark();
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Los valores de ejemplo de «Petición API» solo viven mientras el editor está abierto.
+  useEffect(() => clearHttpSamples, []);
 
   const [flow, setFlow] = useState<ConversationFlow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -397,6 +406,7 @@ function FlujoEditorInner() {
       for (const e of n.data.ai?.extras || []) if (e.variable) set.add(e.variable);
       for (const c of n.data.agent?.collect || []) if (c.variable) set.add(c.variable);
       if (n.type === "ai_generate") for (const k of Object.keys(generatedVariables(n.data.generate))) set.add(k);
+      if (n.type === "http_request") for (const k of Object.keys(httpVariables(n.data.http))) set.add(k);
       for (const a of n.data.actions || []) if (a.type === "set_variable" && a.variable) set.add(a.variable);
     }
     return [...set].sort();
@@ -454,6 +464,10 @@ function FlujoEditorInner() {
     for (const n of nodes) {
       if (n.type !== "ai_generate") continue;
       for (const [k, m] of Object.entries(generatedVariables(n.data.generate))) if (!meta[k]) meta[k] = m;
+    }
+    for (const n of nodes) {
+      if (n.type !== "http_request") continue;
+      for (const [k, m] of Object.entries(httpVariables(n.data.http))) if (!meta[k]) meta[k] = m;
     }
     if (outcomes.size) meta.ai_outcome = { type: "select", options: [...outcomes] };
     meta.ai_summary = { type: "text" };
